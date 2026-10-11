@@ -92,7 +92,10 @@ public:
   size_t putString(const char *k, const char *v) {
     if (!nvsCanWrite()) return 0;
     kv[k] = std::vector<uint8_t>(v, v + strlen(v) + 1);
-    return strlen(v) + 1;
+    // strlen, not strlen + 1: the real Preferences::putString() returns the
+    // string's length, so an empty string "succeeds" with 0. Returning 1 here
+    // hid the empty-nick false alarm (HANDOVER 1b) from every test.
+    return strlen(v);
   }
   size_t getString(const char *k, char *out, size_t n) {
     auto it = kv.find(k);

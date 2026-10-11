@@ -143,7 +143,7 @@ static void writeField(Preferences &p, const SaveField &f,
       if (n >= sizeof(tmp)) return;
       memcpy(tmp, val, n);
       tmp[n] = 0;
-      if (!p.putString(f.key, tmp)) logKeyFailure("import", f.key);
+      if (!putStringLanded(p.putString(f.key, tmp), tmp)) logKeyFailure("import", f.key);
       break;
     }
   }

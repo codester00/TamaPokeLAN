@@ -48,6 +48,15 @@ const char *nvsProbeKey(const char *key);
 // probes above and logs both results.
 void logKeyFailure(const char *context, const char *key);
 
+// Whether a Preferences::putString() landed. It returns strlen(value) on
+// success, so a correct write of an EMPTY string returns 0 -- the same as a
+// real failure. Every caller asks this rather than testing the return itself:
+// Pet::save() was fixed for it (HANDOVER 1b) while the IMPORT path kept its
+// own copy of the bare test and logged a bogus failure for every empty nick.
+inline bool putStringLanded(size_t written, const char *value) {
+  return written != 0 || value[0] == '\0';
+}
+
 // The most direct probe of all: nvs_set_blob() with the EXACT key, data and
 // length that Preferences::putBytes() just refused, called raw. Neither
 // nvsProbeWrite() (a different key) nor nvsProbeKey() (an erase, not a write)

@@ -114,6 +114,9 @@ int main(){
     ck(res.find("IMPORT MORE") != std::string::npos,
       "each import chunk acknowledges browser flow control");
   ck(res.find("IMPORT OK") != std::string::npos, "pasting the block back is accepted");
+  // the creature has no nickname, and an empty putString() returns 0 on success
+  ck(res.find("key 'nick' failed") == std::string::npos,
+     "an empty nickname restores without a bogus write failure");
   ck(gRestarted, "and it reboots, as a restore has to");
   ck(saveInhibited, "and nothing may save between the restore and the reboot");
 

@@ -538,7 +538,8 @@ void Pet::begin() {
     if (!starterPick && !trainerName[0]) {
       strncpy(trainerName, "TRAINER", sizeof(trainerName) - 1);
       trainerName[sizeof(trainerName) - 1] = 0;
-      if (prefs.putString("tnam", trainerName) == 0) logKeyFailure("pet", "tnam");
+      if (!putStringLanded(prefs.putString("tnam", trainerName), trainerName))
+        logKeyFailure("pet", "tnam");
     }
   }
   lastTick = millis();
@@ -2045,19 +2046,11 @@ bool Pet::save() {
   // blind spot in the save path. The checkpoints above still gate whether we
   // even get here; this is diagnostics for what happens after that gate.
 #define SAVE_KEY(expr, key) do { if (!(expr)) logKeyFailure("pet", key); } while (0)
-  // putString() returns strlen(value) on success (Preferences.cpp), so a
-  // successful write of an empty string returns 0 -- indistinguishable from
-  // putString()'s own 0-on-real-failure. nick and tnam are the two keys that
-  // can legitimately be empty (an unnicknamed pet; trainerName before the
-  // starter-pick/backfill default above ever ran), so SAVE_KEY's plain
-  // truthiness check misreads a correct empty-string save as a failure. Only
-  // treat a 0 return as a real failure when the value being written is
-  // itself non-empty. (A close/reopen/retry diagnostic ran here earlier this
-  // session chasing a suspected stale handle; the retry never once changed
-  // the outcome, which is what pointed at this being a false positive rather
-  // than a real write failure.)
+  // nick and tnam can legitimately be empty, and an empty putString() returns
+  // 0 on success -- see putStringLanded(). SAVE_KEY's plain truthiness check
+  // misread every such save as a failure.
 #define SAVE_STR_KEY(expr, key, value) do { \
-    if ((expr) == 0 && (value)[0] != '\0') logKeyFailure("pet", key); \
+    if (!putStringLanded((expr), (value))) logKeyFailure("pet", key); \
   } while (0)
   SAVE_KEY(prefs.putUChar("full", fullness), "full");
   SAVE_KEY(prefs.putUChar("joy", joy), "joy");
