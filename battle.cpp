@@ -48,7 +48,8 @@ uint16_t stagedStat(uint16_t base, int8_t stage) {
 
 static uint16_t effStat(const Combatant &c, uint8_t idx) {
   uint16_t v = stagedStat(c.base[idx], c.stage[idx]);
-  // burn halves physical attack, paralysis halves speed
+  // burn halves physical attack, paralysis halves speed -- the two ailments
+  // that do something beyond chip damage
   if (idx == SI_ATK && c.ailment == AIL_BURN) v = v / 2 ? v / 2 : 1;
   if (idx == SI_SPE && c.ailment == AIL_PARA) v = v / 2 ? v / 2 : 1;
   return v;
@@ -72,8 +73,12 @@ uint16_t battleDamage(const Combatant &atk, const Combatant &def, uint8_t mv,
     uint8_t aIdx = (m.cat == MC_PHYS) ? SI_ATK : SI_SPA;
     uint8_t dIdx = (m.cat == MC_PHYS) ? SI_DEF : SI_SPD;
 
-    // Crits ignore attacker's negative stages and defender's positive stages,
-    // while keeping buffs on the attacker and debuffs on the defender.
+    // A critical hit ignores the attacker's negative stages and the defender's
+    // positive ones -- so a Barrier cannot make you immune to a lucky roll --
+    // but keeps the stages that favour the attacker, and burn still halves it.
+    // That is the series' rule from Gen 2 on. (v3.28 and earlier dropped EVERY
+    // stage and the burn, which was Gen 1's rule while this comment described
+    // Gen 2's.)
     int8_t aStage = atk.stage[aIdx] > 0 ? atk.stage[aIdx] : 0;
     A = stagedStat(atk.base[aIdx], aStage);
     if (aIdx == SI_ATK && atk.ailment == AIL_BURN) A = A / 2 ? A / 2 : 1;
@@ -88,7 +93,10 @@ uint16_t battleDamage(const Combatant &atk, const Combatant &def, uint8_t mv,
   if (!D) D = 1;
 
   uint32_t dmg = (2UL * atk.level / 5 + 2) * m.power * A / D / 50 + 2;
-  if (crit) dmg = dmg * 3 / 2; // Generation 6+ standard 1.5x (or keep dmg *= 2 for Gen 1-5 legacy)
+  // 1.5x, as from Gen 6 on. Gens 1-5 used 2x; the rest of this engine (an
+  // 18-type chart, the per-move physical/special split, the 1/16 crit rate)
+  // already follows Gen 6, so this keeps the rules one generation's.
+  if (crit) dmg = dmg * 3 / 2;
   if (hasStab(atk.dex, m.type)) dmg = dmg * 3 / 2;
 
   uint16_t eff = typeEffVsDex(m.type, def.dex);
@@ -139,7 +147,7 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   log.move = mv;
   if (atk.fainted() || def.fainted()) { log.skipped = true; return; }
 
-  // --- conditions that cost the turn before attack execution
+  // --- things that can cost the turn before a move is even chosen
   if (atk.recharge) { atk.recharge = false; log.skipped = true; return; }
   if (atk.ailment == AIL_FREEZE) {
     if (random(100) < 20) atk.ailment = AIL_NONE;   // thaws
@@ -153,7 +161,7 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   if (atk.ailment == AIL_PARA && random(100) < 25) { log.skipped = true; return; }
   if (atk.confuseTurns) {
     atk.confuseTurns--;
-    if (random(100) < 33) {               // hits itself in confusion
+    if (random(100) < 33) {               // hits itself instead
       uint16_t self = (2UL * atk.level / 5 + 2) * 40 *
                           atk.base[SI_ATK] / (atk.base[SI_DEF] ? atk.base[SI_DEF] : 1) / 50 + 2;
       hurt(atk, self);
@@ -163,7 +171,7 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
     }
   }
 
-  // charge-up moves (e.g., Solar Beam)
+  // a wound-up EF_CHARGE move fires this turn instead of whatever was picked
   if (atk.charging) { mv = atk.charging; atk.charging = 0; }
   else if (mv && mv < MOVE_COUNT && MOVE_TBL[mv].effect == EF_CHARGE) {
     atk.charging = mv;
@@ -175,7 +183,7 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   const MoveEntry &m = MOVE_TBL[mv];
   log.move = mv;
 
-  // accuracy check
+  // --- accuracy. acc 0 means it cannot miss (SWIFT, and every status move)
   if (m.acc && m.effect != EF_NEVER_MISS && random(100) >= m.acc) {
     log.missed = true;
     return;
@@ -194,14 +202,15 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
     return;
   }
 
-  // damage calculation
+  // --- damage, including multi-hit. The total is 32-bit: a multi-hit move
+  // summing five big hits could wrap a uint16_t.
   uint8_t hits = (m.effect == EF_MULTI) ? (uint8_t)(2 + random(4)) : 1;
   uint32_t total = 0;
   log.effPct = typeEffVsDex(m.type, def.dex);
   if (log.effPct == 0) { log.immune = true; return; }
 
   for (uint8_t h = 0; h < hits; h++) {
-    bool crit = random(16) == 0;
+    bool crit = random(16) == 0;                 // ~6%, the series' base rate
     uint16_t d = battleDamage(atk, def, mv, crit, (uint8_t)(217 + random(39)));
     total += d;
     if (crit) log.crit = true;
@@ -212,7 +221,8 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   log.hits = hits;
   log.damage = total > 65535 ? 65535 : (uint16_t)total;
 
-  // secondary effects
+  // recoil and drain need damage actually dealt -- a zero-damage hit used to
+  // still cost the attacker its 1 HP minimum of recoil
   if (m.effect == EF_RECOIL && m.param > 0 && total > 0) {
     uint32_t rec = total / m.param;
     hurt(atk, rec ? (uint16_t)rec : 1);
@@ -222,7 +232,8 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   }
   if (m.effect == EF_RECHARGE) atk.recharge = true;
 
-  // status conditions
+  // --- secondary ailment. Never overwrites an existing one, and confusion is
+  // tracked separately so it can stack with a real status, as in the games.
   if (m.ailment != AIL_NONE && m.ailChance && !def.fainted() &&
       random(100) < m.ailChance) {
     if (m.ailment == AIL_CONFUSE) {
@@ -231,6 +242,8 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
         log.inflicted = AIL_CONFUSE;
       }
     } else if (def.ailment == AIL_NONE) {
+      // a type cannot be given the status it is made of, and Steel cannot be
+      // poisoned either
       bool immune = (m.ailment == AIL_BURN && hasStab(def.dex, T_FIRE)) ||
                     (m.ailment == AIL_FREEZE && hasStab(def.dex, T_ICE)) ||
                     (m.ailment == AIL_POISON && (hasStab(def.dex, T_POISON) || hasStab(def.dex, T_STEEL))) ||
@@ -269,7 +282,9 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
   if (!n) return 0;
   if (!smart) return legal[random(n)];
 
-  int32_t bestScore = -2147483647;
+  // 32-bit on purpose: a kill bonus on top of real damage passes 32767, and an
+  // int16_t best score wrapped negative and made the AI skip its best move.
+  int32_t bestScore = INT32_MIN;
   uint8_t best = legal[0];
 
   for (uint8_t i = 0; i < n; i++) {
@@ -278,6 +293,9 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
     int32_t sc = 0;
 
     if (m.cat == MC_STATUS) {
+      // A status move costs a whole turn, so it has to buy more than chip
+      // damage would. Healing is worth it only when actually hurt; a boost is
+      // worth it early and worthless once the stage is already stacked.
       if (m.effect == EF_HEAL) {
         int32_t missing = (int32_t)self.maxHp - self.hp;
         sc = (missing * 100 / (self.maxHp ? self.maxHp : 1)) - 30;
@@ -289,28 +307,27 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
           if (m.statMask & BIT[k]) { stacked += t.stage[k] * (m.stages > 0 ? 1 : -1); hit++; }
         if (!hit) hit = 1;
 
+        // diminishing: +2 ATK is strong at stage 0, pointless at +6
         sc = 26 - (stacked * 12 / hit);
+        // and never set up when one more hit would finish you
         if (self.hp * 3 < self.maxHp) sc -= 40;
       } else {
         sc = 5;
       }
     } else {
-      uint16_t dmg = battleDamage(self, foe, mv, false, 236);
+      uint16_t dmg = battleDamage(self, foe, mv, false, 236);  // average roll
       sc = dmg;
-      if (dmg >= foe.hp) sc += 1000;
+      if (dmg >= foe.hp) sc += 1000;              // a kill this turn beats all
       uint8_t acc = m.acc ? m.acc : 100;
-      sc = sc * acc / 100;
-      if (m.effect == EF_RECHARGE) sc -= dmg / 4;
+      sc = sc * acc / 100;                        // discount what tends to miss
+      if (m.effect == EF_RECHARGE) sc -= dmg / 4; // a free turn for the foe
       if (m.effect == EF_RECOIL) sc -= dmg / 6;
-      if (m.effect == EF_CHARGE) sc -= dmg / 3;
+      if (m.effect == EF_CHARGE) sc -= dmg / 3;   // a turn spent winding up
       if (m.ailment != AIL_NONE && foe.ailment == AIL_NONE)
         sc += m.ailChance / 4;
     }
 
-    if (sc > bestScore) {
-      bestScore = sc;
-      best = mv;
-    }
+    if (sc > bestScore) { bestScore = sc; best = mv; }
   }
   return best;
 }

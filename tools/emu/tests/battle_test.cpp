@@ -178,6 +178,34 @@ int main() {
            fights, (double)total / fights, shortest, longest);
   }
 
+  // --- critical hits: 1.5x, and the Gen 2+ stage rule
+  {
+    Combatant a, d;
+    mk(a, 6, 50); mk(d, 9, 50);
+    uint8_t fl = findMove("FLAMETHROWER"), tk = findMove("TACKLE");
+    uint16_t plain = battleDamage(a, d, fl, false, 255);
+    uint16_t crit = battleDamage(a, d, fl, true, 255);
+    printf("     FLAMETHROWER: %u plain, %u crit\n", plain, crit);
+    ck(crit * 10 >= plain * 14 && crit * 10 <= plain * 16, "a crit is 1.5x, not 2x");
+
+    a.stage[SI_SPA] = -2;
+    ck(battleDamage(a, d, fl, true, 255) == crit, "a crit ignores the attacker's drops");
+    a.stage[SI_SPA] = 2;
+    ck(battleDamage(a, d, fl, true, 255) > crit, "a crit keeps the attacker's boosts");
+    a.stage[SI_SPA] = 0;
+    d.stage[SI_SPD] = 2;
+    ck(battleDamage(a, d, fl, true, 255) == crit, "a crit ignores the defender's boosts");
+    d.stage[SI_SPD] = -2;
+    ck(battleDamage(a, d, fl, true, 255) > crit, "a crit keeps the defender's drops");
+    d.stage[SI_SPD] = 0;
+
+    ck(tk != 0, "TACKLE exists");
+    uint16_t phys = battleDamage(a, d, tk, true, 255);
+    a.ailment = AIL_BURN;
+    ck(battleDamage(a, d, tk, true, 255) < phys, "burn still halves a physical crit");
+    a.ailment = AIL_NONE;
+  }
+
   printf("%s\n", bad ? "FAILURES" : "all good");
   return bad ? 1 : 0;
 }
