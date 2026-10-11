@@ -39,6 +39,15 @@
 #define NIGHT_END 6
 enum : uint8_t { SLEEP_NONE = 0, SLEEP_AUTO, SLEEP_PLAYER };
 #define DEF_TRAIN_TICKS 60                 // minutos de bienestar por +1 de DEF
+// Weight. A creature starts at a natural weight rather than 0, and passive
+// burning (awake or asleep, live or caught up offline) stops at the floor --
+// ONE floor, asked by both tick() and syncClock(), which had 0 and 15
+// respectively. Exercise can still slim it below the floor.
+#define WEIGHT_START 24
+#define WEIGHT_FLOOR 15
+#define WEIGHT_BURN_AWAKE_MIN 9            // -1 every 9 min awake
+#define WEIGHT_BURN_ASLEEP_MIN 27          // -1 every 27 min asleep (3x slower)
+#define WEIGHT_FIT_MAX 20                  // the "fit" medal: at or under this
 
 // ceremonias de fin de ciclo
 enum : uint8_t { CER_NONE = 0, CER_FAREWELL, CER_RUNAWAY, CER_RELEASE };

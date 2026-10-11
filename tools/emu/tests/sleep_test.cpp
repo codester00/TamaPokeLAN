@@ -199,6 +199,26 @@ int main(){
     ck(!p.sleeping, "an egg does not sleep");
   }
 
+  // --- weight: ONE passive floor, whichever path does the burning
+  // tick() and syncClock() each burn weight, and they disagreed: the live tick
+  // went to 0 while the offline catch-up stopped at 15.
+  {
+    Pet p; fresh(p, 13);
+    p.weight = WEIGHT_FLOOR + 3;
+    liveMinutes(p, 13, 6 * 60);
+    ck(p.weight == WEIGHT_FLOOR, "six hours awake, live: passive burning stops at the floor");
+
+    Pet q; fresh(q, 13);
+    q.weight = WEIGHT_FLOOR + 3;
+    q.syncClock(atHour(13) + 6 * 3600);
+    ck(q.weight == WEIGHT_FLOOR, "six hours caught up offline: the same floor");
+
+    Pet r; fresh(r, 13);
+    r.weight = WEIGHT_FLOOR + 3;
+    liveMinutes(r, 13, 30);
+    ck(r.weight < WEIGHT_FLOOR + 3, "and it does burn on the way down");
+  }
+
   printf("%s\n", bad?"FAILURES":"all good");
   return bad?1:0;
 }

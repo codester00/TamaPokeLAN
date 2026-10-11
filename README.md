@@ -201,20 +201,26 @@ While **awake**, per minute:
 | JOY | −1 | **−2 extra** if FOOD < 30, **−2 extra** if HYG < 30 |
 
 - ~**15 %/min** chance to poop (only if FOOD > 40). Poops tank hygiene fast.
+- **Weight** (0–100, shown on the card) starts at **24**. It burns off by itself,
+  **−1 every 9 min** awake and **−1 every 27 min** asleep (offline too), but
+  passive burning **stops at 15**; only exercise takes it lower. Over **50** it
+  doubles the energy drain, and over **60** the creature is described as chubby.
 - **Care slip-up** = letting any stat hit **≤ 10** (60-min cooldown so it counts once).
   Each slip-up **delays evolution by 1 level** and cools the bond by 1.
 
 ### Actions
 
-- 🍎 **Berry** (3 flavors): +25 FOOD. Each species has a **hidden favorite flavor**
-  → +35 FOOD, +10 JOY, ♥, bond, and it gets revealed.
+- 🍎 **Berry** (3 flavors): +25 FOOD, +3 weight. Each species has a **hidden
+  favorite flavor** → +35 FOOD, +10 JOY, only +1 weight, ♥, bond, and it gets
+  revealed.
 - 🍬 **Candy:** +10 FOOD, +12 JOY, but **+12 weight** (fattening).
 - ⚽ **Play / minigame:** **+5 JOY, plus 2 per rally** (max +35), −ENE, burns
-  weight. Pure happiness — it trains nothing, so playing is never a stat grind.
+  **1 weight per 5 rallies** (max 4 a session). Pure happiness — it trains nothing, so playing is never a stat grind.
   Leaving early keeps what you earned.
 - 🎯 **Reaction test:** a target appears, tap it before it shrinks away. Trains
-  **SPEED**; the window tightens as you go.
+  **SPEED**; the window tightens as you go. Burns 1 weight per 10 hits (max 4).
 - 🥊 **Training bag:** trains **STRENGTH** (~4 hits = 1 pt, cap +18/session), tires it.
+  Burns 1 weight per 10 hits (max 4).
 - 🫧 **Bath:** clears poops, HYG → 100.
 - 👆 **Pet it:** +5 JOY + bond.
 - 🌙 **Sleep:** rest — ENE **+6/min**, needs drain ~**4× slower** with floors
@@ -513,7 +519,7 @@ split lives on the species, not the individual — no extra IVs to roll.
 - **Bond** (per pet, resets on hatch): grows with affection (**cap +20/day**), cools on
   neglect. Both streak & bond improve egg/shiny odds — **and the IVs of your next pet**.
 - **8 medals** (Lv10/25/50, favorite berry found, 7-day streak, max bond, final form,
-  "fit" = weight 0 & no slip-ups), per-pet + a global counter.
+  "fit" = weight ≤ 20 & no slip-ups), per-pet + a global counter.
 - **Pokédex:** raising a species registers it; **809 + shinies** to complete.
   Browsed **one region at a time** — swipe vertically between regions,
   horizontally to page within it, so nothing is more than ten pages from the front.

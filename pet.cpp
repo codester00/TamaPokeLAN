@@ -547,7 +547,7 @@ void Pet::begin() {
 void Pet::newEgg() {
   ceremony = CER_NONE;
   neglectTicks = 0;
-  weight = 25;
+  weight = WEIGHT_START;
   speciesId = -1;
   prevSpeciesId = -1;
   for (int i = 0; i < REGION_COUNT; i++) eggByRegion[i] = 0;
@@ -608,7 +608,7 @@ void Pet::syncClock(uint32_t nowEpoch) {
     }
     if (sleeping) {  // descanso: baja lento y con suelo, igual que en vivo
       energy = clamp100(energy + 6);
-      if (weight > 15 && ageMinutes % 27 == 0) weight--;
+      if (weight > WEIGHT_FLOOR && ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) weight--;
       if (ageMinutes % 2 == 0) {
         fullness = dropTo(fullness, 1, 30);
         joy = dropTo(joy, 1, 35);
@@ -616,7 +616,7 @@ void Pet::syncClock(uint32_t nowEpoch) {
       if (ageMinutes % 3 == 0) hygiene = dropTo(hygiene, 1, 45);
       continue;
     }
-    if (weight > 15 && ageMinutes % 9 == 0) weight--;
+    if (weight > WEIGHT_FLOOR && ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) weight--;
     fullness = dropTo(fullness, 2, 15);
     energy = dropTo(energy, 1, 15);
     hygiene = dropTo(hygiene, 1, 15);
@@ -669,7 +669,7 @@ void Pet::tick() {
   // El peso aun se quema y el descanso cuenta para la DEF (ver defTick).
   if (sleeping) {
     energy = clamp100(energy + 6);
-    if (weight > 0 && ageMinutes % 27 == 0) weight--;
+    if (weight > WEIGHT_FLOOR && ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) weight--;
     if (ageMinutes % 2 == 0) {                 // ~4x mas lento que despierto
       fullness = dropTo(fullness, 1, 30);
       joy = dropTo(joy, 1, 35);
@@ -690,7 +690,7 @@ void Pet::tick() {
   hygiene = clamp100(hygiene - 1 - 4 * poops);
   // el sobrepeso da pereza: la energia cae el doble
   if (weight > 50) energy = clamp100(energy - 1);
-  if (weight > 0 && ageMinutes % 9 == 0) weight--;
+  if (weight > WEIGHT_FLOOR && ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) weight--;
 
   defTick(false);  // la calma forja la defensa
 
@@ -757,7 +757,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   bond = 0;
   bondToday = 0;
   berryKnown = false;
-  weight = 23;
+  weight = WEIGHT_START;
   fullness = joy = energy = 80;
   hygiene = 100;
   poops = 0;
@@ -848,7 +848,7 @@ bool Pet::switchTo(const PartyMon &m) {
     fullness = joy = energy = 80;
     hygiene = 100;
     poops = 0;
-    weight = 24;
+    weight = WEIGHT_START;
     bond = 0;
     berryKnown = false;
     careMistakes = 0;
@@ -1181,7 +1181,7 @@ void Pet::checkMedals() {
   if (streak >= 7) medals |= MED_STREAK7;
   if (bond >= 100) medals |= MED_BOND;
   if (DEX_TBL[speciesId].evolvesTo == 0) medals |= MED_FINAL;
-  if (weight <= 20 && level() >= 5 && careMistakes == 0) medals |= MED_FIT;
+  if (weight <= WEIGHT_FIT_MAX && level() >= 5 && careMistakes == 0) medals |= MED_FIT;
   uint16_t gained = medals & ~before;
   if (gained) {
     for (uint16_t m = gained; m; m &= (m - 1)) totalMedals++;
