@@ -199,24 +199,39 @@ int main(){
     ck(!p.sleeping, "an egg does not sleep");
   }
 
-  // --- weight: ONE passive floor, whichever path does the burning
-  // tick() and syncClock() each burn weight, and they disagreed: the live tick
-  // went to 0 while the offline catch-up stopped at 15.
+  // --- weight: an absolute minimum of 1, and a gentler floor for time away
+  // A running board burns weight down to WEIGHT_MIN; the catch-up after the
+  // board was OFF stops at WEIGHT_OFFLINE_FLOOR, as its need floors do.
   {
     Pet p; fresh(p, 13);
-    p.weight = WEIGHT_FLOOR + 3;
+    p.weight = WEIGHT_MIN + 3;
     liveMinutes(p, 13, 6 * 60);
-    ck(p.weight == WEIGHT_FLOOR, "six hours awake, live: passive burning stops at the floor");
+    ck(p.weight == WEIGHT_MIN, "six hours awake on a running board: down to the minimum, not 0");
 
     Pet q; fresh(q, 13);
-    q.weight = WEIGHT_FLOOR + 3;
+    q.weight = WEIGHT_OFFLINE_FLOOR + 3;
     q.syncClock(atHour(13) + 6 * 3600);
-    ck(q.weight == WEIGHT_FLOOR, "six hours caught up offline: the same floor");
+    ck(q.weight == WEIGHT_OFFLINE_FLOOR, "six hours with the board off: stops at the offline floor");
 
     Pet r; fresh(r, 13);
-    r.weight = WEIGHT_FLOOR + 3;
-    liveMinutes(r, 13, 30);
-    ck(r.weight < WEIGHT_FLOOR + 3, "and it does burn on the way down");
+    r.weight = WEIGHT_OFFLINE_FLOOR + 3;
+    liveMinutes(r, 13, 6 * 60);
+    ck(r.weight < WEIGHT_OFFLINE_FLOOR, "and a running board really does go below that floor");
+
+    Pet e; fresh(e, 13);
+    e.weight = 3;
+    e.playResult(40);              // a long rally: burns the 4-a-session maximum
+    ck(e.weight == WEIGHT_MIN, "exercise cannot take it below the minimum either");
+    e.weight = 2;
+    e.trainStrength(60);
+    ck(e.weight == WEIGHT_MIN, "nor can training");
+
+    // a v3.28 save stored weight 0, which no creature may have any more
+    Pet o; fresh(o, 13);
+    o.weight = 0;
+    o.saveNow();
+    Pet o2; o2.begin();
+    ck(o2.weight == WEIGHT_MIN, "a save from before the rework loads at the minimum, not 0");
   }
 
   printf("%s\n", bad?"FAILURES":"all good");

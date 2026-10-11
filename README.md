@@ -201,10 +201,12 @@ While **awake**, per minute:
 | JOY | −1 | **−2 extra** if FOOD < 30, **−2 extra** if HYG < 30 |
 
 - ~**15 %/min** chance to poop (only if FOOD > 40). Poops tank hygiene fast.
-- **Weight** (0–100, shown on the card) starts at **24**. It burns off by itself,
-  **−1 every 9 min** awake and **−1 every 27 min** asleep (offline too), but
-  passive burning **stops at 15**; only exercise takes it lower. Over **50** it
-  doubles the energy drain, and over **60** the creature is described as chubby.
+- **Weight** (1–100, shown on the card) starts at **24** and **never drops below
+  1**. It burns off by itself, **−1 every 9 min** awake and **−1 every 27 min**
+  asleep. While the board is **switched off** that burning stops at **15** (the
+  same floor the needs get); on a running board, and through exercise, it can go
+  all the way down to 1. Over **50** it doubles the energy drain, and over **60**
+  the creature is described as chubby.
 - **Care slip-up** = letting any stat hit **≤ 10** (60-min cooldown so it counts once).
   Each slip-up **delays evolution by 1 level** and cools the bond by 1.
 
@@ -520,7 +522,9 @@ split lives on the species, not the individual — no extra IVs to roll.
   neglect. Both streak & bond improve egg/shiny odds — **and the IVs of your next pet**.
 - **8 medals** (Lv10/25/50, favorite berry found, 7-day streak, max bond, final form,
   "fit" = weight ≤ 20 & no slip-ups), per-pet + a global counter.
-- **Pokédex:** raising a species registers it; **1025 + shinies** to complete.
+- **Pokédex:** raising a species registers it. **809 can be obtained today**
+  (Kanto to Alola) **+ shinies**; Galar and Paldea join when their sprite packs
+  exist, which is why the counter reads out of 1025.
   Browsed **one region at a time** from a region chooser — drag along the rim to
   page within a region (swipe up jumps to the next one, down goes back), so
   nothing is more than ten pages from the front.

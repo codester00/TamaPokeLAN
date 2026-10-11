@@ -526,6 +526,9 @@ void Pet::begin() {
     newEgg();
   } else {
     load();
+    // Saves from v3.28 and earlier start every creature at weight 0, which is
+    // no longer a weight anything can have.
+    if (weight < WEIGHT_MIN) weight = WEIGHT_MIN;
     // Backfill for saves from before chooseStarter() started defaulting this:
     // starter selection is already behind any save that reaches here (it is
     // not the first-boot "awaiting a starter" path above), so an empty name
@@ -609,7 +612,7 @@ void Pet::syncClock(uint32_t nowEpoch) {
     }
     if (sleeping) {  // descanso: baja lento y con suelo, igual que en vivo
       energy = clamp100(energy + 6);
-      if (weight > WEIGHT_FLOOR && ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) weight--;
+      if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1, WEIGHT_OFFLINE_FLOOR);
       if (ageMinutes % 2 == 0) {
         fullness = dropTo(fullness, 1, 30);
         joy = dropTo(joy, 1, 35);
@@ -617,7 +620,7 @@ void Pet::syncClock(uint32_t nowEpoch) {
       if (ageMinutes % 3 == 0) hygiene = dropTo(hygiene, 1, 45);
       continue;
     }
-    if (weight > WEIGHT_FLOOR && ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) weight--;
+    if (ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) loseWeight(1, WEIGHT_OFFLINE_FLOOR);
     fullness = dropTo(fullness, 2, 15);
     energy = dropTo(energy, 1, 15);
     hygiene = dropTo(hygiene, 1, 15);
@@ -670,7 +673,7 @@ void Pet::tick() {
   // El peso aun se quema y el descanso cuenta para la DEF (ver defTick).
   if (sleeping) {
     energy = clamp100(energy + 6);
-    if (weight > WEIGHT_FLOOR && ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) weight--;
+    if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1);
     if (ageMinutes % 2 == 0) {                 // ~4x mas lento que despierto
       fullness = dropTo(fullness, 1, 30);
       joy = dropTo(joy, 1, 35);
@@ -691,7 +694,7 @@ void Pet::tick() {
   hygiene = clamp100(hygiene - 1 - 4 * poops);
   // el sobrepeso da pereza: la energia cae el doble
   if (weight > 50) energy = clamp100(energy - 1);
-  if (weight > WEIGHT_FLOOR && ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) weight--;
+  if (ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) loseWeight(1);
 
   defTick(false);  // la calma forja la defensa
 
@@ -835,7 +838,7 @@ bool Pet::switchTo(const PartyMon &m) {
     energy = m.energy;
     hygiene = m.hygiene;
     poops = m.poops;
-    weight = m.weight;
+    weight = m.weight < WEIGHT_MIN ? WEIGHT_MIN : m.weight;   // banked at 0 by an older build
     bond = m.bond;
     berryKnown = m.berryKnown != 0;
     careMistakes = m.careMistakes;
@@ -1700,7 +1703,7 @@ uint8_t Pet::playResult(uint8_t score) {
   fullness = dropTo(fullness, 5, 5);
   uint8_t burn = score / 5;
   if (burn > 4) burn = 4;
-  weight = (weight > burn) ? (weight - burn) : 0;
+  loseWeight(burn);
   if (score >= 5) heartUntil = millis() + HEART_MS;
   if (score > gameHi) gameHi = score;  // nuevo record
   // Training bonds, and it scales with the session: a token effort is worth the
@@ -1748,7 +1751,7 @@ uint8_t Pet::trainSpeed(uint16_t hits) {
   fullness = dropTo(fullness, 4, 5);
   uint8_t burn = hits / 10;
   if (burn > 4) burn = 4;
-  weight = (weight > burn) ? (weight - burn) : 0;
+  loseWeight(burn);
   joy = clamp100(joy + 4);
   if (hits > spdHi) spdHi = hits;
   // Training bonds, and it scales with the session: a token effort is worth the
@@ -1773,7 +1776,7 @@ uint8_t Pet::trainStrength(uint16_t hits) {
   fullness = dropTo(fullness, 5, 5);
   uint8_t burn = hits / 10;
   if (burn > 4) burn = 4;
-  weight = (weight > burn) ? (weight - burn) : 0;
+  loseWeight(burn);
   joy = clamp100(joy + 6);
   if (hits >= 20) heartUntil = millis() + HEART_MS;
   if (hits > strHi) strHi = hits;   // record de golpes

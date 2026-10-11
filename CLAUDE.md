@@ -269,7 +269,7 @@ second caller has its own copy of it, and nobody notices until a player does.
 | the 3 s hold is for the pet | a list of screens to EXCLUDE | every screen not on that list | holding a PARTY SLOT offered to release the LIVE pet |
 | nothing saves before a reboot that replaced NVS | `WIPE` (`saveInhibited`) | `IMPORT` | a restored backup was undone by the RAM creature on the reboot |
 | an empty `putString()` is a success | `Pet::save()` | the `IMPORT` path in `save.cpp` | every restore logged a bogus "nick failed" |
-| passive weight burn has a floor | `syncClock()` (15) | `tick()` (0) | a running board slimmed a creature further than a switched-off one |
+| weight never reaches 0 | -- | every `weight -= n` site kept its own clamp to 0 | `loseWeight()` is the one way down now, floored at `WEIGHT_MIN` 1 |
 
 **A guard written as a list of EXCLUSIONS is this trap pre-loaded.** The hold
 was gated by `!galleryOpen && !cardOpen && !kbOpen && !clockOpen`, so every
@@ -560,8 +560,12 @@ after v3.28 left the firmware unable to link (a `z_battle.cpp` backup beside
 the new `battle.cpp`), the version reading "1.01", and the weight rework
 undocumented. Kept, deliberately: the **Gen 6 crit rules** (1.5x; a crit
 ignores only the stages that hurt the attacker; burn still applies), Steel
-immune to poison, the 32-bit AI score, and the weight rework -- now with one
-`WEIGHT_FLOOR` for both burn paths and one `WEIGHT_START`. Fixed alongside:
+immune to poison, the 32-bit AI score, and the weight rework, with one
+`WEIGHT_START` (24) and every loss through `Pet::loseWeight()`. **The weight
+floors are deliberately different, by the owner's call:** time with the board
+off stops at `WEIGHT_OFFLINE_FLOOR` (15, mirroring the need floors), while a
+running board and exercise reach `WEIGHT_MIN` (1 -- never 0, a creature that
+weighs nothing does not exist). v3.28 saves stored 0 and load as 1. Fixed alongside:
 `IMPORT` now sets `saveInhibited` (a restore over a newer save was being
 undone on the reboot), `factoryReset()` reports a failed `clear()` and `WIPE`
 says `WIPE FAILED` instead of `DONE`, the IMPORT path's empty-string false

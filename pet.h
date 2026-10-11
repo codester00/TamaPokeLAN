@@ -39,12 +39,16 @@
 #define NIGHT_END 6
 enum : uint8_t { SLEEP_NONE = 0, SLEEP_AUTO, SLEEP_PLAYER };
 #define DEF_TRAIN_TICKS 60                 // minutos de bienestar por +1 de DEF
-// Weight. A creature starts at a natural weight rather than 0, and passive
-// burning (awake or asleep, live or caught up offline) stops at the floor --
-// ONE floor, asked by both tick() and syncClock(), which had 0 and 15
-// respectively. Exercise can still slim it below the floor.
+// Weight. A creature starts at a natural weight rather than 0.
+//   - WEIGHT_MIN is absolute: nothing takes weight below 1, because a creature
+//     weighing nothing does not exist. Every loss goes through loseWeight().
+//   - While the board was OFF, the catch-up in syncClock() burns no lower than
+//     WEIGHT_OFFLINE_FLOOR -- the same 15 its need floors use, so time away is
+//     gentler than time spent on a running board.
+//   - A running board's passive burn (tick()) and exercise reach WEIGHT_MIN.
 #define WEIGHT_START 24
-#define WEIGHT_FLOOR 15
+#define WEIGHT_MIN 1
+#define WEIGHT_OFFLINE_FLOOR 15
 #define WEIGHT_BURN_AWAKE_MIN 9            // -1 every 9 min awake
 #define WEIGHT_BURN_ASLEEP_MIN 27          // -1 every 27 min asleep (3x slower)
 #define WEIGHT_FIT_MAX 20                  // the "fit" medal: at or under this
@@ -125,7 +129,7 @@ public:
   uint8_t energy = 80;    // energia
   uint8_t hygiene = 100;  // limpieza
   uint8_t poops = 0;      // cacas en pantalla (max 3)
-  uint8_t weight = 0;     // 0-100: las chuches engordan, el minijuego quema
+  uint8_t weight = WEIGHT_START;  // 1-100: candy fattens, exercise burns (see WEIGHT_*)
   // IV (valores individuales 0-31, como en los juegos de 3a gen en adelante):
   // se tiran al eclosionar y no cambian nunca. Aportan IV x nivel / 100 al
   // stat Y ademas fijan el tope de entrenamiento (trMaxFor): un individuo
@@ -179,6 +183,11 @@ public:
   }
   // The ball game: happiness AND defence training. Returns the DEF gained.
   uint8_t playResult(uint8_t score);
+  // The one way weight goes down: never below WEIGHT_MIN, nor below `floor`.
+  void loseWeight(uint8_t n, uint8_t floor = WEIGHT_MIN) {
+    if (floor < WEIGHT_MIN) floor = WEIGHT_MIN;
+    weight = (weight > floor + n) ? (uint8_t)(weight - n) : (weight > floor ? floor : weight);
+  }
   uint8_t trainStrength(uint16_t hits);  // saco de entrenamiento (entrena FUE)
   // Reaction test: its own trainer, so the ball game can go back to being purely
   // about joy instead of doubling as a stat grind.
