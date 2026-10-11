@@ -16,7 +16,7 @@ void sfxPlay(uint8_t) {}
 #include <cstdio>
 #include <cstring>
 int main(){
-  const StrId ids[] = { S_VIN, S_STAT_ATK, S_STAT_DEF, S_STAT_SPE, S_STAT_VIT, S_STAT_WGT };
+  const StrId ids[] = { S_VIN, S_STAT_ATK, S_STAT_DEF, S_STAT_SPE, S_STAT_VIT, S_STAT_FIT };
   const char *ln[] = {"ES","EN","FR","DE","IT","PT"};
   int worst = 0;
   for (int l=0;l<LANG_COUNT;l++){ setLang((Lang)l);

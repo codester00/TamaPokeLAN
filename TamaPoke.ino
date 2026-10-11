@@ -42,9 +42,9 @@
 // Firmware version, shown on the settings screen and printed at boot. Bump it
 // with every balance change and every release; the README badge must match, and
 // build_web.sh moves web/manifest.json to it when the installer is rebuilt.
-// 3.29 is the first build after v3.28 (it was briefly "1.01", which read as a
-// downgrade and matched nothing).
-#define FW_VERSION "3.29"
+// 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
+// downgrade and matched nothing); 3.30 starts creatures at fitness 75.
+#define FW_VERSION "3.30"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -1485,8 +1485,10 @@ void handleSerial() {
                   pet.speciesId, pet.level(), pet.fullness, pet.joy, pet.energy,
                   pet.hygiene, pet.careMistakes, sdReady, mon.loaded,
                   batPercent(), usbPresent(), rtcEpoch());
-    Serial.printf("peso=%u fue=%u def=%u vel=%u vit=%u baya=%d\n",
-                  pet.weight, pet.atkStat(), pet.defStat(), pet.speStat(),
+    // weight is the raw meter; fit and kg are what the card shows for it
+    Serial.printf("peso=%u fit=%u kg=%lu.%lu fue=%u def=%u vel=%u vit=%u baya=%d\n",
+                  pet.weight, pet.fitness(), (unsigned long)(pet.weightHg() / 10),
+                  (unsigned long)(pet.weightHg() % 10), pet.atkStat(), pet.defStat(), pet.speStat(),
                   pet.vitStat(), pet.berryKnown);
     Serial.printf("iv=%u/%u/%u/%u tr=%u/%u/%u topes=%u/%u/%u\n",
                   pet.ivAtk, pet.ivDef, pet.ivSpe, pet.ivHp,
@@ -3810,7 +3812,19 @@ void renderCardStats() {
   drawCardStat(144, T(S_STAT_DEF), pet.defStat(), 360, 0x4C98, pet.ivDef);
   drawCardStat(184, T(S_STAT_SPE), pet.speStat(), 360, UI_BAR_WARN, pet.ivSpe);
   drawCardStat(224, T(S_STAT_VIT), pet.vitStat(), 360, UI_BAR_OK, pet.ivHp);
-  drawCardStat(264, T(S_STAT_WGT), pet.weight, 100, 0xB3C8, IV_NONE);
+  // Fitness is the weight meter read the other way up, so a fuller bar is the
+  // healthier one; the kg beside it is the species' own Pokedex weight scaled
+  // by that meter (Pet::weightHg()). It sits where the other rows show an IV.
+  drawCardStat(264, T(S_STAT_FIT), pet.fitness(), 100, 0xB3C8, IV_NONE);
+  {
+    uint32_t hg = pet.weightHg();
+    char kg[16];
+    snprintf(kg, sizeof(kg), "%lu.%lukg", (unsigned long)(hg / 10), (unsigned long)(hg % 10));
+    gfx->setTextColor(UI_INK_SOFT);
+    gfx->setTextSize(2);
+    gfx->setCursor(320, 264);
+    gfx->print(kg);
+  }
 
 }
 

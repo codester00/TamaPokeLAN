@@ -33,7 +33,7 @@ enum StrId : uint8_t {
   S_STREAK_FMT, S_VIN, S_BERRY_UNK, S_BERRY_RED, S_BERRY_BLUE, S_BERRY_GREEN,
   S_INFO_FMT, S_RENAME_HINT,
   // ficha: combate
-  S_BATTLE, S_STAT_ATK, S_STAT_DEF, S_STAT_SPE, S_STAT_WGT, S_TRAIN_STR,
+  S_BATTLE, S_STAT_ATK, S_STAT_DEF, S_STAT_SPE, S_STAT_FIT, S_TRAIN_STR,
   // ficha: medallas
   S_MEDALS_FMT, S_BACK,
   // teclado y galeria

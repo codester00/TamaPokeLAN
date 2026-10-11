@@ -46,12 +46,17 @@ enum : uint8_t { SLEEP_NONE = 0, SLEEP_AUTO, SLEEP_PLAYER };
 //     WEIGHT_OFFLINE_FLOOR -- the same 15 its need floors use, so time away is
 //     gentler than time spent on a running board.
 //   - A running board's passive burn (tick()) and exercise reach WEIGHT_MIN.
-#define WEIGHT_START 24
+#define WEIGHT_START 25                    // fitness 75: exactly the Pokedex weight
 #define WEIGHT_MIN 1
 #define WEIGHT_OFFLINE_FLOOR 15
 #define WEIGHT_BURN_AWAKE_MIN 9            // -1 every 9 min awake
 #define WEIGHT_BURN_ASLEEP_MIN 27          // -1 every 27 min asleep (3x slower)
-#define WEIGHT_FIT_MAX 20                  // the "fit" medal: at or under this
+#define WEIGHT_FIT_MAX 20                  // the "fit" medal: at or under this (fitness 80+)
+// The player never sees `weight`. They see FITNESS, which is the same meter
+// read the other way up (100 - weight), and a weight in kg: the species'
+// Pokedex weight scaled by 1% per point, exactly the Pokedex figure at
+// WEIGHT_START. So fitness 99 is 24% lighter than the Pokedex and fitness 0
+// is 75% heavier. Inverting at display time keeps every rule above unchanged.
 
 // ceremonias de fin de ciclo
 enum : uint8_t { CER_NONE = 0, CER_FAREWELL, CER_RUNAWAY, CER_RELEASE };
@@ -183,6 +188,11 @@ public:
   }
   // The ball game: happiness AND defence training. Returns the DEF gained.
   uint8_t playResult(uint8_t score);
+  uint8_t fitness() const { return (uint8_t)(100 - weight); }
+  // What the card shows: the Pokedex weight (DEX_WEIGHT_HG) scaled by the
+  // meter, in hectograms. Never 0 -- even a 0.1 kg Gastly at fitness 99 weighs
+  // something. 0 for an egg, which has no species yet.
+  uint32_t weightHg() const;
   // The one way weight goes down: never below WEIGHT_MIN, nor below `floor`.
   void loseWeight(uint8_t n, uint8_t floor = WEIGHT_MIN) {
     if (floor < WEIGHT_MIN) floor = WEIGHT_MIN;

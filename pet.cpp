@@ -1674,6 +1674,12 @@ void Pet::feedBerry(uint8_t color) {
   save();
 }
 
+uint32_t Pet::weightHg() const {
+  if (isEgg() || speciesId < 1 || speciesId > DEX_COUNT) return 0;
+  uint32_t hg = ((uint32_t)DEX_WEIGHT_HG[speciesId] * (75 + weight) + 50) / 100;
+  return hg ? hg : 1;
+}
+
 void Pet::feedCandy() {
   if (ceremony != CER_NONE) return;
   if (isEgg() || sleeping) return;

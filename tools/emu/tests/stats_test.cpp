@@ -61,6 +61,31 @@ int main() {
   ck(m.atkStat() > m.spaStat(), "Machamp atkStat beats spaStat");
   ck(m.atkStat() > atk && spa > m.spaStat(), "the two species are not interchangeable");
 
+  // --- fitness and the weight on the card
+  // Pinned to the PUBLISHED Pokedex weights, not to the generated table read
+  // back: a misaligned table (every species one row off) would still agree
+  // with itself.
+  ck(DEX_WEIGHT_HG[25] == 60 && DEX_WEIGHT_HG[143] == 4600 &&
+     DEX_WEIGHT_HG[92] == 1 && DEX_WEIGHT_HG[797] == 9999 && DEX_WEIGHT_HG[1025] == 3,
+     "the table holds the real Pokedex weights (Pikachu 6.0, Snorlax 460, Gastly 0.1, Celesteela 999.9, Pecharunt 0.3 kg)");
+  {
+    Pet egg; egg.begin(); egg.newEgg();
+    ck(egg.weight == WEIGHT_START && egg.fitness() == 75, "a new egg starts at fitness 75");
+    ck(egg.weightHg() == 0, "and an egg has no weight to show");
+
+    Pet s; s.dbgHatchAs(143, false);
+    s.weight = WEIGHT_START;
+    ck(s.weightHg() == 4600, "fitness 75 is exactly the Pokedex weight (Snorlax 460.0 kg)");
+    s.weight = WEIGHT_MIN;
+    ck(s.fitness() == 99 && s.weightHg() == 3496, "fitness 99 is 24% lighter (349.6 kg)");
+    s.weight = 100;
+    ck(s.fitness() == 0 && s.weightHg() == 8050, "fitness 0 is 75% heavier (805.0 kg)");
+
+    Pet g; g.dbgHatchAs(92, false);
+    g.weight = WEIGHT_MIN;
+    ck(g.weightHg() >= 1, "the lightest creature at its lightest still weighs something");
+  }
+
   printf("%s\n", bad ? "FAILURES" : "all good");
   return bad ? 1 : 0;
 }

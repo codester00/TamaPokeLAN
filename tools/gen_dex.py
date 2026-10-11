@@ -9,6 +9,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from dex_data import DEX, TYPE_ACCENTS, CLASSIC, RARE, LEGENDARY, REGIONS, EEVEE_BRANCHES
 from dex_stats import BASE_STATS
+from dex_weights import WEIGHT_HG
 from dex_types import TYPES, TYPE_ORDER, CHART
 
 
@@ -119,6 +120,15 @@ def main():
         out.append(f'  {{ "{display}", {evo}, {lvl}, {rar}, 0x{acc:04X}, {hp}, {atk}, {df}, {spe},'
                    f' {spa}, {spd}, {bio}, {c1}, {c2} }},  // {num} {t1}{dual}\n')
     out.append("};\n\n")
+    # A table of its own rather than a DexEntry field: nothing that builds a
+    # DexEntry by position (this file, the tests) has to change for it.
+    out.append("// Pokedex weight in HECTOGRAMS (0.1 kg), from PokeAPI via\n"
+               "// tools/fetch_weights.py. What the card shows is this scaled by the\n"
+               "// creature's own fitness -- see Pet::weightHg().\n")
+    out.append("static const uint16_t DEX_WEIGHT_HG[DEX_COUNT + 1] = {\n  0,")
+    for num, *_ in DEX:
+        out.append(("\n  " if num % 16 == 0 else " ") + f"{WEIGHT_HG[num]},")
+    out.append("\n};\n\n")
     out.append("// el primer huevo de la partida: iniciales clasicos\n")
     out.append("static const int16_t CLASSIC_DEX[] = { %s };\n" % ", ".join(map(str, CLASSIC)))
     out.append(f"#define NUM_CLASSIC_DEX {len(CLASSIC)}\n")

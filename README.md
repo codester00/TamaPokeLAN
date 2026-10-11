@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://reallyjustsomeguy.github.io/TamaPokeLANExp/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.29-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.30-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -196,33 +196,35 @@ While **awake**, per minute:
 | Stat | Drain/min | Notes |
 |---|---|---|
 | FOOD | −2 | |
-| ENE | −1 | −1 extra if overweight (weight > 50 → sluggish) |
+| ENE | −1 | −1 extra if out of shape (fitness < 50 → sluggish) |
 | HYG | −1 | **−4 more per poop** on screen (max 3 poops) |
 | JOY | −1 | **−2 extra** if FOOD < 30, **−2 extra** if HYG < 30 |
 
 - ~**15 %/min** chance to poop (only if FOOD > 40). Poops tank hygiene fast.
-- **Weight** (1–100, shown on the card) starts at **24** and **never drops below
-  1**. It burns off by itself, **−1 every 9 min** awake and **−1 every 27 min**
-  asleep. While the board is **switched off** that burning stops at **15** (the
-  same floor the needs get); on a running board, and through exercise, it can go
-  all the way down to 1. Over **50** it doubles the energy drain, and over **60**
-  the creature is described as chubby.
+- **Fitness** (shown on the card, 0–99) starts at **75**, and next to it the
+  creature's **weight in kg**: its real Pokédex weight at fitness 75, **1% lighter
+  per point above, 1% heavier per point below** — so at most 24% under, at worst
+  75% over. A Snorlax (460 kg in the Pokédex) ranges from 349.6 kg at fitness 99
+  to 805 kg at 0. Fitness rises by itself, **+1 every 9 min** awake and **+1 every
+  27 min** asleep, up to **99**; while the board is **switched off** it rises no
+  higher than **85**. Below **50** the energy drain doubles, and below **40** the
+  creature is described as chubby.
 - **Care slip-up** = letting any stat hit **≤ 10** (60-min cooldown so it counts once).
   Each slip-up **delays evolution by 1 level** and cools the bond by 1.
 
 ### Actions
 
-- 🍎 **Berry** (3 flavors): +25 FOOD, +3 weight. Each species has a **hidden
-  favorite flavor** → +35 FOOD, +10 JOY, only +1 weight, ♥, bond, and it gets
+- 🍎 **Berry** (3 flavors): +25 FOOD, −3 fitness. Each species has a **hidden
+  favorite flavor** → +35 FOOD, +10 JOY, only −1 fitness, ♥, bond, and it gets
   revealed.
-- 🍬 **Candy:** +10 FOOD, +12 JOY, but **+12 weight** (fattening).
-- ⚽ **Play / minigame:** **+5 JOY, plus 2 per rally** (max +35), −ENE, burns
-  **1 weight per 5 rallies** (max 4 a session). Pure happiness — it trains nothing, so playing is never a stat grind.
+- 🍬 **Candy:** +10 FOOD, +12 JOY, but **−12 fitness** (fattening).
+- ⚽ **Play / minigame:** **+5 JOY, plus 2 per rally** (max +35), −ENE,
+  **+1 fitness per 5 rallies** (max +4 a session). Pure happiness — it trains nothing, so playing is never a stat grind.
   Leaving early keeps what you earned.
 - 🎯 **Reaction test:** a target appears, tap it before it shrinks away. Trains
-  **SPEED**; the window tightens as you go. Burns 1 weight per 10 hits (max 4).
+  **SPEED**; the window tightens as you go. +1 fitness per 10 hits (max +4).
 - 🥊 **Training bag:** trains **STRENGTH** (~4 hits = 1 pt, cap +18/session), tires it.
-  Burns 1 weight per 10 hits (max 4).
+  +1 fitness per 10 hits (max +4).
 - 🫧 **Bath:** clears poops, HYG → 100.
 - 👆 **Pet it:** +5 JOY + bond.
 - 🌙 **Sleep:** rest — ENE **+6/min**, needs drain ~**4× slower** with floors
@@ -521,7 +523,7 @@ split lives on the species, not the individual — no extra IVs to roll.
 - **Bond** (per pet, resets on hatch): grows with affection (**cap +20/day**), cools on
   neglect. Both streak & bond improve egg/shiny odds — **and the IVs of your next pet**.
 - **8 medals** (Lv10/25/50, favorite berry found, 7-day streak, max bond, final form,
-  "fit" = weight ≤ 20 & no slip-ups), per-pet + a global counter.
+  "fit" = fitness 80+ & no slip-ups), per-pet + a global counter.
 - **Pokédex:** raising a species registers it. **809 can be obtained today**
   (Kanto to Alola) **+ shinies**; Galar and Paldea join when their sprite packs
   exist, which is why the counter reads out of 1025.
