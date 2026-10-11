@@ -27,7 +27,12 @@ public:
   NvsStore &kv = nvs();
   bool begin(const char *, bool = false) { return true; }
   void end() {}
-  void clear() { kv.clear(); }
+  // Real Preferences::clear() can fail, and fault injection makes it fail here
+  bool clear() {
+    if (!nvsCanWrite()) return false;
+    kv.clear();
+    return true;
+  }
   bool isKey(const char *k) { return kv.count(k) != 0; }
 
   template <typename T> size_t putT(const char *k, T v) {

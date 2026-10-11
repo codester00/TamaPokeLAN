@@ -453,12 +453,25 @@ public:
   // It does NOT stop later saves. Keeping the in-RAM creature from being written
   // back over the wipe is the job of saveInhibited in the sketch, next to the
   // flush hooks that are the actual risk -- one guard, where the callers are.
-  void factoryReset() {
-    prefs.clear();
+  //
+  // Returns whether NVS really was cleared. It used to ignore clear()'s result,
+  // so a failed wipe restarted into the OLD save while reporting DONE -- and the
+  // generation counters were zeroed anyway, so the next save landed in a slot
+  // the surviving records outranked. A failure gets one close/reopen retry,
+  // the cure for the stale handle behind the checkpoint failures (HANDOVER
+  // 1b), and if that fails too nothing is touched.
+  bool factoryReset() {
+    bool ok = prefs.clear();
+    if (!ok) {
+      prefs.end();
+      ok = prefs.begin("tamapoke", false) && prefs.clear();
+    }
+    if (!ok) return false;
     saveGeneration = 0;
     playerGeneration = 0;
     saveFailures = 0;
     pendingSave = false;
+    return true;
   }
   void dbgRunawayReady() { fullness = joy = energy = hygiene = 0; neglectTicks = RUNAWAY_TICKS; }  // test
   // test: force what the egg holds and hatch it now (serial command EGG).

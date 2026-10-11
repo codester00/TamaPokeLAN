@@ -27,7 +27,12 @@ String FakeSerial::readStringUntil(char){
   return String(gIn[gAt++].c_str());
 }
 static bool gRestarted = false;
-void FakeESP::restart(){ gRestarted = true; }   // not exit(): the test continues
+// A real esp_restart() runs the registered shutdown handlers first, and the
+// sketch's one flushes a pending save. Doing the same here is what lets this
+// test see a restore being overwritten by the creature still in RAM.
+void flushBeforePowerLoss(const char *why);
+extern bool saveInhibited;
+void FakeESP::restart(){ gRestarted = true; flushBeforePowerLoss("shutdown"); }   // not exit(): the test continues
 
 void setup(); void render(); void handleSerial();
 extern Pet pet;
@@ -93,12 +98,24 @@ int main(){
   Pet gone; gone.begin();
   ck(strcmp(gone.trainerName,"ASH") != 0, "the wipe really took the save");
 
+  // The creature in RAM is now NOT the one being restored, and has a save
+  // pending -- exactly the state a player restoring a backup is in.
+  // Its checkpoint generation must also be AHEAD of the backup's, as it is for
+  // anyone restoring over a save that kept playing after the backup was taken:
+  // the newest generation wins on load, so a flush from a wiped (generation 0)
+  // creature would lose to the restore and hide the bug entirely.
+  for (int i = 0; i < 64; i++) pet.saveNow();
+  pet.streak = 1;
+  pet.addSteps(1);
+  ck(pet.savePending(), "(the RAM creature has a save pending)");
+
   gRestarted = false;
   std::string res = runConsole(back);
     ck(res.find("IMPORT MORE") != std::string::npos,
       "each import chunk acknowledges browser flow control");
   ck(res.find("IMPORT OK") != std::string::npos, "pasting the block back is accepted");
   ck(gRestarted, "and it reboots, as a restore has to");
+  ck(saveInhibited, "and nothing may save between the restore and the reboot");
 
   Pet p2; Party q2;
   p2.begin(); q2.begin();
@@ -106,7 +123,8 @@ int main(){
   ck(p2.speciesId==59 && p2.ageMinutes==61UL*MINUTES_PER_LEVEL,
      "so did the creature and its age");
   ck(p2.ivAtk==29 && p2.ivHp==13 && p2.badges==0x0055 && p2.streak==8,
-     "and the IVs, badges and streak");
+     "and the IVs, badges and streak -- not the RAM creature's, flushed on restart");
+  saveInhibited = false;   // the reboot would clear it; this process carries on
   ck(q2.count()==3 && q2.slots[1].dex==101 && q2.slots[1].level==45,
      "and the party");
 
@@ -183,6 +201,25 @@ int main(){
     runConsole({"TR -5 999 20"});
     ck(pet.trAtk == 0 && pet.trDef == pet.trMaxDef() && pet.trSpe == 20,
        "nonsense arguments clamp instead of wrapping");
+  }
+
+  // --- a WIPE that NVS refuses must not pretend it happened
+  {
+    pet.renameTrainer("KEEP");
+    nvsFailWritesAfter(0);                 // clear() fails, and so does the retry
+    gRestarted = false;
+    std::string w = runConsole({"WIPE"});
+    nvsResumeWrites();
+    ck(w.find("WIPE FAILED") != std::string::npos, "a failed wipe says so");
+    ck(!gRestarted && !saveInhibited, "and neither reboots nor blocks saving");
+    { Pet r; r.begin(); ck(!strcmp(r.trainerName, "KEEP"), "and the save is untouched"); }
+
+    gRestarted = false;
+    std::string ok = runConsole({"WIPE"});
+    ck(ok.find("DONE") != std::string::npos && gRestarted && saveInhibited,
+       "a wipe that works still reboots, with saving blocked");
+    { Pet r; r.begin(); ck(strcmp(r.trainerName, "KEEP") != 0, "and really is empty"); }
+    saveInhibited = false;
   }
 
   printf("%s\n", bad?"FAILURES":"all good");

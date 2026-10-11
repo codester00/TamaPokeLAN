@@ -869,8 +869,8 @@ bool rimMoved = false;
 float rimA0 = 0;
 int rimSteps = 0;
 
-// A factory reset has emptied NVS and we are waiting to restart into a new game.
-// Nothing may write the in-RAM creature back over it in the meantime.
+// NVS has just been wiped (WIPE) or replaced (IMPORT) and we are waiting to
+// restart. Nothing may write the in-RAM creature back over it in the meantime.
 bool saveInhibited = false;
 
 // Flush a pending save because power is about to go away: the PWR key on its way
@@ -1397,9 +1397,24 @@ void handleSerial() {
     bool ok = saveImport(in, inN);
     Serial.println(ok ? "IMPORT OK" : "IMPORT REJECTED");
     inN = 0;
-    if (ok) { Serial.println("DONE"); delay(100); ESP.restart(); }
+    if (ok) {
+      // Same guard as WIPE, for the same reason: the restart runs the shutdown
+      // handler, which flushes the creature still in RAM. Its checkpoint
+      // generation is usually AHEAD of the backup's, so it won on the next boot
+      // and the restore was silently undone. console_test reproduces it.
+      saveInhibited = true;
+      Serial.println("DONE");
+      delay(100);
+      ESP.restart();
+    }
   } else if (line == "WIPE") {
-    pet.factoryReset();     // borra NVS y reinicia -> partida nueva (eleccion de inicial)
+    // Erases NVS and restarts into a new game (starter choice). A wipe that did
+    // not happen must say so and leave the game running, not report DONE and
+    // reboot into the save the player asked to be rid of.
+    if (!pet.factoryReset()) {
+      Serial.println("WIPE FAILED -- NVS would not clear; the save is untouched");
+      return;
+    }
     // Set BEFORE the restart, because the restart runs the shutdown handler, and
     // that handler's whole job is to flush a pending save. Without this it would
     // write the creature that was just deleted straight back into the empty NVS.
