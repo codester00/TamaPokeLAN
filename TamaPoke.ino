@@ -39,9 +39,12 @@
 #include "i18n.h"
 #include "audio.h"
 
-// Version del firmware. Subir este numero en cada release (y manifest.json para
-// el instalador web). Se muestra en la pantalla de ajustes y por serie al arrancar.
-#define FW_VERSION "1.01"
+// Firmware version, shown on the settings screen and printed at boot. Bump it
+// with every balance change and every release; the README badge must match, and
+// build_web.sh moves web/manifest.json to it when the installer is rebuilt.
+// 3.29 is the first build after v3.28 (it was briefly "1.01", which read as a
+// downgrade and matched nothing).
+#define FW_VERSION "3.29"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
