@@ -520,9 +520,10 @@ split lives on the species, not the individual — no extra IVs to roll.
   neglect. Both streak & bond improve egg/shiny odds — **and the IVs of your next pet**.
 - **8 medals** (Lv10/25/50, favorite berry found, 7-day streak, max bond, final form,
   "fit" = weight ≤ 20 & no slip-ups), per-pet + a global counter.
-- **Pokédex:** raising a species registers it; **809 + shinies** to complete.
-  Browsed **one region at a time** — swipe vertically between regions,
-  horizontally to page within it, so nothing is more than ten pages from the front.
+- **Pokédex:** raising a species registers it; **1025 + shinies** to complete.
+  Browsed **one region at a time** from a region chooser — drag along the rim to
+  page within a region (swipe up jumps to the next one, down goes back), so
+  nothing is more than ten pages from the front.
 - **Name:** tap the header to open the touch keyboard; the nickname replaces the
   species name there and on the stat card.
 - **Languages:** the UI ships in 6 — English (default), Spanish, French, German,

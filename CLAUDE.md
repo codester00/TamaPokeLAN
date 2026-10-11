@@ -8,9 +8,14 @@ Personal, non-commercial fan project. Code MIT; sprites CC BY-NC (PMD SpriteColl
 
 | Path | What |
 |---|---|
-| `TamaPoke.ino` | Main sketch (~2.3k LOC): UI, screens, touch, serial console, `FW_VERSION` |
+| `TamaPoke.ino` | Main sketch (~7.8k LOC): UI, screens, touch, serial console, `FW_VERSION` |
 | `pet.cpp/.h` | Game state machine: stats, tick, evolution, eggs, save/load, balance constants |
-| `species.h` / `dex.h` | The 151: names, typings, evolution chains, base stats, rarity tiers, favourite berry |
+| `species.h` / `dex.h` | All 1025 (`DEX_COUNT`): names, typings, evolution chains, base stats, rarity tiers, favourite berry. `dex.h` is generated |
+| `battle.cpp/.h` | The battle engine: damage, crits, stages, ailments, turn order, the AI |
+| `link.cpp/.h` / `linknow.cpp/.h` | LAN battle protocol (radio-free, testable) / its ESP-NOW transport |
+| `save.cpp/.h` | `EXPORT`/`IMPORT`: the key-driven save backup (`SAVE_FIELDS`) |
+| `wild.cpp/.h`, `inventory.cpp/.h`, `items.h` | Wild encounters and capture, the bag, Poke Mart prices |
+| `pedometer.cpp/.h` | Software step detector on the QMI8658's raw accelerometer |
 | `types.h` | Type-effectiveness helpers over the generated 18x18 chart in `dex.h` |
 | `party.cpp/.h` | The 6 retired pets banked by farewell/release (not runaway) |
 | `i18n.cpp/.h` | 6-language string table (ES/EN/FR/DE/IT/PT) |
@@ -194,7 +199,22 @@ arduino-cli compile --fqbn "$FQBN" .
 arduino-cli upload -p /dev/cu.usbmodemXXXX --fqbn "$FQBN" .
 
 bash tools/build_web.sh   # recompiles, writes the 4 parts, bumps the manifest, repacks every region
+bash tools/flash.sh -p <port>   # compile + upload; NVS (the save) is never written
 ```
+
+**The folder must be named `TamaPoke`.** arduino-cli refuses a sketch whose
+folder is not named after the `.ino` ("main file missing"). A fork checked out
+under its repo name -- `TamaPokeLAN` -- hits this; rename it or build through a
+symlink. The scripts check and say so.
+
+**Every `.cpp` in the folder is compiled.** A backup copy left beside the real
+file (`z_battle.cpp` next to `battle.cpp`, 2026-09-23) defines everything twice
+and the link fails -- while the emulator, which lists its sources by name, stays
+green. Keep old versions in git history, not in the sketch folder.
+
+Off a Mac: the ESP32 core and the three libraries (GFX Library for Arduino,
+SensorLib, XPowersLib) install the usual way; SDL2 is `libsdl2-dev` on
+Debian/Ubuntu. On Windows pass the serial port to `flash.sh` (`-p COM5`).
 
 **PSRAM (OPI) is mandatory** — the 466×466×16-bit framebuffer is ~434 KB and lives there.
 Wrong partition scheme (no FAT) or PSRAM off = it builds and then fails on hardware.
@@ -215,7 +235,7 @@ entry in one language shifts every string after it in that language.
 numbers)" documents exact drain rates, spawn odds and thresholds straight from the
 code. It is the project's spec, not decoration — changing a constant in `pet.h`/
 `pet.cpp` without updating that table makes the docs lie. Bump `FW_VERSION` in
-`TamaPoke.ino:27` and the firmware badge at the top of the README in the same commit.
+`TamaPoke.ino` and the firmware badge at the top of the README in the same commit.
 
 **Comments and commit messages are in English** — as of v1.5. Most of the existing
 source is commented in unaccented Spanish (the original author's convention) and is
@@ -247,6 +267,9 @@ second caller has its own copy of it, and nobody notices until a player does.
 | evolution threshold | `canEvolveNow()` | `renderCardProgress()` | the card would promise an evolution that never came |
 | a region needs its pack | `sdBegin()`, at mount | files arriving later over `PUT` | the pack you just downloaded stayed greyed out until a reboot |
 | the 3 s hold is for the pet | a list of screens to EXCLUDE | every screen not on that list | holding a PARTY SLOT offered to release the LIVE pet |
+| nothing saves before a reboot that replaced NVS | `WIPE` (`saveInhibited`) | `IMPORT` | a restored backup was undone by the RAM creature on the reboot |
+| an empty `putString()` is a success | `Pet::save()` | the `IMPORT` path in `save.cpp` | every restore logged a bogus "nick failed" |
+| passive weight burn has a floor | `syncClock()` (15) | `tick()` (0) | a running board slimmed a creature further than a switched-off one |
 
 **A guard written as a list of EXCLUSIONS is this trap pre-loaded.** The hold
 was gated by `!galleryOpen && !cardOpen && !kbOpen && !clockOpen`, so every
@@ -425,7 +448,9 @@ that have each cost a real bug:
   `proto.h` with every prototype at the top, so the emulator happily builds a
   sketch that `arduino-cli` rejects for using a function before it is declared.
   A green emulator build is not proof the firmware builds. `tests/run.sh` now
-  runs the real `arduino-cli compile` first and stops if it fails.
+  runs the real `arduino-cli compile` first and stops if it fails. The same
+  gap the other way: the emulator compiles a fixed LIST of sources, Arduino
+  compiles every `.cpp` in the folder, so a stray copy only breaks the latter.
 - **A missing `gfx->flush()`.** `--shot` reads `gfx->buffer()` directly and
   never consults `frameReady`, so a frozen panel photographs perfectly. That is
   what `flush_test` is for.
@@ -527,6 +552,27 @@ to live -- every gesture from the main screen is taken (see below).
 ## TODO
 
 Working state, so it survives a closed session. Tick items off as they land.
+
+### Done: a clean starting point after the 2026-09-23 web edits (2026-10-11)
+
+`FW_VERSION` 1.01 -> **3.29**. Fifteen commits made in GitHub's web editor
+after v3.28 left the firmware unable to link (a `z_battle.cpp` backup beside
+the new `battle.cpp`), the version reading "1.01", and the weight rework
+undocumented. Kept, deliberately: the **Gen 6 crit rules** (1.5x; a crit
+ignores only the stages that hurt the attacker; burn still applies), Steel
+immune to poison, the 32-bit AI score, and the weight rework -- now with one
+`WEIGHT_FLOOR` for both burn paths and one `WEIGHT_START`. Fixed alongside:
+`IMPORT` now sets `saveInhibited` (a restore over a newer save was being
+undone on the reboot), `factoryReset()` reports a failed `clear()` and `WIPE`
+says `WIPE FAILED` instead of `DONE`, the IMPORT path's empty-string false
+alarm, and the emulator's `putString()` return value, which differed from the
+hardware's and hid that alarm. The installer was NOT rebuilt: `web/` still
+ships v3.28 and its manifest says so.
+
+Still open from that batch: `web/editions.json` points the installer's release
+list at `squithy/TamaPokeLAN` and the README/installer links at
+`reallyjustsomeguy/TamaPokeLANExp`. Which repository this fork publishes from
+is the owner's call, not a bug to fix.
 
 ### Done: the Poke Mart, and a real pedometer fight (2026-09-11)
 
@@ -694,8 +740,9 @@ to `"TRAINER"` if still unset when a new game picks its starter (with
 selection), so the empty-`tnam` case stops occurring going forward rather than
 just being logged correctly.
 
-**Found, not fixed:** `link.cpp`'s `HELLO` handshake reuses one `peerName`
-field for both your own outgoing name and the peer's incoming one -- a side
+**Fixed in v3.27 (`d63ebc7`):** `link.cpp`'s `HELLO` handshake reused one
+`peerName` field for both your own outgoing name and the peer's incoming one
+(`Link::myName` is the outgoing one now). Kept for the reasoning -- a side
 that answers a `HELLO` while still `LISTENING`, or any `LINK_SQUADS`-state
 resend, sends the *peer's* name back to them instead of its own. This is the
 same one-field-two-jobs shape as this file's own recurring trap. It has not
@@ -704,8 +751,7 @@ actually been observed, though: `lanOffer()` has both host and guest call
 normally finishes before the resend path that triggers this ever fires --
 matching repeated real-world testing showing correct names. It would only
 surface under packet loss during pairing, which is what `lossy_test` exists to
-simulate on the protocol side without a radio. Worth fixing before it is
-needed, not because it has bitten anyone yet.
+simulate on the protocol side without a radio.
 
 ### Done (branch `feat/battle-foundations`, pushed)
 
@@ -1575,7 +1621,7 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 34 suites
+bash tools/emu/tests/run.sh          # all 41 suites (sprite_test skips without sprites)
 bash tools/emu/tests/run.sh battle   # just matching ones
 ```
 

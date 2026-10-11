@@ -4,6 +4,9 @@ Written 2026-08-20, updated through 2026-08-23, so work could resume after a
 restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 **authoritative wherever the two disagree**.
 
+> **§ 1d is the newest (2026-10-11) and describes the repo as it is now.**
+> Read it first; everything below it is history, kept for the reasoning.
+>
 > **§ 1 below is current as of v3.22 (2026-09-08). Sections 0 and 2 to 4c are an
 > August snapshot kept for the reasoning in them, and their branch names, version
 > numbers and "not merged" notes are long superseded** — `feat/retire-and-release`
@@ -27,6 +30,41 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 > accelerometer samples does, confirmed on real hardware with a calibrated
 > threshold, after a second, unrelated bug (`getDataReady()`) nearly hid that
 > too.
+
+---
+
+## 1d. Where things stand now (2026-10-11)
+
+| | |
+|---|---|
+| Published firmware | **v3.28** (the last tag, 2026-09-14). `web/` still ships it, and `web/manifest.json` says 3.28 |
+| Repo version | **3.29** in `TamaPoke.ino` and the README badge -- unreleased, not yet on any board |
+| Dex | `DEX_COUNT` 1025, `REGION_COUNT` 10, `GYM_REGIONS` 7 |
+| Tests | 41 suites: 40 pass, `sprite_test` skips until `tools/unpack_bundle.py` has run. `check_savefile.mjs` passes |
+| Firmware | compiles with esp32 core 3.3.0, GFX Library 1.6.9, SensorLib 0.5.0, XPowersLib 0.3.4 |
+
+**What happened in between.** On 2026-09-23 fifteen commits were made in
+GitHub's web editor: a battle rework, a weight rework, and the version set to
+"1.01". They were never compiled -- the old `battle.cpp` was kept beside the
+new one as `z_battle.cpp`, every battle function was defined twice, and the
+firmware did not link while the emulator suite stayed green. The 2026-10-11
+cleanup kept both reworks and repaired around them; CLAUDE.md § TODO "Done: a
+clean starting point" lists each fix and what is still the owner's call.
+
+**Answered since § 1a / 1b:**
+
+- The checkpoint write failure is **closed**: a stale `Pet::prefs` handle, cured
+  by close/reopen/retry (§ 1b). Nothing has reported it since; watch for
+  `save: ... retry after reopen` in a long session's log to be sure.
+- `factoryReset()` ignoring `prefs.clear()` -- **fixed**: `WIPE` now prints
+  `WIPE FAILED` and keeps the game running instead of claiming `DONE`.
+- `IMPORT` missing the `saveInhibited` guard -- **fixed**, and it was worse than
+  § 1a guessed: a restore over a save that had kept playing was undone on the
+  reboot, because the RAM creature's checkpoint generation was the newer one.
+- `link.cpp`'s shared `peerName` -- fixed in v3.27 (`d63ebc7`).
+
+**Still not confirmed on hardware:** § 1a's `lanLeave()` fix against the
+original guest-quits-mid-battle repro, and § 1's power-key flush.
 
 ---
 
@@ -143,7 +181,7 @@ that is a bigger step than this session did.
 
 **Still genuinely open:**
 
-- *Why* a checkpoint write fails at all. Captured with healthy NVS headroom
+- *(Answered in § 1b.)* *Why* a checkpoint write fails at all. Captured with healthy NVS headroom
   (`used=202 avail=302 total=630`), so it is not a full partition. Worth
   re-watching now that #3 is fixed — a radio left running all session could
   plausibly have been destabilising something adjacent.
@@ -154,8 +192,8 @@ that is a bigger step than this session did.
   that matches neither the original save nor a fresh one. Emergency `EXPORT`
   captures from before any of that are in `backups/`, dated 2026-09-10, if
   it's worth trying to reconstruct. Two more real firmware bugs were found
-  along the way and are NOT yet fixed: `factoryReset()` ignores whether
-  `prefs.clear()` actually succeeded, and `IMPORT`'s serial handler is
+  along the way and are fixed as of § 1d: `factoryReset()` ignored whether
+  `prefs.clear()` actually succeeded, and `IMPORT`'s serial handler was
   missing the `saveInhibited = true` guard that `WIPE`'s has before its own
   `ESP.restart()`.
 
@@ -201,7 +239,7 @@ logging itself, not in the save path:**
    starter selection and still has an empty name (this device included).
    `renameTrainer()` still overrides it whenever the player actually sets one.
 
-**Found but NOT fixed — real, but not what was observed this session:**
+**Found then, fixed in v3.27 (`d63ebc7`):**
 `link.cpp`'s `HELLO` exchange reuses a single `peerName` field for both your
 own outgoing name and the peer's received name. Tracing it shows a genuine
 corruption path (a side that receives a `HELLO` while still `LISTENING`, or
