@@ -37,6 +37,13 @@ bash "$EMU/build.sh" >/dev/null
 # it is declared. That shipped once. If arduino-cli is installed, the firmware
 # build is the one that decides.
 if command -v arduino-cli >/dev/null; then
+  # arduino-cli needs the folder named after the .ino; any other name fails as
+  # "main file missing", which the check below would report as broken code.
+  if [ "$(basename "$ROOT")" != "TamaPoke" ]; then
+    echo "=== the checkout is '$(basename "$ROOT")'; arduino-cli needs it named TamaPoke"
+    echo "    rename it, or run through a symlink:  ln -s \"$ROOT\" ../TamaPoke"
+    exit 1
+  fi
   FQBN="esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB"
   if ! arduino-cli compile --fqbn "$FQBN" "$ROOT" >/dev/null 2>"$OUT_FW"; then
     echo "=== THE FIRMWARE DOES NOT COMPILE (the emulator does; that is not the same thing)"

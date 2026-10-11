@@ -1,8 +1,18 @@
 #!/bin/bash
-# Regenera web/firmware/tamapoke.bin (firmware combinado) para el instalador web.
-# Uso: bash tools/build_web.sh
+# Rebuilds the web installer: compiles, writes the four firmware parts the
+# manifest ships (plus a merged tamapoke.bin for blank boards), moves
+# web/manifest.json to FW_VERSION, and recomputes the JS cache keys.
+# Usage: bash tools/build_web.sh
 set -e
 cd "$(dirname "$0")/.."
+# arduino-cli insists the sketch folder is named after the .ino. A checkout
+# called anything else (a fork's repo name, say) fails with "main file missing",
+# which reads like a broken build rather than a misnamed folder.
+if [ "$(basename "$(pwd)")" != "TamaPoke" ]; then
+  echo "This folder must be named TamaPoke for arduino-cli (it is '$(basename "$(pwd)")')."
+  echo "Rename the checkout, or symlink it:  ln -s \"$(pwd)\" ../TamaPoke"
+  exit 1
+fi
 FQBN="esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB"
 
 echo "Compilando..."
@@ -12,7 +22,11 @@ B=build/esp32.esp32.esp32s3
 echo "Fusionando binarios..."
 # esptool is not on PATH; the Arduino core ships one and that is the version
 # that matches the build we just made.
-ESPTOOL="$(ls ~/Library/Arduino15/packages/esp32/tools/esptool_py/*/esptool 2>/dev/null | head -1)"
+# Arduino15 lives in a different place on each OS: macOS, Linux, Windows.
+ESPTOOL="$(ls ~/Library/Arduino15/packages/esp32/tools/esptool_py/*/esptool \
+              ~/.arduino15/packages/esp32/tools/esptool_py/*/esptool \
+              "${LOCALAPPDATA:-/nonexistent}"/Arduino15/packages/esp32/tools/esptool_py/*/esptool.exe \
+              2>/dev/null | head -1)"
 [ -z "$ESPTOOL" ] && ESPTOOL="$(command -v esptool.py || command -v esptool)"
 [ -z "$ESPTOOL" ] && { echo "no esptool found"; exit 1; }
 

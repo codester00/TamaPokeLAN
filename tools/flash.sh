@@ -6,11 +6,23 @@
 #   bash tools/flash.sh -p /dev/cu.usbmodem1101
 #
 # The port is found rather than hardcoded: the ESP32-S3 shows up as
-# /dev/cu.usbmodem* on macOS and the number changes between plug-ins. The Mac's
-# own Bluetooth and debug consoles are also /dev/cu.*, so they are excluded by
-# name -- matching them and trying to flash a debug console is the obvious trap.
+# /dev/cu.usbmodem* on macOS and /dev/ttyACM* on Linux, and the number changes
+# between plug-ins. The Mac's own Bluetooth and debug consoles are also
+# /dev/cu.*, so they are excluded by name -- matching them and trying to flash a
+# debug console is the obvious trap. On Windows pass the port: -p COM5.
+#
+# The upload writes bootloader, partition table, boot_app0 and app at their own
+# offsets and never touches 0x9000-0xE000, which is NVS -- the save.
 set -e
 cd "$(dirname "$0")/.."
+# arduino-cli insists the sketch folder is named after the .ino. A checkout
+# called anything else (a fork's repo name, say) fails with "main file missing",
+# which reads like a broken build rather than a misnamed folder.
+if [ "$(basename "$(pwd)")" != "TamaPoke" ]; then
+  echo "This folder must be named TamaPoke for arduino-cli (it is '$(basename "$(pwd)")')."
+  echo "Rename the checkout, or symlink it:  ln -s \"$(pwd)\" ../TamaPoke"
+  exit 1
+fi
 
 FQBN="esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB"
 PORT=""
@@ -25,7 +37,7 @@ done
 
 if [ -z "$PORT" ]; then
   # usbmodem/wchusbserial/SLAB are the real adapters; the rest are the Mac's own
-  PORT=$(ls /dev/cu.usbmodem* /dev/cu.wchusbserial* /dev/cu.SLAB* 2>/dev/null | head -1 || true)
+  PORT=$(ls /dev/cu.usbmodem* /dev/cu.wchusbserial* /dev/cu.SLAB* /dev/ttyACM* /dev/ttyUSB* 2>/dev/null | head -1 || true)
 fi
 
 if [ -z "$PORT" ]; then
@@ -39,7 +51,10 @@ No board found.
 If it still does not appear, put the board in download mode by hand:
   hold BOOT, tap RESET, release BOOT -- then re-run.
 
-To see what the Mac can see:  arduino-cli board list
+On Windows the port is never guessed: run  arduino-cli board list  and pass
+it with -p, e.g.  bash tools/flash.sh -p COM5
+
+To see what this machine can see:  arduino-cli board list
 EOF
   exit 1
 fi
