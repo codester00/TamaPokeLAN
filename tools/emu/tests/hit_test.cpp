@@ -220,11 +220,13 @@ int main(){
   // firmware through uiTapFinger(), because a test that retypes the threshold
   // it is enforcing proves nothing.
   //
-  // THREE controls are still under it and cannot grow where they are: the party
-  // CLOSE bar and the LAN button have no room below a full screen, and the
-  // battle grid cell would push the grid off the panel. The home icons DO reach
-  // it -- they draw at 72 px inside a 94 px hit disc, which is the usual answer
-  // here. The count is asserted so a FOURTH cannot appear quietly.
+  // TWO controls are still under it and cannot grow where they are: the party
+  // CLOSE bar has no room below a full screen, and the battle grid cell would
+  // push the grid off the panel. The LAN button was the third until it was
+  // reported from a board and grown to the floor (its back zone went with it).
+  // The home icons DO reach it -- they draw at 72 px inside a 94 px hit disc,
+  // which is the usual answer here. The count is asserted so a THIRD cannot
+  // appear quietly.
   {
     const int FINGER = uiTapFinger();
     const double PPMM = 466.0 / 1.75 / 25.4;
@@ -239,7 +241,7 @@ int main(){
       if (h[i] < 44) tiny++;
     }
     ck(tiny == 0, "no control is below the hard floor");
-    ck(under <= 3, "and no FOURTH control has dropped below the finger floor");
+    ck(under <= 2, "and no THIRD control has dropped below the finger floor");
 
     // The home icons are round and their hit area is a DISC that is bigger than
     // the graphic, so the honest question is whether THAT clears the bezel.

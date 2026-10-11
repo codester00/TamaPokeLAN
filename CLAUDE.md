@@ -582,6 +582,34 @@ alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. The installer was NOT rebuilt: `web/` still
 ships v3.28 and its manifest says so.
 
+### Done: LAN BATTLE misfiring back to the pet screen (2026-10-11)
+
+Reported from a board: tapping LAN BATTLE on the gym chooser often went
+straight back to the pet screen; only a very deliberate tap worked. Two causes,
+and the second was the bigger one:
+
+1. **A tap zone that meant "back" sat flush under a 44 px button.** Any tap
+   below y=380 left the gym tile, and the button ended at 380. The button is
+   `UI_TAP_FINGER` now (336..430, just above the tile dots -- a static_assert
+   guards that) and the gym chooser has NO tap-to-leave zone: back is a swipe
+   down, as everywhere. The Pokedex chooser keeps its BACK label and zone,
+   behind the one answer `rpickBackHit()`.
+2. **One stray CST9217 reading became the gesture's end point.** The resolver
+   only looks at the first and last points, so a single reading ~90 px low just
+   before lift-off turned a tap into a swipe down. Two guards, each of which
+   `lantap_test` proves on its own by being switched off:
+   - a reading that jumps more than `TOUCH_JUMP_PX` is HELD until the next poll
+     says whether the finger really went there (a plain distance cap cannot
+     work: a pixel is 0.095 mm and a 1 m/s flick is ~200 px between polls);
+   - a gesture that starts on a control (`uiOnControl()`, which knows the
+     region choosers so far) must make `TOUCH_SWIPE_STEPS` polls of progress
+     its own way to be a swipe; anything less is a tap on that control.
+
+Off a control nothing changed: a reading held at lift-off is kept, exactly as
+before, because polls slow down while the panel draws and a quick swipe can
+end on one far sample. **Not yet felt on hardware.** `uiOnControl()` is the
+place to teach other screens the same rule if their buttons misfire too.
+
 Still open from that batch: `web/editions.json` points the installer's release
 list at `squithy/TamaPokeLAN` and the README/installer links at
 `reallyjustsomeguy/TamaPokeLANExp`. Which repository this fork publishes from

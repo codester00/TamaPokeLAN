@@ -356,6 +356,13 @@ uint8_t rpickModeNow();                       // which chooser is up, 0xFF for n
 uint8_t rpickModeNow();                       // which chooser is up, or 0xFF
 static bool rpickSwipe(int dir);              // true if it handled the gesture
 static int regionPickTap(int16_t x, int16_t y, uint8_t mode);
+// Pure hit tests -- no sound, no state -- shared by the tap handlers, the
+// renderer and the gesture resolver, so they can never disagree about where a
+// control is.
+int rpickRowAt(int16_t x, int16_t y, uint8_t mode);
+bool lanBtnHit(int16_t x, int16_t y);
+bool rpickBackHit(int16_t x, int16_t y, uint8_t mode);
+bool uiOnControl(int16_t x, int16_t y);
 static void drawEggRegion();          // defined with the egg screen helpers
 static int eggRegionTap(int16_t x, int16_t y);
 static void drawBtlBack();
@@ -389,11 +396,21 @@ uint8_t btlMyAct = 0;        // host: our own action, latched until theirs lands
 // Every control laid out from here on is held to THIS by hit_test.
 #define UI_TAP_FINGER 94
 
-// The LAN battle button on the gym region chooser.
+// The LAN battle button on the gym region chooser. Finger-sized: at 44 px with
+// a "tap below = back" zone right under it, a slightly low tap left the gym
+// tile and dropped the player on the pet screen -- reported from a board as
+// "LAN BATTLE only works with a very deliberate tap". It now runs down to just
+// above the tile dots, and the gym chooser has no back zone at all: back is a
+// swipe down there, as on every screen. Its corners stay inside the glass
+// (radius ~219 of 233 at y 430).
 #define LANBTN_W 190
-#define LANBTN_H UI_TAP_MIN
+#define LANBTN_H UI_TAP_FINGER
 #define LANBTN_X (233 - LANBTN_W / 2)
 #define LANBTN_Y 336
+// The Pokedex chooser has no LAN button, so it keeps its BACK label and the
+// tap zone under it.
+#define RPICK_BACK_LABEL_Y 392
+#define RPICK_BACK_ZONE_Y 380
 
 // The BOX button is the hub in the middle of the party ring now (PSLOT_HUB_R),
 // so it has no rectangle of its own any more.
@@ -863,6 +880,27 @@ uint32_t confirmUntil = 0;  // dialogo "soltar?" activo hasta este millis
 uint8_t choiceKind = 0;     // dialogo de decision: 0 ninguno, 1 evolucion, 2 despedida
 uint32_t choiceUntil = 0;   // se cierra solo a este millis
 int16_t tX0, tY0, tXl, tYl; // gesto en curso (inicio y ultima posicion)
+// Touch noise. The CST9217 occasionally reports one reading far from where the
+// finger is -- and a single stray just before lift-off became the gesture's END
+// point, so a tap on LAN BATTLE read as a swipe down and left the screen.
+//
+// A plain distance cap cannot tell that from a real flick: at 0.095 mm a pixel,
+// a 1 m/s flick covers ~200 px between 20 ms polls. So a reading that jumps
+// more than TOUCH_JUMP_PX is HELD, not accepted. If the next reading carries on
+// from it (is closer to it than to the last accepted point), the finger really
+// moved and both are taken; if the next one comes back, or the finger lifts
+// first, it was noise and is dropped.
+#define TOUCH_JUMP_PX 60
+#define TOUCH_MOVING_PX 30            // "already travelling" at lift-off
+bool tHeld = false;
+int16_t tHeldX, tHeldY;
+// How many accepted polls moved the finger at least TOUCH_STEP_PX in each
+// direction. A swipe that starts on a control must show TOUCH_SWIPE_STEPS of
+// progress its own way; anything less from a control is a tap.
+#define TOUCH_STEP_PX 4
+#define TOUCH_SWIPE_STEPS 2
+uint8_t tStepsL, tStepsR, tStepsU, tStepsD;
+bool tOnControl = false;
 uint32_t tStart = 0;
 bool holdFired = false;
 // Rim-drag state. Decided at touch-down: a gesture that starts outside RIM_R0
@@ -1508,6 +1546,17 @@ bool inPetZone(int16_t x, int16_t y) {
 }
 
 // el toque se resuelve al LEVANTAR el dedo para distinguir tap de deslizar
+// Takes a reading as where the finger is, counting the step it made.
+void touchAccept(int16_t x, int16_t y) {
+  int ddx = x - tXl, ddy = y - tYl;
+  if (ddx >= TOUCH_STEP_PX && tStepsR < 255) tStepsR++;
+  if (ddx <= -TOUCH_STEP_PX && tStepsL < 255) tStepsL++;
+  if (ddy >= TOUCH_STEP_PX && tStepsD < 255) tStepsD++;
+  if (ddy <= -TOUCH_STEP_PX && tStepsU < 255) tStepsU++;
+  tXl = x;
+  tYl = y;
+}
+
 void handleTouch() {
   static uint32_t lastPoll = 0;
   if (millis() - lastPoll < 20) return;  // 50 Hz le sobra a un dedo
@@ -1536,6 +1585,9 @@ void handleTouch() {
     tY0 = tYl = y;
     tStart = millis();
     holdFired = false;
+    tHeld = false;
+    tStepsL = tStepsR = tStepsU = tStepsD = 0;
+    tOnControl = uiOnControl(x, y);
     // A drag that STARTS on the rim is a scroll, not a swipe. Deciding it at
     // touch-down rather than on release is what keeps it unambiguous: the
     // finger never has to be told afterwards what it meant.
@@ -1548,10 +1600,20 @@ void handleTouch() {
     screenOff = false;
     lastInteract = millis();
   } else if (pressed) {  // sigue apoyado
-    tXl = x;
-    tYl = y;
-    if (rimActive && !swallowGesture) {
-      float d = uiRimAngle(x, y) - rimA0;
+    if (tHeld) {                     // last poll's outlier: real, or noise?
+      int32_t hx = x - tHeldX, hy = y - tHeldY, bx = x - tXl, by = y - tYl;
+      if (hx * hx + hy * hy < bx * bx + by * by) touchAccept(tHeldX, tHeldY);
+      tHeld = false;
+    }
+    bool took = true;
+    if (abs(x - tXl) > TOUCH_JUMP_PX || abs(y - tYl) > TOUCH_JUMP_PX) {
+      tHeld = true; tHeldX = x; tHeldY = y;
+      took = false;
+    } else {
+      touchAccept(x, y);
+    }
+    if (took && rimActive && !swallowGesture) {
+      float d = uiRimAngle(tXl, tYl) - rimA0;
       while (d > 180.0f) d -= 360.0f;
       while (d < -180.0f) d += 360.0f;
       if (d > 6.0f || d < -6.0f) rimMoved = true;
@@ -1578,13 +1640,31 @@ void handleTouch() {
     }
   } else if (wasPressed) {  // levanta el dedo: resolver gesto
     lastInteract = millis();
+    // A reading still held at lift-off was never confirmed by a next one. Off
+    // a control it is kept, exactly as every reading always was -- polls slow
+    // down while the panel draws, and the end of a quick swipe can arrive as
+    // one far sample. ON a control it is kept only if the finger was already
+    // travelling that way; otherwise it is the stray, and the gesture ends
+    // where the finger really was.
+    if (tHeld) {
+      int32_t ax = tXl - tX0, ay = tYl - tY0, hx = tHeldX - tXl, hy = tHeldY - tYl;
+      bool travelling = ax * ax + ay * ay >= (int32_t)TOUCH_MOVING_PX * TOUCH_MOVING_PX &&
+                        ax * hx + ay * hy > 0;
+      if (!tOnControl || travelling) touchAccept(tHeldX, tHeldY);
+      tHeld = false;
+    }
     int dx = tXl - tX0, dy = tYl - tY0;
     uint32_t dt = millis() - tStart;
     if (rimMoved) { rimActive = false; wasPressed = pressed; return; }   // it was a scroll
     if (!holdFired && !swallowGesture) {
-      if (abs(dx) > 80 && abs(dy) < 70 && dt < 800) onSwipe(dx > 0 ? 1 : -1);
-      else if (abs(dy) > 80 && abs(dx) < 70 && dt < 800) onSwipeV(dy > 0 ? 1 : -1);
-      else if (dt < 1500 && abs(dx) < 40 && abs(dy) < 40) onTap(tX0, tY0);
+      // Off a control, distance alone decides, as it always has. ON one, a
+      // swipe must also have moved its own way for TOUCH_SWIPE_STEPS polls, and
+      // whatever falls short is a tap on that control rather than nothing.
+      bool hOk = !tOnControl || (dx > 0 ? tStepsR : tStepsL) >= TOUCH_SWIPE_STEPS;
+      bool vOk = !tOnControl || (dy > 0 ? tStepsD : tStepsU) >= TOUCH_SWIPE_STEPS;
+      if (abs(dx) > 80 && abs(dy) < 70 && dt < 800 && hOk) onSwipe(dx > 0 ? 1 : -1);
+      else if (abs(dy) > 80 && abs(dx) < 70 && dt < 800 && vOk) onSwipeV(dy > 0 ? 1 : -1);
+      else if (dt < 1500 && (tOnControl || (abs(dx) < 40 && abs(dy) < 40))) onTap(tX0, tY0);
     }
     rimActive = false;
   }
@@ -2136,15 +2216,14 @@ void onTap(int16_t x, int16_t y) {
       sfxPlay(SFX_TAP);
       return;
     }
-    if (y >= LANBTN_Y && y <= LANBTN_Y + LANBTN_H &&
-        x >= LANBTN_X && x <= LANBTN_X + LANBTN_W) {   // LAN battle
+    if (lanBtnHit(x, y)) {                               // LAN battle
       gymOpen = false; gymPick = false;
       lan.state = LINK_OFF;
       lanOpen = true;
       sfxPlay(SFX_TAP);
       return;
     }
-    if (y > 380) { gymOpen = false; gymPick = false; }
+    // Anything else is swallowed: there is no tap-to-leave here any more.
     return;
   }
   if (gymOpen) {
@@ -2274,7 +2353,7 @@ void onTap(int16_t x, int16_t y) {
         galleryDirty = true;
         galleryPick = false;
         sfxPlay(SFX_TAP);
-      } else if (y > 380) {
+      } else if (rpickBackHit(x, y, RPICK_FOR_DEX)) {
         galleryOpen = false;
       }
       return;
@@ -2736,6 +2815,10 @@ float uiRimAngle(int16_t x, int16_t y) {
 
 // ---------- the chrome that makes both of the above visible ----------
 #define TILE_DOT_Y 440
+// The finger-sized LAN button runs down towards the tile dots; it must stop
+// short of the active dot's pill (TILE_DOT_Y - 3).
+static_assert(LANBTN_Y + LANBTN_H < TILE_DOT_Y - 3,
+              "the LAN button overlaps the tile dots");
 
 static inline uint16_t uiChromeInk() {
   return uiCurrentScreen() == SCR_MAIN ? inkColor() : UI_INK;
@@ -6049,7 +6132,7 @@ static void renderRegionPick(uint8_t mode) {
     gfx->drawRoundRect(LANBTN_X, LANBTN_Y, LANBTN_W, LANBTN_H, 11, UI_INK);
     gfx->setTextColor(UI_INK);
     gfx->setTextSize(2);
-    gfx->setCursor(CX - strlen(T(S_LAN)) * 6, LANBTN_Y + 14);
+    gfx->setCursor(CX - strlen(T(S_LAN)) * 6, LANBTN_Y + (LANBTN_H - 16) / 2);
     gfx->print(T(S_LAN));
   }
   if (pages > 1) {                        // dots: which page of regions this is
@@ -6060,10 +6143,11 @@ static void renderRegionPick(uint8_t mode) {
       else gfx->drawCircle(cx, RPICK_DOTS_Y, RPICK_DOT_R, UI_TRACK);
     }
   }
-  if (mode != RPICK_FOR_START) {          // first boot has nowhere to go back to
+  // Drawn exactly where rpickBackHit() answers: the Pokedex chooser only.
+  if (mode == RPICK_FOR_DEX) {
     gfx->setTextColor(UI_INK_SOFT);
     gfx->setTextSize(2);
-    gfx->setCursor(CX - strlen(T(S_BACK)) * 6, 392);
+    gfx->setCursor(CX - strlen(T(S_BACK)) * 6, RPICK_BACK_LABEL_Y);
     gfx->print(T(S_BACK));
   }
   uiChrome();
@@ -6075,20 +6159,49 @@ static void renderRegionPick(uint8_t mode) {
 // whose sprite pack is missing must not be selectable, which is the whole point
 // of the gate. The chooser still SHOWS it, greyed, saying why.
 static int regionPickTap(int16_t x, int16_t y, uint8_t mode) {
+  int i = rpickRowAt(x, y, mode);
+  if (i < 0) return -1;
+  if (mode != RPICK_FOR_GYMS && !regionAvailable((uint8_t)i)) {
+    sfxPlay(SFX_DENY);      // locked: say no out loud rather than do nothing
+    return -1;
+  }
+  return i;
+}
+
+// The region whose row is under (x,y) on the current page, locked or not, or -1.
+int rpickRowAt(int16_t x, int16_t y, uint8_t mode) {
   if (x < RPICK_X || x > RPICK_X + RPICK_W) return -1;
   uint8_t nreg = rpickRegions(mode);
   for (uint8_t row = 0; row < RPICK_PER_PAGE; row++) {
     uint8_t i = (uint8_t)(rpickPage * RPICK_PER_PAGE + row);
     if (i >= nreg) break;
-    if (y >= RPICK_Y(row) && y <= RPICK_Y(row) + RPICK_H) {
-      if (mode != RPICK_FOR_GYMS && !regionAvailable(i)) {
-        sfxPlay(SFX_DENY);      // locked: say no out loud rather than do nothing
-        return -1;
-      }
-      return i;
-    }
+    if (y >= RPICK_Y(row) && y <= RPICK_Y(row) + RPICK_H) return i;
   }
   return -1;
+}
+
+bool lanBtnHit(int16_t x, int16_t y) {
+  return y >= LANBTN_Y && y <= LANBTN_Y + LANBTN_H &&
+         x >= LANBTN_X && x <= LANBTN_X + LANBTN_W;
+}
+
+// Only the Pokedex chooser has a tap-to-go-back zone. The gym chooser's LAN
+// button fills that space, and a zone next to it is what turned a low tap on
+// LAN BATTLE into "back to the pet screen". First boot has nowhere to go back to.
+bool rpickBackHit(int16_t x, int16_t y, uint8_t mode) {
+  (void)x;
+  return mode == RPICK_FOR_DEX && y > RPICK_BACK_ZONE_Y;
+}
+
+// Whether a gesture starting at (x,y) starts ON a tappable control. Such a
+// gesture resolves as a tap unless it moves like a real swipe -- see
+// handleTouch(). Knows the region choosers, where the misfire was reported;
+// any other screen answers false and keeps the plain distance rules.
+bool uiOnControl(int16_t x, int16_t y) {
+  uint8_t mode = rpickModeNow();
+  if (mode == 0xFF) return false;
+  if (rpickRowAt(x, y, mode) >= 0) return true;
+  return mode == RPICK_FOR_GYMS && lanBtnHit(x, y);
 }
 
 // ---------- level-up learn prompt ----------
