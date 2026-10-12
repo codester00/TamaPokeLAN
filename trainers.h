@@ -239,7 +239,68 @@ static const Trainer TRAINERS_ALOLA[TRAINER_COUNT] = {
   { "KUKUI",    "CHAMPION",  T_NORMAL,   6, { {745,57},{38,56},{628,56},{462,56},{143,56},{727,58} } },
 };
 
-#define GYM_REGIONS 7
+// GALAR -- SWORD, and *** NOT VERIFIED AGAINST A DISASSEMBLY ***: there is no
+// Gen 8 decomp. Written from knowledge, the standard that produced ten errors in
+// Johto and Hoenn before verify_rosters.py existed. Treat levels as approximate.
+//
+// SWORD, not Shield, because two gyms are version-exclusive: Bea (Fighting) and
+// Gordie (Rock) here, Allister and Melony in Shield. One ladder, one version.
+//
+// GALAR HAS NO ELITE FOUR. After the eight gyms comes the Champion Cup, so the
+// four "Elite 4" slots are its real opponents in order: Marnie in the
+// semi-final, then Nessa, Bea and Raihan in the finals with their stronger
+// teams, then Leon. Three leaders therefore appear twice, as they do in the game.
+// Regional forms do not exist in this dex: Opal's Galarian WEEZING and MR. MIME
+// are the base species' numbers.
+//
+// FIVE SUBSTITUTIONS, all for species SpriteCollab has no art for (noart.h):
+//   GORDIE  COALOSSAL   839 -> MAGCARGO   219  (the same Rock/Fire typing)
+//   NESSA   BARRASKEWDA 847 -> CRAMORANT  845  (Galar Water, Champion Cup team)
+//   BEA     FALINKS     870 -> PASSIMIAN  766  (pure Fighting)
+//   LEON    MR. RIME    866 -> RHYPERIOR  464  (a Leon team member elsewhere)
+static const Trainer TRAINERS_GALAR[TRAINER_COUNT] = {
+  { "MILO",     "TURFFIELD",  T_GRASS,    2, { {829,19},{830,20} } },
+  { "NESSA",    "HULBURY",    T_WATER,    3, { {118,22},{846,23},{834,24} } },
+  { "KABU",     "MOTOSTOKE",  T_FIRE,     3, { {38,25},{59,25},{851,27} } },
+  { "BEA",      "STOWONSIDE", T_FIGHTING, 4, { {237,34},{675,34},{865,35},{68,36} } },
+  { "OPAL",     "BALLONLEA",  T_FAIRY,    4, { {110,36},{122,36},{468,37},{869,38} } },
+  { "GORDIE",   "CIRCHESTER", T_ROCK,     4, { {689,40},{213,40},{874,41},{219,42} } },  // 839 COALOSSAL: no art
+  { "PIERS",    "SPIKEMUTH",  T_DARK,     4, { {560,44},{687,45},{435,45},{862,46} } },
+  { "RAIHAN",   "HAMMERLOCKE",T_DRAGON,   4, { {526,46},{330,47},{844,46},{884,48} } },
+  { "MARNIE",   "CHAMP CUP",  T_DARK,     5, { {510,47},{454,47},{560,47},{877,48},{861,49} } },
+  { "NESSA",    "CHAMP CUP",  T_WATER,    4, { {768,50},{279,50},{845,51},{834,53} } },  // 847 BARRASKEWDA: no art
+  { "BEA",      "CHAMP CUP",  T_FIGHTING, 5, { {237,51},{853,51},{865,52},{766,52},{68,53} } },  // 870 FALINKS: no art
+  { "RAIHAN",   "CHAMP CUP",  T_DRAGON,   4, { {324,53},{706,53},{330,54},{884,55} } },
+  { "LEON",     "CHAMPION",   T_FIRE,     6, { {681,62},{887,62},{612,63},{537,64},{464,64},{6,65} } },  // 866 MR RIME: no art
+};
+
+// PALDEA -- SCARLET / VIOLET, and *** NOT VERIFIED AGAINST A DISASSEMBLY ***:
+// there is no Gen 9 decomp either. Paldea has no version-exclusive leaders and a
+// real Elite Four, so this is the game's own order with no reinterpretation.
+// LARRY appears twice -- the Normal gym and the Flying Elite 4 -- as in the game.
+//
+// FOUR SUBSTITUTIONS, all for species with no art (noart.h):
+//   TULIP and GEETA  ESPATHRA 956 -> ARMAROUGE 936  (Paldea Psychic; one stand-in
+//                                                    for every Espathra)
+//   LARRY (E4)       ORICORIO 741 -> KILOWATTREL 941 (Paldea Flying)
+//   LARRY (E4)       FLAMIGO  973 -> HAWLUCHA    701 (the same Fighting/Flying)
+static const Trainer TRAINERS_PALDEA[TRAINER_COUNT] = {
+  { "KATY",     "CORTONDO",   T_BUG,      3, { {919,14},{917,14},{216,15} } },
+  { "BRASSIUS", "ARTAZON",    T_GRASS,    3, { {548,16},{928,16},{185,17} } },
+  { "IONO",     "LEVINCIA",   T_ELECTRIC, 4, { {940,23},{939,23},{404,23},{429,24} } },
+  { "KOFU",     "CASCARRAFA", T_WATER,    3, { {976,29},{961,29},{740,30} } },
+  { "LARRY",    "MEDALI",     T_NORMAL,   3, { {775,35},{982,35},{398,36} } },
+  { "RYME",     "MONTENEVERA",T_GHOST,    4, { {354,41},{778,41},{972,41},{849,42} } },
+  { "TULIP",    "ALFORNADA",  T_PSYCHIC,  4, { {981,44},{282,44},{936,44},{671,45} } },  // 956 ESPATHRA: no art
+  { "GRUSHA",   "GLASEADO",   T_ICE,      4, { {873,47},{614,47},{975,47},{334,48} } },
+  { "RIKA",     "ELITE 4",    T_GROUND,   5, { {340,57},{323,57},{232,57},{51,57},{980,58} } },
+  { "POPPY",    "ELITE 4",    T_STEEL,    5, { {879,58},{462,58},{437,58},{823,58},{959,59} } },
+  { "LARRY",    "ELITE 4",    T_FLYING,   5, { {357,59},{941,59},{334,59},{398,59},{701,60} } },  // 741 ORICORIO, 973 FLAMIGO: no art
+  { "HASSEL",   "ELITE 4",    T_DRAGON,   5, { {715,60},{612,60},{691,60},{841,60},{998,61} } },
+  { "GEETA",    "CHAMPION",   T_ROCK,     6, { {936,61},{673,61},{976,61},{713,61},{983,61},{970,62} } },  // 956 ESPATHRA: no art
+};
+
+#define GYM_REGIONS 9
 static const TrainerSet TRAINER_SETS[GYM_REGIONS] = {
   { TRAINERS_KANTO,  "KANTO" },
   { TRAINERS_JOHTO,  "JOHTO" },
@@ -248,6 +309,8 @@ static const TrainerSet TRAINER_SETS[GYM_REGIONS] = {
   { TRAINERS_UNOVA,  "UNOVA" },
   { TRAINERS_KALOS,  "KALOS" },
   { TRAINERS_ALOLA,  "ALOLA" },
+  { TRAINERS_GALAR,  "GALAR" },
+  { TRAINERS_PALDEA, "PALDEA" },
 };
 
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the

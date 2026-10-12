@@ -43,9 +43,9 @@ progression, battery (AXP2101) and PWR button, anti-burn-in dimming,
 **sound (ES8311)**, **6 UI languages (English default)**, **starter choice on
 first run**, and a one-click **web installer**.
 
-All nine regions are in the dex. **Galar and Paldea have no sprite pack yet**, so
-they show as NEEDS PACK and stay out of the egg pool until one is built — the
-same gating every region has always used.
+All nine regions are in the dex, each with its own sprite pack in the web
+installer. A region whose pack is not on the card shows as NEEDS PACK and stays
+out of the egg pool until it is — the same gating every region has always used.
 
 **Added in this fork:**
 
@@ -99,26 +99,30 @@ Turn- and move-based, with the real type chart, ailments and STAB. Moves sit in 
 2x2 grid with each one's type and remaining uses. Real Game Boy battle music
 plays throughout.
 
-### Seven gym ladders
+### Nine gym ladders
 
 | Pick a ladder | Johto's gyms | LAN battle |
 |---|---|---|
 | <img src="docs/screens/gympick.png" width="240"> | <img src="docs/screens/gymsj.png" width="240"> | <img src="docs/screens/lanready.png" width="240"> |
 
-Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos and Alola each have eight leaders, an
-Elite 4 and a champion, on easy and hard. Four of the seven are the games' own
+Every region has eight leaders, an Elite 4 and a champion, on easy and hard.
+Four of the nine are the games' own
 teams, checked against the pokecrystal, pokeemerald and pokeplatinum
 disassemblies — **0 differences across all 39 verified trainers**, re-checkable
 with `tools/verify_rosters.py`.
 
-**Unova, Kalos and Alola are the exceptions, and say so.** pret's work stops at
-the DS generation, so those three ladders are written from knowledge rather than
+**Unova, Kalos, Alola, Galar and Paldea are the exceptions, and say so.** pret's
+work stops at the DS generation, so those five ladders are written from knowledge rather than
 from the games' own tables; `verify_rosters.py` prints each of them as NOT
 VERIFIED rather than letting a clean run imply otherwise. Unova follows Black 2 /
 White 2, which unlike Black/White has no version- or starter-dependent leaders.
 
-Galar and Paldea are in the dex but have no ladder, because they have no sprite
-pack — see § Status.
+Galar follows **Sword** (Bea and Gordie, not Shield's Allister and Melony), and
+since Galar has no Elite Four its four Elite slots are the Champion Cup —
+Marnie, then Nessa, Bea and Raihan with their stronger teams — before Leon.
+Paldea is Scarlet/Violet as played, Larry appearing twice just as he does there.
+Where a leader's creature has no sprite art it is swapped for a close stand-in of
+the same type, so no fight opens on a bare dex number; `trainers.h` lists each.
 
 Sinnoh follows **Platinum**, where Fantina is the *third* gym rather than
 Diamond/Pearl's fifth; the level ramp only runs 14/22/26/32/37/41/44/50 that
@@ -379,7 +383,7 @@ BUBBLE, ABSORB, SPARK, FURY ATTACK and the rest), never a borrowed TM.
 
 The first five gym leaders sit at levels **14–43**, so you fight the early
 ladder on what your species actually learns; TMs arrive as you enter the back
-half. A creature retires at 73 and caps at 100. See "Seven gym ladders" above
+half. A creature retires at 73 and caps at 100. See "Nine gym ladders" above
 for which regions have ladders and how they're verified.
 
 **Gym wins train too**, which is what makes the ladder worth replaying rather than
@@ -536,9 +540,9 @@ split lives on the species, not the individual — no extra IVs to roll.
   Italian, Portuguese — switchable from Settings. Move names and battle
   narration follow whichever is chosen.
 - **Region:** the pill under a waiting egg picks which generation it comes from —
-  **Kanto / Johto / Hoenn / Sinnoh / Unova / Kalos / Alola / All**. A first egg gives that
-  region's starter. A handful of species have no sprite art anywhere (13 of
-  Unova's 156, and Pyroar); they keep their dex numbers but never hatch, since the egg would
+  **Kanto / Johto / Hoenn / Sinnoh / Unova / Kalos / Alola / Galar / Paldea / All**. A first egg gives that
+  region's starter. 48 species have no sprite art anywhere (13 in Unova, 1 in
+  Kalos, 5 in Alola, 9 in Galar, 20 in Paldea); they keep their dex numbers but never hatch, since the egg would
   give a creature that could only ever draw as a number.
   A region whose **sprite pack is not on the card** shows as locked and is kept
   out of the egg pool, so a partial sprite install is a supported state. A pack

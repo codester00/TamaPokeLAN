@@ -202,7 +202,7 @@ def main():
                 continue
             print('=== %s: NOT VERIFIED' % r)
             print('  %d trainers written from knowledge, not from a disassembly.' % len(team))
-        print('  pret has no Gen 5 or Gen 6 decomp -- their work stops at the DS')
+        print('  pret has no decomp from Gen 5 on -- their work stops at the DS')
         print('  generation. If one appears, add it here: the same recall')
         print('  produced ten errors in Johto and Hoenn.')
     return 1 if n else 0

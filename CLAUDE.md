@@ -582,6 +582,20 @@ alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. The installer was NOT rebuilt: `web/` still
 ships v3.28 and its manifest says so.
 
+### Done: Galar and Paldea ladders, nine in all (2026-10-12)
+
+`GYM_REGIONS` 7 -> 9. Galar is SWORD (Bea and Gordie; Shield swaps in Allister
+and Melony) and, having no Elite Four, fills those four slots with the
+Champion Cup in order: Marnie, then Nessa, Bea and Raihan's stronger teams,
+then Leon. Paldea is Scarlet/Violet as played. Both are written from
+knowledge, NOT VERIFIED (no Gen 8/9 decomp); `verify_rosters.py` derives its
+NOT VERIFIED list from `trainers.h` and names them itself. Seven art-less
+species were swapped for same-type stand-ins, listed at the top of each ladder,
+and `roster_test` fails if one is put back. Regional forms do not exist in this
+dex, so Opal's Galarian Weezing and Mr. Mime are the base species. Badges are
+additive and the player record carries its own dimensions, so 7 -> 9 needed no
+migration; Alola, Galar and Paldea draw the plain type medal (no badge art).
+
 ### Done: LAN BATTLE misfiring back to the pet screen (2026-10-11)
 
 Reported from a board: tapping LAN BATTLE on the gym chooser often went
