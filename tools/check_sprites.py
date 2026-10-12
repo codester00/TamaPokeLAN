@@ -33,7 +33,9 @@ GENS = [
 ]
 
 
-RAW = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/%04d/AnimData.xml'
+RAW = 'https://raw.githubusercontent.com/PMDCollab/SpriteCollab/master/sprite/%04d%s/AnimData.xml'
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sprite_paths import ART_PATHS   # the same places pack_pmd.py looks
 
 
 def packable(dexes):
@@ -58,15 +60,18 @@ def packable(dexes):
         # and urllib raises CERTIFICATE_VERIFY_FAILED, which would look exactly
         # like "no art" if it were swallowed. The rest of this script already
         # shells out for the same reason.
-        r = subprocess.run(['curl', '-sI', '-o', '/dev/null', '-w', '%{http_code}',
-                            RAW % d], capture_output=True, text=True)
-        code = r.stdout.strip()
-        if code == '200':
-            return d, True
-        if code == '404':
-            return d, False
-        raise SystemExit('HEAD for dex %d returned %r -- refusing to report '
-                         'partial coverage as fact' % (d, code))
+        # Every place pack_pmd.py would look, in its order: a species drawn
+        # only as a gender or form variant HAS art (Pyroar, Oricorio...).
+        for sub in ART_PATHS:
+            r = subprocess.run(['curl', '-sI', '-o', '/dev/null', '-w', '%{http_code}',
+                                RAW % (d, sub)], capture_output=True, text=True)
+            code = r.stdout.strip()
+            if code == '200':
+                return d, True
+            if code != '404':
+                raise SystemExit('HEAD for dex %d returned %r -- refusing to report '
+                                 'partial coverage as fact' % (d, code))
+        return d, False
 
     out = set()
     with ThreadPoolExecutor(max_workers=24) as ex:

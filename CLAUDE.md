@@ -364,6 +364,13 @@ cert store here), which also found four more over-reported species in Alola,
 Galar and Paldea. Coverage has to mean "can be drawn", because it decides what
 can hatch.
 
+**And "drawn" includes a gender or form variant.** Pyroar's form folder above
+turned out to hold a female sprite (`0000/0000/0002`): Pyroar HAD art all along,
+drawn as the female. `tools/sprite_paths.py` lists every place to look, best
+first, and BOTH `pack_pmd.py` and `check_sprites.py` read it -- one list, so the
+packer and the coverage check cannot disagree again. It rescued five (Pyroar,
+Oricorio, Falinks, Gimmighoul, Miraidon); the other 41 are genuinely undrawn.
+
 **A tool that reports a partial fetch as fact is the same disease.**
 `check_sprites.py` paged the GitHub API and `break`'d on any failure, returning
 whatever it had -- so a rate-limited run said an entire generation had no art.

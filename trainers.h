@@ -15,15 +15,18 @@
 // bring whoever you have, so attrition is the difficulty: one strong creature
 // can sweep Brock but will not survive five of Lance's in a row.
 
-// FOUR ROSTER SLOTS ARE DELIBERATE SUBSTITUTIONS, not transcription errors.
+// THREE ROSTER SLOTS ARE DELIBERATE SUBSTITUTIONS, not transcription errors.
 // SpriteCollab has no art for these, so as written they put a bare dex NUMBER on
-// screen where a leader's creature should be -- and three of them LEAD, which is
+// screen where a leader's creature should be -- and two of them LEAD, which is
 // the first thing you see in the fight:
 //
 //   ELESA   ZEBSTRIKA  523 -> GALVANTULA 596   (Bug/Electric, still fast)
 //   MARLON  CARRACOSTA 565 -> SEISMITOAD 537   (bulky Water)
 //   MARSHAL THROH      538 -> HARIYAMA   297   (bulky pure Fighting; see below)
-//   MALVA   PYROAR     668 -> DELPHOX    655   (fast special Fire, Kalos)
+//
+// (MALVA's PYROAR was a fourth until 2026-10-12: SpriteCollab draws Pyroar only
+// as the female form, which the packer now finds -- see tools/sprite_paths.py.
+// She has her real team back.)
 //
 // Each stand-in keeps the leader's specialty type, sits near the original's
 // base-stat total and comes from the same region as the ladder, so the fight
@@ -203,7 +206,7 @@ static const Trainer TRAINERS_KALOS[TRAINER_COUNT] = {
   { "VALERIE",  "LAVERRE",   T_FAIRY,    3, { {303,38},{122,39},{700,42} } },
   { "OLYMPIA",  "ANISTAR",   T_PSYCHIC,  3, { {561,44},{199,45},{678,48} } },
   { "WULFRIC",  "SNOWBELLE", T_ICE,      3, { {460,56},{615,55},{713,59} } },
-  { "MALVA",    "ELITE 4",   T_FIRE,     4, { {655,63},{324,63},{609,63},{663,65} } },  // 668 PYROAR: no art
+  { "MALVA",    "ELITE 4",   T_FIRE,     4, { {668,63},{324,63},{609,63},{663,65} } },
   { "SIEBOLD",  "ELITE 4",   T_WATER,    4, { {693,63},{130,63},{121,63},{689,65} } },
   { "WIKSTROM", "ELITE 4",   T_STEEL,    4, { {707,63},{476,63},{212,63},{681,65} } },
   { "DRASNA",   "ELITE 4",   T_DRAGON,   4, { {691,63},{621,63},{334,63},{715,65} } },
@@ -253,9 +256,8 @@ static const Trainer TRAINERS_ALOLA[TRAINER_COUNT] = {
 // Regional forms do not exist in this dex: Opal's Galarian WEEZING and MR. MIME
 // are the base species' numbers.
 //
-// THREE SUBSTITUTIONS, all for species SpriteCollab has no art for (noart.h):
+// TWO SUBSTITUTIONS, both for species SpriteCollab has no art for (noart.h):
 //   GORDIE  COALOSSAL   839 -> MAGCARGO   219  (the same Rock/Fire typing)
-//   BEA     FALINKS     870 -> PASSIMIAN  766  (pure Fighting)
 //   LEON    MR. RIME    866 -> RHYPERIOR  464  (a Leon team member elsewhere)
 static const Trainer TRAINERS_GALAR[TRAINER_COUNT] = {
   { "MILO",     "TURFFIELD",  T_GRASS,    2, { {829,19},{830,20} } },
@@ -268,7 +270,7 @@ static const Trainer TRAINERS_GALAR[TRAINER_COUNT] = {
   { "RAIHAN",   "HAMMERLOCKE",T_DRAGON,   4, { {526,46},{330,47},{844,46},{884,48} } },
   { "MARNIE",   "CHAMP CUP",  T_DARK,     5, { {510,47},{454,47},{560,47},{877,48},{861,49} } },
   { "NESSA",    "CHAMP CUP",  T_WATER,    4, { {768,50},{279,50},{847,51},{834,53} } },
-  { "BEA",      "CHAMP CUP",  T_FIGHTING, 5, { {237,51},{853,51},{865,52},{766,52},{68,53} } },  // 870 FALINKS: no art
+  { "BEA",      "CHAMP CUP",  T_FIGHTING, 5, { {237,51},{853,51},{865,52},{870,52},{68,53} } },
   { "RAIHAN",   "CHAMP CUP",  T_DRAGON,   4, { {324,53},{706,53},{330,54},{884,55} } },
   { "LEON",     "CHAMPION",   T_FIRE,     6, { {681,62},{887,62},{612,63},{537,64},{464,64},{6,65} } },  // 866 MR RIME: no art
 };
@@ -278,10 +280,9 @@ static const Trainer TRAINERS_GALAR[TRAINER_COUNT] = {
 // real Elite Four, so this is the game's own order with no reinterpretation.
 // LARRY appears twice -- the Normal gym and the Flying Elite 4 -- as in the game.
 //
-// FOUR SUBSTITUTIONS, all for species with no art (noart.h):
+// THREE SUBSTITUTIONS, all for species with no art (noart.h):
 //   TULIP and GEETA  ESPATHRA 956 -> ARMAROUGE 936  (Paldea Psychic; one stand-in
 //                                                    for every Espathra)
-//   LARRY (E4)       ORICORIO 741 -> KILOWATTREL 941 (Paldea Flying)
 //   LARRY (E4)       FLAMIGO  973 -> HAWLUCHA    701 (the same Fighting/Flying)
 static const Trainer TRAINERS_PALDEA[TRAINER_COUNT] = {
   { "KATY",     "CORTONDO",   T_BUG,      3, { {919,14},{917,14},{216,15} } },
@@ -294,7 +295,7 @@ static const Trainer TRAINERS_PALDEA[TRAINER_COUNT] = {
   { "GRUSHA",   "GLASEADO",   T_ICE,      4, { {873,47},{614,47},{975,47},{334,48} } },
   { "RIKA",     "ELITE 4",    T_GROUND,   5, { {340,57},{323,57},{232,57},{51,57},{980,58} } },
   { "POPPY",    "ELITE 4",    T_STEEL,    5, { {879,58},{462,58},{437,58},{823,58},{959,59} } },
-  { "LARRY",    "ELITE 4",    T_FLYING,   5, { {357,59},{941,59},{334,59},{398,59},{701,60} } },  // 741 ORICORIO, 973 FLAMIGO: no art
+  { "LARRY",    "ELITE 4",    T_FLYING,   5, { {357,59},{741,59},{334,59},{398,59},{701,60} } },  // 973 FLAMIGO: no art
   { "HASSEL",   "ELITE 4",    T_DRAGON,   5, { {715,60},{612,60},{691,60},{841,60},{998,61} } },
   { "GEETA",    "CHAMPION",   T_ROCK,     6, { {936,61},{673,61},{976,61},{713,61},{983,61},{970,62} } },  // 956 ESPATHRA: no art
 };

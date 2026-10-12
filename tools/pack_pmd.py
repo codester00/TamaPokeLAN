@@ -28,6 +28,8 @@ import sys
 import subprocess
 import xml.etree.ElementTree as ET
 from PIL import Image
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sprite_paths import ART_PATHS, shiny_path
 
 # Kept in step with dex.h rather than hardcoded, the same way gen_moves.py is.
 import re as _re
@@ -102,10 +104,16 @@ def load_animdata(folder):
 
 
 def pack(dexnum, shiny=False):
-    sub = '/0000/0001' if shiny else ''
+    # The first place in ART_PATHS that holds this species' art: the default
+    # sprite, else a gender or form variant (tools/sprite_paths.py says why).
     folder = os.path.join(CACHE, f'{dexnum:04d}{"s" if shiny else ""}')
-    base = f'{BASE}/{dexnum:04d}{sub}'
-    if not fetch(f'{base}/AnimData.xml', os.path.join(folder, 'AnimData.xml')):
+    base = None
+    for art in ART_PATHS:
+        sub = shiny_path(art) if shiny else art
+        if fetch(f'{BASE}/{dexnum:04d}{sub}/AnimData.xml', os.path.join(folder, 'AnimData.xml')):
+            base = f'{BASE}/{dexnum:04d}{sub}'
+            break
+    if base is None:
         raise RuntimeError('sin AnimData.xml')
     anims = load_animdata(folder)
 
