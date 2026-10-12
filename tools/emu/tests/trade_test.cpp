@@ -296,6 +296,12 @@ int main() {
     ck(s.clean(), "no journal left open on either side");
     ck(!s.ta.locks(s.a1.uid), "and nothing is locked afterwards");
     ck(s.A.count(s.a2.uid) == 1 && s.B.count(s.b2.uid) == 1, "bystanders untouched");
+    // a1 is a KADABRA and b1 a MACHOKE: both evolve by trade, and the
+    // PROTOCOL marks them as it applies the trade -- not a hook a board could
+    // forget to implement.
+    ck((s.A.party[0].flags & PMON_TRADE_EVO) && (s.B.party[2].flags & PMON_TRADE_EVO),
+       "both received creatures are marked to evolve by trade");
+    ck(!(s.A.box[3].flags & PMON_TRADE_EVO), "and nothing else is");
   }
 
   // --- 2. changing an offer voids the acceptance
@@ -329,15 +335,15 @@ int main() {
     // A broken creature on the wire: forge an offer by hand.
     PartyMon bogus = s.b1;
     bogus.moves[0] = 250;
-    uint8_t pkt[2 + 1 + 60];
-    pkt[0] = TM_OFFER; pkt[1] = 61; pkt[2] = 9;
-    memcpy(pkt + 3, &bogus, 60);
+    uint8_t pkt[2 + 1 + sizeof(PartyMon)];
+    pkt[0] = TM_OFFER; pkt[1] = 1 + sizeof(PartyMon); pkt[2] = 9;
+    memcpy(pkt + 3, &bogus, sizeof(PartyMon));
     s.ta.onPacket(pkt, sizeof(pkt));
     ck(!s.ta.theirsOk && s.ta.theirsWhy == 1, "a creature that fails validation is refused");
     ck(!s.ta.accept(), "and cannot be accepted");
     PartyMon dup = s.b1;
     dup.uid = s.a2.uid;      // an ID A already holds
-    memcpy(pkt + 3, &dup, 60);
+    memcpy(pkt + 3, &dup, sizeof(PartyMon));
     pkt[2] = 10;
     s.ta.onPacket(pkt, sizeof(pkt));
     ck(s.ta.theirsWhy == 3, "a creature already on this board is refused");

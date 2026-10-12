@@ -602,7 +602,26 @@ Agreed with the owner: party or box only, never the live pet; one for one; a
 receipt before anything commits; trade evolution is PURE trade (the level-40
 route goes) and happens when the received creature is made the live pet, so
 both forms reach the Pokedex -- it is flagged on receipt (`onReceive()`), not
-evolved there. That flag needs storage on `PartyMon` and is the next step.
+evolved there.
+
+**Trade evolution: BUILT** (v3.32, `tradeevo_test`). `tools/fetch_trade_evos.py`
+derives `TRADE_EVOS` from PokeAPI (25 rows; MILOTIC is left out because the
+games also level it) and `gen_dex.py` emits it -- and adds every trade target
+to the evolution-only set, so POLITOED, SLOWKING and GOREBYSS stopped hatching
+(the same disease EEVEE's branches had: nothing's `evolvesTo` named them).
+`PartyMon` gained `flags` + 3 reserved (60 -> 64), the pet checkpoint a v4
+flags byte. **`Pet::evoInfo()` is THE evolution rule** -- `canEvolveNow()`,
+`evolve()` and the card (`uiEvoLine()`) all ask it; the card used to restate
+the level sum, which pure trade would have turned into a lie. The PROTOCOL
+marks a received creature (`Pet::markTraded()` in `applyJournal()`), not a
+board hook, so no board can forget. A marked creature evolves at any level
+once cared for; the mark is spent by the evolution, so PORYGON2 needs a second
+trade. CLAMPERL's two targets are picked by the creature's own ID.
+
+**Until the trade screen exists, the 22 trade-only species cannot evolve at
+all** -- the level route is gone and there is no way to trade yet. Known and
+accepted for an unreleased branch; do not release 3.32 without the screen, or
+put `onlyByTrade()` behind a switch first.
 
 **Do not "simplify" the pending stage into a timeout-and-revert.** That is the
 first design everyone reaches for and it loses creatures: the last message of
@@ -1777,7 +1796,7 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 44 suites (sprite_test skips without sprites)
+bash tools/emu/tests/run.sh          # all 45 suites (sprite_test skips without sprites)
 bash tools/emu/tests/run.sh battle   # just matching ones
 ```
 

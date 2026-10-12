@@ -106,13 +106,22 @@ struct PartyMon {
   // CreatureUid's "no ID yet" -- backfillUids() then gives it one.
   CreatureUid uid;
 
+  // ---- flags, appended in v3.32 --------------------------------------------
+  // PMON_TRADE_EVO: received in a trade, and will evolve by trade the next
+  // time it is the live pet (Pet::evoInfo()). Set by Pet::markTraded(), cleared
+  // by the evolution. The three reserved bytes keep the record 4-aligned and
+  // are zero; tradeMonValid() refuses a record where they are not.
+  uint8_t flags = 0;
+  uint8_t reserved[3] = { 0, 0, 0 };
+
   bool empty() const { return dex < 1; }
   bool hasCareState() const { return stateVersion >= 1; }
 };
 // Pinned so growing the record is a decision, not an accident: CLAUDE.md
 // § "sizeof(PartyMon) is load-bearing in four places", and the debugger's
 // tools/debugger/tpsave.py decodes this layout by hand. Append, then move both.
-static_assert(sizeof(PartyMon) == 60, "PartyMon layout changed -- see the comment above");
+static_assert(sizeof(PartyMon) == 64, "PartyMon layout changed -- see the comment above");
+#define PMON_TRADE_EVO 0x01
 
 class Party {
 public:

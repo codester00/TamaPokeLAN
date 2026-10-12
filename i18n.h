@@ -166,6 +166,7 @@ enum StrId : uint8_t {
   S_WALLET_FMT,     // "Wallet: $%lu"
   S_MART_BUY_Q,     // buy confirm: "Buy %s?"
   S_MART_PRICE_FMT, // buy confirm sub-line: "COST: $%lu"
+  S_EVO_TRADE,      // card: this species evolves only by being traded
   STR_COUNT
 };
 

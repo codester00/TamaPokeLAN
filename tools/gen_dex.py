@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dex_data import DEX, TYPE_ACCENTS, CLASSIC, RARE, LEGENDARY, REGIONS, EEVEE_BRANCHES
 from dex_stats import BASE_STATS
 from dex_weights import WEIGHT_HG
+from dex_trade import TRADE_EVOS
 from dex_types import TYPES, TYPE_ORDER, CHART
 
 
@@ -96,7 +97,11 @@ def main():
     # single evolvesTo -- this used to read `| {135, 136}`, which is why Espeon,
     # Umbreon, Leafeon, Glaceon and Sylveon were treated as base forms and came
     # out of eggs. The list lives in dex_data.py so the firmware shares it.
-    evolved = {d[4] for d in DEX if d[4]} | set(EEVEE_BRANCHES)
+    # A trade target is reached by evolving too -- so it cannot also hatch, the
+    # same rule as EEVEE's branches. Without this POLITOED, SLOWKING and
+    # GOREBYSS, which nothing's evolvesTo points at, came out as hatchable bases.
+    evolved = ({d[4] for d in DEX if d[4]} | set(EEVEE_BRANCHES) |
+               {to for _f, to, _p in TRADE_EVOS})
     rarities = []
     out.append("static const DexEntry DEX_TBL[DEX_COUNT + 1] = {\n")
     out.append('  { "?", 0, 0, 0, 0x2946, 50, 50, 50, 50, 50, 50, 0 },  // 0: sin usar\n')
@@ -129,6 +134,16 @@ def main():
     for num, *_ in DEX:
         out.append(("\n  " if num % 16 == 0 else " ") + f"{WEIGHT_HG[num]},")
     out.append("\n};\n\n")
+    out.append("// Evolutions that happen by TRADE, from PokeAPI via tools/fetch_trade_evos.py.\n"
+               "// Where `to` is the species' own evolvesTo, trading is its ONLY route: the\n"
+               "// level in the table is not used (see Pet::evoInfo()). partner, if set, is the\n"
+               "// species it must be traded for. CLAMPERL appears twice: two targets.\n")
+    out.append("struct TradeEvo {\n  int16_t from, to, partner;\n};\n")
+    out.append("#define TRADE_EVO_COUNT %d\n" % len(TRADE_EVOS))
+    out.append("static const TradeEvo TRADE_EVOS[TRADE_EVO_COUNT] = {\n")
+    for f, t, p in TRADE_EVOS:
+        out.append(f"  {{ {f}, {t}, {p} }},\n")
+    out.append("};\n\n")
     out.append("// el primer huevo de la partida: iniciales clasicos\n")
     out.append("static const int16_t CLASSIC_DEX[] = { %s };\n" % ", ".join(map(str, CLASSIC)))
     out.append(f"#define NUM_CLASSIC_DEX {len(CLASSIC)}\n")

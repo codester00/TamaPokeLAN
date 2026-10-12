@@ -54,7 +54,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "Usas %s", "No ha hecho nada", "Encuentras %s!", "CRIAR A ESTE", "CRIANDO",
     "SALIR", "Salir de la lucha?",
     "vencido: %u vez", "vencido: %u veces", "perdiste: %u vez", "perdiste: %u veces",
-    "TIENDA POKE", "1 paso = $1", "tus pasos de toda la vida: %lu", "Wallet: $%lu", "Comprar %s?", "COSTE: $%lu", },
+    "TIENDA POKE", "1 paso = $1", "tus pasos de toda la vida: %lu", "Wallet: $%lu", "Comprar %s?", "COSTE: $%lu",
+    "Solo por intercambio", },
   // ---------------- EN ----------------
   {
     "Evolving!", "Yum yum!", "It likes it!", "It's hungry!", "Needs a bath!",
@@ -100,7 +101,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "Used %s", "It had no effect", "Found %s!", "RAISE THIS ONE", "RAISING",
     "QUIT", "Leave the battle?",
     "defeated: %u time", "defeated: %u times", "lost to: %u time", "lost to: %u times",
-    "POKE MART", "1 pedometer step = $1", "your lifetime step count: %lu", "Wallet: $%lu", "Buy %s?", "COST: $%lu", },
+    "POKE MART", "1 pedometer step = $1", "your lifetime step count: %lu", "Wallet: $%lu", "Buy %s?", "COST: $%lu",
+    "Evolves by trade", },
   // ---------------- FR ----------------
   {
     "Il evolue!", "Miam miam!", "Il aime ca!", "Il a faim!", "Besoin d'un bain!",
@@ -145,7 +147,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "Tu utilises %s", "Aucun effet", "Tu trouves %s!", "ELEVER CELUI-CI", "EN ELEVAGE",
     "QUITTER", "Quitter le combat?",
     "vaincu: %u fois", "vaincu: %u fois", "perdu contre: %u fois", "perdu contre: %u fois",
-    "POKE MART", "1 pas = $1", "tes pas de toute la vie: %lu", "Wallet: $%lu", "Acheter %s?", "COUT: $%lu", },
+    "POKE MART", "1 pas = $1", "tes pas de toute la vie: %lu", "Wallet: $%lu", "Acheter %s?", "COUT: $%lu",
+    "Evolue par echange", },
   // ---------------- DE ----------------
   {
     "Entwickelt sich!", "Mampf mampf!", "Gefaellt ihm!", "Hat Hunger!", "Braucht ein Bad!",
@@ -190,7 +193,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "%s benutzt", "Keine Wirkung", "%s gefunden!", "DIESES AUFZIEHEN", "WIRD AUFGEZOGEN",
     "VERLASSEN", "Kampf verlassen?",
     "besiegt: %u Mal", "besiegt: %u Mal", "verloren gegen: %u Mal", "verloren gegen: %u Mal",
-    "POKE MART", "1 Schritt = $1", "deine schritte insgesamt: %lu", "Wallet: $%lu", "%s kaufen?", "KOSTEN: $%lu", },
+    "POKE MART", "1 Schritt = $1", "deine schritte insgesamt: %lu", "Wallet: $%lu", "%s kaufen?", "KOSTEN: $%lu",
+    "Nur durch Tausch", },
   // ---------------- IT ----------------
   {
     "Si evolve!", "Gnam gnam!", "Gli piace!", "Ha fame!", "Vuole un bagno!",
@@ -235,7 +239,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "Usi %s", "Nessun effetto", "Trovi %s!", "ALLEVA QUESTO", "IN ALLEVAMENTO",
     "ESCI", "Uscire dalla lotta?",
     "battuto: %u volta", "battuto: %u volte", "perso contro: %u volta", "perso contro: %u volte",
-    "POKE MART", "1 passo = $1", "i tuoi passi di sempre: %lu", "Wallet: $%lu", "Comprare %s?", "COSTO: $%lu", },
+    "POKE MART", "1 passo = $1", "i tuoi passi di sempre: %lu", "Wallet: $%lu", "Comprare %s?", "COSTO: $%lu",
+    "Evolve con scambio", },
   // ---------------- PT ----------------
   {
     "Evoluindo!", "Nham nham!", "Ele gosta!", "Esta com fome!", "Precisa de banho!",
@@ -280,7 +285,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "Usas %s", "Sem efeito", "Encontras %s!", "CRIAR ESTE", "A CRIAR",
     "SAIR", "Sair da luta?",
     "derrotado: %u vez", "derrotado: %u vezes", "perdeste: %u vez", "perdeste: %u vezes",
-    "POKE MART", "1 passo = $1", "teus passos de sempre: %lu", "Wallet: $%lu", "Comprar %s?", "CUSTO: $%lu", },
+    "POKE MART", "1 passo = $1", "teus passos de sempre: %lu", "Wallet: $%lu", "Comprar %s?", "CUSTO: $%lu",
+    "Evolui por troca", },
 };
 
 // Nombres de medalla en sus tres longitudes [idioma][medalla].

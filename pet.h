@@ -150,6 +150,9 @@ public:
   // carried through every bank and swap, kept by evolution, cleared by newEgg():
   // an egg is not a creature yet.
   CreatureUid uid;
+  // Received in a trade and not yet evolved by it: PMON_TRADE_EVO on the
+  // stored record, carried across banking and swapping like the ID.
+  bool tradeEvo = false;
   uint8_t careMistakes = 0;   // descuidos: cada uno retrasa la evolucion 1 nivel
   bool sleeping = false;
   uint32_t lastSeenEpoch = 0;   // ultima hora RTC vista (para progresion offline)
@@ -460,6 +463,36 @@ public:
     return 1.0f - (float)left / (float)EVOLVE_ANIM_MS;
   }
   bool canEvolveNow() const;  // condiciones de evolucion cumplidas (lista)
+  // THE evolution rule, asked by canEvolveNow(), evolve() AND the card. The card
+  // used to restate "level >= evolveLevel + careMistakes + evoPenalty" itself,
+  // and pure trade evolution is exactly the change that would have left it
+  // promising a level-40 Alakazam that never comes (CLAUDE.md § 1).
+  enum EvoStatus : uint8_t {
+    EVO_FINAL,        // nothing to evolve into
+    EVO_NEEDS_TRADE,  // evolves only by being traded (Kadabra, Haunter...)
+    EVO_LEVELS,       // levelsLeft more levels, then care decides
+    EVO_BLOCKED,      // due, but a need is under 40
+    EVO_READY,        // due and cared for
+  };
+  struct EvoInfo {
+    uint8_t status;
+    int16_t target;       // what it would become (0 when final)
+    uint16_t levelsLeft;  // EVO_LEVELS only
+    bool byTrade;         // this evolution is the trade one
+  };
+  EvoInfo evoInfo() const;
+  // What `dex` evolves into by trade (0 if it does not), given what it was
+  // traded FOR -- Karrablast and Shelmet only for each other. CLAMPERL has two
+  // trade targets; the creature's own ID picks one, so declining and re-asking
+  // can never re-roll it.
+  static int16_t tradeTarget(int16_t dex, const CreatureUid &u, int16_t partnerDex = 0);
+  // Does this species evolve ONLY by trade (its table target is the trade one)?
+  static bool onlyByTrade(int16_t dex);
+  // Called on a creature arriving by trade, with the species given for it.
+  // Marks it to evolve the next time it is the live pet, if it is one that
+  // trading evolves. Deliberately does not evolve it here: making it the live
+  // pet first registers the unevolved form in the Pokedex, as the owner asked.
+  static void markTraded(PartyMon &in, int16_t gaveDex);
   void evolve();              // dispara la transformacion (la llama un toque del usuario)
   bool canFarewellNow() const;  // forma final + 7 dias: lista para despedirse (boton)
   // Total neglect RIGHT NOW. THE single answer: tick() counts against it and

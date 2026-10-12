@@ -183,7 +183,9 @@ static constexpr uint32_t PET_CORE_MAGIC = 0x31504B54UL;  // "TKP1"
 // still read -- they simply have no tail, which is exactly "nothing waiting for
 // a party slot", the right default.
 // v3 appended the live creature's CreatureUid after the handover record.
-static constexpr uint16_t PET_CORE_VERSION = 3;
+// v4 appended a flags byte (+3 reserved) after the CreatureUid: the pending
+// trade evolution.
+static constexpr uint16_t PET_CORE_VERSION = 4;
 // Generous enough to read a record from a later build; see ckptRead().
 static constexpr size_t PET_CORE_CAP = 192;
 
@@ -261,7 +263,8 @@ static constexpr size_t PET_TAIL_MON = PET_FIXED + 4;       // the record itself
 // record's length is stored rather than assumed, the reader finds this at
 // PET_TAIL_MON + the STORED length -- so it still lands right if PartyMon grows.
 static constexpr size_t PET_TAIL_UID = PET_TAIL_MON + sizeof(PartyMon);
-static constexpr size_t PET_BODY = PET_TAIL_UID + sizeof(CreatureUid);
+static constexpr size_t PET_TAIL_FLAGS = PET_TAIL_UID + sizeof(CreatureUid);   // v4, u8 + 3 reserved
+static constexpr size_t PET_BODY = PET_TAIL_FLAGS + 4;
 static_assert(PET_BODY + CKPT_CRC <= PET_CORE_CAP, "raise PET_CORE_CAP");
 
 // Takes a validated blob and copies whatever body prefix the stored record and
@@ -568,6 +571,7 @@ void Pet::newEgg() {
   speciesId = -1;
   prevSpeciesId = -1;
   uid = CreatureUid();   // an egg is not a creature yet; hatch() mints its ID
+  tradeEvo = false;
   for (int i = 0; i < REGION_COUNT; i++) eggByRegion[i] = 0;
   eggTarget = pickEggSpecies();  // especie oculta segun rareza y pokedex
   eggByRegion[region % REGION_COUNT] = eggTarget;
@@ -783,6 +787,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   strncpy(nick, m.nick, sizeof(nick) - 1);
   nick[sizeof(nick) - 1] = 0;
   uid = m.uid;   // the same creature, so the same identity
+  tradeEvo = (m.flags & PMON_TRADE_EVO) != 0;
   registerSpecies(speciesId);
   save();
 }
@@ -822,6 +827,7 @@ PartyMon Pet::toPartyMon() const {
   m.lastLearnLevel = lastLearnLevel;
   m.ageMinutes = ageMinutes;
   m.uid = uid;
+  m.flags = tradeEvo ? PMON_TRADE_EVO : 0;
   return m;
 }
 
@@ -878,6 +884,7 @@ bool Pet::switchTo(const PartyMon &m) {
   strncpy(nick, m.nick, sizeof(nick) - 1);
   nick[sizeof(nick) - 1] = 0;
   uid = m.uid;   // the same creature, so the same identity
+  tradeEvo = (m.flags & PMON_TRADE_EVO) != 0;
   registerSpecies(speciesId);
   return save();
 }
@@ -1614,6 +1621,7 @@ void Pet::hatch() {
   newMedal = 0;
   nick[0] = 0;
   uid = mintUid();   // a new creature, so a new identity
+  tradeEvo = false;
   registerSpecies(speciesId);  // criado = registrado en la pokedex
   // Start empty: checkLearnGates() fills the level-1 moves. Seeding from TMs
   // instead would hand a newborn FIRE BLAST, which no level 1 creature knows.
@@ -1633,8 +1641,7 @@ void Pet::hatch() {
 bool Pet::canEvolveNow() const {
   if (frozen) return false;     // frozen at the form it was banked in
   if (isEgg() || sleeping || ceremony != CER_NONE) return false;
-  const DexEntry &d = DEX_TBL[speciesId];
-  if (d.evolvesTo == 0) return false;
+  if (evoInfo().status != EVO_READY) return false;
   // The TARGET has to be drawable, not merely present in the table. Evolution
   // is one-way, so evolving into a species with no art or no pack on the card
   // hands the player a dex number forever -- exactly what eeveeOptions()
@@ -1643,31 +1650,92 @@ bool Pet::canEvolveNow() const {
   // and BLISSEY always did, and Gen 8/9 added nine more (GIRAFARIG ->
   // FARIGIRAF, LINOONE -> OBSTAGOON and the rest) that land in Galar and
   // Paldea. One rule for both paths, stated as what is ALLOWED.
-  if (!evoTargetShowable()) return false;
+  return evoTargetShowable();
+}
+
+int16_t Pet::tradeTarget(int16_t dex, const CreatureUid &u, int16_t partnerDex) {
+  int16_t found[4];
+  uint8_t n = 0;
+  for (int i = 0; i < TRADE_EVO_COUNT && n < 4; i++) {
+    const TradeEvo &t = TRADE_EVOS[i];
+    // partnerDex < 0: the partner was already checked when it was marked.
+    if (t.from == dex && (t.partner == 0 || partnerDex < 0 || t.partner == partnerDex))
+      found[n++] = t.to;
+  }
+  if (!n) return 0;
+  return found[u.serial % n];
+}
+
+bool Pet::onlyByTrade(int16_t dex) {
+  if (dex < 1 || dex > DEX_COUNT || !DEX_TBL[dex].evolvesTo) return false;
+  for (int i = 0; i < TRADE_EVO_COUNT; i++)
+    if (TRADE_EVOS[i].from == dex && TRADE_EVOS[i].to == DEX_TBL[dex].evolvesTo) return true;
+  return false;
+}
+
+void Pet::markTraded(PartyMon &in, int16_t gaveDex) {
+  // Set OR cleared: a Karrablast marked by an earlier trade and now traded on
+  // for something other than a Shelmet must not keep the old promise.
+  if (tradeTarget(in.dex, in.uid, gaveDex)) in.flags |= PMON_TRADE_EVO;
+  else in.flags &= (uint8_t)~PMON_TRADE_EVO;
+}
+
+Pet::EvoInfo Pet::evoInfo() const {
+  EvoInfo e = { EVO_FINAL, 0, 0, false };
+  if (isEgg()) return e;
+  const DexEntry &d = DEX_TBL[speciesId];
+  // A creature that arrived by trade evolves by trade, at any level -- as in
+  // the games -- once it is cared for. Its care still matters; its age does not.
+  if (tradeEvo) {
+    int16_t t = tradeTarget(speciesId, uid, -1);
+    if (t) {
+      e.target = t;
+      e.byTrade = true;
+      e.status = lowestStat() >= 40 ? EVO_READY : EVO_BLOCKED;
+      return e;
+    }
+  }
+  if (d.evolvesTo == 0) return e;
+  e.target = d.evolvesTo;   // EEVEE: evolve() picks the branch
+  // Pure trade evolution, the owner's call: the table's level for these is
+  // not a route here. POLIWHIRL and SLOWPOKE keep theirs -- trading reaches
+  // their OTHER form, so onlyByTrade() is false for them.
+  if (onlyByTrade(speciesId)) {
+    e.status = EVO_NEEDS_TRADE;
+    return e;
+  }
   // evoPen is the day owed for retiring the PREVIOUS creature early. It rides
   // on the same threshold careMistakes already moves, so there is one rule for
   // "this creature evolves later" rather than two that can disagree.
-  return level() >= (uint16_t)(d.evolveLevel + careMistakes + evoPen) &&
-         lowestStat() >= 40;
+  uint16_t needed = (uint16_t)(d.evolveLevel + careMistakes + evoPen);
+  if (level() < needed) {
+    e.status = EVO_LEVELS;
+    e.levelsLeft = (uint16_t)(needed - level());
+    return e;
+  }
+  e.status = lowestStat() >= 40 ? EVO_READY : EVO_BLOCKED;
+  return e;
 }
 
 // Is there any form this creature could evolve INTO that this player could
 // actually be shown? For EEVEE that is the filtered branch; for everything else
-// it is the single target in the table.
+// it is the single target evoInfo() names.
 bool Pet::evoTargetShowable() const {
-  if (speciesId == DEX_EEVEE) {
+  EvoInfo e = evoInfo();
+  if (!e.target) return false;
+  if (!e.byTrade && speciesId == DEX_EEVEE) {
     int16_t opts[EEVEE_EVO_COUNT];
     return eeveeOptions(opts) > 0;
   }
-  return speciesShowable(DEX_TBL[speciesId].evolvesTo);
+  return speciesShowable(e.target);
 }
 
 void Pet::evolve() {
   if (!canEvolveNow()) return;
-  const DexEntry &d = DEX_TBL[speciesId];
+  const EvoInfo e = evoInfo();
   prevSpeciesId = speciesId;
-  int16_t next = d.evolvesTo;
-  if (speciesId == DEX_EEVEE) {
+  int16_t next = e.target;
+  if (!e.byTrade && speciesId == DEX_EEVEE) {
     // Eevee's branch: all eight, preferring one still missing from the Pokedex,
     // which is what makes raising Eevees a collection goal rather than a
     // coin flip. Only ones this player can actually be shown -- see
@@ -1684,6 +1752,7 @@ void Pet::evolve() {
     }
   }
   speciesId = next;
+  if (e.byTrade) tradeEvo = false;   // spent: PORYGON2 needs a trade of its own
   registerSpecies(speciesId);
   checkLearnGates();   // the new form may gate a move at this very level
   sfxPlay(SFX_EVOLVE);
@@ -1974,6 +2043,7 @@ bool Pet::saveCoreSnapshot() {
   ckptWr16(buf + PET_TAIL_MONLEN, (uint16_t)sizeof(PartyMon));
   memcpy(buf + PET_TAIL_MON, &endedMon, sizeof(PartyMon));
   memcpy(buf + PET_TAIL_UID, &uid, sizeof(CreatureUid));
+  buf[PET_TAIL_FLAGS] = tradeEvo ? PMON_TRADE_EVO : 0;
 
   uint16_t total = ckptSeal(buf, PET_BODY, PET_CORE_MAGIC, PET_CORE_VERSION, nextGen);
   const char *key = ckptSlot(nextGen, "petA", "petB");
@@ -2024,11 +2094,15 @@ bool Pet::loadCoreSnapshot() {
   endedKind = CER_NONE;
   endedMon = PartyMon();
   uid = CreatureUid();   // absent in a v1/v2 record: backfillUids() mints one
+  tradeEvo = false;      // absent before v4: nothing was ever traded
   if (body >= PET_TAIL_MON) {
     size_t monLen = ckptRd16(buf + PET_TAIL_MONLEN);
     // v3: the live creature's ID follows the handover at its STORED length.
     if (monLen && PET_TAIL_MON + monLen + sizeof(CreatureUid) <= body)
       memcpy(&uid, buf + PET_TAIL_MON + monLen, sizeof(CreatureUid));
+    // v4: the flags byte follows the ID, again located by the STORED length.
+    const size_t fl = PET_TAIL_MON + monLen + sizeof(CreatureUid);
+    if (monLen && fl + 1 <= body) tradeEvo = (buf[fl] & PMON_TRADE_EVO) != 0;
     if (monLen && PET_TAIL_MON + monLen <= body) {
       // Prefix rule again: a record from before PartyMon grew lands in the front
       // and the care block keeps its initialisers, which stateVersion 0 already

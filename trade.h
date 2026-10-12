@@ -124,9 +124,8 @@ struct TradeBoard {
   // pack)? Asked before ACCEPTing, so a board never agrees to something it
   // would have to draw as a bare number.
   virtual bool canReceive(const PartyMon &) { return true; }
-  // Called on the incoming record just before it is stored: the hook for
-  // trade evolution, which marks the creature rather than evolving it here.
-  virtual void onReceive(PartyMon &) {}
+  // (No receive hook: marking a creature for trade evolution is done by the
+  // protocol itself, in applyJournal(), so no board can forget it.)
 };
 
 // A committed trade the peer may not yet know about (open), or that both

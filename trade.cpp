@@ -15,7 +15,7 @@
 // holding the "same" creature could hash different bytes and never agree.
 // Packing zeroes the padding; both sides pack before hashing, so they hash the
 // same thing whatever their compilers did.
-#define MON_BYTES 60
+#define MON_BYTES 64
 #define MON_PAD_AT 42
 static_assert(sizeof(PartyMon) == MON_BYTES, "the trade wire format is a PartyMon");
 static_assert(offsetof(PartyMon, ageMinutes) == MON_PAD_AT + 2, "padding moved");
@@ -54,6 +54,8 @@ bool tradeMonValid(const PartyMon &m) {
   if (m.fullness > 100 || m.joy > 100 || m.energy > 100 || m.hygiene > 100 ||
       m.weight > 100 || m.bond > 100) return false;
   if (!m.uid.valid()) return false;
+  if (m.flags & ~PMON_TRADE_EVO) return false;   // a bit no build defines
+  for (uint8_t r : m.reserved) if (r) return false;
   return true;
 }
 
@@ -187,10 +189,15 @@ static bool saveJournalOf(TradeBoard *b, const TradeJournal &j) {
 static bool applyJournal(TradeBoard *b, TradeJournal &j) {
   if (j.active != TRADE_DONE) return true;
   PartyMon in = j.in;
-  b->onReceive(in);
+  PartyMon gave;
+  const bool outHere = b->findMon(j.outUid, &gave);
+  // Trade evolution: marked here, by the protocol, on every board alike. It
+  // needs what was given in exchange (KARRABLAST only for a SHELMET), which is
+  // the outgoing creature still in its slot at this moment.
+  Pet::markTraded(in, outHere ? gave.dex : 0);
   bool landed;
   if (b->findMon(in.uid, nullptr)) landed = true;
-  else if (b->findMon(j.outUid, nullptr)) landed = b->replaceMon(j.outUid, in);
+  else if (outHere) landed = b->replaceMon(j.outUid, in);
   // The outgoing creature is gone, which the lock should have made impossible.
   // Still never drop what arrived: give it a free slot.
   else landed = b->storeNew(in);

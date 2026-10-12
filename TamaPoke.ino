@@ -44,7 +44,7 @@
 // build_web.sh moves web/manifest.json to it when the installer is rebuilt.
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
-#define FW_VERSION "3.31"
+#define FW_VERSION "3.32"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -6276,8 +6276,26 @@ void renderCardMedals() {
 
 // pagina 3: progreso (nivel, evolucion, descuidos) — saca a la luz mecanicas
 // que antes eran invisibles (cuanto falta para subir/evolucionar y por que)
+// The card's evolution line, asked of evoInfo() -- the one rule canEvolveNow()
+// and evolve() also use. The card used to restate the level sum itself, which
+// is CLAUDE.md § 1's own example, and pure trade evolution would have left it
+// promising a level-40 Alakazam that never comes. A function rather than inline
+// so a test can read what the card SAYS, not just what the rule returns.
+const char *uiEvoLine(char *buf, size_t n, uint16_t *col) {
+  const Pet::EvoInfo ei = pet.evoInfo();
+  *col = UI_INK;
+  switch (ei.status) {
+    case Pet::EVO_FINAL: return T(S_FINAL_FORM);
+    case Pet::EVO_NEEDS_TRADE: return T(S_EVO_TRADE);
+    case Pet::EVO_READY: *col = UI_BAR_OK; return T(S_EVO_READY);
+    case Pet::EVO_BLOCKED: *col = UI_BAR_BAD; return T(S_EVO_BLOCKED);
+    default:
+      snprintf(buf, n, T(S_EVO_IN_FMT), ei.levelsLeft);
+      return buf;
+  }
+}
+
 void renderCardProgress() {
-  const DexEntry &d = DEX_TBL[pet.speciesId];
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(3);
   gfx->setCursor(CX - strlen(T(S_PROGRESS)) * 9, 44);
@@ -6308,23 +6326,8 @@ void renderCardProgress() {
   gfx->setCursor(CX - strlen(T(S_EVO_LABEL)) * 6, 230);
   gfx->print(T(S_EVO_LABEL));
   char evoBuf[28];
-  const char *evo;
   uint16_t evoCol = UI_INK;
-  if (d.evolvesTo == 0) {
-    evo = T(S_FINAL_FORM);
-  } else {
-    // The SAME sum canEvolveNow() uses -- including the day owed for retiring
-    // the previous creature early. A card that left evoPenalty() out would
-    // promise an evolution that then does not happen.
-    int needed = d.evolveLevel + pet.careMistakes + pet.evoPenalty();
-    if (pet.level() >= needed) {
-      if (pet.lowestStat() >= 40) { evo = T(S_EVO_READY); evoCol = UI_BAR_OK; }
-      else { evo = T(S_EVO_BLOCKED); evoCol = UI_BAR_BAD; }
-    } else {
-      snprintf(evoBuf, sizeof(evoBuf), T(S_EVO_IN_FMT), needed - pet.level());
-      evo = evoBuf;
-    }
-  }
+  const char *evo = uiEvoLine(evoBuf, sizeof(evoBuf), &evoCol);
   gfx->setTextColor(evoCol);
   gfx->setCursor(CX - strlen(evo) * 6, 256);
   gfx->print(evo);

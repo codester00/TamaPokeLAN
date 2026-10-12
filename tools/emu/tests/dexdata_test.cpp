@@ -171,6 +171,12 @@ int main(){
     for (int16_t d = 1; d <= DEX_COUNT; d++)
       if (DEX_TBL[d].evolvesTo >= 1 && DEX_TBL[d].evolvesTo <= DEX_COUNT)
         isTarget[DEX_TBL[d].evolvesTo] = true;
+    // A TRADE target is reached by evolving too. Read off the same generated
+    // TRADE_EVOS the firmware evolves by, so this check also caught POLITOED,
+    // SLOWKING and GOREBYSS hatching from eggs before gen_dex.py learned it.
+    for (int i = 0; i < TRADE_EVO_COUNT; i++)
+      if (TRADE_EVOS[i].to >= 1 && TRADE_EVOS[i].to <= DEX_COUNT)
+        isTarget[TRADE_EVOS[i].to] = true;
 
     int hatchable = 0;
     for (int16_t d = 1; d <= DEX_COUNT; d++)

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.31-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.32-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -261,8 +261,19 @@ While **awake**, per minute:
 ### Evolution and moves
 
 - Triggers when **level ≥ its evolution level** (16 for most base forms; ~25
-  for friendship-style like GOLBAT → CROBAT, ~30 for stone-style, ~40 for
-  trade-style like SCYTHER → SCIZOR) **and every stat ≥ 40** at that moment.
+  for friendship-style like GOLBAT → CROBAT, ~30 for stone-style) **and every
+  stat ≥ 40** at that moment.
+- **Trade evolutions happen only by trading**, as in the games: KADABRA,
+  MACHOKE, GRAVELER, HAUNTER, ONIX, SCYTHER, PORYGON and 15 more no longer
+  evolve at any level (their card says *Evolves by trade*). A creature you
+  receive in a trade is **marked**, not evolved: it evolves — at any level, once
+  every stat is ≥ 40 — the next time you make it your live pet, so both forms
+  reach your Pokédex. POLIWHIRL and SLOWPOKE still level into POLIWRATH and
+  SLOWBRO; traded, they become POLITOED and SLOWKING instead. KARRABLAST and
+  SHELMET only evolve when traded **for each other**, and a traded CLAMPERL
+  becomes HUNTAIL or GOREBYSS (each one is fixed from the start). PORYGON2 needs
+  a second trade to reach PORYGON-Z. MILOTIC keeps its level route. POLITOED,
+  SLOWKING and GOREBYSS no longer hatch from eggs: they are reached by trading.
 - **Never automatic** — a button appears and **you tap to witness it** (with a
   flicker between the old and new form). Each **slip-up delays it by 1 level**.
 - You can **decline** ("keep form"); it re-offers at the next level.

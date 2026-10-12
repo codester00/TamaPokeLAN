@@ -112,6 +112,8 @@ FRIENDLY_NAMES = {
     "uid": "Creature ID (board MAC - boot salt - serial)",
     "uidMac": "ID: board it started on (MAC)", "uidSalt": "ID: boot salt",
     "uidSerial": "ID: serial (0 = no ID yet)",
+    "flags": "Flags (1 = evolves by trade when next raised)",
+    "tradeEvo": "Evolves by trade when raised",
     # the player -- outlives every creature (save.cpp's SAVE_FIELDS)
     "tnam": "Trainer name", "avtr": "Avatar index", "badg": "Kanto badges (easy, bitmask)",
     "reg": "Current region", "eggR": "Egg region history (bytes)",
@@ -287,7 +289,7 @@ def encode_scalar(kind: int, value) -> bytes:
     return value  # SK_BYTES: caller already has raw bytes
 
 
-# ---- PartyMon: 60 bytes, party.h (48 before v3.31 added the ID) --------------------------------------
+# ---- PartyMon: 64 bytes, party.h (48 before v3.31 added the ID, 60 before v3.32 added flags) --------------------------------------
 # Field order and widths straight from `struct PartyMon` in party.h. No
 # padding falls between any of these on a real build (every multi-byte field
 # already lands on its natural boundary given this order), which is what lets
@@ -310,14 +312,16 @@ PARTY_MON_FIELDS = [
     ("ageMinutes", "I"),
     # v3.31: CreatureUid -- board MAC, per-boot salt, serial (0 = no ID yet)
     ("uidMac", "6s"), ("uidSalt", "H"), ("uidSerial", "I"),
+    # v3.32: flags (bit0 = evolves by trade when next raised) + 3 reserved zeros
+    ("flags", "B"), ("_rsvd", "3x"),
 ]
 PARTY_MON_FMT = "<" + "".join(f for _, f in PARTY_MON_FIELDS)
 PARTY_MON_SIZE = struct.calcsize(PARTY_MON_FMT)
-assert PARTY_MON_SIZE == 60, f"PartyMon layout drifted: {PARTY_MON_SIZE} != 60"
-_PMON_NAMES = [n for n, _ in PARTY_MON_FIELDS if n != "_pad"]
+assert PARTY_MON_SIZE == 64, f"PartyMon layout drifted: {PARTY_MON_SIZE} != 64"
+_PMON_NAMES = [n for n, _ in PARTY_MON_FIELDS if not n.startswith("_")]
 # name -> format char, with move0..move3 collapsed to "moveN" so
 # range_for_party_field("moveN") also works for the dialog's move entries.
-_PARTY_MON_FIELD_FMT = {n: f for n, f in PARTY_MON_FIELDS if n != "_pad"}
+_PARTY_MON_FIELD_FMT = {n: f for n, f in PARTY_MON_FIELDS if not n.startswith("_")}
 _PARTY_MON_FIELD_FMT["moveN"] = "B"
 
 
@@ -345,7 +349,7 @@ def encode_party_mon(d: dict) -> bytes:
     moves = d.get("moves", [0, 0, 0, 0])
     vals = []
     for name, _ in PARTY_MON_FIELDS:
-        if name == "_pad":
+        if name.startswith("_"):
             continue
         if name == "nick":
             vals.append(nick.ljust(12, b"\x00"))
@@ -359,8 +363,8 @@ def encode_party_mon(d: dict) -> bytes:
     off = 0
     it = iter(vals)
     for name, f in PARTY_MON_FIELDS:
-        if name == "_pad":
-            off += 2
+        if name.startswith("_"):
+            off += struct.calcsize("<" + f)   # padding/reserved: left zero
             continue
         size = struct.calcsize("<" + f)
         struct.pack_into("<" + f, out, off, next(it))
@@ -552,6 +556,9 @@ def decode_pet_checkpoint(raw: bytes) -> dict:
             mac = raw[at:at + 6]
             salt, serial = struct.unpack_from("<HI", raw, at + 6)
             d["uid"] = format_uid(mac, salt, serial)
+        # v4: the trade-evolution flag after the ID
+        if mon_len and at + 12 + 1 <= body_len:
+            d["tradeEvo"] = bool(raw[at + 12] & 1)
     return d
 
 

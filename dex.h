@@ -246,7 +246,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "MARILL", 184, 18, R_EVO, 0x4C98, 70, 20, 50, 40, 20, 50, 1, T_WATER, T_FAIRY },  // 183 water/fairy
   { "AZUMARILL", 0, 0, R_EVO, 0x4C98, 100, 50, 80, 50, 60, 80, 1, T_WATER, T_FAIRY },  // 184 water/fairy
   { "SUDOWOODO", 0, 0, R_EVO, 0x9407, 70, 100, 115, 30, 30, 65, 4, T_ROCK, T_NONE },  // 185 rock
-  { "POLITOED", 0, 0, R_RARO, 0x4C98, 90, 75, 75, 70, 90, 100, 1, T_WATER, T_NONE },  // 186 water
+  { "POLITOED", 0, 0, R_EVO, 0x4C98, 90, 75, 75, 70, 90, 100, 1, T_WATER, T_NONE },  // 186 water
   { "HOPPIP", 188, 18, R_COMUN, 0x3C49, 35, 35, 40, 50, 35, 55, 2, T_GRASS, T_FLYING },  // 187 grass/flying
   { "SKIPLOOM", 189, 27, R_EVO, 0x3C49, 55, 45, 50, 80, 45, 65, 2, T_GRASS, T_FLYING },  // 188 grass/flying
   { "JUMPLUFF", 0, 0, R_EVO, 0x3C49, 75, 55, 70, 110, 55, 95, 2, T_GRASS, T_FLYING },  // 189 grass/flying
@@ -259,7 +259,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "ESPEON", 0, 0, R_EVO, 0xD28F, 65, 65, 60, 110, 130, 95, 0, T_PSYCHIC, T_NONE },  // 196 psychic
   { "UMBREON", 0, 0, R_EVO, 0x5A47, 95, 65, 110, 65, 60, 130, 2, T_DARK, T_NONE },  // 197 dark
   { "MURKROW", 430, 30, R_RARO, 0x5A47, 60, 85, 42, 91, 85, 42, 2, T_DARK, T_FLYING },  // 198 dark/flying
-  { "SLOWKING", 0, 0, R_COMUN, 0x4C98, 95, 75, 80, 30, 100, 110, 1, T_WATER, T_PSYCHIC },  // 199 water/psychic
+  { "SLOWKING", 0, 0, R_EVO, 0x4C98, 95, 75, 80, 30, 100, 110, 1, T_WATER, T_PSYCHIC },  // 199 water/psychic
   { "MISDREAVUS", 429, 30, R_RARO, 0x6AD3, 60, 60, 60, 85, 85, 85, 0, T_GHOST, T_NONE },  // 200 ghost
   { "UNOWN", 0, 0, R_COMUN, 0xD28F, 48, 72, 48, 48, 72, 48, 0, T_PSYCHIC, T_NONE },  // 201 psychic
   { "WOBBUFFET", 0, 0, R_EVO, 0xD28F, 190, 33, 58, 33, 33, 58, 0, T_PSYCHIC, T_NONE },  // 202 psychic
@@ -428,7 +428,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "WALREIN", 0, 0, R_EVO, 0x4DB8, 110, 80, 90, 65, 95, 90, 5, T_ICE, T_WATER },  // 365 ice/water
   { "CLAMPERL", 367, 40, R_COMUN, 0x4C98, 35, 64, 85, 32, 74, 55, 1, T_WATER, T_NONE },  // 366 water
   { "HUNTAIL", 0, 0, R_EVO, 0x4C98, 55, 104, 105, 52, 94, 75, 1, T_WATER, T_NONE },  // 367 water
-  { "GOREBYSS", 0, 0, R_COMUN, 0x4C98, 55, 84, 105, 52, 114, 75, 1, T_WATER, T_NONE },  // 368 water
+  { "GOREBYSS", 0, 0, R_EVO, 0x4C98, 55, 84, 105, 52, 114, 75, 1, T_WATER, T_NONE },  // 368 water
   { "RELICANTH", 0, 0, R_RARO, 0x4C98, 100, 90, 130, 55, 45, 65, 1, T_WATER, T_ROCK },  // 369 water/rock
   { "LUVDISC", 0, 0, R_COMUN, 0x4C98, 43, 30, 55, 97, 40, 65, 1, T_WATER, T_NONE },  // 370 water
   { "BAGON", 372, 30, R_RARO, 0x5A98, 45, 75, 60, 50, 40, 30, 1, T_DRAGON, T_NONE },  // 371 dragon
@@ -1157,6 +1157,42 @@ static const uint16_t DEX_WEIGHT_HG[DEX_COUNT + 1] = {
   3807, 1110, 360, 3030, 170, 300, 2100, 50, 300, 742, 1522, 6997, 49, 3800, 350, 3030,
   2400, 2800, 1250, 97, 11, 22, 922, 122, 301, 398, 600, 930, 5900, 4800, 1625, 1560,
   65, 3,
+};
+
+// Evolutions that happen by TRADE, from PokeAPI via tools/fetch_trade_evos.py.
+// Where `to` is the species' own evolvesTo, trading is its ONLY route: the
+// level in the table is not used (see Pet::evoInfo()). partner, if set, is the
+// species it must be traded for. CLAMPERL appears twice: two targets.
+struct TradeEvo {
+  int16_t from, to, partner;
+};
+#define TRADE_EVO_COUNT 25
+static const TradeEvo TRADE_EVOS[TRADE_EVO_COUNT] = {
+  { 61, 186, 0 },
+  { 64, 65, 0 },
+  { 67, 68, 0 },
+  { 75, 76, 0 },
+  { 79, 199, 0 },
+  { 93, 94, 0 },
+  { 95, 208, 0 },
+  { 112, 464, 0 },
+  { 117, 230, 0 },
+  { 123, 212, 0 },
+  { 125, 466, 0 },
+  { 126, 467, 0 },
+  { 137, 233, 0 },
+  { 233, 474, 0 },
+  { 356, 477, 0 },
+  { 366, 367, 0 },
+  { 366, 368, 0 },
+  { 525, 526, 0 },
+  { 533, 534, 0 },
+  { 588, 589, 616 },
+  { 616, 617, 588 },
+  { 682, 683, 0 },
+  { 684, 685, 0 },
+  { 708, 709, 0 },
+  { 710, 711, 0 },
 };
 
 // el primer huevo de la partida: iniciales clasicos
