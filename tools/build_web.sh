@@ -137,31 +137,7 @@ fi
 # Order matters: hash savefile.js, stamp it into installer.js's import, and only
 # then hash installer.js -- otherwise index.html points at a digest of a file
 # that is about to change.
-python3 - <<'PYEOF'
-import hashlib, pathlib, re
-
-def key(path):
-    return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()[:16]
-
-save_key = key('web/savefile.js')
-installer = pathlib.Path('web/installer.js')
-src = installer.read_bytes().decode('utf-8')
-src, n = re.subn(r"(from '\./savefile\.js)(?:\?v=[0-9a-f]+)?'",
-                 lambda m: f"{m.group(1)}?v={save_key}'", src)
-if n != 1:
-    raise SystemExit(f"expected exactly one savefile.js import in installer.js, found {n}")
-installer.write_bytes(src.encode('utf-8'))
-
-installer_key = key('web/installer.js')
-index = pathlib.Path('web/index.html')
-html = index.read_bytes().decode('utf-8')
-html, n = re.subn(r'(src="installer\.js)(?:\?v=[0-9a-f]+)?"',
-                  lambda m: f'{m.group(1)}?v={installer_key}"', html)
-if n != 1:
-    raise SystemExit(f"expected exactly one installer.js script tag, found {n}")
-index.write_bytes(html.encode('utf-8'))
-print(f'js cache keys -> savefile {save_key}, installer {installer_key}')
-PYEOF
+python3 tools/stamp_js_keys.py
 
 echo "Empaquetando sprites..."
 if compgen -G "tools/sdcard/mons/*.bin" >/dev/null; then

@@ -1,6 +1,6 @@
 # TamaPoke
 
-[![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://reallyjustsomeguy.github.io/TamaPokeLANExp/web/)
+[![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
 ![Firmware](https://img.shields.io/badge/firmware-v3.30-8A2BE2)
@@ -29,7 +29,7 @@ and complete them all (shinies included).
 > PMD SpriteCollab (CC BY-NC, Pokémon © Nintendo/Game Freak), and the 3D case is
 > CC BY-NC-SA. See **[License](#license)** and **Credits**.
 
-🔴 **3D-printed Pokéball case + print profiles → [on MakerWorld](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)** · flash it in your browser → **[web installer](https://reallyjustsomeguy.github.io/TamaPokeLANExp/web/)**
+🔴 **3D-printed Pokéball case + print profiles → [on MakerWorld](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)** · flash it in your browser → **[web installer](https://codester00.github.io/TamaPokeLAN/web/)**
 
 ## Status
 
@@ -541,8 +541,8 @@ split lives on the species, not the individual — no extra IVs to roll.
   narration follow whichever is chosen.
 - **Region:** the pill under a waiting egg picks which generation it comes from —
   **Kanto / Johto / Hoenn / Sinnoh / Unova / Kalos / Alola / Galar / Paldea / All**. A first egg gives that
-  region's starter. 46 species have no sprite art anywhere (13 in Unova, 1 in
-  Kalos, 5 in Alola, 7 in Galar, 20 in Paldea); they keep their dex numbers but never hatch, since the egg would
+  region's starter. 41 species have no sprite art anywhere yet (13 in Unova,
+  4 in Alola, 6 in Galar, 18 in Paldea); they keep their dex numbers but never hatch, since the egg would
   give a creature that could only ever draw as a number.
   A region whose **sprite pack is not on the card** shows as locked and is kept
   out of the egg pool, so a partial sprite install is a supported state. A pack
