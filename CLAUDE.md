@@ -13,6 +13,7 @@ Personal, non-commercial fan project. Code MIT; sprites CC BY-NC (PMD SpriteColl
 | `species.h` / `dex.h` | All 1025 (`DEX_COUNT`): names, typings, evolution chains, base stats, rarity tiers, favourite berry. `dex.h` is generated |
 | `battle.cpp/.h` | The battle engine: damage, crits, stages, ailments, turn order, the AI |
 | `link.cpp/.h` / `linknow.cpp/.h` | LAN battle protocol (radio-free, testable) / its ESP-NOW transport |
+| `trade.cpp/.h` | Trading protocol (radio-free, testable): pending journal, receipts, reconcile. The design is the header comment |
 | `save.cpp/.h` | `EXPORT`/`IMPORT`: the key-driven save backup (`SAVE_FIELDS`) |
 | `wild.cpp/.h`, `inventory.cpp/.h`, `items.h` | Wild encounters and capture, the bag, Poke Mart prices |
 | `pedometer.cpp/.h` | Software step detector on the QMI8658's raw accelerometer |
@@ -588,6 +589,41 @@ says `WIPE FAILED` instead of `DONE`, the IMPORT path's empty-string false
 alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. The installer was NOT rebuilt: `web/` still
 ships v3.28 and its manifest says so.
+
+### In progress: trading (2026-10-12)
+
+**Built: the protocol** (`trade.h`/`trade.cpp`, `trade_test`). **Not built:**
+the screen, the ESP-NOW wiring (`linknow.cpp` is bound to a `Link` and needs
+generalising), the firmware's `TradeBoard` over `party` + an NVS `trade` key
+(which must join `SAVE_FIELDS`), calling `tradeRecover()` at boot, and
+`locks()` in every screen that can release, swap or raise a creature.
+
+Agreed with the owner: party or box only, never the live pet; one for one; a
+receipt before anything commits; trade evolution is PURE trade (the level-40
+route goes) and happens when the received creature is made the live pet, so
+both forms reach the Pokedex -- it is flagged on receipt (`onReceive()`), not
+evolved there. That flag needs storage on `PartyMon` and is the next step.
+
+**Do not "simplify" the pending stage into a timeout-and-revert.** That is the
+first design everyone reaches for and it loses creatures: the last message of
+any exchange can be lost, so one side can commit while the other reverts.
+`trade_test` puts exactly that back as its first negative check and fails. The
+whole argument is in `trade.h`'s header; the short version is that a side never
+undoes a pending trade on its own, only cancels on hearing UNKNOWN from a peer
+that never went pending, and keeps a committed fingerprint OPEN until the peer
+confirms. The player's give-up (after a week) keeps BOTH creatures, because a
+revert after the peer committed is the loss again -- it can duplicate, never lose.
+
+`trade_test` drives it through 300 lossy/duplicating radios, a power cut at
+every durable write on either board, the link cut after every packet (both
+ways and one way) and give-up from each of those states, asserting every
+creature exists exactly once (at least once after a give-up). Eight guards
+were negative-checked, each failing the suite when put back.
+
+Rejected, deliberately: Gemini's suggested signed manifests and save-state
+hashes (any key ships in open firmware; the save changes every few minutes),
+committing while unsure, and a peer deleting "cloned" creatures on the other
+board -- that punishes packet loss, which ESP-NOW has routinely.
 
 ### Done: every creature has a unique ID (2026-10-12, v3.31)
 
@@ -1715,7 +1751,7 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 43 suites (sprite_test skips without sprites)
+bash tools/emu/tests/run.sh          # all 44 suites (sprite_test skips without sprites)
 bash tools/emu/tests/run.sh battle   # just matching ones
 ```
 
