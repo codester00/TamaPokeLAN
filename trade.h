@@ -7,12 +7,13 @@
 //
 // THE PROMISE: a trade between two honest boards never LOSES a creature --
 // not to a dropped packet, not to a flat battery, not to the two boards
-// wandering out of range at the worst possible moment. The only way a trade
-// can end with a creature in two places is the player-chosen give-up below,
-// and even that never ends with one in NO place.
+// wandering out of range at the worst possible moment -- as long as the two
+// boards reconnect within TRADE_DECIDE_MS. Past that a PERSON decides, by
+// looking at the other board's screen (see "When contact is lost" below).
 //
-// It is not anti-cheat and cannot be: EXPORT/IMPORT restores an old save by
-// design and the firmware is open. Nothing here is a credential.
+// It is not anti-cheat and does not try to be. The owner's call: the firmware
+// is open source, nobody pays, and spoofing a trade harms nobody, so every
+// board is assumed honest. EXPORT/IMPORT restores an old save by design.
 //
 // WHY IT HAS A PENDING STAGE. No exchange of messages can guarantee both sides
 // learn the outcome, because the last message can always be lost (the "two
@@ -43,12 +44,23 @@
 // the peer acknowledges, so "I have never heard of it" can never be mistaken
 // for "I finished it and forgot".
 //
-// The one escape hatch is giveUp(), offered after TRADE_GIVEUP_SECS: the
-// player KEEPS their creature AND takes the incoming one into a free slot. If
-// the peer had in fact committed that duplicates one creature; if it had not,
-// it duplicates the other. Either way nothing is lost, which is why it keeps
-// both rather than "reverting" -- a revert after the peer committed is exactly
-// the loss this protocol exists to prevent.
+// WHEN CONTACT IS LOST. A pending board keeps calling for TRADE_DECIDE_MS
+// (5 minutes): long enough to walk back into range, reboot, or reopen the
+// screen, and any reconnect in that window settles the trade by itself as
+// above. After that the player is ASKED, and the choice is final:
+//
+//   decideRevert()  keep my creature, drop the hidden copy of theirs.
+//                   Right when the other board still shows ITS original.
+//   decideKeep()    take theirs, delete mine -- i.e. commit.
+//                   Right when the other board shows MY creature.
+//
+// The screen must say it cannot be undone and to check the other board first.
+// The board cannot verify that answer and does not try: the owner chose a
+// person's eyes over an automatic check here, and nothing afterwards second-
+// guesses the decision. A wrong answer duplicates or loses a creature, which
+// is why the warning exists. (If the other board is STILL pending when the two
+// meet again, it simply follows: keep -> it hears DONE and commits; revert ->
+// it hears UNKNOWN and cancels. That is the decision propagating, not a check.)
 //
 // The board's storage is behind TradeBoard so the protocol can be tested: two
 // boards in one process, packets dropped and duplicated on purpose, and a
@@ -61,7 +73,7 @@
 #define TRADE_JITTER_MS 200           // see LINK_JITTER_MS: a fixed period can lock step with an interferer
 #define TRADE_PEER_TIMEOUT_MS 15000   // nothing heard for this long: the peer is gone
 #define TRADE_PAIR_TIMEOUT_MS 60000   // waiting for a peer that may not exist
-#define TRADE_GIVEUP_SECS (7UL * 86400UL)
+#define TRADE_DECIDE_MS (5UL * 60UL * 1000UL)   // pending with no word from the peer: ask the player
 
 enum TradeState : uint8_t {
   TRADE_OFF = 0,
@@ -98,7 +110,7 @@ enum TradeMsg : uint8_t {
 struct TradeBoard {
   virtual ~TradeBoard() {}
   virtual void mac(uint8_t out[6]) = 0;
-  virtual uint32_t epoch() = 0;                 // seconds, for the give-up wait
+  virtual uint32_t epoch() = 0;                 // seconds; stamped on a pending trade, for display
   // The party and the box ONLY -- never the live pet, which cannot be traded.
   virtual bool findMon(const CreatureUid &u, PartyMon *out) = 0;
   // Overwrite the record holding `out` with `in`, durably. False if it did not land.
@@ -160,7 +172,7 @@ struct Trade {
   bool iAccepted = false;
   uint64_t theirAccept = 0;    // the fingerprint they last accepted, 0 = none
 
-  uint32_t lastRx = 0, lastTx = 0;
+  uint32_t lastRx = 0, lastTx = 0, nowMs = 0;
   bool sawRx = false;
   uint8_t resendSeq = 0;
 
@@ -179,10 +191,11 @@ struct Trade {
   void onPacket(const uint8_t *buf, uint8_t len);
   void tick(uint32_t now);
 
-  // The player's escape hatch from a pending trade whose peer never came back.
-  // Keeps the outgoing creature AND stores the incoming one; see the header.
-  bool canGiveUp() const;
-  bool giveUp();
+  // A pending trade whose peer has been silent for TRADE_DECIDE_MS: the player
+  // looks at the other board and decides. Both are final; see the header.
+  bool canDecide() const;
+  bool decideRevert();    // keep mine
+  bool decideKeep();      // take theirs
 
   // Is this creature promised to a trade (offered, or journaled)? The UI asks
   // this before letting it be released, swapped in, or offered elsewhere.

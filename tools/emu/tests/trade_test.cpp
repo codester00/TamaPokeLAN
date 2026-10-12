@@ -2,14 +2,16 @@
 //
 // The property under test is CONSERVATION: whatever happens to the radio or the
 // power, at the end every creature that went into a trade exists at least
-// once, and -- unless a player chose to give up -- EXACTLY once. Each case
+// once, and EXACTLY once as long as any player who is asked to decide reads
+// the other board's screen correctly. Each case
 // below breaks something on purpose and then checks that, rather than checking
 // the happy path's particular numbers:
 //
 //   - every packet dropped one in three, and duplicated, over 300 seeds;
 //   - the power cut at EVERY durable write either board makes, then a reboot;
 //   - the link cut after EVERY packet of a trade, both ways and one way;
-//   - the one-sided give-up, from every one of those states.
+//   - the player's decision after five minutes without contact, from every
+//     one of those states.
 //
 // The boards are TestBoard below -- arrays standing in for the party, the box
 // and the journal key -- so a "power cut" is exact: the Nth write fails, the
@@ -51,7 +53,6 @@ struct TestBoard : TradeBoard {
   uint8_t id[6];
   uint32_t base = 1800000000u;
   uint32_t *clock = nullptr;
-  uint32_t extraSecs = 0;                 // for the give-up wait
   PartyMon party[PARTY_SLOTS], box[BOX_SLOTS];
   std::vector<uint8_t> journal;
   int writes = 0;
@@ -71,7 +72,7 @@ struct TestBoard : TradeBoard {
     return nullptr;
   }
   void mac(uint8_t out[6]) override { memcpy(out, id, 6); }
-  uint32_t epoch() override { return base + (clock ? *clock / 1000 : 0) + extraSecs; }
+  uint32_t epoch() override { return base + (clock ? *clock / 1000 : 0); }
   bool findMon(const CreatureUid &u, PartyMon *out) override {
     PartyMon *m = where(u);
     if (m && out) *out = *m;
@@ -218,6 +219,22 @@ struct Sim {
     return !ta.j.active && !tb.j.active && !ta.hasOpenEntries() && !tb.hasOpenEntries();
   }
 };
+
+// The player on each stuck board does what the screen tells them: look at the
+// other board, and keep the trade only if it is showing MY creature. Returns
+// how many boards were asked.
+static int decideByLooking(Sim &s) {
+  int asked = 0;
+  if (s.ta.canDecide()) {
+    asked++;
+    if (s.B.count(s.a1.uid)) s.ta.decideKeep(); else s.ta.decideRevert();
+  }
+  if (s.tb.canDecide()) {
+    asked++;
+    if (s.A.count(s.b1.uid)) s.tb.decideKeep(); else s.tb.decideRevert();
+  }
+  return asked;
+}
 
 // After any disaster: reboot what died, let the two meet again (twice, as a
 // player might reopen the screen), and report whether the books balance.
@@ -396,34 +413,32 @@ int main() {
     probe.offerAndAccept(probe.a1, probe.b1);
     probe.step(3000);
     int total = probe.sent;
-    int cases = 0, ok = 0, giveups = 0, giveOk = 0;
+    int cases = 0, ok = 0, decided = 0, decidedOk = 0;
     for (int dir = 0; dir < 2; dir++)
       for (int n = before; n <= total; n++) {
-        for (int give = 0; give < 2; give++) {
+        for (int ask = 0; ask < 2; ask++) {
           Sim s;
           s.session();
           s.step(500);
           s.cutAfter = s.sent + (n - before);
           s.cutDir = dir;
           s.offerAndAccept(s.a1, s.b1);
-          s.step(TRADE_PEER_TIMEOUT_MS + 2000);
-          if (give) {
-            // A player who never sees the other board again: a week later.
-            s.A.extraSecs = s.B.extraSecs = TRADE_GIVEUP_SECS;
-            bool any = false;
-            if (s.ta.canGiveUp()) any |= s.ta.giveUp();
-            if (s.tb.canGiveUp()) any |= s.tb.giveUp();
-            if (!any) continue;
-            giveups++;
-            settle(s);
-            // A give-up may duplicate. It may never lose.
-            bool none = s.countAll(s.a1) >= 1 && s.countAll(s.b1) >= 1;
-            if (none && s.clean()) giveOk++;
-            else printf("      give-up after cut %d/%d: a1 x%d b1 x%d clean=%d\n", dir, n,
+          if (ask) {
+            // The boards never find each other again: after five minutes the
+            // players are asked, and each reads the other's screen.
+            s.step(TRADE_DECIDE_MS + 2000);
+            if (!decideByLooking(s)) continue;
+            decided++;
+            bool once = s.countAll(s.a1) == 1 && s.countAll(s.b1) == 1;
+            settle(s);   // and if they DO meet later, nothing changes
+            bool still = s.countAll(s.a1) == 1 && s.countAll(s.b1) == 1;
+            if (once && still && s.clean()) decidedOk++;
+            else printf("      decided after cut %d/%d: a1 x%d b1 x%d clean=%d\n", dir, n,
                         s.countAll(s.a1), s.countAll(s.b1), s.clean());
             continue;
           }
-          settle(s);
+          s.step(TRADE_PEER_TIMEOUT_MS + 2000);
+          settle(s);   // they meet again inside the five minutes
           cases++;
           bool once = s.countAll(s.a1) == 1 && s.countAll(s.b1) == 1;
           if (once && s.clean()) ok++;
@@ -431,34 +446,56 @@ int main() {
                       s.countAll(s.a1), s.countAll(s.b1), s.clean());
         }
       }
-    printf("      %d link cuts settled, %d gave up\n", cases, giveups);
-    ck(ok == cases, "a link cut at any packet never loses or copies a creature, and settles");
-    ck(giveups > 0, "(some cut leaves a side pending long enough to give up)");
-    ck(giveOk == giveups, "giving up never loses a creature");
+    printf("      %d link cuts settled by reconnecting, %d by a player deciding\n", cases, decided);
+    ck(ok == cases, "a link cut at any packet, then a reconnect, never loses or copies a creature");
+    ck(decided > 0, "(some cut leaves a board pending long enough to ask its player)");
+    ck(decidedOk == decided, "a player who reads the other screen never loses or copies one either");
   }
 
-  // --- 7. give-up waits a week, and a pending trade locks its creature
+  // --- 7. the five-minute window, and a pending trade locks its creature
   {
+    // Only A goes pending: B never hears A's acceptance.
+    auto oneSided = [](Sim &s) {
+      s.session();
+      s.step(500);
+      s.ta.offer(s.a1.uid);
+      s.tb.offer(s.b1.uid);
+      s.step(500);
+      s.upAB = false;
+      s.ta.accept();
+      s.tb.accept();
+      // B times out first and goes quiet; A's clock only starts then.
+      s.step(2 * TRADE_PEER_TIMEOUT_MS + 2000);
+    };
     Sim s;
-    s.session();
-    s.step(500);
-    s.ta.offer(s.a1.uid);
-    s.tb.offer(s.b1.uid);
-    s.step(500);
-    s.upAB = false;          // B never hears A's acceptance, so only A goes pending
-    s.ta.accept();
-    s.tb.accept();
-    // B hears nothing from A and gives up the session first; A keeps hearing B
-    // until then, so A's own clock only starts when B goes quiet.
-    s.step(2 * TRADE_PEER_TIMEOUT_MS + 2000);
+    oneSided(s);
     ck(s.ta.j.active == TRADE_PENDING && s.ta.state == TRADE_STUCK, "(A is stuck pending)");
     ck(s.tb.state == TRADE_CANCELLED && !s.tb.j.active, "(B never went pending)");
     ck(s.ta.locks(s.a1.uid), "a pending trade keeps its creature locked");
-    ck(!s.ta.canGiveUp() && !s.ta.giveUp(), "giving up is not offered before a week");
-    // Meeting again settles it without anyone giving up: B answers UNKNOWN.
-    settle(s);
-    ck(s.clean() && s.A.count(s.a1.uid) == 1 && s.B.count(s.b1.uid) == 1,
-       "meeting again cancels it cleanly: each keeps their own");
+    s.step(3 * 60 * 1000);
+    ck(!s.ta.canDecide() && !s.ta.decideRevert() && !s.ta.decideKeep(),
+       "the player is not asked inside five minutes");
+    // B walks back into range inside the window: settled with nobody asked.
+    s.upAB = true;
+    s.step(3000);
+    ck(s.clean() && s.ta.state == TRADE_CANCELLED && s.A.count(s.a1.uid) == 1 &&
+       s.B.count(s.b1.uid) == 1, "a reconnect inside the window settles it by itself");
+
+    Sim t;
+    oneSided(t);
+    t.step(TRADE_DECIDE_MS);
+    ck(t.ta.canDecide(), "after five minutes of silence the player is asked");
+    ck(!t.tb.canDecide(), "(but not on the board that never went pending)");
+    ck(t.ta.decideRevert() && t.clean(), "reverting closes the trade");
+    ck(t.A.count(t.a1.uid) == 1 && t.A.count(t.b1.uid) == 0 && t.B.count(t.b1.uid) == 1,
+       "and each board has exactly its own creature back");
+    ck(!t.ta.locks(t.a1.uid), "unlocked");
+
+    Sim u;
+    oneSided(u);
+    u.step(TRADE_DECIDE_MS);
+    ck(u.ta.decideKeep() && u.A.count(u.b1.uid) == 1 && u.A.count(u.a1.uid) == 0,
+       "keeping the trade swaps the creature in -- the player's call, final");
   }
 
   // --- 8. busy with one board, refused by another

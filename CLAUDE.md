@@ -611,14 +611,23 @@ any exchange can be lost, so one side can commit while the other reverts.
 whole argument is in `trade.h`'s header; the short version is that a side never
 undoes a pending trade on its own, only cancels on hearing UNKNOWN from a peer
 that never went pending, and keeps a committed fingerprint OPEN until the peer
-confirms. The player's give-up (after a week) keeps BOTH creatures, because a
-revert after the peer committed is the loss again -- it can duplicate, never lose.
+confirms.
+
+**After `TRADE_DECIDE_MS` (5 min) without contact, a PERSON decides** -- the
+owner's call, replacing an earlier week-long give-up that kept both creatures.
+Inside the window a stuck board keeps calling, and any reconnect settles the
+trade by itself. Past it the player picks REVERT (keep mine; right when the
+other board still shows its original) or KEEP (take theirs; right when it shows
+mine), behind a warning that it cannot be undone. The board does not verify
+the answer and nothing second-guesses it later; no anti-spoofing either, by
+the same call (open source, no paid users, no harm in it). A board still
+pending when the two meet again just follows the first decision.
 
 `trade_test` drives it through 300 lossy/duplicating radios, a power cut at
 every durable write on either board, the link cut after every packet (both
-ways and one way) and give-up from each of those states, asserting every
-creature exists exactly once (at least once after a give-up). Eight guards
-were negative-checked, each failing the suite when put back.
+ways and one way) with a reconnect, and a player deciding after five minutes
+from each of those states, asserting every creature exists exactly once.
+Twelve guards were negative-checked, each failing the suite when put back.
 
 Rejected, deliberately: Gemini's suggested signed manifests and save-state
 hashes (any key ships in open firmware; the save changes every few minutes),

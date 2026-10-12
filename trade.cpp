@@ -411,25 +411,25 @@ void Trade::cancelPending() {
 
 bool Trade::applyCommitted() { return applyJournal(board, j); }
 
-bool Trade::canGiveUp() const {
-  if (j.active != TRADE_PENDING || !board) return false;
-  uint32_t now = board->epoch();
-  return now >= j.since && now - j.since >= TRADE_GIVEUP_SECS;
+// "Silent" is measured from the last thing heard, and a session that starts
+// with a journal already pending starts the clock at its first tick -- so after
+// a reboot the boards still get their five minutes to find each other.
+bool Trade::canDecide() const {
+  return board && j.active == TRADE_PENDING && state != TRADE_OFF &&
+         nowMs - lastRx >= TRADE_DECIDE_MS;
 }
 
-bool Trade::giveUp() {
-  if (!canGiveUp()) return false;
-  PartyMon in = j.in;
-  board->onReceive(in);
-  // Store first, clear second: a cut between them leaves the trade pending
-  // with the creature already here, and the check below stops a second copy.
-  if (!board->findMon(in.uid, nullptr) && !board->storeNew(in)) return false;
-  TradeJournal next = j;
-  next.active = 0;
-  if (!saveJournalOf(board, next)) return false;
-  j = next;
-  state = TRADE_CANCELLED;
-  return true;
+bool Trade::decideRevert() {
+  if (!canDecide()) return false;
+  cancelPending();
+  return j.active == 0;
+}
+
+// Exactly what the peer's receipt would have done, so the journal, the open
+// log entry and the power-cut handling are the ones every test already covers.
+bool Trade::decideKeep() {
+  if (!canDecide()) return false;
+  return commit(j.fp, false);
 }
 
 static void checkAgreement(Trade &t) {
@@ -443,7 +443,8 @@ static void checkAgreement(Trade &t) {
 static void sendState(Trade &t) {
   if (t.state == TRADE_OFF || t.state == TRADE_REFUSED) return;
   bool live = t.state == TRADE_LISTENING || t.state == TRADE_CHOOSING ||
-              t.state == TRADE_PENDING || t.state == TRADE_DONE;
+              t.state == TRADE_PENDING || t.state == TRADE_STUCK ||
+              (t.state == TRADE_DONE && t.hasOpenEntries());
   if (live) sendHello(t);
   if (!t.havePeer) return;
   if (t.state == TRADE_CHOOSING) {
@@ -461,11 +462,12 @@ void Trade::tick(uint32_t now) {
   // A commit whose swap did not land (a failed write) keeps trying.
   if (j.active == TRADE_DONE) applyJournal(board, j);
 
+  nowMs = now;
   if (now - lastRx > (havePeer ? TRADE_PEER_TIMEOUT_MS : TRADE_PAIR_TIMEOUT_MS)) {
-    if (state == TRADE_CHOOSING || state == TRADE_LISTENING) state = TRADE_CANCELLED;
-    else if (state == TRADE_PENDING) state = TRADE_STUCK;
-    // DONE stays DONE: the creature is here; an open entry settles next meeting.
-    return;
+    if (state == TRADE_CHOOSING || state == TRADE_LISTENING) { state = TRADE_CANCELLED; return; }
+    if (state == TRADE_PENDING) state = TRADE_STUCK;
+    // STUCK and DONE keep calling: a board walking back into range inside
+    // TRADE_DECIDE_MS must find this one still asking, or the window is moot.
   }
   uint32_t gap = TRADE_RESEND_MS + (uint32_t)((resendSeq * 7919u) % TRADE_JITTER_MS);
   if (now - lastTx >= gap) {
@@ -519,6 +521,7 @@ void Trade::onPacket(const uint8_t *buf, uint8_t len) {
 
   if (!havePeer) return;
   sawRx = true;
+  if (state == TRADE_STUCK) state = TRADE_PENDING;   // the peer is back
 
   if (type == TM_OFFER) {
     if (n != 1 + MON_BYTES || state != TRADE_CHOOSING) return;
@@ -580,7 +583,7 @@ void Trade::onPacket(const uint8_t *buf, uint8_t len) {
       }
       putFp(*this, TM_ACK, fp);
     } else {
-      // Only reachable after a give-up here: they need not keep asking.
+      // Only reachable after this player decided to revert: they need not keep asking.
       putFp(*this, TM_UNKNOWN, fp);
     }
     break;
