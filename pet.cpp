@@ -182,7 +182,8 @@ static constexpr uint32_t PET_CORE_MAGIC = 0x31504B54UL;  // "TKP1"
 // v2 appended the pending party handover; see PET_TAIL_* below. v1 records
 // still read -- they simply have no tail, which is exactly "nothing waiting for
 // a party slot", the right default.
-static constexpr uint16_t PET_CORE_VERSION = 2;
+// v3 appended the live creature's CreatureUid after the handover record.
+static constexpr uint16_t PET_CORE_VERSION = 3;
 // Generous enough to read a record from a later build; see ckptRead().
 static constexpr size_t PET_CORE_CAP = 192;
 
@@ -256,7 +257,11 @@ static constexpr size_t PET_TAIL_KIND = PET_FIXED;          // u8  ceremony kind
 static constexpr size_t PET_TAIL_RSVD = PET_FIXED + 1;      // u8  reserved, 2-byte aligns the next
 static constexpr size_t PET_TAIL_MONLEN = PET_FIXED + 2;    // u16 stored sizeof(PartyMon)
 static constexpr size_t PET_TAIL_MON = PET_FIXED + 4;       // the record itself
-static constexpr size_t PET_BODY = PET_TAIL_MON + sizeof(PartyMon);
+// v3: the live creature's identity, AFTER the handover record. Because that
+// record's length is stored rather than assumed, the reader finds this at
+// PET_TAIL_MON + the STORED length -- so it still lands right if PartyMon grows.
+static constexpr size_t PET_TAIL_UID = PET_TAIL_MON + sizeof(PartyMon);
+static constexpr size_t PET_BODY = PET_TAIL_UID + sizeof(CreatureUid);
 static_assert(PET_BODY + CKPT_CRC <= PET_CORE_CAP, "raise PET_CORE_CAP");
 
 // Takes a validated blob and copies whatever body prefix the stored record and
@@ -305,7 +310,8 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // v2 appended the wallet + lifetime step count (the Poke Mart) after the
 // variable tail. v1 records still read -- the tail is simply shorter, which is
 // exactly "no money yet", the right default.
-static constexpr uint16_t PLAYER_VERSION = 2;
+// v3 appended the creature-ID serial counter after them, same rule.
+static constexpr uint16_t PLAYER_VERSION = 3;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -314,7 +320,8 @@ static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
 // the signal to raise PLAYER_CAP, not to trim the record.
 static constexpr size_t PLAYER_MAX =
     PLAYER_FIXED + 2 * PLAYER_DEX_BYTES + 4 * (GYM_REGIONS - 1) +
-    2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ + CKPT_CRC;
+    2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
+    4 /* uidSerial */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -399,6 +406,7 @@ bool Pet::savePlayerSnapshot() {
   // append-only rule at the top of this section.
   cur.put(&wallet, sizeof(wallet));
   cur.put(&stepsTotal, sizeof(stepsTotal));
+  cur.put(&uidSerial, sizeof(uidSerial));   // v3
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -485,6 +493,10 @@ bool Pet::loadPlayerSnapshot() {
     if (wallet > WALLET_CAP) wallet = WALLET_CAP;   // in case a later build lowers the cap
     stepsTotal = ckptRd32(buf + need + 4);
   }
+  // v3 tail: the creature-ID counter. Absent reads as 0, "nothing minted yet";
+  // if that is a rewind, the per-boot salt is what keeps re-issued serials
+  // apart from the old ones (CreatureUid, party.h).
+  if (body >= need + 12) uidSerial = ckptRd32(buf + need + 8);
 
   // REGION_ALL is the LAST entry of the table and is stored RAW, so a save from
   // a build with fewer regions has a number that now means somebody else --
@@ -508,6 +520,7 @@ void Pet::begin() {
   opened = prefs.begin("tamapoke", false);
   if (!opened)
     Serial.println("save: NVS namespace would not open -- NOTHING WILL BE SAVED");
+  uidNewBoot();
   saveGeneration = 0;
   playerGeneration = 0;
   // Zeroed BEFORE the branch below, not inside load(): getBytes() leaves its
@@ -554,6 +567,7 @@ void Pet::newEgg() {
   weight = WEIGHT_START;
   speciesId = -1;
   prevSpeciesId = -1;
+  uid = CreatureUid();   // an egg is not a creature yet; hatch() mints its ID
   for (int i = 0; i < REGION_COUNT; i++) eggByRegion[i] = 0;
   eggTarget = pickEggSpecies();  // especie oculta segun rareza y pokedex
   eggByRegion[region % REGION_COUNT] = eggTarget;
@@ -768,6 +782,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   frozen = true;
   strncpy(nick, m.nick, sizeof(nick) - 1);
   nick[sizeof(nick) - 1] = 0;
+  uid = m.uid;   // the same creature, so the same identity
   registerSpecies(speciesId);
   save();
 }
@@ -806,6 +821,7 @@ PartyMon Pet::toPartyMon() const {
   m.evoDeclinedLv = evoDeclinedLv;
   m.lastLearnLevel = lastLearnLevel;
   m.ageMinutes = ageMinutes;
+  m.uid = uid;
   return m;
 }
 
@@ -861,6 +877,7 @@ bool Pet::switchTo(const PartyMon &m) {
   }
   strncpy(nick, m.nick, sizeof(nick) - 1);
   nick[sizeof(nick) - 1] = 0;
+  uid = m.uid;   // the same creature, so the same identity
   registerSpecies(speciesId);
   return save();
 }
@@ -1130,6 +1147,28 @@ void Pet::recordRivalResult(const uint8_t mac[6], const char *name, bool won) {
   rivals[0] = rec;
   if (prefs.putBytes("rivals", rivals, sizeof(rivals)) != sizeof(rivals))
     logKeyFailure("pet", "rivals");
+}
+
+// See CreatureUid in party.h for why the salt is per boot. random() is the
+// hardware RNG on the ESP32 core, so two boots of the same board do not repeat.
+static uint16_t gUidSalt = 0;
+void Pet::uidNewBoot() { gUidSalt = (uint16_t)random(0x10000); }
+uint16_t Pet::uidSalt() { return gUidSalt; }
+
+CreatureUid Pet::mintUid() {
+  CreatureUid u;
+  uint64_t mac = ESP.getEfuseMac();
+  // Byte i of the efuse word is MAC byte i -- the same order WiFi.macAddress()
+  // and so linkNowPeerMac() report, which is what lets an ID be matched to a
+  // rival this board has met.
+  for (int i = 0; i < 6; i++) u.mac[i] = (uint8_t)(mac >> (8 * i));
+  u.salt = gUidSalt;
+  if (++uidSerial == 0) uidSerial = 1;   // 0 means "no ID"; 4 billion creatures from now
+  u.serial = uidSerial;
+  // Not saved here: every caller is about to save anyway (a hatch, a catch,
+  // the boot backfill), and if one did not, the fresh salt of the next boot
+  // still keeps a re-issued serial from colliding.
+  return u;
 }
 
 void Pet::registerSpecies(int16_t dex) {
@@ -1574,6 +1613,7 @@ void Pet::hatch() {
   medals = 0;
   newMedal = 0;
   nick[0] = 0;
+  uid = mintUid();   // a new creature, so a new identity
   registerSpecies(speciesId);  // criado = registrado en la pokedex
   // Start empty: checkLearnGates() fills the level-1 moves. Seeding from TMs
   // instead would hand a newborn FIRE BLAST, which no level 1 creature knows.
@@ -1933,6 +1973,7 @@ bool Pet::saveCoreSnapshot() {
   buf[PET_TAIL_RSVD] = 0;
   ckptWr16(buf + PET_TAIL_MONLEN, (uint16_t)sizeof(PartyMon));
   memcpy(buf + PET_TAIL_MON, &endedMon, sizeof(PartyMon));
+  memcpy(buf + PET_TAIL_UID, &uid, sizeof(CreatureUid));
 
   uint16_t total = ckptSeal(buf, PET_BODY, PET_CORE_MAGIC, PET_CORE_VERSION, nextGen);
   const char *key = ckptSlot(nextGen, "petA", "petB");
@@ -1982,8 +2023,12 @@ bool Pet::loadCoreSnapshot() {
   const size_t body = n - CKPT_CRC;
   endedKind = CER_NONE;
   endedMon = PartyMon();
+  uid = CreatureUid();   // absent in a v1/v2 record: backfillUids() mints one
   if (body >= PET_TAIL_MON) {
     size_t monLen = ckptRd16(buf + PET_TAIL_MONLEN);
+    // v3: the live creature's ID follows the handover at its STORED length.
+    if (monLen && PET_TAIL_MON + monLen + sizeof(CreatureUid) <= body)
+      memcpy(&uid, buf + PET_TAIL_MON + monLen, sizeof(CreatureUid));
     if (monLen && PET_TAIL_MON + monLen <= body) {
       // Prefix rule again: a record from before PartyMon grew lands in the front
       // and the care block keeps its initialisers, which stateVersion 0 already

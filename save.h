@@ -23,7 +23,11 @@
 #define SAVE_MAGIC3 'S'
 #define SAVE_VERSION 1
 #define SAVE_HDR 8
-#define SAVE_TRANSFER_MAX 4096  // shared EXPORT/IMPORT ceiling, including checkpoints
+// Shared EXPORT/IMPORT ceiling, including checkpoints. 4096 until v3.31, when
+// creature IDs took a full save to ~3.4 KB and past save_test's 75% margin.
+// Raised, never trimmed (save_test says why). Two static buffers of this size
+// live in the sketch. A save from this build still fits an older build's 4096.
+#define SAVE_TRANSFER_MAX 6144
 
 enum SaveKind : uint8_t {
   SK_U8 = 1, SK_I8, SK_BOOL, SK_U16, SK_I16, SK_U32, SK_BYTES, SK_STR,

@@ -44,7 +44,7 @@
 // build_web.sh moves web/manifest.json to it when the installer is rebuilt.
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
-#define FW_VERSION "3.30"
+#define FW_VERSION "3.31"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -273,6 +273,7 @@ void martTap(int16_t x, int16_t y);
 uint8_t martPages();
 bool startWildBattle(uint8_t region, bool hard);
 PartyMon wildToPartyMon();
+int backfillUids();
 void focusSwap(uint8_t slot);
 void drawConfirmPanel(const char *q, const char *sub1, const char *sub2,
                       uint16_t subCol, const char *o1, uint16_t c1, uint16_t t1,
@@ -978,6 +979,7 @@ void setup() {
   party.begin();
   bag.begin();
   pet.begin();
+  backfillUids();
   sdBegin();
   thumbs.load();
 
@@ -1479,6 +1481,7 @@ void handleSerial() {
         m.level = 50;
         m.ivAtk = m.ivDef = m.ivSpe = m.ivHp = 20;
         m.trAtk = m.trDef = m.trSpe = 50;
+        m.uid = pet.mintUid();
         Serial.println(party.add(m) ? "added" : "party full");
       }
     }
@@ -1486,7 +1489,8 @@ void handleSerial() {
     for (int i = 0; i < PARTY_SLOTS; i++) {
       const PartyMon &m = party.slots[i];
       if (m.empty()) Serial.print(" -");
-      else Serial.printf(" %s%s(nv%u)", DEX_TBL[m.dex].name, m.shiny ? "*" : "", m.level);
+      else Serial.printf(" %s%s(nv%u #%lu)", DEX_TBL[m.dex].name, m.shiny ? "*" : "", m.level,
+                         (unsigned long)m.uid.serial);
     }
     Serial.println();
     Serial.println("DONE");
@@ -1519,6 +1523,12 @@ void handleSerial() {
     // which is why the installer keeps its history in the browser rather than
     // on a server keyed by this.
     Serial.printf("board=%012llX\n", ESP.getEfuseMac());
+    // The live creature's identity and how many this save has minted.
+    {
+      char id[32];
+      uidFormat(pet.uid, id, sizeof(id));
+      Serial.printf("id=%s minted=%lu\n", id, (unsigned long)pet.uidSerial);
+    }
     Serial.printf("spec=%d nv=%u com=%u fel=%u ene=%u lim=%u desc=%u sd=%d mon=%d bat=%d usb=%d rtc=%u\n",
                   pet.speciesId, pet.level(), pet.fullness, pet.joy, pet.energy,
                   pet.hygiene, pet.careMistakes, sdReady, mon.loaded,
@@ -6799,6 +6809,37 @@ bool startWildBattle(uint8_t region, bool hard) {
   return true;
 }
 
+// Gives an ID to every creature that has none: the live pet, the six, the box
+// and a handover still waiting for a slot. Those are records from before IDs
+// existed (v3.30 and earlier), so each is treated as having started on this
+// board -- which, on the board it was raised on, it did.
+//
+// Every ordinary path mints its own ID when the creature is made (hatch(), a
+// wild catch, the debug PARTY fill); this is the safety net for what is already
+// saved, and run_once by construction, since a record that has an ID is left
+// alone. Saved only if something changed, so a normal boot writes nothing.
+int backfillUids() {
+  int given = 0;
+  bool partyDirty = false, boxDirty = false;
+  if (!pet.isEgg() && !pet.uid.valid()) { pet.uid = pet.mintUid(); given++; }
+  if (!pet.endedMon.empty() && !pet.endedMon.uid.valid()) {
+    pet.endedMon.uid = pet.mintUid();
+    given++;
+  }
+  for (auto &m : party.slots)
+    if (!m.empty() && !m.uid.valid()) { m.uid = pet.mintUid(); given++; partyDirty = true; }
+  for (auto &m : party.box)
+    if (!m.empty() && !m.uid.valid()) { m.uid = pet.mintUid(); given++; boxDirty = true; }
+  if (!given) return 0;
+  // The pet checkpoint first: it carries the counter, so once it lands no
+  // serial handed out above can be handed out again by this save.
+  pet.saveNow();
+  if (partyDirty) party.save();
+  if (boxDirty) party.boxSave();
+  Serial.printf("ids: gave %d creature(s) an ID\n", given);
+  return given;
+}
+
 // The wild creature as a storable record. It goes through the same PartyMon the
 // party and box already hold, so a caught creature is a first-class member the
 // moment it lands: it can be swapped in, raised, evolved and battled with.
@@ -6816,6 +6857,9 @@ PartyMon wildToPartyMon() {
   m.stateVersion = 1;
   m.ageMinutes = (uint32_t)(wildLvl ? wildLvl - 1 : 0) * MINUTES_PER_LEVEL;
   m.lastLearnLevel = wildLvl;   // do not replay gates it already passed
+  // Caught here, so this board is where it started. Minted from the LIVE pet's
+  // counter: btlFoe was built in a throwaway Pet whose own counter means nothing.
+  m.uid = pet.mintUid();
   return m;
 }
 

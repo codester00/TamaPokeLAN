@@ -589,6 +589,38 @@ alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. The installer was NOT rebuilt: `web/` still
 ships v3.28 and its manifest says so.
 
+### Done: every creature has a unique ID (2026-10-12, v3.31)
+
+The groundwork for trading, which has to be able to NAME a creature: species,
+level and nickname all change and two creatures can share every one of them.
+`CreatureUid` (`party.h`) is 12 bytes -- the MAC of the board it started on,
+a salt drawn at random on every boot, and a serial from the save's own counter
+(`Pet::uidSerial`, in the player checkpoint's v3 tail). Appended to
+`PartyMon` (48 -> 60) and to the pet checkpoint after the handover record
+(`PET_CORE_VERSION` 3), so nothing that exists moved.
+
+**Why the salt, and why per boot.** The owner first proposed the flash time as
+the board's ID; the board cannot know it (everyone installs the same binary,
+and an unset RTC reads months out), so the MAC does that job. But the counter
+lives in the save, and the save can go BACKWARDS -- `WIPE`, `IMPORT` of an older
+backup, a torn checkpoint falling back to its previous slot -- and a rewound
+counter re-issues serials that creatures already traded away still carry. All
+three paths reboot, so a fresh salt per boot keeps the new IDs apart.
+`uid_test` proves the rewind collides WITHOUT a new boot, so the salt check
+cannot pass by luck.
+
+`Pet::mintUid()` is the one source: `hatch()`, `wildToPartyMon()` (from the
+LIVE pet's counter -- the foe is built in a throwaway `Pet`), the `PARTY <dex>`
+debug fill and `backfillUids()`, which at boot gives every pre-3.31 creature an
+ID as if it started on this board. Evolution, banking, swapping and reviving
+carry the ID; `newEgg()` clears it. The ID is an identity, NOT a credential --
+the MAC is public and the firmware open. `STATS` prints `id=`, `PARTY` lists
+`#serial`. `SAVE_TRANSFER_MAX` 4096 -> 6144: a full save went 3042 -> 3386
+bytes, past `save_test`'s 75% margin. **Downgrading below 3.31 empties the
+party and box** (a 60-byte stride is neither shorter nor a multiple of 48), the
+same as every earlier growth of the record. `tools/debugger/tpsave.py` decodes
+both strides.
+
 ### Done: Galar and Paldea ladders, nine in all (2026-10-12)
 
 `GYM_REGIONS` 7 -> 9. Galar is SWORD (Bea and Gordie; Shield swaps in Allister
@@ -1683,7 +1715,7 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 41 suites (sprite_test skips without sprites)
+bash tools/emu/tests/run.sh          # all 43 suites (sprite_test skips without sprites)
 bash tools/emu/tests/run.sh battle   # just matching ones
 ```
 
@@ -1858,11 +1890,12 @@ and pairing UX on a touch-only screen.
 
 ### Box size (if the party grows past 6)
 
-`sizeof(PartyMon)` is **48 bytes** now (it was 30 when this was written; `moves[]`
-and then the care block were appended) and the NVS partition is 20 KB (`0x5000`).
-So the arithmetic has moved: the current box of 18 is 864 bytes, a box of 80 is
-3840 and still inside the ~4000-byte single-blob figure, and 100 (4800) already
-exceeds it and would need splitting across two keys. **Derive these from
+`sizeof(PartyMon)` is **60 bytes** now (it was 30 when this was written; `moves[]`,
+then the care block, then in v3.31 the 12-byte `CreatureUid` were appended) and
+the NVS partition is 20 KB (`0x5000`). So the arithmetic has moved: the current
+box of 18 is 1080 bytes, a box of 66 is 3960 and just inside the ~4000-byte
+single-blob figure, and 80 (4800) already exceeds it and would need splitting
+across two keys. **Derive these from
 `sizeof(PartyMon)` when the time comes rather than trusting the numbers in this
 paragraph** -- they have been wrong once already, which is § "sizeof(PartyMon) is
 load-bearing in four places" wearing a doc instead of code. RAM is a non-issue.

@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 #include <Preferences.h>
+#include <string.h>
+#include <stdio.h>
 
 // The party: pets that finished their life and were kept, rather than being
 // dissolved into a single Pokedex bit like every previous ending did.
@@ -16,6 +18,50 @@
 // key is purely additive and cannot corrupt anything.
 #define BOX_SLOTS 18
 #define MOVE_SLOTS 4    // the same four every trainer gets in the real games
+
+// Who a creature IS, independent of what it currently is. Species, level and
+// even the nickname can all change (evolution, renaming) and two creatures can
+// share every one of them, so none of that can name a creature -- which a
+// trade has to be able to do.
+//
+//   mac     the board that first had it: its efuse MAC, burned in at the
+//           factory and unique per chip. Same bytes linkNowPeerMac() reports
+//           for that board, so a creature can be matched to a known rival.
+//   salt    drawn at random on EVERY boot. The serial below lives in the save,
+//           and the save can go BACKWARDS -- WIPE resets it, IMPORT restores an
+//           older one, a torn checkpoint falls back to the previous slot -- and
+//           a counter that rewinds hands out numbers creatures already traded
+//           away still carry. Every one of those paths goes through a reboot,
+//           so a fresh salt per boot keeps the new IDs apart from the old ones.
+//   serial  this board's running count of creatures it has minted, from 1.
+//           0 means "no ID yet": a record from before IDs existed, which
+//           backfillUids() gives one at boot.
+//
+// It is an identity, NOT a credential: the MAC is public over the air and the
+// firmware is open, so nothing is ever authorised by it.
+struct CreatureUid {
+  uint8_t mac[6] = { 0, 0, 0, 0, 0, 0 };
+  uint16_t salt = 0;
+  uint32_t serial = 0;
+
+  bool valid() const { return serial != 0; }
+  bool operator==(const CreatureUid &o) const {
+    return serial == o.serial && salt == o.salt && !memcmp(mac, o.mac, 6);
+  }
+  bool operator!=(const CreatureUid &o) const { return !(*this == o); }
+};
+static_assert(sizeof(CreatureUid) == 12, "CreatureUid is on-disk format");
+
+// "AABBCCDDEEFF-SSSS-N", or "-" for a record with no ID. The MAC is in radio
+// byte order, as the LAN screen and a router would show it -- NOT the order
+// STATS prints `board=` in, which is the efuse word as one hex number and so
+// reads byte-reversed. That label keys the installer's backup history, so it
+// stays as it is.
+inline void uidFormat(const CreatureUid &u, char *out, size_t n) {
+  if (!u.valid()) { snprintf(out, n, "-"); return; }
+  snprintf(out, n, "%02X%02X%02X%02X%02X%02X-%04X-%lu", u.mac[0], u.mac[1],
+           u.mac[2], u.mac[3], u.mac[4], u.mac[5], u.salt, (unsigned long)u.serial);
+}
 
 // A stored creature -- one of the six that fight, or one in the box.
 //
@@ -55,9 +101,18 @@ struct PartyMon {
   // squad builder and the box screen keep reading one byte instead of dividing.
   uint32_t ageMinutes = 0;
 
+  // ---- identity, appended in v3.31 ----------------------------------------
+  // Zeroed by the length migration on every older record, which is exactly
+  // CreatureUid's "no ID yet" -- backfillUids() then gives it one.
+  CreatureUid uid;
+
   bool empty() const { return dex < 1; }
   bool hasCareState() const { return stateVersion >= 1; }
 };
+// Pinned so growing the record is a decision, not an accident: CLAUDE.md
+// § "sizeof(PartyMon) is load-bearing in four places", and the debugger's
+// tools/debugger/tpsave.py decodes this layout by hand. Append, then move both.
+static_assert(sizeof(PartyMon) == 60, "PartyMon layout changed -- see the comment above");
 
 class Party {
 public:

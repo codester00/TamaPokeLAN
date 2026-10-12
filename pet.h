@@ -146,6 +146,10 @@ public:
   uint32_t ageMinutes = 0;
   int16_t speciesId = -1;      // numero de Pokedex (1..DEX_COUNT), -1 = huevo
   int16_t prevSpeciesId = -1;  // para la animacion de evolucion
+  // The live creature's identity (party.h, CreatureUid). Minted when it hatches,
+  // carried through every bank and swap, kept by evolution, cleared by newEgg():
+  // an egg is not a creature yet.
+  CreatureUid uid;
   uint8_t careMistakes = 0;   // descuidos: cada uno retrasa la evolucion 1 nivel
   bool sleeping = false;
   uint32_t lastSeenEpoch = 0;   // ultima hora RTC vista (para progresion offline)
@@ -354,6 +358,18 @@ public:
     save();
     return true;
   }
+
+  // Creature IDs. The serial counter is player-wide -- it numbers every
+  // creature this save has ever minted, so newEgg() must never touch it -- and
+  // rides in the player checkpoint. mintUid() is the ONE place a new ID comes
+  // from: a hatch, a wild catch, a debug PARTY fill and the boot backfill all
+  // ask it, so they cannot disagree about what an ID is made of.
+  uint32_t uidSerial = 0;   // the last serial handed out; the next is +1
+  CreatureUid mintUid();
+  // A new random salt for this boot -- see CreatureUid. begin() calls it; a
+  // test that simulates a reboot without re-running begin() can call it too.
+  static void uidNewBoot();
+  static uint16_t uidSalt();
 
   uint16_t badgeMask(uint8_t rg, bool hard) const {
     if (rg == 0) return hard ? badgesHard : badges;

@@ -109,6 +109,9 @@ FRIENDLY_NAMES = {
     "berryKnown": "Berry known", "careMistakes": "Care mistakes",
     "evoDeclinedLv": "Evolution declined at level", "lastLearnLevel": "Last move-learn level",
     "stateVersion": "Care-state version (0 = predates care tracking)",
+    "uid": "Creature ID (board MAC - boot salt - serial)",
+    "uidMac": "ID: board it started on (MAC)", "uidSalt": "ID: boot salt",
+    "uidSerial": "ID: serial (0 = no ID yet)",
     # the player -- outlives every creature (save.cpp's SAVE_FIELDS)
     "tnam": "Trainer name", "avtr": "Avatar index", "badg": "Kanto badges (easy, bitmask)",
     "reg": "Current region", "eggR": "Egg region history (bytes)",
@@ -284,7 +287,7 @@ def encode_scalar(kind: int, value) -> bytes:
     return value  # SK_BYTES: caller already has raw bytes
 
 
-# ---- PartyMon: 48 bytes, party.h --------------------------------------
+# ---- PartyMon: 60 bytes, party.h (48 before v3.31 added the ID) --------------------------------------
 # Field order and widths straight from `struct PartyMon` in party.h. No
 # padding falls between any of these on a real build (every multi-byte field
 # already lands on its natural boundary given this order), which is what lets
@@ -305,10 +308,12 @@ PARTY_MON_FIELDS = [
     ("evoDeclinedLv", "B"), ("lastLearnLevel", "B"),
     ("_pad", "2x"),
     ("ageMinutes", "I"),
+    # v3.31: CreatureUid -- board MAC, per-boot salt, serial (0 = no ID yet)
+    ("uidMac", "6s"), ("uidSalt", "H"), ("uidSerial", "I"),
 ]
 PARTY_MON_FMT = "<" + "".join(f for _, f in PARTY_MON_FIELDS)
 PARTY_MON_SIZE = struct.calcsize(PARTY_MON_FMT)
-assert PARTY_MON_SIZE == 48, f"PartyMon layout drifted: {PARTY_MON_SIZE} != 48"
+assert PARTY_MON_SIZE == 60, f"PartyMon layout drifted: {PARTY_MON_SIZE} != 60"
 _PMON_NAMES = [n for n, _ in PARTY_MON_FIELDS if n != "_pad"]
 # name -> format char, with move0..move3 collapsed to "moveN" so
 # range_for_party_field("moveN") also works for the dialog's move entries.
@@ -316,10 +321,20 @@ _PARTY_MON_FIELD_FMT = {n: f for n, f in PARTY_MON_FIELDS if n != "_pad"}
 _PARTY_MON_FIELD_FMT["moveN"] = "B"
 
 
-def decode_party_mon(raw48: bytes) -> dict:
-    vals = struct.unpack(PARTY_MON_FMT, raw48)
+def format_uid(mac: bytes, salt: int, serial: int) -> str:
+    """Same text as the firmware's uidFormat() (party.h)."""
+    if not serial:
+        return "-"
+    return f"{mac.hex().upper()}-{salt:04X}-{serial}"
+
+
+def decode_party_mon(raw: bytes) -> dict:
+    # A shorter record is one from an older build: the firmware's own migration
+    # zero-fills the tail, so do exactly the same here.
+    vals = struct.unpack(PARTY_MON_FMT, raw[:PARTY_MON_SIZE].ljust(PARTY_MON_SIZE, b"\x00"))
     d = dict(zip(_PMON_NAMES, vals))
     d["nick"] = d["nick"].split(b"\x00", 1)[0].decode("ascii", "replace")
+    d["uid"] = format_uid(d["uidMac"], d["uidSalt"], d["uidSerial"])
     d["moves"] = [d.pop(f"move{i}") for i in range(4)]
     d["empty"] = d["dex"] < 1
     return d
@@ -336,9 +351,11 @@ def encode_party_mon(d: dict) -> bytes:
             vals.append(nick.ljust(12, b"\x00"))
         elif name.startswith("move"):
             vals.append(moves[int(name[-1])])
+        elif name == "uidMac":
+            vals.append(bytes(d.get("uidMac", b"\x00" * 6))[:6].ljust(6, b"\x00"))
         else:
             vals.append(d.get(name, 0))
-    out = bytearray(48)
+    out = bytearray(PARTY_MON_SIZE)
     off = 0
     it = iter(vals)
     for name, f in PARTY_MON_FIELDS:
@@ -351,9 +368,16 @@ def encode_party_mon(d: dict) -> bytes:
     return bytes(out)
 
 
-def decode_mon_list(raw: bytes) -> list:
-    n = len(raw) // PARTY_MON_SIZE
-    return [decode_party_mon(raw[i * PARTY_MON_SIZE:(i + 1) * PARTY_MON_SIZE]) for i in range(n)]
+def decode_mon_list(raw: bytes, slots: int = 0) -> list:
+    """`slots` is how many records the blob holds (6 party, 18 box). Given, the
+    stride is DERIVED from the length, so an export from before a record grew
+    (48 bytes before v3.31) still decodes -- the firmware migrates by length
+    the same way. Without it, today's size is assumed."""
+    stride = PARTY_MON_SIZE
+    if slots and len(raw) % slots == 0 and len(raw) // slots <= PARTY_MON_SIZE:
+        stride = len(raw) // slots
+    n = len(raw) // stride
+    return [decode_party_mon(raw[i * stride:(i + 1) * stride]) for i in range(n)]
 
 
 def encode_mon_list(mons: list) -> bytes:
@@ -522,6 +546,12 @@ def decode_pet_checkpoint(raw: bytes) -> dict:
             take = min(mon_len, PARTY_MON_SIZE, body_len - PET_TAIL_MON)
             chunk = raw[PET_TAIL_MON:PET_TAIL_MON + take].ljust(PARTY_MON_SIZE, b"\x00")
             d["ended_mon"] = decode_party_mon(chunk)
+        # v3: the live creature's CreatureUid, after the handover at its STORED length
+        at = PET_TAIL_MON + mon_len
+        if mon_len and at + 12 <= body_len:
+            mac = raw[at:at + 6]
+            salt, serial = struct.unpack_from("<HI", raw, at + 6)
+            d["uid"] = format_uid(mac, salt, serial)
     return d
 
 
@@ -628,8 +658,8 @@ def decode_save(raw: bytes, dex_h_path: str = None, items_h_path: str = None) ->
             player[key] = decode_scalar(*fields[key])
     result["player"] = player
 
-    result["party"] = decode_mon_list(fields["party"][1]) if "party" in fields else []
-    result["box"] = decode_mon_list(fields["box"][1]) if "box" in fields else []
+    result["party"] = decode_mon_list(fields["party"][1], 6) if "party" in fields else []
+    result["box"] = decode_mon_list(fields["box"][1], 18) if "box" in fields else []
     result["bag"] = decode_bag(fields["bag"][1]) if "bag" in fields else []
     result["rivals"] = decode_rivals_blob(fields["rivals"][1]) if "rivals" in fields else []
 
