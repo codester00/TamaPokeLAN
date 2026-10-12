@@ -253,9 +253,8 @@ static const Trainer TRAINERS_ALOLA[TRAINER_COUNT] = {
 // Regional forms do not exist in this dex: Opal's Galarian WEEZING and MR. MIME
 // are the base species' numbers.
 //
-// FIVE SUBSTITUTIONS, all for species SpriteCollab has no art for (noart.h):
+// THREE SUBSTITUTIONS, all for species SpriteCollab has no art for (noart.h):
 //   GORDIE  COALOSSAL   839 -> MAGCARGO   219  (the same Rock/Fire typing)
-//   NESSA   BARRASKEWDA 847 -> CRAMORANT  845  (Galar Water, Champion Cup team)
 //   BEA     FALINKS     870 -> PASSIMIAN  766  (pure Fighting)
 //   LEON    MR. RIME    866 -> RHYPERIOR  464  (a Leon team member elsewhere)
 static const Trainer TRAINERS_GALAR[TRAINER_COUNT] = {
@@ -268,7 +267,7 @@ static const Trainer TRAINERS_GALAR[TRAINER_COUNT] = {
   { "PIERS",    "SPIKEMUTH",  T_DARK,     4, { {560,44},{687,45},{435,45},{862,46} } },
   { "RAIHAN",   "HAMMERLOCKE",T_DRAGON,   4, { {526,46},{330,47},{844,46},{884,48} } },
   { "MARNIE",   "CHAMP CUP",  T_DARK,     5, { {510,47},{454,47},{560,47},{877,48},{861,49} } },
-  { "NESSA",    "CHAMP CUP",  T_WATER,    4, { {768,50},{279,50},{845,51},{834,53} } },  // 847 BARRASKEWDA: no art
+  { "NESSA",    "CHAMP CUP",  T_WATER,    4, { {768,50},{279,50},{847,51},{834,53} } },
   { "BEA",      "CHAMP CUP",  T_FIGHTING, 5, { {237,51},{853,51},{865,52},{766,52},{68,53} } },  // 870 FALINKS: no art
   { "RAIHAN",   "CHAMP CUP",  T_DRAGON,   4, { {324,53},{706,53},{330,54},{884,55} } },
   { "LEON",     "CHAMPION",   T_FIRE,     6, { {681,62},{887,62},{612,63},{537,64},{464,64},{6,65} } },  // 866 MR RIME: no art

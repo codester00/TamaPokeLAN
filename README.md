@@ -541,8 +541,8 @@ split lives on the species, not the individual — no extra IVs to roll.
   narration follow whichever is chosen.
 - **Region:** the pill under a waiting egg picks which generation it comes from —
   **Kanto / Johto / Hoenn / Sinnoh / Unova / Kalos / Alola / Galar / Paldea / All**. A first egg gives that
-  region's starter. 48 species have no sprite art anywhere (13 in Unova, 1 in
-  Kalos, 5 in Alola, 9 in Galar, 20 in Paldea); they keep their dex numbers but never hatch, since the egg would
+  region's starter. 46 species have no sprite art anywhere (13 in Unova, 1 in
+  Kalos, 5 in Alola, 7 in Galar, 20 in Paldea); they keep their dex numbers but never hatch, since the egg would
   give a creature that could only ever draw as a number.
   A region whose **sprite pack is not on the card** shows as locked and is kept
   out of the egg pool, so a partial sprite install is a supported state. A pack

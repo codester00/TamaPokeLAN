@@ -589,7 +589,7 @@ and Melony) and, having no Elite Four, fills those four slots with the
 Champion Cup in order: Marnie, then Nessa, Bea and Raihan's stronger teams,
 then Leon. Paldea is Scarlet/Violet as played. Both are written from
 knowledge, NOT VERIFIED (no Gen 8/9 decomp); `verify_rosters.py` derives its
-NOT VERIFIED list from `trainers.h` and names them itself. Seven art-less
+NOT VERIFIED list from `trainers.h` and names them itself. Six art-less
 species were swapped for same-type stand-ins, listed at the top of each ladder,
 and `roster_test` fails if one is put back. Regional forms do not exist in this
 dex, so Opal's Galarian Weezing and Mr. Mime are the base species. Badges are
