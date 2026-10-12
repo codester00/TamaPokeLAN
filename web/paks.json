@@ -3,45 +3,57 @@
   "regions": {
     "kanto": {
       "index": 0,
-      "bytes": 42440298,
-      "crc32": "4c625d85",
+      "bytes": 42650410,
+      "crc32": "8d98e960",
       "sprites": 303
     },
     "johto": {
       "index": 1,
-      "bytes": 28989371,
-      "crc32": "b89e10d2",
+      "bytes": 29199483,
+      "crc32": "9bf97d86",
       "sprites": 201
     },
     "hoenn": {
       "index": 2,
-      "bytes": 40490974,
-      "crc32": "0cd83ee2",
+      "bytes": 40701086,
+      "crc32": "a8c550e7",
       "sprites": 271
     },
     "sinnoh": {
       "index": 3,
-      "bytes": 34919634,
-      "crc32": "22ffc9a6",
+      "bytes": 35129746,
+      "crc32": "c988e64d",
       "sprites": 215
     },
     "unova": {
       "index": 4,
-      "bytes": 42050748,
-      "crc32": "ed0d42b0",
+      "bytes": 42260860,
+      "crc32": "04c38a8b",
       "sprites": 286
     },
     "kalos": {
       "index": 5,
-      "bytes": 22043168,
-      "crc32": "9c0d2b13",
+      "bytes": 22253280,
+      "crc32": "ed45317b",
       "sprites": 143
     },
     "alola": {
       "index": 6,
-      "bytes": 28884786,
-      "crc32": "2978d379",
+      "bytes": 29094898,
+      "crc32": "15bc4bdf",
       "sprites": 167
+    },
+    "galar": {
+      "index": 7,
+      "bytes": 27526132,
+      "crc32": "42aafd93",
+      "sprites": 176
+    },
+    "paldea": {
+      "index": 8,
+      "bytes": 30331710,
+      "crc32": "4bb9f071",
+      "sprites": 198
     }
   }
 }
