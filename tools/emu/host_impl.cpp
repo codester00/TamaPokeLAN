@@ -56,7 +56,7 @@ static uint8_t *slurp(const std::string &path, uint32_t *size) {
 // existed -- so a test written to catch a sprite-truncation bug was skipped on
 // every machine while a sprite-truncation bug sat two lines away from it.
 bool PmdMon::load(int16_t dexNum, bool shiny) {
-  if (dexNum < 1 || dexNum > DEX_COUNT) return false;
+  if (!spriteDexValid(dexNum)) return false;
   unload();
   char name[24];
   snprintf(name, sizeof(name), "/p%s%03u.bin", shiny ? "s" : "", (unsigned)dexNum);

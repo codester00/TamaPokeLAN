@@ -1,5 +1,14 @@
 #pragma once
 #include <Arduino.h>
+#include "dex.h"
+
+// Whether a dex number names a sprite that can exist. THE one answer, asked by
+// the firmware's loaders here AND the emulator's in host_impl.cpp. The emulator
+// copy was fixed from `> 999` to DEX_COUNT while the firmware kept the literal,
+// so sprite_test passed while every species from 1000 (Gholdengo) to 1025
+// (Pecharunt) could never draw on a board: CLAUDE.md's "rule fixed in one path
+// but not its twin", on top of "a width that did not grow with the dex".
+inline bool spriteDexValid(int16_t dexNum) { return dexNum >= 1 && dexNum <= DEX_COUNT; }
 
 // Sprite animado TPK1 (formato heredado, camino de respaldo). El proyecto usa
 // PMD/TPK2 (PmdMon) para todo; esta ruta queda inactiva si no hay NNN.bin en la SD.
