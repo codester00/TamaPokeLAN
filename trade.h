@@ -150,6 +150,27 @@ struct TradeJournal {
   TradeLogEntry log[TRADE_LOG_CAP];
 };
 
+// What the trade screen shows, as THIS board understands it. Exists for the
+// moment contact is lost: both players are stuck on the trade screen and
+// cannot open their party to check, so each screen must say plainly what this
+// board holds -- and that is exactly what the OTHER player needs to read to
+// decide. "Complete" on one screen means choose KEEP on the other; anything
+// else means choose REVERT.
+enum TradeView : uint8_t {
+  TV_NONE = 0,               // no trade to report
+  TV_INCOMPLETE,             // not traded here: you still have `have`, your original
+  TV_COMPLETE_UNCONFIRMED,   // traded here: you have `have`, the new one; the other board has not confirmed
+  TV_COMPLETE,               // traded, and both boards know it
+};
+struct TradeStatus {
+  uint8_t view = TV_NONE;
+  bool connected = false;    // heard from the peer within TRADE_PEER_TIMEOUT_MS
+  bool mustDecide = false;   // the player is being asked (canDecide())
+  uint16_t secsLeft = 0;     // until they are asked; counts down only while disconnected and pending
+  PartyMon have;             // the creature in play that THIS board holds right now
+  PartyMon other;            // the one on the other side of the deal
+};
+
 struct Trade {
   uint8_t state = TRADE_OFF;
   uint8_t refusal = TREF_NONE;
@@ -194,6 +215,7 @@ struct Trade {
   // A pending trade whose peer has been silent for TRADE_DECIDE_MS: the player
   // looks at the other board and decides. Both are final; see the header.
   bool canDecide() const;
+  TradeStatus status() const;
   bool decideRevert();    // keep mine
   bool decideKeep();      // take theirs
 

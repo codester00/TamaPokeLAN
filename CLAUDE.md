@@ -623,11 +623,28 @@ the answer and nothing second-guesses it later; no anti-spoofing either, by
 the same call (open source, no paid users, no harm in it). A board still
 pending when the two meet again just follows the first decision.
 
+**The stuck screen, as the owner specified it** (to build with the UI; the data
+is `Trade::status()`, already tested). Both players are stuck on the trade
+screen and cannot open their party, so each screen must say what ITS board
+holds -- which is exactly what the other player reads to decide:
+
+- "Connection lost... reattempting. x:xx remaining" -- `secsLeft`, counting
+  down only while disconnected and pending.
+- `TV_COMPLETE_UNCONFIRMED`: "Trade appears complete without confirmation (you
+  have <have>)". The other player should choose KEEP.
+- `TV_INCOMPLETE`: "Trade appears incomplete (you have <have>)". The other
+  player should choose REVERT.
+- At `mustDecide`: the REVERT / KEEP choice behind the cannot-be-undone warning.
+
+`trade_test` has the simulated player decide from the OTHER board's
+`status()` and never from its storage, and asserts in every link-cut case that
+each screen names the creature its board really holds.
+
 `trade_test` drives it through 300 lossy/duplicating radios, a power cut at
 every durable write on either board, the link cut after every packet (both
 ways and one way) with a reconnect, and a player deciding after five minutes
 from each of those states, asserting every creature exists exactly once.
-Twelve guards were negative-checked, each failing the suite when put back.
+Sixteen guards were negative-checked, each failing the suite when put back.
 
 Rejected, deliberately: Gemini's suggested signed manifests and save-state
 hashes (any key ships in open firmware; the save changes every few minutes),

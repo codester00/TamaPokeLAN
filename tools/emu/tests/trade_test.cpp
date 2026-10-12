@@ -220,20 +220,31 @@ struct Sim {
   }
 };
 
-// The player on each stuck board does what the screen tells them: look at the
-// other board, and keep the trade only if it is showing MY creature. Returns
-// how many boards were asked.
+// What a player reads on the other board's screen: "complete" means keep.
+static bool looksComplete(const Trade &other) {
+  uint8_t v = other.status().view;
+  return v == TV_COMPLETE || v == TV_COMPLETE_UNCONFIRMED;
+}
+// The player on each stuck board does what the screen tells them, and ONLY
+// that: it reads the other board's status() -- never its storage -- because
+// the screen is all a real player has. Returns how many boards were asked.
 static int decideByLooking(Sim &s) {
   int asked = 0;
   if (s.ta.canDecide()) {
     asked++;
-    if (s.B.count(s.a1.uid)) s.ta.decideKeep(); else s.ta.decideRevert();
+    if (looksComplete(s.tb)) s.ta.decideKeep(); else s.ta.decideRevert();
   }
   if (s.tb.canDecide()) {
     asked++;
-    if (s.A.count(s.b1.uid)) s.tb.decideKeep(); else s.tb.decideRevert();
+    if (looksComplete(s.ta)) s.tb.decideKeep(); else s.tb.decideRevert();
   }
   return asked;
+}
+// The screen never lies: whatever status() says this board holds, it holds.
+static bool screenTrue(const Trade &t, TestBoard &b) {
+  TradeStatus st = t.status();
+  if (st.view == TV_NONE) return true;
+  return st.have.dex > 0 && b.count(st.have.uid) == 1;
 }
 
 // After any disaster: reboot what died, let the two meet again (twice, as a
@@ -413,7 +424,7 @@ int main() {
     probe.offerAndAccept(probe.a1, probe.b1);
     probe.step(3000);
     int total = probe.sent;
-    int cases = 0, ok = 0, decided = 0, decidedOk = 0;
+    int cases = 0, ok = 0, decided = 0, decidedOk = 0, lies = 0, unconfirmed = 0;
     for (int dir = 0; dir < 2; dir++)
       for (int n = before; n <= total; n++) {
         for (int ask = 0; ask < 2; ask++) {
@@ -427,7 +438,11 @@ int main() {
             // The boards never find each other again: after five minutes the
             // players are asked, and each reads the other's screen.
             s.step(TRADE_DECIDE_MS + 2000);
+            lies += !screenTrue(s.ta, s.A) + !screenTrue(s.tb, s.B);
+            unconfirmed += s.ta.status().view == TV_COMPLETE_UNCONFIRMED ||
+                           s.tb.status().view == TV_COMPLETE_UNCONFIRMED;
             if (!decideByLooking(s)) continue;
+            lies += !screenTrue(s.ta, s.A) + !screenTrue(s.tb, s.B);
             decided++;
             bool once = s.countAll(s.a1) == 1 && s.countAll(s.b1) == 1;
             settle(s);   // and if they DO meet later, nothing changes
@@ -450,6 +465,8 @@ int main() {
     ck(ok == cases, "a link cut at any packet, then a reconnect, never loses or copies a creature");
     ck(decided > 0, "(some cut leaves a board pending long enough to ask its player)");
     ck(decidedOk == decided, "a player who reads the other screen never loses or copies one either");
+    ck(lies == 0, "every stuck screen names the creature its board really holds");
+    ck(unconfirmed > 0, "(some cut leaves a board traded but unconfirmed, and its screen says so)");
   }
 
   // --- 7. the five-minute window, and a pending trade locks its creature
@@ -472,8 +489,19 @@ int main() {
     ck(s.ta.j.active == TRADE_PENDING && s.ta.state == TRADE_STUCK, "(A is stuck pending)");
     ck(s.tb.state == TRADE_CANCELLED && !s.tb.j.active, "(B never went pending)");
     ck(s.ta.locks(s.a1.uid), "a pending trade keeps its creature locked");
+    TradeStatus st0 = s.ta.status();
+    ck(st0.view == TV_INCOMPLETE && st0.have.uid == s.a1.uid && st0.other.uid == s.b1.uid,
+       "the stuck screen says: incomplete, you still have your original");
+    ck(!st0.connected && st0.secsLeft > 0 && st0.secsLeft <= TRADE_DECIDE_MS / 1000,
+       "with a countdown running");
+    TradeStatus sb = s.tb.status();
+    ck(sb.view == TV_INCOMPLETE && sb.have.uid == s.b1.uid,
+       "and the other board's screen says the same of its own");
     s.step(3 * 60 * 1000);
-    ck(!s.ta.canDecide() && !s.ta.decideRevert() && !s.ta.decideKeep(),
+    TradeStatus st1 = s.ta.status();
+    ck(st1.secsLeft + 170 <= st0.secsLeft && st1.secsLeft + 190 >= st0.secsLeft,
+       "the countdown counts down (three minutes later, ~180 s less)");
+    ck(!s.ta.canDecide() && !s.ta.decideRevert() && !s.ta.decideKeep() && !st1.mustDecide,
        "the player is not asked inside five minutes");
     // B walks back into range inside the window: settled with nobody asked.
     s.upAB = true;
@@ -484,7 +512,8 @@ int main() {
     Sim t;
     oneSided(t);
     t.step(TRADE_DECIDE_MS);
-    ck(t.ta.canDecide(), "after five minutes of silence the player is asked");
+    ck(t.ta.canDecide() && t.ta.status().mustDecide && t.ta.status().secsLeft == 0,
+       "after five minutes of silence the countdown ends and the player is asked");
     ck(!t.tb.canDecide(), "(but not on the board that never went pending)");
     ck(t.ta.decideRevert() && t.clean(), "reverting closes the trade");
     ck(t.A.count(t.a1.uid) == 1 && t.A.count(t.b1.uid) == 0 && t.B.count(t.b1.uid) == 1,
@@ -496,6 +525,9 @@ int main() {
     u.step(TRADE_DECIDE_MS);
     ck(u.ta.decideKeep() && u.A.count(u.b1.uid) == 1 && u.A.count(u.a1.uid) == 0,
        "keeping the trade swaps the creature in -- the player's call, final");
+    TradeStatus su = u.ta.status();
+    ck(su.view == TV_COMPLETE_UNCONFIRMED && su.have.uid == u.b1.uid,
+       "and its screen then says: complete, unconfirmed, you have the new one");
   }
 
   // --- 8. busy with one board, refused by another

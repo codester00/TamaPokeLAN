@@ -419,6 +419,35 @@ bool Trade::canDecide() const {
          nowMs - lastRx >= TRADE_DECIDE_MS;
 }
 
+TradeStatus Trade::status() const {
+  TradeStatus s;
+  if (!board) return s;
+  uint32_t silent = nowMs - lastRx;
+  s.connected = havePeer && silent < TRADE_PEER_TIMEOUT_MS;
+  s.mustDecide = canDecide();
+  int li = logFind(j, j.fp);
+  if (j.active == TRADE_PENDING) {
+    // Not traded here: the original is still in its slot (locked), and the
+    // incoming one exists only as the journal's hidden copy.
+    s.view = TV_INCOMPLETE;
+    board->findMon(j.outUid, &s.have);
+    s.other = j.in;
+    if (!s.connected && silent < TRADE_DECIDE_MS)
+      s.secsLeft = (uint16_t)((TRADE_DECIDE_MS - silent + 999) / 1000);
+  } else if (j.fp && (j.active == TRADE_DONE || state == TRADE_DONE || (li >= 0 && j.log[li].open))) {
+    // Traded here. Still "unconfirmed" while the peer has not acknowledged --
+    // and that survives a reboot, because the open entry is in the journal.
+    s.view = (li >= 0 && j.log[li].open) ? TV_COMPLETE_UNCONFIRMED : TV_COMPLETE;
+    s.have = j.in;
+    s.other = mine;   // only known in the session that traded it
+  } else if ((state == TRADE_CANCELLED || state == TRADE_STUCK) && mine.dex > 0) {
+    s.view = TV_INCOMPLETE;   // this session offered something and nothing moved
+    s.have = mine;
+    s.other = theirs;
+  }
+  return s;
+}
+
 bool Trade::decideRevert() {
   if (!canDecide()) return false;
   cancelPending();
