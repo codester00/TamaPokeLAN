@@ -135,6 +135,9 @@ bool menuOpen = false;
 // either taps someone to replace or lets it go.
 bool partyOpen = false;
 bool partyPick = false;
+// The Linking Cord on a KARRABLAST or SHELMET: the party ring is open to pick
+// the creature to link with. Cancelling keeps the cord.
+bool cordPick = false;
 uint8_t partyDetail = 0;   // 0 = the grid, else slot + 1
 // The box, reached from the party screen. `boxSwapFrom` is the party slot
 // waiting for something to trade with, 0 when nothing is pending.
@@ -267,6 +270,8 @@ void renderBox();
 // and the emulator's generated proto.h would hide that -- see the note above.
 void renderBag();
 void bagTap(int16_t x, int16_t y);
+void cordFromBag();
+void cordPickTap(int16_t x, int16_t y);
 uint8_t bagPages();
 void renderMart();
 void martTap(int16_t x, int16_t y);
@@ -2005,6 +2010,7 @@ int uiTapFinger() { return UI_TAP_FINGER; }
 int uiButtonHitR() { return BTN_HIT; }
 
 void partyTap(int16_t x, int16_t y) {
+  if (cordPick) { cordPickTap(x, y); return; }
   if (boxOpen) { boxTap(x, y); return; }
   // The SHEET IS CHECKED FIRST, and that is not cosmetic ordering. It covers the
   // whole screen, and its RELEASE button (x240..370, y336..384) lands inside the
@@ -2727,6 +2733,7 @@ void uiTileGo(int i) {
   if (i < 0) i = 0;
   if (i >= TILE_COUNT) i = TILE_COUNT - 1;
   exploreOpen = gymOpen = partyOpen = galleryOpen = playerOpen = false;
+  cordPick = false;
   boxOpen = false;
   boxDetail = partyDetail = 0;
   galleryDetail = 0;
@@ -6588,6 +6595,58 @@ void renderBag() {
   gfx->flush();
 }
 
+// The Linking Cord, from the bag, on the live pet. Every decision is
+// Pet::cordUse()'s; this only routes it. Used up only when it took.
+void cordFromBag() {
+  const char *name = itemEntry(IT_LINKCORD).name;
+  switch (pet.cordUse()) {
+    case Pet::CORD_SOLO:
+      if (!pet.applyCord()) { sfxPlay(SFX_DENY); return; }
+      bag.consume(IT_LINKCORD);
+      sfxPlay(SFX_MEDAL);
+      bagSay(T(S_ITEM_USED), name);
+      return;
+    case Pet::CORD_NEEDS_PARTNER:
+      // KARRABLAST and SHELMET: pick who to link with on the party ring.
+      bagOpen = false;
+      partyOpen = true;
+      partyDetail = 0;
+      boxSwapFrom = 0;
+      boxSel = 0;
+      cordPick = true;
+      sfxPlay(SFX_TAP);
+      return;
+    default:
+      sfxPlay(SFX_DENY);
+      bagSay("%s", T(S_ITEM_NOUSE));   // and the cord is kept
+      return;
+  }
+}
+
+// The partner pick. Returns to the bag either way, with a toast saying what
+// happened; only a real pair spends the cord.
+void cordPickTap(int16_t x, int16_t y) {
+  int i = partySlotAt(x, y);
+  bool cancel = (y >= PARTYCLOSE_Y && y <= PARTYCLOSE_Y + PARTYCLOSE_H &&
+                 x >= PARTYCLOSE_X && x <= PARTYCLOSE_X + PARTYCLOSE_W) || y < 34;
+  if (i < 0 && !cancel) return;                       // a miss on the ring: nothing
+  if (i >= 0 && party.slots[i].empty()) { sfxPlay(SFX_DENY); return; }
+  cordPick = false;
+  partyOpen = false;
+  bagOpen = true;
+  if (cancel) { sfxPlay(SFX_TAP); return; }           // cord kept
+  PartyMon m = party.slots[i];
+  if (!pet.applyCordPair(m)) {
+    sfxPlay(SFX_DENY);
+    bagSay("%s", T(S_ITEM_NOUSE));
+    return;
+  }
+  party.replaceAt((uint8_t)i, m);
+  bag.consume(IT_LINKCORD);
+  sfxPlay(SFX_MEDAL);
+  bagSay(T(S_ITEM_USED), itemEntry(IT_LINKCORD).name);
+}
+
 void bagTap(int16_t x, int16_t y) {
   uint8_t n = bag.distinctCount();
   for (uint8_t i = 0; i < BAG_PER_PAGE; i++) {
@@ -6597,6 +6656,7 @@ void bagTap(int16_t x, int16_t y) {
     if (x < 76 || x > 390 || y < ry || y > ry + 50) continue;
     ItemKey k = bag.keyAt(idx);
     if (!itemUsableInField(k) || pet.isEgg()) { sfxPlay(SFX_DENY); return; }
+    if (k == IT_LINKCORD) { cordFromBag(); return; }
     if (!bagUseOnPet(k)) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
     bag.consume(k);
     sfxPlay(SFX_TAP);
@@ -7077,13 +7137,22 @@ void renderParty() {
   char head[24];
   snprintf(head, sizeof(head), T(S_PARTY_FMT), party.count());
   gfx->setTextColor(UI_INK);
-  gfx->setTextSize(3);
-  gfx->setCursor(CX - (int)strlen(head) * 9, 42);
-  gfx->print(head);
+  if (cordPick) {
+    // The Linking Cord asking for KARRABLAST's or SHELMET's partner: the
+    // question REPLACES the title. Under it, it collided with the size-3
+    // header; the count is not what anybody is looking at here.
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(T(S_CORD_PICK)) * 6, 52);
+    gfx->print(T(S_CORD_PICK));
+  } else {
+    gfx->setTextSize(3);
+    gfx->setCursor(CX - (int)strlen(head) * 9, 42);
+    gfx->print(head);
+  }
 
   // the box lives behind the hub in the middle of the ring; it also shows how
   // full it is, so the player knows there is anything in there without opening
-  if (!partyPick) {
+  if (!partyPick && !cordPick) {
     char bl[24];
     snprintf(bl, sizeof(bl), "%u/%u", party.boxCount(), BOX_SLOTS);
     drawPartyHub(bl, T(S_BOX_BTN), boxSwapFrom != 0);

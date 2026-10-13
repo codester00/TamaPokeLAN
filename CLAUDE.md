@@ -618,10 +618,17 @@ board hook, so no board can forget. A marked creature evolves at any level
 once cared for; the mark is spent by the evolution, so PORYGON2 needs a second
 trade. CLAMPERL's two targets are picked by the creature's own ID.
 
-**Until the trade screen exists, the 22 trade-only species cannot evolve at
-all** -- the level route is gone and there is no way to trade yet. Known and
-accepted for an unreleased branch; do not release 3.32 without the screen, or
-put `onlyByTrade()` behind a switch first.
+**The Linking Cord** (`IT_LINKCORD`, $9,800, `cord_test`) is how a one-board
+player reaches them -- the owner's pick over a single/multiplayer mode, an NPC
+trader and an online forum, all rejected. From the bag it marks the LIVE pet
+(`Pet::cordUse()` / `applyCord()`); a mark only matters on the live pet, so a
+banked creature is raised first. One cord, one evolution, NOT spent when it
+would do nothing (final form, already marked, a frozen companion, an egg).
+KARRABLAST/SHELMET open the party ring (`cordPick`) to choose the partner, and
+`applyCordPair()` marks the pair through the same `markTraded()` a real trade
+uses -- working on copies, so a failed link cannot strip a partner's existing
+mark. `itemUsableInBattle()` is now stated as what IS allowed; as "anything but
+training" it would have let the cord into the battle bag.
 
 **Do not "simplify" the pending stage into a timeout-and-revert.** That is the
 first design everyone reaches for and it loses creatures: the last message of
@@ -1796,7 +1803,7 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 45 suites (sprite_test skips without sprites)
+bash tools/emu/tests/run.sh          # all 46 suites (sprite_test skips without sprites)
 bash tools/emu/tests/run.sh battle   # just matching ones
 ```
 

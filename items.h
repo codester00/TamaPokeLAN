@@ -26,6 +26,7 @@ enum : uint8_t {
   IT_IRON,
   IT_CARBOS,
   // APPEND-ONLY BELOW HERE
+  IT_LINKCORD,   // v3.32: trade evolution without a trade (Legends: Arceus)
   ITEM_COUNT,
 };
 
@@ -34,6 +35,7 @@ enum ItemCategory : uint8_t {
   IC_HEAL,       // restores HP, in battle or out
   IC_CURE,       // clears an ailment
   IC_TRAIN,      // permanently raises one training stat, out of battle
+  IC_LINK,       // the Linking Cord: marks the live pet to evolve by trade
 };
 
 // A ball whose param is this catches without rolling. It is a sentinel rather
@@ -72,6 +74,10 @@ static const ItemEntry ITEM_TBL[ITEM_COUNT] = {
   { "PROTEIN",      IC_TRAIN, TRAIN_ATK,              5, 8,  9800 },
   { "IRON",         IC_TRAIN, TRAIN_DEF,              5, 8,  9800 },
   { "CARBOS",       IC_TRAIN, TRAIN_SPE,              5, 8,  9800 },
+  // Priced with the vitamins, the dearest things on sale -- about a day's walk
+  // per evolution -- by the owner's call, not copied from a game. Never drops:
+  // walking for it is the point.
+  { "LINKING CORD", IC_LINK,  0,                      0, 0,  9800 },
 };
 
 inline bool itemValid(ItemKey k) { return k > ITEM_NONE && k < ITEM_COUNT; }
@@ -86,12 +92,19 @@ inline bool itemIsBall(ItemKey k) {
 // are discarded when it ends -- so a potion in the field would have nothing to
 // act on and would silently vanish.
 inline bool itemUsableInField(ItemKey k) {
-  return itemValid(k) && itemEntry(k).category == IC_TRAIN;
+  return itemValid(k) && (itemEntry(k).category == IC_TRAIN ||
+                          itemEntry(k).category == IC_LINK);
 }
 // Usable from inside a fight. Training is permanent and belongs to the care
 // sim, so it stays out of the battle bag.
+//
+// Stated as what IS allowed, not as "anything but training": that was a list
+// of exclusions, and the Linking Cord would have walked straight into the
+// battle bag through it (CLAUDE.md § 1).
 inline bool itemUsableInBattle(ItemKey k) {
-  return itemValid(k) && itemEntry(k).category != IC_TRAIN;
+  if (!itemValid(k)) return false;
+  uint8_t c = itemEntry(k).category;
+  return c == IC_BALL || c == IC_HEAL || c == IC_CURE;
 }
 
 // The Poke Mart's catalogue, derived from `price` rather than restated as its

@@ -493,6 +493,22 @@ public:
   // trading evolves. Deliberately does not evolve it here: making it the live
   // pet first registers the unevolved form in the Pokedex, as the owner asked.
   static void markTraded(PartyMon &in, int16_t gaveDex);
+
+  // The Linking Cord: trade evolution without a trade. One cord, one
+  // evolution, used up -- and NOT used up when it would do nothing. It works
+  // on the live pet only: a mark only ever matters when the creature is live,
+  // so a banked one is raised first. KARRABLAST and SHELMET still need each
+  // other: the cord asks for the partner, and the pair is marked through the
+  // same markTraded() a real trade uses, so the cord and a trade can never
+  // disagree about who evolves.
+  enum CordUse : uint8_t {
+    CORD_NO_EFFECT,      // "it won't have any effect": nothing marked, cord kept
+    CORD_SOLO,           // marks the live pet
+    CORD_NEEDS_PARTNER,  // ask which party creature to link with
+  };
+  CordUse cordUse() const;
+  bool applyCord();                         // CORD_SOLO; true if it took
+  bool applyCordPair(PartyMon &partner);    // CORD_NEEDS_PARTNER; true if they pair
   void evolve();              // dispara la transformacion (la llama un toque del usuario)
   bool canFarewellNow() const;  // forma final + 7 dias: lista para despedirse (boton)
   // Total neglect RIGHT NOW. THE single answer: tick() counts against it and

@@ -167,6 +167,7 @@ enum StrId : uint8_t {
   S_MART_BUY_Q,     // buy confirm: "Buy %s?"
   S_MART_PRICE_FMT, // buy confirm sub-line: "COST: $%lu"
   S_EVO_TRADE,      // card: this species evolves only by being traded
+  S_CORD_PICK,      // Linking Cord on Karrablast/Shelmet: pick the partner
   STR_COUNT
 };
 

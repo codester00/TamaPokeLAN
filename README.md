@@ -274,6 +274,13 @@ While **awake**, per minute:
   becomes HUNTAIL or GOREBYSS (each one is fixed from the start). PORYGON2 needs
   a second trade to reach PORYGON-Z. MILOTIC keeps its level route. POLITOED,
   SLOWKING and GOREBYSS no longer hatch from eggs: they are reached by trading.
+- **No second board? Use a Linking Cord** ($9,800 at the Mart). From the bag it
+  marks your **live** pet exactly as a trade would, so it can evolve right
+  away (bank-and-raise a party member first to cord it). **One cord, one
+  evolution**, used up — and kept if it would do nothing (a Pikachu, a final
+  form, a creature already marked). On a KARRABLAST or SHELMET the cord asks
+  **which party creature to link with**: link the pair and **both** are marked
+  for one cord; pick anything else and the cord is kept.
 - **Never automatic** — a button appears and **you tap to witness it** (with a
   flicker between the old and new form). Each **slip-up delays it by 1 level**.
 - You can **decline** ("keep form"); it re-offers at the next level.
@@ -490,6 +497,11 @@ every game:
 | Hyper Potion | $1,200 |
 | Full Heal | $600 |
 | Protein / Iron / Carbos | $9,800 each |
+| Linking Cord | $9,800 |
+
+The **Linking Cord** is the one item that is *not* a real Poké Mart price: it
+comes from *Legends: Arceus*, and its price was set to match the vitamins —
+about a day's walking per evolution. See [trade evolution](#evolution-and-moves).
 
 ### Battle stats & IVs
 

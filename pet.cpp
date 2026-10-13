@@ -1680,6 +1680,36 @@ void Pet::markTraded(PartyMon &in, int16_t gaveDex) {
   else in.flags &= (uint8_t)~PMON_TRADE_EVO;
 }
 
+Pet::CordUse Pet::cordUse() const {
+  // A frozen companion can never evolve, so a cord on it would be thrown away.
+  if (isEgg() || frozen || tradeEvo) return CORD_NO_EFFECT;
+  if (tradeTarget(speciesId, uid, 0)) return CORD_SOLO;
+  if (tradeTarget(speciesId, uid, -1)) return CORD_NEEDS_PARTNER;
+  return CORD_NO_EFFECT;
+}
+
+bool Pet::applyCord() {
+  if (cordUse() != CORD_SOLO) return false;
+  tradeEvo = true;
+  return save();
+}
+
+bool Pet::applyCordPair(PartyMon &partner) {
+  if (cordUse() != CORD_NEEDS_PARTNER || partner.empty()) return false;
+  // Both directions, exactly as a real trade between the two would mark them.
+  // Worked on COPIES: a failed link must leave the partner as it was, and
+  // markTraded() clears as well as sets -- a Karrablast already marked by a
+  // real trade would lose that mark to a cord that did not even take.
+  PartyMon self = toPartyMon();
+  PartyMon other = partner;
+  markTraded(self, other.dex);
+  markTraded(other, speciesId);
+  if (!(self.flags & PMON_TRADE_EVO) || !(other.flags & PMON_TRADE_EVO)) return false;
+  partner = other;
+  tradeEvo = true;
+  return save();
+}
+
 Pet::EvoInfo Pet::evoInfo() const {
   EvoInfo e = { EVO_FINAL, 0, 0, false };
   if (isEgg()) return e;
