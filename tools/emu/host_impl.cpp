@@ -176,8 +176,31 @@ struct Link;
 // No radio here at all, which is why lossy_test drives Link directly instead
 // of going through this.
 bool linkNowBegin(Link *) { return false; }
-void linkNowEnd() {}
-bool linkNowUp() { return false; }
+
+// linkNowOpen() -- the generic radio trading uses -- DOES have a stand-in, for
+// trade_ui_test: a test attaches the "air" (where this board's packets go) and
+// delivers the other board's packets with emuRadioDeliver(), between loop()
+// calls, which is where linkNowPoll() would hand them over on the board. With
+// nothing attached it fails exactly like a board whose radio would not start.
+static LinkNowRx gEmuRx = nullptr;
+static void *gEmuRxCtx = nullptr;
+static uint8_t gEmuLo = 0, gEmuHi = 0;
+static bool gEmuUp = false;
+static void (*gEmuAir)(const uint8_t *, uint8_t) = nullptr;
+void emuRadioAttach(void (*air)(const uint8_t *, uint8_t)) { gEmuAir = air; }
+void emuRadioDeliver(const uint8_t *b, uint8_t n) {
+  if (gEmuUp && gEmuRx && n && b[0] >= gEmuLo && b[0] <= gEmuHi) gEmuRx(gEmuRxCtx, b, n);
+}
+bool linkNowOpen(LinkNowRx rx, void *ctx, uint8_t lo, uint8_t hi, bool) {
+  if (!gEmuAir) return false;
+  if (gEmuUp) return gEmuRx == rx && gEmuRxCtx == ctx;
+  gEmuRx = rx; gEmuRxCtx = ctx; gEmuLo = lo; gEmuHi = hi;
+  gEmuUp = true;
+  return true;
+}
+void linkNowSend(void *, const uint8_t *b, uint8_t n) { if (gEmuUp && gEmuAir) gEmuAir(b, n); }
+void linkNowEnd() { gEmuUp = false; gEmuRx = nullptr; }
+bool linkNowUp() { return gEmuUp; }
 void linkNowPoll() {}
 // Only settable from shotMode(), for a "lanready"-style screenshot -- the
 // rival record has nothing real to key off without a radio, same reason the

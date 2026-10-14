@@ -17,7 +17,10 @@
 // callback as well -- a broadcast always reports success, so a unicast is the
 // only way to learn that a frame did not land.
 
-static Link *gLink = nullptr;
+static LinkNowRx gRx = nullptr;
+static void *gRxCtx = nullptr;
+static uint8_t gTypeLo = 0, gTypeHi = 0xFF;
+static bool gLockPeer = true;
 static bool gUp = false;
 static bool gLocked = false;
 static bool gPeerAdded = false;
@@ -30,7 +33,10 @@ static const uint8_t BROADCAST[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 // that reads it, and calling back into the protocol would mean sending from
 // inside the receive callback, which is exactly what ESP-IDF asks you not to do.
 #define RING_SLOTS 8
-#define RING_SLOT_BYTES (sizeof(LinkMon) + 16)
+// ESP-NOW's own ceiling, so any protocol's largest packet fits (a trade offer
+// is 67 bytes; a battle squad packet is a LinkMon plus its header).
+#define RING_SLOT_BYTES 250
+static_assert(sizeof(LinkMon) + 16 <= RING_SLOT_BYTES, "a battle packet must fit a ring slot");
 struct RingSlot { uint8_t len; uint8_t buf[RING_SLOT_BYTES]; };
 static RingSlot gRing[RING_SLOTS];
 static volatile uint8_t gHead = 0, gTail = 0;   // producer: ISR-ish; consumer: loop
@@ -49,6 +55,9 @@ static void onSent(const wifi_tx_info_t *info, esp_now_send_status_t st) {
 
 static void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
   if (!gUp || len <= 0 || (size_t)len > RING_SLOT_BYTES) return;
+  // Another protocol's packet (a battle while trading, or the reverse): not
+  // ours, and above all not a peer to lock onto.
+  if (data[0] < gTypeLo || data[0] > gTypeHi) return;
   // Once we have a peer, everyone else is somebody else's game.
   if (gLocked && info && info->src_addr && !sameMac(info->src_addr, gPeer)) {
     gStats.foreign++;
@@ -60,7 +69,7 @@ static void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len
   memcpy(gRing[h].buf, data, len);
   // The peer is remembered here rather than in the poll, because the source
   // address only exists inside this callback.
-  if (!gLocked && info && info->src_addr) {
+  if (gLockPeer && !gLocked && info && info->src_addr) {
     memcpy(gPeer, info->src_addr, 6);
     gLocked = true;
   }
@@ -68,7 +77,7 @@ static void onRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len
   gStats.rx++;
 }
 
-static void nowSend(void *, const uint8_t *buf, uint8_t len) {
+void linkNowSend(void *, const uint8_t *buf, uint8_t len) {
   if (!gUp) return;
   esp_now_send(gLocked ? gPeer : BROADCAST, buf, len);
 }
@@ -90,18 +99,43 @@ static void lockPeer() {
 }
 
 void linkNowPoll() {
-  if (!gUp || !gLink) return;
+  if (!gUp || !gRx) return;
   lockPeer();
   while (gTail != gHead) {
     RingSlot &s = gRing[gTail];
-    gLink->onPacket(s.buf, s.len);      // safe here: we are on the main loop
+    gRx(gRxCtx, s.buf, s.len);          // safe here: we are on the main loop
     gTail = (uint8_t)((gTail + 1) % RING_SLOTS);
   }
 }
 
+// trade.h numbers its packets from 0x41 for exactly this split.
+static_assert(LM_PING <= 0x3F, "the battle link's packets must stay below the trade range");
+
+static void linkRx(void *ctx, const uint8_t *buf, uint8_t len) {
+  static_cast<Link *>(ctx)->onPacket(buf, len);
+}
+
 bool linkNowBegin(Link *l) {
-  if (gUp) return true;
-  gLink = l;
+  // Everything below the trade range is the battle link's (LinkMsg is 1..8).
+  if (!linkNowOpen(linkRx, l, 1, 0x3F, true)) return false;
+  // Our own MAC is the identity that settles a two-host tie, and it is already
+  // unique per device -- there is nothing to generate or store.
+  uint8_t mac[6] = {0};
+  WiFi.macAddress(mac);
+  l->id = (uint16_t)((mac[4] << 8) | mac[5]);
+  l->send = linkNowSend;
+  l->ctx = nullptr;
+  Serial.printf("ESP-NOW ready, id %04X\n", l->id);
+  return true;
+}
+
+bool linkNowOpen(LinkNowRx rx, void *ctx, uint8_t typeLo, uint8_t typeHi, bool lockPeer) {
+  if (gUp) return gRx == rx && gRxCtx == ctx;   // already open, for this protocol only
+  gRx = rx;
+  gRxCtx = ctx;
+  gTypeLo = typeLo;
+  gTypeHi = typeHi;
+  gLockPeer = lockPeer;
   gLocked = false;
   gPeerAdded = false;
   gHead = gTail = 0;
@@ -128,15 +162,7 @@ bool linkNowBegin(Link *l) {
     WiFi.mode(WIFI_OFF);
     return false;
   }
-  // Our own MAC is the identity that settles a two-host tie, and it is already
-  // unique per device -- there is nothing to generate or store.
-  uint8_t mac[6] = {0};
-  WiFi.macAddress(mac);
-  l->id = (uint16_t)((mac[4] << 8) | mac[5]);
   gUp = true;
-  l->send = nowSend;
-  l->ctx = nullptr;
-  Serial.printf("ESP-NOW ready, id %04X\n", l->id);
   return true;
 }
 
@@ -151,7 +177,8 @@ void linkNowEnd() {
                 gStats.rx, gStats.tx, gStats.txFail, gStats.foreign,
                 gStats.overflow);
   gLocked = false;
-  gLink = nullptr;
+  gRx = nullptr;
+  gRxCtx = nullptr;
 }
 
 const uint8_t *linkNowPeerMac() { return gLocked ? gPeer : nullptr; }

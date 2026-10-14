@@ -9,7 +9,21 @@
 // UNTESTED. Nothing in this file has run on hardware -- it needs two boards.
 // Treat the first bring-up as debugging, not as verification.
 
-bool linkNowBegin(Link *l);   // brings up WiFi + ESP-NOW; false if either fails
+bool linkNowBegin(Link *l);   // brings up WiFi + ESP-NOW for a battle; false if either fails
+
+// The same radio for any protocol (trading uses it). Only packets whose first
+// byte -- the message type -- lies in [typeLo, typeHi] are delivered, so a
+// board trading and a board battling on the same channel never see each
+// other's packets, and never lock onto each other either.
+//
+// lockPeer: lock onto the first peer heard and unicast to it from then on (the
+// battle does this). Trading does NOT: a pending trade has to be able to hear
+// its own peer come back even after a stranger spoke first, so it broadcasts
+// and lets the protocol filter by MAC. Its resends cover broadcast's lack of
+// an acknowledgement.
+typedef void (*LinkNowRx)(void *ctx, const uint8_t *buf, uint8_t len);
+bool linkNowOpen(LinkNowRx rx, void *ctx, uint8_t typeLo, uint8_t typeHi, bool lockPeer);
+void linkNowSend(void *ctx, const uint8_t *buf, uint8_t len);   // a transport, for Trade::send
 void linkNowEnd();            // frees the radio again -- it costs real current
 bool linkNowUp();
 
