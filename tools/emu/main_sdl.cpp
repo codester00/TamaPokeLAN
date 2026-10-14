@@ -196,6 +196,10 @@ extern bool gShowAllAvatars;
 uint8_t squadCap(uint8_t, bool);
 #include "link.h"
 extern Link lan;
+#include "trade.h"
+extern Trade trade;
+extern bool tradePicking;
+void tradeOpenScreen();
 void startLinkBattle();
 extern uint8_t playerPage;
 extern bool gymHard, pickOpen;
@@ -422,6 +426,45 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
     pet.relearnFromLevel();
     pet.lastLearnLevel = 0;
     pet.checkLearnGates();
+  }
+  else if (!strncmp(screen, "trade", 5)) {
+    // No radio here: the session is opened for real and then put in the state
+    // a second board would have brought it to. The creatures are real party
+    // records with real IDs, so status() reads them the way the board does.
+    PartyMon mine; mine.dex = 64; mine.level = 34; mine.ivAtk = mine.ivDef = mine.ivSpe = mine.ivHp = 22;
+    mine.stateVersion = 1; mine.uid = pet.mintUid();
+    party.replaceAt(0, mine);
+    PartyMon theirs; theirs.dex = 67; theirs.level = 31; theirs.ivAtk = theirs.ivDef = theirs.ivSpe = theirs.ivHp = 18;
+    theirs.stateVersion = 1; theirs.uid.mac[0] = 0xB0; theirs.uid.serial = 7;
+    tradeOpenScreen();
+    snprintf(trade.peerName, sizeof(trade.peerName), "%s", "MISTY");
+    trade.havePeer = true;
+    trade.peerMac[0] = 0xB0;
+    trade.peerNonce = 99;
+    if (!strcmp(screen, "tradechoose")) {
+      trade.state = TRADE_CHOOSING;
+      trade.mine = mine;
+      trade.theirs = theirs;
+      trade.theirsOk = true;
+      trade.theirAccept = trade.fingerprint();   // "they accepted"
+    } else if (!strcmp(screen, "tradepick")) {
+      trade.state = TRADE_CHOOSING;
+      tradePicking = true;
+    } else if (!strcmp(screen, "tradestuck") || !strcmp(screen, "tradedecide")) {
+      trade.state = TRADE_STUCK;
+      trade.j.active = TRADE_PENDING;
+      trade.j.outUid = mine.uid;
+      trade.j.in = theirs;
+      trade.nowMs = 600000;
+      trade.lastRx = trade.nowMs - (!strcmp(screen, "tradedecide") ? TRADE_DECIDE_MS + 1000 : 47000);
+    } else if (!strcmp(screen, "tradedone")) {
+      Pet::markTraded(theirs, 64);
+      party.replaceAt(0, theirs);
+      trade.state = TRADE_DONE;
+      trade.j.fp = 1;
+      trade.j.in = theirs;
+      trade.mine = mine;
+    }
   }
   else if (!strcmp(screen, "party") || !strcmp(screen, "partyfull")) {
     partyOpen = true;

@@ -42,6 +42,12 @@ void uiConfirmRects(int *b1Top, int *b1Bot, int *b2Top, int *b2Bot);
 // The round-panel geometry, asked of the firmware rather than restated here.
 int uiSafeHalfWidth(int y);
 int uiTapFinger();
+bool lanTradeHit(int16_t x, int16_t y);
+bool tradeGiveHit(int16_t x, int16_t y);
+bool tradeAcceptHit(int16_t x, int16_t y);
+bool tradeRevertHit(int16_t x, int16_t y);
+bool tradeKeepHit(int16_t x, int16_t y);
+bool tradeBackHit(int16_t x, int16_t y);
 int uiButtonHitR();
 int uiCareArcTop(int i);
 int uiHeaderNameBottom();
@@ -253,6 +259,43 @@ int main(){
       if (d + uiButtonHitR() > 233) offGlass++;
     }
     ck(offGlass == 0, "every home icon's hit disc is fully on the glass");
+  }
+
+  // Trading's controls, measured off the firmware's own hit tests rather than
+  // its #defines: finger-sized, on the glass, and no back zone flush under a
+  // button (the shape that made LAN BATTLE misfire).
+  {
+    const int FINGER = uiTapFinger();
+    struct { const char *name; bool (*hit)(int16_t, int16_t); } C[] = {
+      { "LAN TRADE", lanTradeHit }, { "YOU GIVE", tradeGiveHit }, { "ACCEPT", tradeAcceptHit },
+      { "REVERT", tradeRevertHit }, { "KEEP", tradeKeepHit },
+    };
+    int accBottom = -1;
+    for (auto &c : C) {
+      int x0 = 999, y0 = 999, x1 = -1, y1 = -1;
+      for (int y = 0; y < 466; y++)
+        for (int x = 0; x < 466; x++)
+          if (c.hit((int16_t)x, (int16_t)y)) {
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+      bool sized = x1 >= 0 && y1 - y0 + 1 >= FINGER && x1 - x0 + 1 >= FINGER;
+      bool onGlass = true;
+      const int cx[4] = { x0, x1, x0, x1 }, cy[4] = { y0, y0, y1, y1 };
+      for (int k = 0; k < 4; k++) {
+        double d = sqrt((double)(cx[k] - 233) * (cx[k] - 233) + (double)(cy[k] - 233) * (cy[k] - 233));
+        if (d > 233) onGlass = false;
+      }
+      char msg[96];
+      snprintf(msg, sizeof(msg), "trade: %s is finger-sized (%dx%d) and on the glass", c.name, x1 - x0 + 1, y1 - y0 + 1);
+      ck(sized && onGlass, msg);
+      if (c.hit == tradeAcceptHit) accBottom = y1;
+    }
+    int backTop = -1;
+    for (int y = 0; y < 466 && backTop < 0; y++) if (tradeBackHit(233, (int16_t)y)) backTop = y;
+    ck(backTop - accBottom >= 20, "trade: a dead band between ACCEPT/CLOSE and the back zone");
   }
 
   // The two upper care arcs once ran behind the Pokemon's name. Ask both

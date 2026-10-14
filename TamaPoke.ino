@@ -22,6 +22,8 @@
 #include "trainers.h"
 #include "link.h"
 #include "linknow.h"
+#include "trade.h"
+#include "noart.h"
 #include "backs.h"
 #include "badges.h"
 #include "avatars.h"
@@ -44,7 +46,8 @@
 // build_web.sh moves web/manifest.json to it when the installer is rebuilt.
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
-#define FW_VERSION "3.32"
+// 3.33 adds trading between two boards.
+#define FW_VERSION "3.33"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -235,7 +238,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[SCR_COUNT];   // const is internal linkage in C++
 
@@ -287,7 +290,7 @@ const char *const SCREEN_NAME[SCR_COUNT] = {
   "starter", "region", "gallery", "dexpick", "movepick", "box",
   "party", "keyboard", "card", "player", "clock", "gym", "gympick",
   "explore", "mart", "lan", "pick", "battle", "win", "learn", "train", "menu",
-  "bag", "minigame", "main"
+  "bag", "minigame", "main", "trade"
 };
 
 // Badge art for a region, or nullptr when that region has none yet.
@@ -340,6 +343,24 @@ bool gymHard = false;   // which ladder the list is showing
 // normal battle screen takes over with btlLink set.
 bool lanOpen = false;
 Link lan;
+// Trading (trade.h): one screen for the whole flow, opened from the LAN screen.
+// `tradePicking` is its own creature picker on the party ring; `tradeAsk` the
+// cannot-be-undone confirm in front of REVERT (1) or KEEP (2).
+bool tradeOpen = false;
+bool tradePicking = false;
+uint8_t tradePickSrc = 0;      // 0 the party, 1.. a box page
+uint8_t tradeAsk = 0;
+bool tradeNoRadio = false;
+Trade trade;
+void renderTrade();
+void tradeTap(int16_t x, int16_t y);
+void tradeOpenScreen();
+void tradeBoot();
+void tradeLeave();
+void tradePoll(uint32_t now);
+bool tradeLocked(const PartyMon &m);
+bool tradePending();
+int thumbCell();
 // What the shared region chooser is being used FOR. It only changes the
 // subtitle and whether there is a way back: at first boot every count would
 // read zero, which tells the player nothing, and there is nowhere to go back to.
@@ -413,6 +434,14 @@ uint8_t btlMyAct = 0;        // host: our own action, latched until theirs lands
 #define LANBTN_H UI_TAP_FINGER
 #define LANBTN_X (233 - LANBTN_W / 2)
 #define LANBTN_Y 336
+// The TRADE button on the LAN screen, under HOST and JOIN (y 120..246).
+// Finger-sized, and it stops 20 px short of that screen's tap-to-go-back zone
+// (y > 370).
+#define LANTRADE_X 90
+#define LANTRADE_W 286
+#define LANTRADE_Y 256
+#define LANTRADE_H UI_TAP_FINGER
+static_assert(LANTRADE_Y + LANTRADE_H + 20 <= 370, "keep a dead band above the LAN screen's back zone");
 // The Pokedex chooser has no LAN button, so it keeps its BACK label and the
 // tap zone under it.
 #define RPICK_BACK_LABEL_Y 392
@@ -993,6 +1022,9 @@ void setup() {
   batBegin();
   pwrSetup();
   if (!pedoBegin()) Serial.println("pedometer: no QMI8658 -- the Mart earns nothing this session");
+  // After the party, the RTC and the SD scan: it may finish a trade the power
+  // cut (party writes), stamps a time, and reopens a pending trade's screen.
+  tradeBoot();
   uint32_t e = rtcEpoch();
   if (e == 0) {
     rtcSetEpoch(1767225600UL);  // RTC virgen: semilla (la hora absoluta da igual,
@@ -1046,6 +1078,7 @@ void loop() {
     linkNowPoll();
     lan.tick(now);
   }
+  tradePoll(now);   // the same, for a trade: resends, timeouts, the countdown
 
   // avisa con un sonido cuando el bicho pasa a estar listo para evolucionar
   // (incluye el caso de cumplir al despertar). canEvolveNow es false durmiendo.
@@ -1701,6 +1734,13 @@ void onSwipeV(int dir) {
   if (menuOpen) { menuOpen = false; return; }   // any swipe closes the menu
   if (battleOpen) return;   // no swiping out of a fight
   const bool back = dir > 0;
+  if (tradeOpen) {          // down backs out one level; a pending trade cannot be left
+    if (!back) return;
+    if (tradePicking) tradePicking = false;
+    else if (tradeAsk) tradeAsk = 0;
+    else tradeLeave();
+    return;
+  }
 
   // Modals and sheets: down backs out, up has nowhere deeper to go.
   if (pickOpen)     { if (back) pickOpen = false; return; }
@@ -1958,6 +1998,9 @@ bool monSheetConfirmTap(int16_t x, int16_t y, bool fromBox) {
   uiConfirmRects(&c1t, &c1b, &c2t, &c2b);
   if (x < CONFIRM_BTN_X || x > CONFIRM_BTN_X + CONFIRM_BTN_W) return false;
   if (y >= c1t && y <= c1b) {            // YES -- and it does not come back
+    // Promised to a trade: never released out from under it.
+    const PartyMon &gone = fromBox ? party.box[boxDetail - 1] : party.slots[partyDetail - 1];
+    if (tradeLocked(gone)) { releaseConfirm = false; sfxPlay(SFX_DENY); return true; }
     if (fromBox) { party.boxReleaseAt(boxDetail - 1); boxDetail = 0; }
     else { party.releaseAt(partyDetail - 1); partyDetail = 0; }
     // A half-finished swap named a slot that may now be empty, so disarm both
@@ -2089,6 +2132,7 @@ void partyTap(int16_t x, int16_t y) {
       sfxPlay(SFX_TAP);
       return;
     }
+    if (tradeLocked(party.slots[i])) { sfxPlay(SFX_DENY); return; }   // promised to a trade
     party.replaceAt(i, pet.endedMon);
     snprintf(partyBannerName, sizeof(partyBannerName), "%s",
              pet.endedMon.nick[0] ? pet.endedMon.nick : DEX_TBL[pet.endedMon.dex].name);
@@ -2114,7 +2158,7 @@ void onSwipe(int dir) {
   // taught on the first screen they ever see.
   if (pet.awaitingStarter()) { rpickSwipe(dir); return; }
   if (menuOpen) { menuOpen = false; return; }   // any swipe closes the menu
-  if (battleOpen) return;   // no swiping out of a fight
+  if (battleOpen || tradeOpen) return;   // no swiping out of a fight or a trade
 
   int t = uiTileIndex();
   if (t >= 0) {
@@ -2163,6 +2207,10 @@ void onTap(int16_t x, int16_t y) {
         break;
       }
     }
+    return;
+  }
+  if (tradeOpen) {
+    tradeTap(x, y);
     return;
   }
   if (battleOpen) {
@@ -2663,6 +2711,7 @@ RTC_NOINIT_ATTR uint32_t gCrumbHeap;
 // Which screen is on the panel RIGHT NOW, in the same order render() tests.
 uint8_t uiCurrentScreen() {
   if (pet.awaitingStarter()) return starterRegionDone ? SCR_STARTER : SCR_REGION;
+  if (tradeOpen) return SCR_TRADE;
   if (galleryOpen) return galleryPick ? SCR_DEXPICK : SCR_GALLERY;
   if (movePickOpen) return SCR_MOVEPICK;
   if (partyOpen) return boxOpen ? SCR_BOX : SCR_PARTY;
@@ -3027,6 +3076,11 @@ void render() {
   if (pet.awaitingStarter()) {  // primera partida: region y luego inicial
     if (!starterRegionDone) renderRegionPick(RPICK_FOR_START);
     else renderStarterSelect();
+    return;
+  }
+  // Modal, and above everything: a pending trade keeps the player here.
+  if (tradeOpen) {
+    renderTrade();
     return;
   }
   if (galleryOpen) {
@@ -5764,6 +5818,14 @@ void renderLan() {
       gfx->setCursor(CX - (int)strlen(lab[i]) * 6, y + 20);
       gfx->print(lab[i]);
     }
+    // Trading shares the radio and the room, so it lives here, under the two
+    // ways to fight. Taller than its neighbours: new controls are finger-sized.
+    gfx->fillRoundRect(LANTRADE_X, LANTRADE_Y, LANTRADE_W, LANTRADE_H, 12, UI_BAR_WARN);
+    gfx->drawRoundRect(LANTRADE_X, LANTRADE_Y, LANTRADE_W, LANTRADE_H, 12, UI_INK);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(T(S_TRADE)) * 6, LANTRADE_Y + LANTRADE_H / 2 - 8);
+    gfx->print(T(S_TRADE));
   } else if (lan.state == LINK_READY) {
     char l[40];
     if (lan.peerName[0]) {
@@ -5855,9 +5917,21 @@ static void lanOffer(bool host) {
   lan.start();
 }
 
+bool lanTradeHit(int16_t x, int16_t y) {
+  return x >= LANTRADE_X && x <= LANTRADE_X + LANTRADE_W &&
+         y >= LANTRADE_Y && y <= LANTRADE_Y + LANTRADE_H;
+}
+
 void lanTap(int16_t x, int16_t y) {
   if (lan.state == LINK_OFF || lan.state == LINK_REFUSED ||
       lan.state == LINK_LOST) {
+    if (lanTradeHit(x, y)) {
+      sfxPlay(SFX_TAP);
+      lanLeave();            // the battle link lets the radio go first
+      lanOpen = false;
+      tradeOpenScreen();
+      return;
+    }
     for (int i = 0; i < 2; i++) {
       int by = 120 + i * 70;
       if (x < 90 || x > 376 || y < by || y > by + 56) continue;
@@ -5887,6 +5961,450 @@ void lanTap(int16_t x, int16_t y) {
     }
   }
   if (y > 370) { lanLeave(); lanOpen = false; }   // back
+}
+
+// ---------- trading ----------
+// The protocol is trade.cpp's, and every decision about a creature's fate is
+// made there; this is the board it runs on (party + box + one NVS key) and the
+// screen. Reached from the LAN screen's TRADE button.
+//
+// The one screen rule that matters: while a trade is PENDING the player cannot
+// leave. The owner's design has both players stuck on this screen until the
+// trade settles or they decide, because each screen has to say what ITS board
+// holds -- that is what the other player reads to choose KEEP or REVERT -- and
+// a reboot with a trade pending lands straight back here (tradeBoot()).
+
+static Preferences tradePrefs;
+static bool tradePrefsOpen = false;
+static bool tradePrefsReady() {
+  if (!tradePrefsOpen) tradePrefsOpen = tradePrefs.begin("tamapoke", false);
+  return tradePrefsOpen;
+}
+
+// The firmware's TradeBoard: the party and the box ONLY, never the live pet.
+// Slots 0..5 are the party, 6.. the box.
+struct FwTradeBoard : TradeBoard {
+  static PartyMon &slotAt(int w) {
+    return w < PARTY_SLOTS ? party.slots[w] : party.box[w - PARTY_SLOTS];
+  }
+  static int where(const CreatureUid &u) {
+    if (!u.valid()) return -1;
+    for (int w = 0; w < PARTY_SLOTS + BOX_SLOTS; w++)
+      if (!slotAt(w).empty() && slotAt(w).uid == u) return w;
+    return -1;
+  }
+  // Writes one slot and says whether it LANDED. On a failed write the RAM copy
+  // is put back: the protocol retries a commit by looking for the creature, so
+  // a RAM slot claiming what NVS does not hold would end the retry early and
+  // a reboot would then lose the trade.
+  static bool put(int w, const PartyMon &in) {
+    PartyMon &slot = slotAt(w);
+    PartyMon was = slot;
+    slot = in;
+    bool ok = w < PARTY_SLOTS ? party.save() : party.boxSave();
+    if (!ok) slot = was;
+    return ok;
+  }
+  void mac(uint8_t out[6]) override {
+    uint64_t m = ESP.getEfuseMac();   // the same bytes Pet::mintUid() stamps
+    for (int i = 0; i < 6; i++) out[i] = (uint8_t)(m >> (8 * i));
+  }
+  uint32_t epoch() override { return rtcEpoch(); }
+  bool findMon(const CreatureUid &u, PartyMon *out) override {
+    int w = where(u);
+    if (w < 0) return false;
+    if (out) *out = slotAt(w);
+    return true;
+  }
+  bool replaceMon(const CreatureUid &out, const PartyMon &in) override {
+    int w = where(out);
+    return w >= 0 && put(w, in);
+  }
+  bool storeNew(const PartyMon &in) override {
+    int i = party.firstFree();
+    if (i >= 0) return put(i, in);
+    i = party.boxFirstFree();
+    return i >= 0 && put(PARTY_SLOTS + i, in);
+  }
+  bool saveJournal(const uint8_t *buf, size_t n) override {
+    return tradePrefsReady() && tradePrefs.putBytes("trade", buf, n) == n;
+  }
+  size_t loadJournal(uint8_t *buf, size_t cap) override {
+    if (!tradePrefsReady() || !tradePrefs.isKey("trade")) return 0;
+    size_t n = tradePrefs.getBytesLength("trade");
+    if (!n || n > cap) return 0;
+    return tradePrefs.getBytes("trade", buf, n);
+  }
+  // Never agree to a creature this board could only draw as a bare number --
+  // the same rule that keeps a region without its pack out of the egg pool.
+  bool canReceive(const PartyMon &m) override {
+    return speciesHasArt(m.dex) && regionAvailable(regionOfDex(m.dex));
+  }
+};
+static FwTradeBoard tradeBoard;
+
+static void tradeRx(void *ctx, const uint8_t *buf, uint8_t len) {
+  static_cast<Trade *>(ctx)->onPacket(buf, len);
+}
+
+// Is this creature promised to a trade? Asked by every path that could
+// release it, raise it or overwrite its slot.
+bool tradeLocked(const PartyMon &m) { return !m.empty() && trade.locks(m.uid); }
+
+bool tradePending() { return trade.j.active == TRADE_PENDING; }
+
+// A fresh session: a new nonce (so the same pair traded twice is two trades),
+// the radio up, and an announcement. A trade still pending from before starts
+// calling its peer again; see Trade::start().
+void tradeOpenScreen() {
+  trade.begin(&tradeBoard, pet.trainerName, (uint32_t)random(1, 0x7FFFFFFF));
+  trade.send = linkNowSend;
+  trade.ctx = nullptr;
+  tradeOpen = true;
+  tradePicking = false;
+  tradeAsk = 0;
+  tradeNoRadio = !linkNowOpen(tradeRx, &trade, TM_FIRST, TM_LAST, false);
+  // Started even without a radio: a pending trade must still count down to
+  // the player's decision, and a fresh one simply finds nobody.
+  trade.start();
+}
+
+// Boot: finish a commit the power interrupted (Trade::begin() does), and if a
+// trade is still pending put the player straight back on its screen.
+void tradeBoot() {
+  trade.begin(&tradeBoard, pet.trainerName, 1);
+  if (tradePending()) {
+    Serial.println("trade: a trade is pending -- reopening the trade screen");
+    tradeOpenScreen();
+  }
+}
+
+void tradeLeave() {
+  if (tradePending()) { sfxPlay(SFX_DENY); return; }   // stuck until it settles or they decide
+  trade.end();
+  linkNowEnd();
+  tradeOpen = false;
+  tradePicking = false;
+  tradeAsk = 0;
+}
+
+void tradePoll(uint32_t now) {
+  if (!tradeOpen) return;
+  linkNowPoll();
+  trade.tick(now);
+  if (!tradePending()) tradeAsk = 0;   // settled by a reconnect while asking
+}
+
+static const char *monName(const PartyMon &m) {
+  return m.nick[0] ? m.nick : DEX_TBL[m.dex].name;
+}
+
+static void tradeText(const char *s, int y, int size, uint16_t col) {
+  gfx->setTextColor(col);
+  gfx->setTextSize(size);
+  gfx->setCursor(CX - (int)strlen(s) * 3 * size, y);
+  gfx->print(s);
+}
+
+// A creature: its thumbnail at scale s centred on (cx, cy), name and level
+// under it. A thumbnail is up to 32 px a side, so it reaches 16*s below the centre.
+static void tradeMon(const PartyMon &m, int cx, int cy, int s) {
+  if (m.empty()) return;
+  const uint8_t *th = thumbs.get(m.dex);
+  // drawThumb() centres the sprite in a box thumbCell() wide.
+  if (th) drawThumb(th, cx - thumbCell() / 2, cy - thumbCell() / 2, s, false);
+  const char *nm = monName(m);
+  gfx->setTextColor(DEX_TBL[m.dex].accent);
+  gfx->setTextSize(1);
+  const int below = cy + 16 * s + 4;
+  gfx->setCursor(cx - (int)strlen(nm) * 3, below);
+  gfx->print(nm);
+  char lv[12];
+  snprintf(lv, sizeof(lv), T(S_LVL_FMT), (unsigned)m.level);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(2);
+  gfx->setCursor(cx - (int)strlen(lv) * 6, below + 12);
+  gfx->print(lv);
+}
+
+// "Trade appears ... (you have X)" -- this board's own account, in the owner's
+// words. It is what the OTHER player reads to decide.
+static void tradeStatusLines(const TradeStatus &st, int y) {
+  if (st.view == TV_NONE) return;
+  tradeText(T(st.view == TV_INCOMPLETE ? S_TRADE_INCOMPLETE : S_TRADE_UNCONF), y, 1, UI_INK);
+  if (st.have.empty()) return;
+  char l[40];
+  snprintf(l, sizeof(l), T(S_TRADE_YOUHAVE), monName(st.have));
+  tradeText(l, y + 14, 2, UI_INK);
+}
+
+static void tradeButton(int x, int y, int w, int h, const char *lab, uint16_t fill, uint16_t ink) {
+  gfx->fillRoundRect(x, y, w, h, 14, fill);
+  gfx->drawRoundRect(x, y, w, h, 14, UI_INK);
+  gfx->setTextColor(ink);
+  gfx->setTextSize(2);
+  gfx->setCursor(x + w / 2 - (int)strlen(lab) * 6, y + h / 2 - 8);
+  gfx->print(lab);
+}
+
+// The layout, as functions of nothing, so the renderer and the tap handler
+// read the same numbers. Every control is UI_TAP_FINGER-sized or larger.
+#define TR_CARD_Y 92
+#define TR_CARD_H 160
+#define TR_GIVE_X 56
+#define TR_GET_X 240
+#define TR_CARD_W 170
+#define TR_BTN_X 118
+#define TR_BTN_Y 258
+#define TR_BTN_W 230
+#define TR_BTN_H UI_TAP_FINGER
+#define TR_BACK_LABEL_Y 396
+#define TR_BACK_ZONE_Y 384   // a 30 px dead band under the button, see CLAUDE.md § LAN BATTLE
+static_assert(TR_BTN_Y + TR_BTN_H + 30 <= TR_BACK_ZONE_Y, "a back zone flush under a button is how LAN BATTLE misfired");
+static_assert(TR_CARD_H >= UI_TAP_FINGER, "trade controls are finger-sized");
+// The decision screen's two answers.
+#define TR_DEC_Y 150
+#define TR_DEC_H 170
+
+static bool inRect(int16_t x, int16_t y, int rx, int ry, int rw, int rh) {
+  return x >= rx && x <= rx + rw && y >= ry && y <= ry + rh;
+}
+bool tradeGiveHit(int16_t x, int16_t y) { return inRect(x, y, TR_GIVE_X, TR_CARD_Y, TR_CARD_W, TR_CARD_H); }
+bool tradeAcceptHit(int16_t x, int16_t y) { return inRect(x, y, TR_BTN_X, TR_BTN_Y, TR_BTN_W, TR_BTN_H); }
+bool tradeRevertHit(int16_t x, int16_t y) { return inRect(x, y, TR_GIVE_X, TR_DEC_Y, TR_CARD_W, TR_DEC_H); }
+bool tradeKeepHit(int16_t x, int16_t y) { return inRect(x, y, TR_GET_X, TR_DEC_Y, TR_CARD_W, TR_DEC_H); }
+bool tradeCloseHit(int16_t x, int16_t y) { return tradeAcceptHit(x, y); }   // one button slot, two jobs by state
+bool tradeBackHit(int16_t x, int16_t y) { (void)x; return y >= TR_BACK_ZONE_Y; }
+// The cannot-be-undone confirm: its first button is the answer chosen, the second NO.
+bool tradeSureHit(int16_t x, int16_t y) {
+  return inRect(x, y, CONFIRM_BTN_X, CONFIRM_B1_Y, CONFIRM_BTN_W, CONFIRM_BTN_H);
+}
+bool tradeNotSureHit(int16_t x, int16_t y) {
+  return inRect(x, y, CONFIRM_BTN_X, CONFIRM_B2_Y, CONFIRM_BTN_W, CONFIRM_BTN_H);
+}
+
+static void renderTradePick() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  tradeText(T(S_TRADE_PICK), 46, 2, UI_INK);
+  char top[16];
+  if (tradePickSrc == 0) snprintf(top, sizeof(top), "%s", T(S_TRADE_PARTYLBL));
+  else snprintf(top, sizeof(top), "%s %u", T(S_BOX_BTN), (unsigned)tradePickSrc);
+  drawPartyHub(top, T(S_TRADE_HUBHINT), false);
+  for (int i = 0; i < PARTY_SLOTS; i++) {
+    const PartyMon &m = tradePickSrc == 0 ? party.slots[i]
+                                          : party.box[(tradePickSrc - 1) * BOX_PER_PAGE + i];
+    drawPartySlot(i, m);
+  }
+  gfx->fillRoundRect(PARTYCLOSE_X, PARTYCLOSE_Y, PARTYCLOSE_W, PARTYCLOSE_H, 12, UI_TRACK);
+  gfx->drawRoundRect(PARTYCLOSE_X, PARTYCLOSE_Y, PARTYCLOSE_W, PARTYCLOSE_H, 12, UI_INK);
+  tradeText(T(S_CLOSE), PARTYCLOSE_Y + 14, 2, UI_INK);
+  gfx->flush();
+}
+
+static void renderTradeDecide(const TradeStatus &st) {
+  tradeText(T(S_TRADE_ASK1), 66, 1, UI_BAR_BAD);
+  tradeText(T(S_TRADE_ASK2), 82, 1, UI_INK);
+  char l[64];
+  snprintf(l, sizeof(l), T(S_TRADE_ASK3), T(S_TRADE_KEEP), T(S_TRADE_REVERT));
+  tradeText(l, 96, 1, UI_INK);
+  tradeStatusLines(st, 114);
+  const PartyMon *pick[2] = { &st.have, &st.other };
+  const char *lab[2] = { T(S_TRADE_REVERT), T(S_TRADE_KEEP) };
+  const char *sub[2] = { T(S_TRADE_REVERT_SUB), T(S_TRADE_KEEP_SUB) };
+  for (int i = 0; i < 2; i++) {
+    int x = i ? TR_GET_X : TR_GIVE_X;
+    gfx->fillRoundRect(x, TR_DEC_Y, TR_CARD_W, TR_DEC_H, 14, UI_WHITE);
+    gfx->drawRoundRect(x, TR_DEC_Y, TR_CARD_W, TR_DEC_H, 14, UI_INK);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(2);
+    gfx->setCursor(x + TR_CARD_W / 2 - (int)strlen(lab[i]) * 6, TR_DEC_Y + 10);
+    gfx->print(lab[i]);
+    tradeMon(*pick[i], x + TR_CARD_W / 2, TR_DEC_Y + 70, 2);
+    if (!pick[i]->empty()) {
+      snprintf(l, sizeof(l), sub[i], monName(*pick[i]));
+      gfx->setTextColor(UI_INK_SOFT);
+      gfx->setTextSize(1);
+      gfx->setCursor(x + TR_CARD_W / 2 - (int)strlen(l) * 3, TR_DEC_Y + TR_DEC_H - 16);
+      gfx->print(l);
+    }
+  }
+}
+
+void renderTrade() {
+  if (tradePicking) { renderTradePick(); return; }
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  tradeText(T(S_TRADE), 40, 2, UI_INK);
+  const TradeStatus st = trade.status();
+  char l[64];
+  // "tap: back" only where no CLOSE button already says the same thing.
+  bool backLabel = !tradePending() &&
+                   (trade.state == TRADE_CHOOSING || trade.state == TRADE_LISTENING);
+
+  if (tradeAsk) {
+    // The warning the owner asked for, in front of the choice it guards.
+    const PartyMon &m = tradeAsk == 1 ? st.have : st.other;
+    snprintf(l, sizeof(l), T(tradeAsk == 1 ? S_TRADE_REVERT_SUB : S_TRADE_KEEP_SUB), monName(m));
+    drawConfirmPanel(T(S_TRADE_SURE), T(S_TRADE_SURE2), l, UI_INK,
+                     T(tradeAsk == 1 ? S_TRADE_REVERT : S_TRADE_KEEP), UI_BAR_BAD, UI_WHITE,
+                     T(S_NO), UI_TRACK, UI_INK);
+    gfx->flush();
+    return;
+  }
+
+  if (tradePending()) {
+    if (st.mustDecide) {
+      renderTradeDecide(st);
+    } else if (st.connected) {
+      tradeText(T(S_TRADE_BUSY), 80, 3, UI_INK);
+      tradeMon(st.have, CX - 90, 190, 2);
+      tradeMon(st.other, CX + 90, 190, 2);
+      tradeText("<->", 190, 2, UI_INK_SOFT);
+      tradeText(T(S_TRADE_KEEPON), 320, 1, UI_INK);
+    } else {
+      // The stuck screen, as the owner specified it.
+      tradeText(T(S_TRADE_LOST), 74, 1, UI_BAR_BAD);
+      snprintf(l, sizeof(l), T(S_TRADE_LEFT), (unsigned)(st.secsLeft / 60), (unsigned)(st.secsLeft % 60));
+      tradeText(l, 92, 3, UI_INK);
+      tradeMon(st.have, CX, 190, 3);
+      tradeStatusLines(st, 290);
+      tradeText(T(S_TRADE_KEEPON), 340, 1, UI_INK_SOFT);
+    }
+  } else if (trade.state == TRADE_DONE) {
+    tradeText(T(S_TRADE_DONE), 72, 3, UI_BAR_OK);
+    tradeMon(st.have, CX, 140, 2);
+    snprintf(l, sizeof(l), T(S_TRADE_GOT), st.have.empty() ? "?" : monName(st.have));
+    tradeText(l, 214, 1, UI_INK);
+    if (st.have.flags & PMON_TRADE_EVO) tradeText(T(S_TRADE_EVOHINT), 228, 1, UI_INK_SOFT);
+    if (st.view == TV_COMPLETE_UNCONFIRMED) tradeText(T(S_TRADE_UNCONF), 242, 1, UI_INK_SOFT);
+    tradeButton(TR_BTN_X, TR_BTN_Y, TR_BTN_W, TR_BTN_H, T(S_CLOSE), UI_TRACK, UI_INK);
+  } else if (trade.state == TRADE_CHOOSING) {
+    snprintf(l, sizeof(l), T(S_TRADE_WITH), trade.peerName);
+    tradeText(l, 64, 2, UI_INK_SOFT);
+    // YOU GIVE: the whole card is the control that opens the picker.
+    gfx->fillRoundRect(TR_GIVE_X, TR_CARD_Y, TR_CARD_W, TR_CARD_H, 14, UI_WHITE);
+    gfx->drawRoundRect(TR_GIVE_X, TR_CARD_Y, TR_CARD_W, TR_CARD_H, 14, UI_INK);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(1);
+    gfx->setCursor(TR_GIVE_X + TR_CARD_W / 2 - (int)strlen(T(S_TRADE_GIVE)) * 3, TR_CARD_Y + 8);
+    gfx->print(T(S_TRADE_GIVE));
+    if (trade.mine.empty()) {
+      gfx->setTextSize(1);
+      gfx->setCursor(TR_GIVE_X + TR_CARD_W / 2 - (int)strlen(T(S_TRADE_CHOOSE)) * 3, TR_CARD_Y + 74);
+      gfx->print(T(S_TRADE_CHOOSE));
+    } else {
+      tradeMon(trade.mine, TR_GIVE_X + TR_CARD_W / 2, TR_CARD_Y + 70, 2);
+    }
+    // YOU GET: what they offered, or why it cannot be had.
+    gfx->fillRoundRect(TR_GET_X, TR_CARD_Y, TR_CARD_W, TR_CARD_H, 14, UI_BG_DAY);
+    gfx->drawRoundRect(TR_GET_X, TR_CARD_Y, TR_CARD_W, TR_CARD_H, 14, UI_INK);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(1);
+    gfx->setCursor(TR_GET_X + TR_CARD_W / 2 - (int)strlen(T(S_TRADE_GET)) * 3, TR_CARD_Y + 8);
+    gfx->print(T(S_TRADE_GET));
+    const char *why = nullptr;
+    if (trade.theirsWhy == 1) why = T(S_TRADE_WHY_BAD);
+    else if (trade.theirsWhy == 2) why = T(S_TRADE_WHY_PACK);
+    else if (trade.theirsWhy == 3) why = T(S_TRADE_WHY_HAVE);
+    else if (trade.theirs.empty()) why = T(S_TRADE_WAIT);
+    // An invalid offer is never drawn: its name need not even be terminated.
+    if (trade.theirsWhy != 1 && !trade.theirs.empty())
+      tradeMon(trade.theirs, TR_GET_X + TR_CARD_W / 2, TR_CARD_Y + 70, 2);
+    if (why) {
+      gfx->setTextColor(trade.theirsWhy ? UI_BAR_BAD : UI_INK_SOFT);
+      gfx->setTextSize(1);
+      gfx->setCursor(TR_GET_X + TR_CARD_W / 2 - (int)strlen(why) * 3, TR_CARD_Y + TR_CARD_H - 16);
+      gfx->print(why);
+    } else if (trade.theirAccept && trade.theirAccept == trade.fingerprint()) {
+      gfx->setTextColor(UI_BAR_OK);
+      gfx->setTextSize(1);
+      gfx->setCursor(TR_GET_X + TR_CARD_W / 2 - (int)strlen(T(S_TRADE_THEYOK)) * 3, TR_CARD_Y + TR_CARD_H - 16);
+      gfx->print(T(S_TRADE_THEYOK));
+    }
+    bool ready = !trade.mine.empty() && trade.theirsOk;
+    tradeButton(TR_BTN_X, TR_BTN_Y, TR_BTN_W, TR_BTN_H,
+                T(trade.iAccepted ? S_TRADE_ACCEPTED : S_TRADE_ACCEPT),
+                trade.iAccepted ? UI_BAR_WARN : (ready ? UI_BAR_OK : UI_TRACK),
+                ready && !trade.iAccepted ? UI_WHITE : UI_INK);
+  } else if (trade.state == TRADE_LISTENING) {
+    tradeText(T(S_TRADE_LOOK), 150, 2 , UI_INK);
+    tradeText(T(S_TRADE_LOOK2), 190, 1, UI_INK_SOFT);
+  } else {
+    // Ended with nothing changed here: say why, plainly.
+    const char *why = T(S_TRADE_CANCELLED);
+    if (tradeNoRadio) why = T(S_TRADE_NORADIO);
+    else if (trade.state == TRADE_REFUSED) {
+      if (trade.refusal == TREF_VERSION) why = T(S_TRADE_VERSION);
+      else if (trade.refusal == TREF_SELF) why = T(S_TRADE_SELF);
+      else if (trade.refusal == TREF_LOG_FULL) why = T(S_TRADE_LOGFULL);
+    } else if (!trade.havePeer) why = T(S_TRADE_NOBODY);
+    tradeText(why, 170, 1, trade.state == TRADE_REFUSED || tradeNoRadio ? UI_BAR_BAD : UI_INK);
+    tradeButton(TR_BTN_X, TR_BTN_Y, TR_BTN_W, TR_BTN_H, T(S_CLOSE), UI_TRACK, UI_INK);
+  }
+  if (backLabel) tradeText(T(S_BACK), TR_BACK_LABEL_Y, 2, UI_INK_SOFT);
+  gfx->flush();
+}
+
+static void tradePickTap(int16_t x, int16_t y) {
+  if (partyHubAt(x, y)) {   // party -> box 1 -> box 2 -> box 3 -> party
+    tradePickSrc = (uint8_t)((tradePickSrc + 1) % (1 + BOX_SLOTS / BOX_PER_PAGE));
+    sfxPlay(SFX_TAP);
+    return;
+  }
+  if (inRect(x, y, PARTYCLOSE_X, PARTYCLOSE_Y, PARTYCLOSE_W, PARTYCLOSE_H) || y < 34) {
+    tradePicking = false;
+    sfxPlay(SFX_TAP);
+    return;
+  }
+  int i = partySlotAt(x, y);
+  if (i < 0) return;
+  const PartyMon &m = tradePickSrc == 0 ? party.slots[i]
+                                        : party.box[(tradePickSrc - 1) * BOX_PER_PAGE + i];
+  if (m.empty() || !trade.offer(m.uid)) { sfxPlay(SFX_DENY); return; }
+  tradePicking = false;
+  sfxPlay(SFX_TAP);
+}
+
+void tradeTap(int16_t x, int16_t y) {
+  if (tradePicking) { tradePickTap(x, y); return; }
+  if (tradeAsk) {
+    // Modal: anything but its two buttons does nothing.
+    if (tradeSureHit(x, y)) {
+      bool ok = tradeAsk == 1 ? trade.decideRevert() : trade.decideKeep();
+      tradeAsk = 0;
+      sfxPlay(ok ? SFX_MEDAL : SFX_DENY);
+    } else if (tradeNotSureHit(x, y)) {
+      tradeAsk = 0;
+      sfxPlay(SFX_TAP);
+    }
+    return;
+  }
+  if (tradePending()) {
+    if (!trade.canDecide()) return;   // nothing to press while it settles
+    if (tradeRevertHit(x, y)) { tradeAsk = 1; sfxPlay(SFX_TAP); }
+    else if (tradeKeepHit(x, y)) { tradeAsk = 2; sfxPlay(SFX_TAP); }
+    return;
+  }
+  if (trade.state == TRADE_CHOOSING) {
+    if (tradeGiveHit(x, y)) {
+      tradePicking = true;
+      tradePickSrc = 0;
+      sfxPlay(SFX_TAP);
+      return;
+    }
+    if (tradeAcceptHit(x, y)) {
+      if (trade.iAccepted) { trade.unaccept(); sfxPlay(SFX_TAP); }
+      else if (trade.accept()) sfxPlay(SFX_TAP);
+      else sfxPlay(SFX_DENY);
+      return;
+    }
+  } else if (trade.state != TRADE_LISTENING && tradeCloseHit(x, y)) {
+    sfxPlay(SFX_TAP);
+    tradeLeave();
+    return;
+  }
+  if (tradeBackHit(x, y)) { sfxPlay(SFX_TAP); tradeLeave(); }
 }
 
 // ---------- gym list ----------
@@ -6469,6 +6987,7 @@ void focusSwap(uint8_t slot) {
   if (slot >= PARTY_SLOTS) return;
   PartyMon incoming = party.slots[slot];   // by value: the slot is about to change
   if (incoming.empty()) return;
+  if (tradeLocked(incoming)) { sfxPlay(SFX_DENY); return; }   // promised to a trade
   bool wasEgg = pet.isEgg();
   PartyMon outgoing = wasEgg ? PartyMon() : pet.toPartyMon();   // read BEFORE switchTo() overwrites it
 
@@ -6630,7 +7149,7 @@ void cordPickTap(int16_t x, int16_t y) {
   bool cancel = (y >= PARTYCLOSE_Y && y <= PARTYCLOSE_Y + PARTYCLOSE_H &&
                  x >= PARTYCLOSE_X && x <= PARTYCLOSE_X + PARTYCLOSE_W) || y < 34;
   if (i < 0 && !cancel) return;                       // a miss on the ring: nothing
-  if (i >= 0 && party.slots[i].empty()) { sfxPlay(SFX_DENY); return; }
+  if (i >= 0 && (party.slots[i].empty() || tradeLocked(party.slots[i]))) { sfxPlay(SFX_DENY); return; }
   cordPick = false;
   partyOpen = false;
   bagOpen = true;
@@ -7270,6 +7789,9 @@ void keyboardTap(int16_t x, int16_t y) {
 #define GAL_X 73
 #define GAL_Y 84
 #define GAL_CELL 80
+
+// The box drawThumb() centres a sprite in, for callers defined above GAL_CELL.
+int thumbCell() { return GAL_CELL; }
 
 // dibuja una miniatura centrada en su celda; sil=true la pinta en tinta
 void drawThumb(const uint8_t *b, int x, int y, int s, bool sil) {

@@ -29,6 +29,11 @@ extern bool boxOpen, releaseConfirm;
 extern bool bagOpen;
 extern Party party;
 void startBattle(int16_t dex, uint8_t lvl);
+#include "trade.h"
+extern Trade trade;
+extern bool tradeOpen, tradePicking;
+extern uint8_t tradeAsk;
+void tradeOpenScreen();
 
 static int bad = 0;
 static void clearAll(){
@@ -38,6 +43,17 @@ static void clearAll(){
   boxOpen=releaseConfirm=false;
   bagOpen=false;
   partyDetail=boxDetail=0;
+  tradeOpen=tradePicking=false; tradeAsk=0;
+}
+// The trade screen draws a different layout for every state of the protocol,
+// and each one is a separate chance to forget the flush. Opened for real (no
+// radio here, so it starts and finds nobody), then put in each state.
+static void tradeIn(uint8_t state, bool pending, bool decide){
+  clearAll();
+  tradeOpenScreen();
+  trade.state = state;
+  trade.j.active = pending ? TRADE_PENDING : 0;
+  if (pending) { trade.lastRx = 0; trade.nowMs = decide ? TRADE_DECIDE_MS + 1 : 1000; }
 }
 static void check(const char *name){
   gfx->frameReady = false;
@@ -90,6 +106,17 @@ int main(){
   clearAll(); partyOpen=true; partyDetail=1; releaseConfirm=true;  check("partyconfirm");
   clearAll(); partyOpen=true; boxOpen=true; boxDetail=1;           check("boxsheet");
   clearAll(); partyOpen=true; boxOpen=true; boxDetail=1; releaseConfirm=true; check("boxconfirm");
+  tradeIn(TRADE_LISTENING, false, false); check("tradelook");
+  tradeIn(TRADE_CHOOSING, false, false);  trade.mine=party.slots[0]; trade.theirs=party.box[0];
+                                          trade.theirsOk=true; check("tradechoose");
+  tradeIn(TRADE_CHOOSING, false, false);  tradePicking=true; check("tradepick");
+  tradeIn(TRADE_PENDING, true, false);    check("tradebusy");
+  tradeIn(TRADE_STUCK, true, false);      check("tradestuck");
+  tradeIn(TRADE_STUCK, true, true);       check("tradedecide");
+  tradeIn(TRADE_STUCK, true, true);       tradeAsk=2; check("tradesure");
+  tradeIn(TRADE_DONE, false, false);      check("tradedone");
+  tradeIn(TRADE_CANCELLED, false, false); check("tradecancel");
+  tradeIn(TRADE_REFUSED, false, false);   check("traderefused");
 
   clearAll();                       crumbIs("main");
   clearAll(); trainOpen=true;       crumbIs("train");
@@ -103,6 +130,8 @@ int main(){
   clearAll(); cardOpen=true;        crumbIs("card");
   clearAll(); bagOpen=true;         crumbIs("bag");
   clearAll(); startBattle(9,50);    crumbIs("battle");
+  tradeIn(TRADE_LISTENING,false,false); crumbIs("trade");
+  trade.j.active = 0;
   clearAll();
 
   printf("%s\n", bad ? "FAILURES" : "every screen flushes");
