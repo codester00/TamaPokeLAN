@@ -208,6 +208,23 @@ folder is not named after the `.ino` ("main file missing"). A fork checked out
 under its repo name -- `TamaPokeLAN` -- hits this; rename it or build through a
 symlink. The scripts check and say so.
 
+**SensorLib must be 0.4.1.** 0.5.0 (2026-09-22) ships rewritten drivers under
+the SAME class names as the legacy headers this firmware includes, and the
+linker silently keeps one vtable for both: v3.33's first build boot-looped a
+real board with `InstrFetchProhibited ... PC 0x00010000` in `pedoBegin()`,
+right after "thumbnails loaded". It compiled cleanly and the emulator (which
+stubs the sensors) passed everything. `sensorlib_guard.h` now refuses to build
+against 0.5.0, and `tools/check_odr.sh` -- run by `build_web.sh` after a clean
+compile -- fails any build where two object files define one class differently.
+Both were negative-checked against 0.5.0. If the board ever boot-loops after a
+toolchain change, decode the backtrace with `xtensa-esp32s3-elf-addr2line -pfiaC
+-e build/esp32.esp32.esp32s3/TamaPoke.ino.elf <addrs>` before guessing.
+
+**A black screen right after a web install can be RECOVERY MODE, not a crash.**
+The log reads `boot:0x23 (DOWNLOAD(USB/UART0)) ... waiting for download`. On
+battery the chip never loses power when USB is unplugged, so it can stay there;
+hold PWR ~10 s to power off fully, then press it again.
+
 **Every `.cpp` in the folder is compiled.** A backup copy left beside the real
 file (`z_battle.cpp` next to `battle.cpp`, 2026-09-23) defines everything twice
 and the link fails -- while the emulator, which lists its sources by name, stays

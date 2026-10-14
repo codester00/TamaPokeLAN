@@ -1,5 +1,6 @@
 #include "pedometer.h"
 #include "pin_config.h"
+#include "sensorlib_guard.h"   // SensorLib 0.4.1 only -- read it before upgrading
 #include <SensorQMI8658.hpp>
 #include <math.h>
 

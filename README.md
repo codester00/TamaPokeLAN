@@ -656,7 +656,7 @@ lead — a Kanto run still reaches Crobat and Blissey.
 | Library | Author | Use |
 |---|---|---|
 | GFX Library for Arduino (`Arduino_GFX`) | moononournation | CO5300 over QSPI + framebuffer in PSRAM |
-| SensorLib | Lewis He | CST9217 touch + PCF85063 RTC |
+| SensorLib **0.4.1** (not 0.5.0, which boot-loops the board; see `sensorlib_guard.h`) | Lewis He | CST9217 touch + PCF85063 RTC + QMI8658 accelerometer |
 | XPowersLib | Lewis He | AXP2101 PMU (battery, brightness, PWR button) |
 | ESP_I2S (bundled in the ESP32 core) | Espressif | I2S to the ES8311 codec |
 

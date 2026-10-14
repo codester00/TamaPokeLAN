@@ -16,7 +16,12 @@ fi
 FQBN="esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB"
 
 echo "Compilando..."
-arduino-cli compile --fqbn "$FQBN" --export-binaries .
+# --clean: check_odr.sh below reads the object files, and objects a previous
+# library version left in the cache can look like a conflict this build lacks.
+arduino-cli compile --clean --fqbn "$FQBN" --export-binaries .
+# Two classes sharing a name compile and link without a word and then crash the
+# board at boot -- SensorLib 0.5.0 did exactly that (sensorlib_guard.h).
+bash tools/check_odr.sh || { echo "conflicting class definitions -- refusing to ship this build"; exit 1; }
 
 B=build/esp32.esp32.esp32s3
 echo "Fusionando binarios..."

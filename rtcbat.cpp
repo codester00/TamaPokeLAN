@@ -2,6 +2,7 @@
 #include "pin_config.h"  // define XPOWERS_CHIP_AXP2101
 #include <Wire.h>
 #include <time.h>
+#include "sensorlib_guard.h"   // SensorLib 0.4.1 only -- read it before upgrading
 #include <SensorPCF85063.hpp>
 #include <XPowersLib.h>
 
