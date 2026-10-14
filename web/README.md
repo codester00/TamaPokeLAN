@@ -165,9 +165,13 @@ attribution is allowed); see [`../CREDITS.md`](../CREDITS.md).
 
 ## Deploy (GitHub Pages)
 
-1. Repo settings → Pages → serve from `main`, folder `/web` (or move `web/` to
-   `docs/`). Pages gives HTTPS automatically.
-2. URL ends up at `https://<user>.github.io/<repo>/`.
+1. Repo settings → Pages → "Deploy from a branch", `main`, folder `/ (root)`.
+   Pages only offers `/` or `/docs`, so the installer is served from the
+   root and lives at `https://<user>.github.io/<repo>/web/` -- the URL the
+   main README links to. Pages gives HTTPS automatically.
+2. `.nojekyll` at the repo root is deliberate: without it Pages runs every
+   Markdown file in the repo through Jekyll, and a stray `{{` in any doc fails
+   the deploy. The installer is plain static files and needs no build.
 
 > **Pages on private repos** needs GitHub Pro/Team. If you make the repo
 > **public** to use Pages for free, decide about the sprites first (see above and
