@@ -91,14 +91,16 @@ void Party::begin() {
   }
 }
 
-void Party::save() {
-  if (prefs.putBytes("party", slots, sizeof(slots)) != sizeof(slots))
-    logKeyFailure("party", "party");
+bool Party::save() {
+  if (prefs.putBytes("party", slots, sizeof(slots)) == sizeof(slots)) return true;
+  logKeyFailure("party", "party");
+  return false;
 }
 
-void Party::boxSave() {
-  if (prefs.putBytes("box", box, sizeof(box)) != sizeof(box))
-    logKeyFailure("party", "box");
+bool Party::boxSave() {
+  if (prefs.putBytes("box", box, sizeof(box)) == sizeof(box)) return true;
+  logKeyFailure("party", "box");
+  return false;
 }
 
 uint8_t Party::boxCount() const {

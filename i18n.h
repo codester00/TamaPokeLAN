@@ -168,6 +168,49 @@ enum StrId : uint8_t {
   S_MART_PRICE_FMT, // buy confirm sub-line: "COST: $%lu"
   S_EVO_TRADE,      // card: this species evolves only by being traded
   S_CORD_PICK,      // Linking Cord on Karrablast/Shelmet: pick the partner
+  // Trading (trade.h), appended in one block
+  S_TRADE, // LAN screen button and trade title
+  S_TRADE_LOOK,
+  S_TRADE_LOOK2,
+  S_TRADE_NOBODY,
+  S_TRADE_WITH, // %s = the other trainer
+  S_TRADE_GIVE,
+  S_TRADE_GET,
+  S_TRADE_CHOOSE,
+  S_TRADE_WAIT, // their offer has not arrived
+  S_TRADE_WHY_BAD,
+  S_TRADE_WHY_PACK,
+  S_TRADE_WHY_HAVE,
+  S_TRADE_ACCEPT,
+  S_TRADE_ACCEPTED, // the button once pressed; tap again to take it back
+  S_TRADE_THEYOK,
+  S_TRADE_BUSY,
+  S_TRADE_KEEPON,
+  S_TRADE_DONE,
+  S_TRADE_GOT,
+  S_TRADE_EVOHINT, // a received trade evolver: hinted, not spoiled
+  S_TRADE_CANCELLED,
+  S_TRADE_VERSION,
+  S_TRADE_SELF,
+  S_TRADE_LOGFULL,
+  S_TRADE_NORADIO,
+  S_TRADE_LOST, // stuck screen, the owner's wording
+  S_TRADE_LEFT, // minutes:seconds until the player is asked
+  S_TRADE_INCOMPLETE,
+  S_TRADE_UNCONF,
+  S_TRADE_YOUHAVE,
+  S_TRADE_ASK1,
+  S_TRADE_ASK2,
+  S_TRADE_ASK3, // %s = S_TRADE_KEEP, then S_TRADE_REVERT
+  S_TRADE_REVERT,
+  S_TRADE_KEEP,
+  S_TRADE_REVERT_SUB,
+  S_TRADE_KEEP_SUB,
+  S_TRADE_SURE,
+  S_TRADE_SURE2,
+  S_TRADE_PICK,
+  S_TRADE_PARTYLBL, // picker hub: showing the party
+  S_TRADE_HUBHINT, // picker hub: tap cycles party / box pages
   STR_COUNT
 };
 

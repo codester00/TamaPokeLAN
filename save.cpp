@@ -43,6 +43,9 @@ const SaveField SAVE_FIELDS[] = {
   { "party", SK_BYTES }, { "box", SK_BYTES }, { "bag", SK_BYTES },
   // remembered LAN opponents -- its own key, same reasoning as the box
   { "rivals", SK_BYTES },
+  // the trade journal (trade.h): a pending trade, and the committed trades a
+  // peer has not yet confirmed. A backup without it would forget both.
+  { "trade", SK_BYTES },
   // settings, so a restored device plays the way it did
   { "lang", SK_U8 },    { "snd", SK_BOOL },   { "vol", SK_U8 },
 };

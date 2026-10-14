@@ -135,12 +135,12 @@ public:
   bool add(const PartyMon &m);  // into the first free slot; false if full
   void replaceAt(uint8_t i, const PartyMon &m);
   void releaseAt(uint8_t i);    // free a slot again
-  void save();
+  bool save();                  // false if the write did not land
   uint8_t boxCount() const;
   int boxFirstFree() const;
   bool boxAdd(const PartyMon &m);     // into the first free box slot
   void boxReleaseAt(uint8_t i);
-  void boxSave();
+  bool boxSave();
   // Swaps a party slot with a box slot. Either may be empty, so this doubles as
   // deposit and withdraw rather than needing three separate operations.
   void swapPartyBox(uint8_t partyIdx, uint8_t boxIdx);
