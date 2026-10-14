@@ -109,6 +109,7 @@ enum TradeMsg : uint8_t {
 };
 #define TM_FIRST TM_HELLO
 #define TM_LAST TM_BYE
+static_assert(TM_FIRST > 0x3F, "linknow.cpp gives the battle link 1..0x3F");
 
 // What a board must provide. The firmware's implementation is over `party`
 // and NVS; the tests' is over arrays they can cut the power on.
