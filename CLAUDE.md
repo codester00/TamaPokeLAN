@@ -590,13 +590,37 @@ alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. The installer was NOT rebuilt: `web/` still
 ships v3.28 and its manifest says so.
 
-### In progress: trading (2026-10-12)
+### Done: trading, end to end (2026-10-14, v3.33) -- NOT YET RUN ON TWO BOARDS
 
-**Built: the protocol** (`trade.h`/`trade.cpp`, `trade_test`). **Not built:**
-the screen, the ESP-NOW wiring (`linknow.cpp` is bound to a `Link` and needs
-generalising), the firmware's `TradeBoard` over `party` + an NVS `trade` key
-(which must join `SAVE_FIELDS`), calling `tradeRecover()` at boot, and
-`locks()` in every screen that can release, swap or raise a creature.
+**Built: the protocol** (`trade.h`/`trade.cpp`, `trade_test`) **and the
+firmware half** (`trade_ui_test`): a TRADE button on the LAN screen, one modal
+screen for the whole flow (`renderTrade`/`tradeTap`, its own party/box picker
+on the ring), `FwTradeBoard` over the party + box + an NVS `trade` key (in
+`SAVE_FIELDS`), `tradeBoot()` at boot, and `tradeLocked()` in release,
+`focusSwap()`, the farewell slot picker and the Linking Cord's partner pick.
+`trade_ui_test` drives the real sketch against a second `Trade` over the
+emulator's stand-in radio (`emuRadioAttach`/`emuRadioDeliver`); eleven guards
+were negative-checked there.
+
+Things that are easy to undo by accident:
+
+- **`linkNowOpen()` delivers one protocol's packets only.** Trade messages are
+  numbered from 0x41 and the battle link's stay at or below 0x3F, so a board
+  trading and a board battling in one room never read -- or lock onto -- each
+  other. Trading BROADCASTS rather than locking a peer: a pending trade must
+  hear its own peer come back even after a stranger spoke first.
+- **A pending trade starts `TRADE_STUCK`, not `LISTENING`**, and a board
+  pending with someone else IGNORES strangers rather than refusing them. Both
+  were found writing this: LISTENING gives up after a minute and goes quiet,
+  and a refused session stops calling, so either one quietly shortened the
+  owner's five-minute window. `trade_test` sections 8 and 10.
+- **`FwTradeBoard::put()` restores the RAM slot when the NVS write fails.**
+  The protocol retries a commit by looking for the creature; a RAM slot
+  claiming what NVS does not hold ends that retry, and the next reboot loses
+  the trade. `Party::save()`/`boxSave()` return bool for this.
+- **The player cannot leave while a trade is pending** -- tap, swipe or reboot
+  (boot reopens the screen). That is the owner's design: each screen must show
+  what its board holds, because that is what the other player reads.
 
 Agreed with the owner: party or box only, never the live pet; one for one; a
 receipt before anything commits; trade evolution is PURE trade (the level-40
@@ -649,7 +673,7 @@ the answer and nothing second-guesses it later; no anti-spoofing either, by
 the same call (open source, no paid users, no harm in it). A board still
 pending when the two meet again just follows the first decision.
 
-**The stuck screen, as the owner specified it** (to build with the UI; the data
+**The stuck screen, as the owner specified it** (built in `renderTrade()`; the data
 is `Trade::status()`, already tested). Both players are stuck on the trade
 screen and cannot open their party, so each screen must say what ITS board
 holds -- which is exactly what the other player reads to decide:
@@ -1803,7 +1827,7 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 46 suites (sprite_test skips without sprites)
+bash tools/emu/tests/run.sh          # all 47 suites (sprite_test skips without sprites)
 bash tools/emu/tests/run.sh battle   # just matching ones
 ```
 

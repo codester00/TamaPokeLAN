@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.32-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.33-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -52,6 +52,10 @@ out of the egg pool until it is — the same gating every region has always used
 - **LAN battles are fully working now** — scan for and battle another player
   head-to-head over WiFi Direct (no router or home WiFi needed!), with
   win/loss records kept per rival.
+- **Trading** — swap a party or box creature one-for-one with another board,
+  over the same radio as LAN battles. Built so a dropped connection or a flat
+  battery mid-trade never loses a creature; see § Trading below. *Tested in the
+  emulator against a simulated second board, not yet between two real boards.*
 - **The Poké Mart** — spend real steps, turned into Pokédollars, on balls,
   potions and vitamins between EXPLORE and the gyms.
 - **A pedometer** drives it, with no extra battery draw — the QMI8658's own
@@ -149,6 +153,16 @@ until you actually raise it.
 
 Sits between EXPLORE and the gyms on the tile axis. Real steps become
 Pokédollars at 1:1 — see § Game manual below for the wallet cap and price list.
+
+### Trading
+
+| Choosing a trade | When the connection drops |
+|---|---|
+| <img src="docs/screens/tradechoose.png" width="240"> | <img src="docs/screens/tradestuck.png" width="240"> |
+
+One creature for one, from the LAN screen's **TRADE** button. If the boards lose
+each other mid-trade, each screen says what its board holds and counts down
+while it keeps trying — see § Trading in the manual below.
 
 ### Collecting
 
@@ -428,6 +442,41 @@ is no level or team-size cap, since you already know what your opponent is
 bringing. A running **head-to-head record** is kept against each rival —
 keyed by their device, not their typed name, so renaming doesn't reset the
 score — and shown on the pairing screen the next time you two fight.
+
+### Trading
+
+From the gym chooser's **LAN BATTLE** button, tap **TRADE** on both boards.
+They find each other on their own (no host or join).
+
+- **What can be traded:** any creature in your **party or box**, never the
+  one you are raising. One for one. Tap **YOU GIVE** to choose (the middle of
+  the ring flips between your party and the three box pages); the other
+  player's offer appears under **YOU GET**.
+- **Both players tap ACCEPT** on the same two creatures. Changing either offer
+  takes both acceptances back, so nobody can be switched out at the last
+  second. Tap ACCEPT again to take yours back.
+- **Refused before anyone accepts:** a creature from a region whose sprite pack
+  is not on your card ("needs its region pack"), one with no sprite art at all,
+  and one that is already on your board.
+- **Trade evolution:** a creature that evolves by trade arrives *marked* and
+  evolves the next time you raise it (§ Evolution and moves).
+- **Keep both boards on and close** while it says TRADING. It takes a second or
+  two.
+
+**If the connection drops in the middle** — out of range, a reboot, a flat
+battery — nothing is lost and nothing is duplicated, and you cannot leave the
+trade screen until it is settled:
+
+1. Both boards keep trying for **5 minutes**. The screen says
+   *Connection lost... reattempting* with the time left, and what **this**
+   board holds: *Trade appears incomplete (you have X)* or *Trade appears
+   complete without confirmation (you have Y)*. Bring the boards back together,
+   or switch the other one back on, and it finishes by itself. A board that
+   rebooted mid-trade opens straight onto this screen.
+2. After 5 minutes you are asked to decide, by **looking at the other board's
+   screen**: if it says *complete*, choose **KEEP** (take theirs); if it says
+   *incomplete*, choose **REVERT** (keep yours). It warns you first, because
+   it **cannot be undone** — the board takes your word for it.
 
 ### The three endings, retiring, and your party
 

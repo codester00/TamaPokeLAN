@@ -37,10 +37,10 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 | | |
 |---|---|
-| Published firmware | **v3.28** (the last tag, 2026-09-14). `web/` still ships it, and `web/manifest.json` says 3.28 |
-| Repo version | **3.32** in `TamaPoke.ino` and the README badge -- unreleased, not yet on any board |
+| Published firmware | **v3.28** (the last tag, 2026-09-14). `web/` on `main` is the untagged "Current Pages build" |
+| Repo version | **3.33** in `TamaPoke.ino` and the README badge -- unreleased; 3.32 was on the owner's board first |
 | Dex | `DEX_COUNT` 1025, `REGION_COUNT` 10, `GYM_REGIONS` 9 |
-| Tests | 46 suites, all pass (`sprite_test` skips until `tools/unpack_bundle.py` has run). `check_savefile.mjs` passes |
+| Tests | 47 suites, all pass (`sprite_test` skips until `tools/unpack_bundle.py` has run). `check_savefile.mjs` passes |
 | Firmware | compiles with esp32 core 3.3.0, GFX Library 1.6.9, SensorLib 0.5.0, XPowersLib 0.3.4 |
 
 **What happened in between.** On 2026-09-23 fifteen commits were made in
