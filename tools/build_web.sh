@@ -37,9 +37,17 @@ ESPTOOL="$(ls ~/Library/Arduino15/packages/esp32/tools/esptool_py/*/esptool \
 # new_install_prompt_erase:false does not prevent it (that flag only governs the
 # extra full-chip erase prompt). Shipping the parts at their own offsets leaves
 # 0x9000..0xE000 alone, exactly as arduino-cli's USB upload always has.
+# boot_app0.bin is the core's own fixed file. Core 3.3 stopped copying it into
+# the build folder, so take it from the core when it is not there.
+BOOT_APP0="$B/boot_app0.bin"
+[ -f "$BOOT_APP0" ] || BOOT_APP0="$(ls ~/Library/Arduino15/packages/esp32/hardware/esp32/*/tools/partitions/boot_app0.bin \
+              ~/.arduino15/packages/esp32/hardware/esp32/*/tools/partitions/boot_app0.bin \
+              "${LOCALAPPDATA:-/nonexistent}"/Arduino15/packages/esp32/hardware/esp32/*/tools/partitions/boot_app0.bin \
+              2>/dev/null | tail -1)"
+[ -f "$BOOT_APP0" ] || { echo "no boot_app0.bin found"; exit 1; }
 cp "$B/TamaPoke.ino.bootloader.bin" web/firmware/bootloader.bin
 cp "$B/TamaPoke.ino.partitions.bin" web/firmware/partitions.bin
-cp "$B/boot_app0.bin"               web/firmware/boot_app0.bin
+cp "$BOOT_APP0"                     web/firmware/boot_app0.bin
 cp "$B/TamaPoke.ino.bin"            web/firmware/app.bin
 
 # Still merged for anyone flashing a BLANK board from the command line in one
@@ -47,14 +55,17 @@ cp "$B/TamaPoke.ino.bin"            web/firmware/app.bin
 "$ESPTOOL" --chip esp32s3 merge-bin -o web/firmware/tamapoke.bin \
   0x0     "$B/TamaPoke.ino.bootloader.bin" \
   0x8000  "$B/TamaPoke.ino.partitions.bin" \
-  0xe000  "$B/boot_app0.bin" \
+  0xe000  "$BOOT_APP0" \
   0x10000 "$B/TamaPoke.ino.bin"
 
 echo "OK -> web/firmware/ (4 parts + tamapoke.bin for a blank board)"
 
 # The manifest version is what the installer shows people; keeping it in step
 # with FW_VERSION by hand is exactly the sort of thing that silently rots.
-FW="$(grep -o '"[0-9.]*"' TamaPoke.ino | head -1 | tr -d '"')"
+# Read the #define itself, as check_release.py does: the first quoted number in
+# the file is a COMMENT that mentions "1.01", and that is what shipped once.
+FW="$(sed -n 's/^#define FW_VERSION "\([0-9.]*\)".*/\1/p' TamaPoke.ino | head -1)"
+[ -n "$FW" ] || { echo "no #define FW_VERSION in TamaPoke.ino"; exit 1; }
 python3 - "$FW" <<'PYEOF'
 import hashlib, json, sys
 m = json.load(open('web/manifest.json', encoding='utf-8'))

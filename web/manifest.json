@@ -1,13 +1,13 @@
 {
-  "name": "TamaPoke v3.28",
-  "version": "3.28",
+  "name": "TamaPoke v3.32",
+  "version": "3.32",
   "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "firmware/bootloader.bin?v=31b3c1be45dc5a76",
+          "path": "firmware/bootloader.bin?v=95b966ad240a05bf",
           "offset": 0
         },
         {
@@ -19,7 +19,7 @@
           "offset": 57344
         },
         {
-          "path": "firmware/app.bin?v=2640bdbe1234e951",
+          "path": "firmware/app.bin?v=59e32745ee5744d0",
           "offset": 65536
         }
       ]
