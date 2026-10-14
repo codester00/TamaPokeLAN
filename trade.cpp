@@ -304,7 +304,11 @@ void Trade::begin(TradeBoard *b, const char *name, uint32_t nonce) {
 
 void Trade::start() {
   if (!board) return;
-  state = TRADE_LISTENING;   // state BEFORE sending: a synchronous transport re-enters
+  // A trade left pending (a reboot, a reopened screen) starts STUCK, not
+  // LISTENING: LISTENING gives up after TRADE_PAIR_TIMEOUT_MS and goes quiet,
+  // and a pending board must keep calling its peer for the whole window.
+  // State BEFORE sending: a synchronous transport re-enters.
+  state = j.active == TRADE_PENDING ? TRADE_STUCK : TRADE_LISTENING;
   sawRx = true;              // so the first tick() starts the clock from now
   sendHello(*this);
 }
@@ -527,6 +531,10 @@ void Trade::onPacket(const uint8_t *buf, uint8_t len) {
     const uint8_t *mac = p + 3;
     if (macEq(mac, myMac)) { state = TRADE_REFUSED; refusal = TREF_SELF; return; }
     if (havePeer && !macEq(mac, peerMac)) return;   // somebody else's trade
+    // Pending with another board: this one is a stranger. Ignore it rather than
+    // refuse -- a refused session stops calling, and the board this one is
+    // pending with could walk back into range at any moment.
+    if (j.active == TRADE_PENDING && !macEq(mac, j.peer)) return;
     uint32_t nonce = rd32(p + 9);
     sawRx = true;
     if (havePeer && nonce == peerNonce) return;     // a resend: nothing new
@@ -545,9 +553,7 @@ void Trade::onPacket(const uint8_t *buf, uint8_t len) {
     iAccepted = false;
     if (state == TRADE_REFUSED) return;
     if (j.active == TRADE_PENDING) {
-      // Pending with THIS board: settle it. With another: busy until that one is.
-      if (macEq(j.peer, peerMac)) state = TRADE_PENDING;
-      else { state = TRADE_REFUSED; refusal = TREF_BUSY; }
+      state = TRADE_PENDING;   // with THIS board (a stranger was ignored above): settle it
     } else if (state == TRADE_LISTENING || state == TRADE_STUCK || state == TRADE_CANCELLED) {
       state = TRADE_CHOOSING;
     }

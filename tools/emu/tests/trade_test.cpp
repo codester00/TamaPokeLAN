@@ -536,7 +536,8 @@ int main() {
        "and its screen then says: complete, unconfirmed, you have the new one");
   }
 
-  // --- 8. busy with one board, refused by another
+  // --- 8. pending with one board, a stranger is IGNORED -- not refused, which
+  //        would stop the pending board calling -- and the real peer still settles it
   {
     Sim s;
     s.session();
@@ -548,12 +549,58 @@ int main() {
     s.ta.accept();
     s.tb.accept();
     s.step(TRADE_PEER_TIMEOUT_MS + 2000);
+    ck(s.ta.j.active == TRADE_PENDING, "(A is pending with B)");
     // A third board turns up; give it B's identity slot with a new MAC.
+    const uint8_t realB = s.B.id[0];
     s.B.id[0] = 0xC0;
     s.session();
+    s.step(3000);
+    ck(s.ta.state == TRADE_STUCK && !s.ta.havePeer && s.ta.j.active == TRADE_PENDING,
+       "a board pending with someone else ignores a stranger");
+    s.B.dead = true;
+    int before = s.sent;
+    s.step(5000);
+    ck(s.sent > before, "and keeps calling its own peer");
+    s.B.dead = false;
+    s.B.id[0] = realB;
+    s.boot(1);
+    s.tb.start();
+    s.step(3000);
+    ck(s.clean() && s.countAll(s.a1) == 1 && s.countAll(s.b1) == 1,
+       "so when the real peer comes back it settles");
+  }
+
+  // --- 10. a board rebooted mid-trade keeps calling for the WHOLE window, not
+  //         just the minute an ordinary pairing waits before giving up
+  {
+    Sim s;
+    s.session();
+    s.step(500);
+    s.ta.offer(s.a1.uid);
+    s.tb.offer(s.b1.uid);
+    s.step(500);
+    s.upAB = false;
+    s.ta.accept();
+    s.tb.accept();
     s.step(1000);
-    ck(s.ta.state == TRADE_REFUSED && s.ta.refusal == TREF_BUSY,
-       "a board pending with someone else refuses a new trade");
+    ck(s.ta.j.active == TRADE_PENDING, "(A is pending)");
+    s.B.dead = true;   // B is switched off
+    s.upAB = s.upBA = true;
+    s.air.clear();
+    s.boot(0);         // A reboots and reopens the trade screen
+    s.ta.start();
+    s.step(TRADE_PAIR_TIMEOUT_MS + 30000);
+    ck(s.ta.state == TRADE_STUCK, "a minute and a half after a reboot it is still stuck, not given up");
+    int before = s.sent;
+    s.step(5000);
+    ck(s.sent > before, "and still calling");
+    ck(s.ta.status().secsLeft > 0 && !s.ta.canDecide(), "inside its five minutes");
+    s.B.dead = false;
+    s.boot(1);
+    s.tb.start();
+    s.step(3000);
+    ck(s.clean() && s.countAll(s.a1) == 1 && s.countAll(s.b1) == 1,
+       "and when the peer comes back it settles by itself");
   }
 
   // --- 9. a full log of unconfirmed trades refuses a new one rather than

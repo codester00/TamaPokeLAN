@@ -90,12 +90,15 @@ enum TradeRefusal : uint8_t {
   TREF_NONE = 0,
   TREF_VERSION,      // a different protocol or table layout
   TREF_SELF,         // the "peer" has this board's own MAC
-  TREF_BUSY,         // a trade with ANOTHER board is still pending here
+  TREF_BUSY,         // (unused: a board pending with another now just ignores a stranger)
   TREF_LOG_FULL,     // too many trades whose peer has not yet confirmed
 };
 
+// Numbered clear of link.h's LinkMsg (1..8), so a trading board and a battling
+// board on the same channel can never read each other's packets: the radio
+// layer delivers only the range it was opened for (TM_FIRST..TM_LAST).
 enum TradeMsg : uint8_t {
-  TM_HELLO = 1,   // proto, build tag, MAC, session nonce, name
+  TM_HELLO = 0x41,   // proto, build tag, MAC, session nonce, name
   TM_OFFER,       // seq + the creature I would give (dex 0 = nothing chosen)
   TM_ACCEPT,      // I accept the pair whose fingerprint is this
   TM_READY,       // I have journaled fp: I am PENDING
@@ -104,6 +107,8 @@ enum TradeMsg : uint8_t {
   TM_UNKNOWN,     // I have no pending or committed record of fp
   TM_BYE,         // leaving on purpose
 };
+#define TM_FIRST TM_HELLO
+#define TM_LAST TM_BYE
 
 // What a board must provide. The firmware's implementation is over `party`
 // and NVS; the tests' is over arrays they can cut the power on.
@@ -203,7 +208,7 @@ struct Trade {
   // applied when the power went. Call at boot even if no trade is started:
   // tradeRecover() below is the same thing without a session.
   void begin(TradeBoard *b, const char *name, uint32_t nonce);
-  void start();                               // announce; LISTENING
+  void start();                               // announce; LISTENING (STUCK if a trade is pending)
   void end();                                 // say BYE and stop
   bool offer(const CreatureUid &u);           // what I would give; false if not in party/box
   bool accept();                              // false if there is nothing to accept yet
