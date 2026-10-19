@@ -29,6 +29,13 @@ extern BlockAttack blockAtk[];
 extern float tiltBx, tiltBy, tiltVx, tiltVy, tiltGx, tiltGy, tiltHx[], tiltHy[];
 extern bool trainOpen; extern uint8_t trainPage;
 void startRock(); void startBlock(); void startTilt(); void leaveMini();
+void startPush(); void startSimon(); void startSeek();
+float pushNeedle(uint32_t now); uint8_t pushZone(float v);
+extern uint16_t pushSteps; extern uint32_t pushLockUntil;
+extern uint8_t simonSeq[], simonLen, simonPos; extern bool simonShowing;
+void simonBerryPos(uint8_t i, int *x, int *y); int simonBerryAt(int16_t x, int16_t y);
+extern uint8_t seekSlot[], seekPet, seekRound, seekStage;
+void seekBushPos(uint8_t i, uint32_t now, int *x, int *y); int seekBushAt(int16_t x, int16_t y);
 void mgPress(int16_t x, int16_t y, uint32_t now);
 void mgStep(uint32_t now);
 uint8_t blockSideAt(int16_t x, int16_t y);
@@ -259,9 +266,151 @@ int main() {
     ck(pet.trSpe > 0 && pet.trDef > 0 && pet.trAtk == 0, "and pays speed and defence, not strength");
   }
 
+  // ---------- Boulder Push ----------
+  {
+    ready(); startPush();
+    ck(miniGame && miniGame != ROCK && miniGame != BLOCK, "(Boulder Push opens)");
+    // a moment with the needle in the green, and one with it far out
+    uint32_t green = 0, out = 0;
+    for (uint32_t t = mgStart + 50; t < mgStart + 3000 && (!green || !out); t += 5) {
+      uint8_t z = pushZone(pushNeedle(t));
+      if (z == 2 && !green) green = t;
+      if (z == 0 && !out) out = t;
+    }
+    mgPress(CXT, CYT, green);
+    ck(pushSteps == 2, "a tap in the green shoves the boulder two steps");
+    mgPress(CXT, CYT, out > green ? out : out + 10000);
+    ck(pushSteps == 1 && pushLockUntil > mgStart, "a tap outside the bar's middle lets it slip back");
+    uint32_t g2 = 0;
+    for (uint32_t t = pushLockUntil - 300; t < pushLockUntil; t++) if (pushZone(pushNeedle(t)) == 2) { g2 = t; break; }
+    if (g2) { mgPress(CXT, CYT, g2); ck(pushSteps == 1, "and for a moment the boulder will not move at all"); }
+    else ck(true, "(no green moment inside the slip; skipped)");
+    // the needle swings faster as the round goes on
+    auto crossings = [&](uint32_t a, uint32_t b) {
+      int n = 0; float prev = pushNeedle(a);
+      for (uint32_t t = a + 5; t < b; t += 5) { float v = pushNeedle(t); if ((v > 0) != (prev > 0)) n++; prev = v; }
+      return n;
+    };
+    ck(crossings(mgStart, mgStart + 5000) < crossings(mgUntil - 5000, mgUntil), "the needle quickens");
+    leaveMini();
+  }
+  {
+    // A steady hand: one press each time the needle crosses the green.
+    ready(); startPush();
+    bool in = false;
+    for (uint32_t t = mgStart; !mgOverUntil; t += 10) {
+      bool g = pushZone(pushNeedle(t)) == 2;
+      if (g && !in) mgPress(CXT, CYT, t);
+      in = g;
+      mgStep(t);
+    }
+    printf("      a steady hand pushed %u steps\n", pushSteps);
+    ck(mgPoints >= TRAIN_SESSION_MAX, "pressing every green is a full session");
+    ck(pet.trAtk == TRAIN_SESSION_MAX / 2 && pet.trDef == TRAIN_SESSION_MAX / 2 && pet.trSpe == 0,
+       "paid half to strength and half to defence, nothing to speed");
+    // A masher: a tap every frame regardless.
+    ready(); startPush();
+    for (uint32_t t = mgStart; !mgOverUntil; t += 85) { mgPress(CXT, CYT, t); mgStep(t); }
+    printf("      a masher pushed %u steps\n", pushSteps);
+    ck(pushSteps < 60 / 4, "mashing gets nowhere");
+  }
+
+  // ---------- Memory ----------
+  {
+    ready(); startSimon();
+    const uint8_t SIMON = miniGame;
+    ck(simonBerryAt(CXT, CYT) == -1, "the middle is not a berry");
+    int x, y;
+    simonBerryPos(simonSeq[0], &x, &y);
+    mgPress(x, y, mgStart + 10);
+    ck(simonPos == 0 && simonLen == 1 && mgScore == 0 && !mgOverUntil, "taps while it shows the sequence are ignored");
+    // A perfect memory: repeat every run until the longest.
+    uint32_t t = mgStart;
+    int guard = 0;
+    while (!mgOverUntil && guard++ < 5000) {
+      t += 20; mgStep(t);
+      if (!simonShowing && miniGame == SIMON) {
+        simonBerryPos(simonSeq[simonPos], &x, &y);
+        mgPress(x, y, t);
+      }
+    }
+    printf("      perfect memory reached %u\n", mgScore);
+    ck(mgOverUntil && mgScore >= 12, "a perfect memory runs to the longest sequence and ends");
+    ck(pet.petStep == 0, "a joy game: petting is fresh again");
+    ck(pet.trAtk == 0 && pet.trDef == 0 && pet.trSpe == 0, "and it trains nothing");
+
+    ready();
+    for (int i = 0; i < 6; i++) pet.caress();
+    pet.joy = 20;
+    startSimon();
+    t = mgStart;
+    while (simonShowing) { t += 20; mgStep(t); }
+    simonBerryPos(simonSeq[0], &x, &y); mgPress(x, y, t);      // run 1 right
+    while (simonShowing) { t += 20; mgStep(t); }
+    uint8_t wrong = (simonSeq[0] + 1) % 4;
+    simonBerryPos(wrong, &x, &y); mgPress(x, y, t);           // run 2 wrong at once
+    ck(mgOverUntil && mgScore == 1, "a wrong berry ends it; the score is the longest run repeated");
+    ck(pet.joy > 20 && pet.petStep == 0, "and it still pays joy and refreshes petting");
+
+    ready(); startSimon();
+    int tx, ty; simonBerryPos(0, &tx, &ty);
+    ck(mgLeaveStripY() < ty - 44 - 10, "the leave strip sits above the top berry");
+    leaveMini();
+  }
+
+  // ---------- Hide and Seek ----------
+  {
+    ready(); startSeek();
+    const uint8_t SEEK = miniGame;
+    int x, y;
+    seekBushPos(seekPet, mgStart, &x, &y);
+    mgPress(x, y, mgStart + 10);
+    ck(mgScore == 0 && seekRound == 0, "pointing while it is still showing does nothing");
+    bool perm = true, apart = true, moved = false;
+    float closest = 1e9;
+    uint32_t t = mgStart;
+    while (!mgOverUntil && miniGame == SEEK) {
+      uint8_t shownSlot = seekSlot[seekPet];
+      while (!mgOverUntil && seekStage != 2) {           // until it is time to point
+        t += 20; mgStep(t);
+        uint8_t m = (1 << seekSlot[0]) | (1 << seekSlot[1]) | (1 << seekSlot[2]);
+        if (m != 7) perm = false;
+        for (int a = 0; a < 3; a++) for (int b = a + 1; b < 3; b++) {
+          int ax, ay, bx, by;
+          seekBushPos(a, t, &ax, &ay); seekBushPos(b, t, &bx, &by);
+          float d = sqrtf((float)(ax - bx) * (ax - bx) + (float)(ay - by) * (ay - by));
+          if (d < closest) closest = d;
+        }
+      }
+      if (mgOverUntil) break;
+      if (seekSlot[seekPet] != shownSlot) moved = true;
+      seekBushPos(seekPet, t, &x, &y);
+      ck(seekBushAt(x, y) == seekPet, "(pointing at a bush picks that bush)");
+      mgPress(x, y, t);                                    // a sharp eye
+      while (!mgOverUntil && seekStage == 3) { t += 20; mgStep(t); }
+    }
+    printf("      found %u, bushes never closer than %.0f px\n", mgScore, closest);
+    ck(perm, "the bushes always stand in three different places");
+    ck(closest > 70, "two bushes swapping never pass through each other");
+    ck(moved, "the shuffle really does move the creature's bush");
+    ck(mgScore == 5 && mgOverUntil, "a sharp eye finds it every round, and the game ends");
+    ck(pet.petStep == 0, "a joy game: petting is fresh again");
+
+    ready();
+    pet.joy = 20;
+    startSeek();
+    t = mgStart;
+    while (!mgOverUntil) {
+      t += 20; mgStep(t);
+      if (seekStage == 2) { seekBushPos((seekPet + 1) % 3, t, &x, &y); mgPress(x, y, t); }
+    }
+    ck(mgScore == 0, "pointing at the wrong bush never finds it");
+    ck(pet.joy > 20, "but playing it through still pays a little joy");
+  }
+
   // ---------- the menu reaches them ----------
   {
-    ck(trainGameCount() == 7, "seven games on the training menu");
+    ck(trainGameCount() == 10, "ten games on the training menu");
     // Every row of every page, asked of the firmware's own layout: a row past
     // the end of a page lands on nothing or on BACK, which opens no game.
     uint8_t seen = 0;
@@ -278,8 +427,8 @@ int main() {
         if (miniGame) seen |= 1 << miniGame;
         leaveMini();
       }
-    ck(__builtin_popcount(seen) == 3 && (seen & (1 << ROCK)) && (seen & (1 << BLOCK)),
-       "three of its rows open the three hybrid games");
+    ck(__builtin_popcount(seen) == 6 && (seen & (1 << ROCK)) && (seen & (1 << BLOCK)),
+       "six of its rows open the six games in this dispatcher");
   }
 
   printf("%s\n", bad ? "FAILURES" : "all good");

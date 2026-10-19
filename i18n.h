@@ -235,6 +235,19 @@ enum StrId : uint16_t {
   S_SMASH_FMT,
   S_TILT_DONE_FMT,
   S_TILT_NOSENSOR,
+  S_GAME_PUSH, // hybrid: strength + defence
+  S_GAME_SIMON, // joy + bond
+  S_GAME_SEEK, // joy + bond
+  S_PUSH_HINT,
+  S_SIMON_WATCH,
+  S_SIMON_GO,
+  S_SEEK_HINT,
+  S_SEEK_PICK,
+  S_PUSHED_FMT,
+  S_SIMON_FMT,
+  S_SEEK_FMT,
+  S_FOUND,
+  S_NOT_HERE,
   STR_COUNT
 };
 

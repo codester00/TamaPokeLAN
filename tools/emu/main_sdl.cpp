@@ -203,6 +203,8 @@ struct CatchThing { float x, y, vy; bool rock, live; };
 extern CatchThing catchThings[];
 void startCatch();
 void startRock(); void startBlock(); void startTilt();
+void startPush(); void startSimon(); void startSeek();
+extern uint16_t pushSteps; extern uint8_t simonLen, simonPos, seekStage, seekPet, seekRound; extern bool simonShowing; extern int8_t simonLit; extern uint32_t simonLitUntil;
 extern uint32_t mgStart, mgUntil, rockBeatAt, rockPeriod, blockNext;
 extern uint16_t mgScore; extern uint8_t rockBeat;
 struct BlockAttack { uint8_t side; uint32_t at, dur; bool live; };
@@ -339,6 +341,23 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
       blockAtk[i].live = true; blockAtk[i].side = sides[i];
       blockAtk[i].dur = 1400; blockAtk[i].at = millis() - 300 - 350 * i;
     }
+  }
+  else if (!strcmp(screen, "push")) {
+    startPush();
+    mgStart = millis() - 6000;
+    mgUntil = millis() + 14000;
+    pushSteps = 26;
+  }
+  else if (!strcmp(screen, "simon")) {
+    startSimon();
+    mgStart = millis() - 6000;
+    simonLen = 4; simonPos = 1; mgScore = 3;
+    simonShowing = false; simonLit = 2; simonLitUntil = millis() + 100000;
+  }
+  else if (!strcmp(screen, "seek")) {
+    startSeek();
+    mgStart = millis() - 6000;
+    seekRound = 1; seekStage = 0;      // showing where it hides
   }
   else if (!strcmp(screen, "tilt")) {
     emuSetTilt(0, 0);

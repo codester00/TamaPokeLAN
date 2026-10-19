@@ -159,6 +159,8 @@ Pokédollars at 1:1 — see § Game manual below for the wallet cap and price li
 | The games | Rock Smash | Block! | Tilt Maze |
 |---|---|---|---|
 | <img src="docs/screens/train.png" width="180"> | <img src="docs/screens/rock.png" width="180"> | <img src="docs/screens/block.png" width="180"> | <img src="docs/screens/tilt.png" width="180"> |
+| **Boulder Push** | **Memory** | **Hide and Seek** | |
+| <img src="docs/screens/push.png" width="180"> | <img src="docs/screens/simon.png" width="180"> | <img src="docs/screens/seek.png" width="180"> | |
 
 The dumbbell opens a list of games, each naming the stats it raises and how far
 along they are. Some train one stat, some split the same points across two, and
@@ -289,13 +291,29 @@ While **awake**:
     **3 points per goal**. Whatever angle you hold the board at when it starts
     counts as level. Needs the board's motion sensor.
 
-    All three cost what any training does: −10 energy, −5 food, +4 joy, bond,
+  - 🪨 **Boulder Push** — **STRENGTH + DEFENCE**: a needle swings across a power
+    bar, faster as the 20 s run on. Tap while it's in the **green** to shove the
+    boulder up the slope 2 steps (**yellow**: 1). Tap outside the middle and it
+    **slips back** a step and won't budge for 0.35 s, so mashing gets nowhere.
+    **60 steps** is a full session.
+
+    All four cost what any training does: −10 energy, −5 food, +4 joy, bond,
     and +1 fitness per 5 points (max +4). A round that earned nothing costs
     nothing.
   - 🍓 **Berry Catch** — **JOY + BOND**: drag the basket for 20 s, catch berries,
     dodge rocks (a rock costs a point; a miss costs nothing). Pays **+6 joy, +2
     per berry** (max **+30**) and **+1 bond per 8 berries** (+1 to +3), and makes
     petting fresh again.
+  - 🧠 **Memory** — **JOY + BOND**: four berries light up in a sequence; tap
+    them back in the same order. Each round adds one, up to 12; a wrong berry
+    ends it. Scores **2 per berry** of your longest run.
+  - 🌳 **Hide and Seek** — **JOY + BOND**: your creature hides in one of three
+    bushes, the bushes shuffle (more swaps, faster, each round), and you point
+    at where it went. 5 rounds, **5 per find**.
+
+    Memory and Hide and Seek pay like Berry Catch (**+6 joy** for playing, then
+    2 per point to **+30**; bond **+1 per 8 points**, max +3), and make petting
+    fresh again — even a round with nothing found pays the +6.
 - 🫧 **Bath:** clears poops, HYG → 100.
 - 👆 **Pet it:** wears off. Each tap gives **+10, +8, +6, +4, +2, then 0** JOY
   (and +1 bond while it still gives joy), until a joy/bond game (Berry Catch)

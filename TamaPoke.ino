@@ -233,13 +233,16 @@ void renderCatch();
 // The hybrid training games (v3.34): each pays through Pet::trainSplit(), so
 // a game training two stats gives half to each -- the same total as a
 // single-stat game. One set of state, since only one can be open at a time.
-enum { MG_NONE, MG_ROCK, MG_BLOCK, MG_TILT };
+enum { MG_NONE, MG_ROCK, MG_BLOCK, MG_TILT, MG_PUSH, MG_SIMON, MG_SEEK };
 uint8_t miniGame = MG_NONE;
 // Up here, not beside Block!: arduino-cli's generated prototypes take it.
 struct BlockAttack { uint8_t side; uint32_t at, dur; bool live; };
 void startRock();
 void startBlock();
 void startTilt();
+void startPush();
+void startSimon();
+void startSeek();
 void leaveMini();
 void mgPress(int16_t x, int16_t y, uint32_t now);
 void mgStep(uint32_t now);
@@ -7520,7 +7523,10 @@ static const TrainGame TRAIN_GAMES[] = {
   { S_GAME_ROCK,  TR_STR | TR_SPE, startRock },
   { S_GAME_BLOCK, TR_DEF | TR_SPE, startBlock },
   { S_GAME_TILT,  TR_SPE | TR_DEF, startTilt },
+  { S_GAME_PUSH,  TR_STR | TR_DEF, startPush },
   { S_GAME_BERRY, TR_JOY | TR_BOND, startCatch },
+  { S_GAME_SIMON, TR_JOY | TR_BOND, startSimon },
+  { S_GAME_SEEK,  TR_JOY | TR_BOND, startSeek },
 };
 #define TRAIN_GAME_COUNT (sizeof(TRAIN_GAMES) / sizeof(TRAIN_GAMES[0]))
 #define TRAIN_PER_PAGE 3
@@ -7769,6 +7775,7 @@ uint32_t mgStart = 0, mgUntil = 0, mgOverUntil = 0, mgLast = 0;
 uint16_t mgScore = 0;          // what the screen counts: smashes, blocks, goals
 uint16_t mgPoints = 0;         // what it pays, before trainSplit's session cap
 uint8_t mgGain[3] = { 0, 0, 0 };   // STR, DEF, SPE actually gained
+uint8_t mgJoyGain = 0, mgBondGain = 0;   // what a joy/bond game paid
 bool mgNoSensor = false;
 StrId mgGradeStr = S_MISS;     // PERFECT / GOOD / MISS, flashed until mgGradeUntil
 uint32_t mgGradeUntil = 0;
@@ -7837,7 +7844,17 @@ static void mgBegin(uint8_t which, uint8_t mask) {
 static void mgGrading(StrId g, uint32_t now) { mgGradeStr = g; mgGradeUntil = now + 450; }
 
 // Pays what was earned. Leaving early pays too, like every other game.
-static void mgPay() {
+// A joy/bond game pays through Pet::playJoyGame() -- which also makes petting
+// fresh again -- and pays for turning up even at 0, like Berry Catch; a
+// training game pays through trainSplit() and charges nothing for nothing.
+static void mgPay(bool finished) {
+  if (mgMask & TR_JOY) {
+    if (!finished && !mgPoints) return;
+    uint8_t b0 = pet.bond;
+    mgJoyGain = pet.playJoyGame(mgCap(mgPoints));
+    mgBondGain = pet.bond - b0;
+    return;
+  }
   if (!mgPoints) return;                             // nothing earned, nothing charged
   uint8_t a = pet.trAtk, d = pet.trDef, sp = pet.trSpe;
   pet.trainSplit(mgMask, mgCap(mgPoints));
@@ -7848,13 +7865,13 @@ static void mgPay() {
 
 static void mgFinish(uint32_t now) {
   if (mgOverUntil) return;
-  if (!mgNoSensor) mgPay();
+  if (!mgNoSensor) mgPay(true);
   sfxPlay(mgNoSensor ? SFX_DENY : (mgPoints >= TRAIN_SESSION_MAX ? SFX_MEDAL : SFX_PLAY));
   mgOverUntil = now + 3500;
 }
 
 void leaveMini() {
-  if (!mgOverUntil && !mgNoSensor) mgPay();
+  if (!mgOverUntil && !mgNoSensor) mgPay(false);
   miniGame = MG_NONE;
 }
 
@@ -7905,9 +7922,6 @@ void startBlock() {
   for (auto &b : blockAtk) b.live = false;
 }
 
-// Above this a tap leaves the game. In Block! that is above the top edge of
-// an attack just launched from the top.
-int mgLeaveStripY() { return miniGame == MG_BLOCK ? CY - BLOCK_FROM - BLOCK_ATK_R : 72; }
 int blockAttackR() { return BLOCK_ATK_R; }
 
 // Which side of the creature a tap is on: the dominant axis from the centre.
@@ -8054,11 +8068,268 @@ static void tiltStep(uint32_t now) {
     }
 }
 
+// --- Boulder Push (strength + defence): a needle swings across a power bar;
+// tap while it is in the green to shove the boulder up the slope. A tap
+// outside the bar's middle lets it slip back, so mashing loses ground.
+#define PUSH_MS 20000UL
+#define PUSH_FULL 60           // steps for a full session
+#define PUSH_TOP 10            // steps from the foot of the slope to the top
+#define PUSH_GREEN 0.12f       // half-widths of the zones, as a fraction of the bar
+#define PUSH_YELLOW 0.30f
+#define PUSH_SLIP_MS 350
+#define PUSH_F0 (1.0f / 1400)  // needle swings per ms at the start...
+#define PUSH_F1 (1.0f / 900)   // ...and by the end
+uint16_t pushSteps = 0;
+uint32_t pushLockUntil = 0;
+
+void startPush() {
+  if (!mgCanStart()) return;
+  mgBegin(MG_PUSH, TR_STR | TR_DEF);
+  mgUntil = mgStart + PUSH_MS;
+  pushSteps = 0;
+  pushLockUntil = 0;
+}
+
+// Where the needle is, -1..1 across the bar. Its swing quickens over the round.
+float pushNeedle(uint32_t now) {
+  float t = (float)(now > mgStart ? now - mgStart : 0);
+  float turns = PUSH_F0 * t + (PUSH_F1 - PUSH_F0) * t * t / (2.0f * PUSH_MS);
+  return sinf(turns * 6.2831853f);
+}
+
+// 2 in the green, 1 in the yellow, 0 outside.
+uint8_t pushZone(float v) {
+  float a = fabsf(v);
+  return a <= PUSH_GREEN ? 2 : a <= PUSH_YELLOW ? 1 : 0;
+}
+
+static void pushPress(uint32_t now) {
+  if (now >= mgUntil || now < pushLockUntil) return;
+  uint8_t z = pushZone(pushNeedle(now));
+  if (z) {
+    pushSteps += z;
+    mgGrading(z == 2 ? S_PERFECT : S_GOOD, now);
+    sfxPlay(z == 2 ? SFX_HIT : SFX_TAP);
+  } else {
+    if (pushSteps) pushSteps--;                      // it slips back
+    pushLockUntil = now + PUSH_SLIP_MS;
+    mgGrading(S_MISS, now);
+    sfxPlay(SFX_DENY);
+  }
+  mgScore = pushSteps;
+  mgPoints = (uint16_t)((uint32_t)pushSteps * TRAIN_SESSION_MAX / PUSH_FULL);
+}
+
+static void pushStep(uint32_t now) {
+  if (now >= mgUntil) mgFinish(now);
+}
+
+// --- Memory (joy + bond): four berries light up in a sequence; tap them back.
+// Each round adds one. A wrong berry ends the game; the longest run scores.
+#define SIMON_MAX 12
+#define SIMON_R 120            // the berries' distance from the centre
+#define SIMON_BERRY 44
+#define SIMON_ON_MS 450
+#define SIMON_GAP_MS 200
+#define SIMON_PAUSE_MS 700     // before each showing
+uint8_t simonSeq[SIMON_MAX];
+uint8_t simonLen = 0, simonPos = 0;
+bool simonShowing = false;
+uint32_t simonShowAt = 0, simonLitUntil = 0;
+int8_t simonLit = -1;
+static const uint16_t SIMON_COL[4] = { C565(0xd8, 0x3a, 0x4a), C565(0x3a, 0x7a, 0xd8),
+                                       C565(0xe8, 0xc0, 0x30), C565(0x4a, 0xa8, 0x4a) };
+
+void startSimon() {
+  if (!mgCanStart()) return;
+  mgBegin(MG_SIMON, TR_JOY | TR_BOND);
+  for (auto &s : simonSeq) s = random(4);
+  simonLen = 1;
+  simonPos = 0;
+  simonShowing = true;
+  simonShowAt = mgStart + SIMON_PAUSE_MS;
+  simonLit = -1;
+}
+
+// The centre of berry i (0 up, 1 right, 2 down, 3 left -- Block!'s sides).
+void simonBerryPos(uint8_t i, int *x, int *y) {
+  *x = CX + BLOCK_DX[i] * SIMON_R;
+  *y = CY + BLOCK_DY[i] * SIMON_R;
+}
+
+// Which berry a tap lands on, or -1.
+int simonBerryAt(int16_t x, int16_t y) {
+  for (uint8_t i = 0; i < 4; i++) {
+    int bx, by;
+    simonBerryPos(i, &bx, &by);
+    int dx = x - bx, dy = y - by;
+    if (dx * dx + dy * dy <= (SIMON_BERRY + 12) * (SIMON_BERRY + 12)) return i;
+  }
+  return -1;
+}
+
+static void simonPress(int16_t x, int16_t y, uint32_t now) {
+  if (simonShowing) return;                          // watch first
+  int b = simonBerryAt(x, y);
+  if (b < 0) return;                                 // between berries: nothing
+  simonLit = b;
+  simonLitUntil = now + 250;
+  if (b != simonSeq[simonPos]) {                     // wrong: the run is over
+    sfxPlay(SFX_DENY);
+    mgGrading(S_MISS, now);
+    mgFinish(now);
+    return;
+  }
+  sfxPlay(SFX_TAP);
+  if (++simonPos < simonLen) return;
+  mgScore = simonLen;                                // a whole run repeated
+  mgPoints = (uint16_t)(mgScore * 2);
+  if (simonLen >= SIMON_MAX) { mgFinish(now); return; }
+  simonLen++;
+  simonPos = 0;
+  simonShowing = true;
+  simonShowAt = now + SIMON_PAUSE_MS;
+}
+
+static void simonStep(uint32_t now) {
+  if (!simonShowing) {
+    if (now >= simonLitUntil) simonLit = -1;
+    return;
+  }
+  if (now < simonShowAt) { simonLit = -1; return; }
+  uint32_t k = (now - simonShowAt) / (SIMON_ON_MS + SIMON_GAP_MS);
+  if (k >= simonLen) { simonShowing = false; simonLit = -1; return; }
+  bool on = (now - simonShowAt) % (SIMON_ON_MS + SIMON_GAP_MS) < SIMON_ON_MS;
+  simonLit = on ? simonSeq[k] : -1;
+}
+
+// --- Hide and Seek (joy + bond): the creature hides in one of three bushes,
+// the bushes shuffle, and you point at where it went. Five rounds, faster each.
+#define SEEK_ROUNDS 5
+#define SEEK_Y 270
+#define SEEK_GAP 120           // slot spacing
+#define SEEK_HALF 52           // a bush's half-width, and its hit area
+#define SEEK_SHOW_MS 1300
+#define SEEK_REVEAL_MS 1100
+#define SEEK_FIND_PTS 5
+enum { SEEK_SHOW, SEEK_SHUFFLE, SEEK_PICK, SEEK_REVEAL };
+uint8_t seekSlot[3] = { 0, 1, 2 };   // the slot (left..right) each bush stands in
+uint8_t seekPet = 0;                 // the bush hiding the creature
+uint8_t seekRound = 0, seekStage = SEEK_SHOW, seekSwapsLeft = 0, seekA = 0, seekB = 1;
+uint8_t seekPicked = 0;
+uint32_t seekStageAt = 0, seekSwapMs = 500;
+
+static void seekNextRound(uint32_t now) {
+  seekStage = SEEK_SHOW;
+  seekStageAt = now;
+  seekPet = random(3);
+  seekSwapsLeft = 3 + seekRound;
+  seekSwapMs = 520 - 60 * seekRound;
+}
+
+void startSeek() {
+  if (!mgCanStart()) return;
+  mgBegin(MG_SEEK, TR_JOY | TR_BOND);
+  for (uint8_t i = 0; i < 3; i++) seekSlot[i] = i;
+  seekRound = 0;
+  seekNextRound(mgStart);
+}
+
+// Where bush i is drawn right now: mid-swap the two moving bushes travel on
+// opposite arcs so they never pass through each other.
+void seekBushPos(uint8_t i, uint32_t now, int *x, int *y) {
+  float sx = CX + ((int)seekSlot[i] - 1) * SEEK_GAP;
+  *x = (int)sx;
+  *y = SEEK_Y;
+  if (seekStage != SEEK_SHUFFLE || (i != seekA && i != seekB)) return;
+  uint8_t other = i == seekA ? seekB : seekA;
+  float tx = CX + ((int)seekSlot[other] - 1) * SEEK_GAP;
+  float f = (float)(now - seekStageAt) / (float)seekSwapMs;
+  if (f < 0) f = 0;
+  if (f > 1) f = 1;
+  *x = (int)(sx + (tx - sx) * f);
+  // The arc rises with the distance, so a swap of the two outer bushes clears
+  // the one standing between them.
+  int lift = 45 * abs((int)seekSlot[other] - (int)seekSlot[i]);
+  *y = SEEK_Y + (int)((i == seekA ? -lift : lift) * sinf(f * 3.14159f));
+}
+
+// Which bush a tap lands on, or -1. Only asked while the bushes stand still.
+int seekBushAt(int16_t x, int16_t y) {
+  for (uint8_t i = 0; i < 3; i++) {
+    int bx, by;
+    seekBushPos(i, 0, &bx, &by);
+    if (abs(x - bx) <= SEEK_HALF && abs(y - by) <= 70) return i;
+  }
+  return -1;
+}
+
+static void seekPress(int16_t x, int16_t y, uint32_t now) {
+  if (seekStage != SEEK_PICK) return;
+  int b = seekBushAt(x, y);
+  if (b < 0) return;
+  seekPicked = b;
+  bool right = b == seekPet;
+  if (right) { mgScore++; sfxPlay(SFX_LEVEL); mgGrading(S_FOUND, now); }
+  else       { sfxPlay(SFX_DENY); mgGrading(S_NOT_HERE, now); }
+  mgPoints = (uint16_t)(mgScore * SEEK_FIND_PTS);
+  seekStage = SEEK_REVEAL;
+  seekStageAt = now;
+}
+
+static void seekStep(uint32_t now) {
+  switch (seekStage) {
+    case SEEK_SHOW:
+      if (now - seekStageAt >= SEEK_SHOW_MS) {
+        seekStage = SEEK_SHUFFLE;
+        seekStageAt = now;
+        seekA = random(3);
+        seekB = (seekA + 1 + random(2)) % 3;
+      }
+      break;
+    case SEEK_SHUFFLE:
+      if (now - seekStageAt >= seekSwapMs) {
+        uint8_t t = seekSlot[seekA];
+        seekSlot[seekA] = seekSlot[seekB];
+        seekSlot[seekB] = t;
+        seekStageAt = now;
+        if (--seekSwapsLeft == 0) { seekStage = SEEK_PICK; break; }
+        seekA = random(3);
+        seekB = (seekA + 1 + random(2)) % 3;
+      }
+      break;
+    case SEEK_REVEAL:
+      if (now - seekStageAt >= SEEK_REVEAL_MS) {
+        if (++seekRound >= SEEK_ROUNDS) mgFinish(now);
+        else seekNextRound(now);
+      }
+      break;
+  }
+}
+
+static void drawBush(int x, int y) {
+  uint16_t dark = C565(0x2e, 0x6e, 0x34), light = C565(0x4a, 0x9a, 0x4a);
+  gfx->fillCircle(x - 26, y + 6, 30, dark);
+  gfx->fillCircle(x + 26, y + 6, 30, dark);
+  gfx->fillCircle(x, y - 14, 36, light);
+  gfx->fillCircle(x - 12, y - 20, 12, C565(0x6a, 0xb8, 0x5a));
+}
+
+// Above this a tap leaves the game. In Block! that is above the top edge of
+// an attack just launched from the top.
+int mgLeaveStripY() {
+  if (miniGame == MG_BLOCK) return CY - BLOCK_FROM - BLOCK_ATK_R;
+  if (miniGame == MG_SIMON) return CY - SIMON_R - SIMON_BERRY - 12;   // above the top berry's hit area
+  return 72;
+}
 // --- shared
 void mgPress(int16_t x, int16_t y, uint32_t now) {
   if (mgOverUntil) return;
   if (miniGame == MG_ROCK) rockPress(now);
   else if (miniGame == MG_BLOCK) blockPress(x, y, now);
+  else if (miniGame == MG_PUSH) pushPress(now);
+  else if (miniGame == MG_SIMON) simonPress(x, y, now);
+  else if (miniGame == MG_SEEK) seekPress(x, y, now);
 }
 
 // One frame of whichever game is open. Public so a test can drive it.
@@ -8070,6 +8341,9 @@ void mgStep(uint32_t now) {
   if (miniGame == MG_ROCK) rockStep(now);
   else if (miniGame == MG_BLOCK) blockStep(now);
   else if (miniGame == MG_TILT) tiltStep(now);
+  else if (miniGame == MG_PUSH) pushStep(now);
+  else if (miniGame == MG_SIMON) simonStep(now);
+  else if (miniGame == MG_SEEK) seekStep(now);
   mgLast = now;
 }
 
@@ -8092,14 +8366,24 @@ static void renderMiniResult(uint16_t ink) {
     mgCentered(T(S_TILT_NOSENSOR), 200, 2, ink);
     return;
   }
-  StrId fmt = miniGame == MG_ROCK ? S_SMASH_FMT : miniGame == MG_BLOCK ? S_BLOCKED_FMT : S_TILT_DONE_FMT;
   char b[28];
-  snprintf(b, sizeof(b), T(fmt), mgScore);
+  if (miniGame == MG_SEEK) snprintf(b, sizeof(b), T(S_SEEK_FMT), mgScore, (unsigned)SEEK_ROUNDS);
+  else {
+    StrId fmt = miniGame == MG_ROCK ? S_SMASH_FMT : miniGame == MG_BLOCK ? S_BLOCKED_FMT :
+                miniGame == MG_TILT ? S_TILT_DONE_FMT : miniGame == MG_PUSH ? S_PUSHED_FMT : S_SIMON_FMT;
+    snprintf(b, sizeof(b), T(fmt), mgScore);
+  }
   mgCentered(b, 160, 3, ink);
+  if (mgMask & TR_JOY) {
+    char g[40];
+    snprintf(g, sizeof(g), T(S_CATCH_GAIN_FMT), mgJoyGain, mgBondGain);
+    mgCentered(g, 220, 2, UI_BAR_BAD);
+    return;
+  }
   // The two stats the game trains, in the order its name gives them.
   static const StrId NAMES[3] = { S_TR_ATK, S_TR_DEF, S_TR_SPE };
-  int first = miniGame == MG_ROCK ? 0 : miniGame == MG_BLOCK ? 1 : 2;
-  int second = miniGame == MG_TILT ? 1 : 2;
+  int first = miniGame == MG_ROCK || miniGame == MG_PUSH ? 0 : miniGame == MG_BLOCK ? 1 : 2;
+  int second = miniGame == MG_TILT || miniGame == MG_PUSH ? 1 : 2;
   char g[48];
   snprintf(g, sizeof(g), T(S_GAIN2_FMT), mgGain[first], T(NAMES[first]), mgGain[second], T(NAMES[second]));
   mgCentered(g, 220, 2, UI_BAR_BAD);
@@ -8169,7 +8453,7 @@ void renderMini() {
     gfx->setCursor(CX + 120 - (int)strlen(c) * 9, CY - 132);
     gfx->print(c);
     if (hint) mgCentered(T(S_BLOCK_HINT), CY + 96, 2, ink);
-  } else {
+  } else if (miniGame == MG_TILT) {
     gfx->drawCircle(CX, CY, TILT_ARENA, ink);
     gfx->drawCircle(CX, CY, TILT_ARENA + 1, ink);
     gfx->fillCircle((int)tiltGx, (int)tiltGy, TILT_GOAL, UI_BAR_OK);
@@ -8182,10 +8466,76 @@ void renderMini() {
     mgCentered(c, 22, 3, ink);
     if (hint) mgCentered(T(S_TILT_HINT), 120, 2, ink);
     mgTimeBar(now, TILT_MS, 428);
+  } else if (miniGame == MG_PUSH) {
+    // The slope, the boulder on it, and the creature shoving from below.
+    const int x0 = 70, y0 = 360, x1 = 400, y1 = 190;
+    gfx->fillTriangle(x0, y0 + 4, x1, y1 + 4, x1, y0 + 4, C565(0x8a, 0x6a, 0x4a));
+    gfx->drawLine(x0, y0, x1, y1, ink);
+    float f = 0.1f + 0.8f * (float)(pushSteps % PUSH_TOP) / PUSH_TOP;
+    int bx = x0 + (int)((x1 - x0) * f), by = y0 + (int)((y1 - y0) * f) - 34;
+    gfx->fillCircle(bx, by, 34, C565(0x8a, 0x82, 0x7a));
+    gfx->drawCircle(bx, by, 34, ink);
+    const uint8_t *th = pet.isEgg() ? nullptr : thumbs.get(pet.speciesId);
+    float fc = f - 0.15f;                            // the creature, just behind it on the slope
+    int cx = x0 + (int)((x1 - x0) * fc), cy = y0 + (int)((y1 - y0) * fc) - 30;
+    if (th) drawThumb(th, cx - thumbCell() / 2, cy - thumbCell() / 2, 2, false);
+    // The power bar along the top: yellow, green in the middle, and the needle.
+    const int bw = 280, bh = 22, bxl = CX - bw / 2, byt = 84;
+    gfx->fillRoundRect(bxl, byt, bw, bh, 6, UI_TRACK);
+    int yw = (int)(bw / 2 * PUSH_YELLOW), gw = (int)(bw / 2 * PUSH_GREEN);
+    gfx->fillRect(CX - yw, byt, 2 * yw, bh, UI_BAR_WARN);
+    gfx->fillRect(CX - gw, byt, 2 * gw, bh, UI_BAR_OK);
+    gfx->drawRoundRect(bxl, byt, bw, bh, 6, ink);
+    int nx = CX + (int)(pushNeedle(now) * (bw / 2 - 4));
+    gfx->fillRect(nx - 3, byt - 8, 6, bh + 16, now < pushLockUntil ? UI_BAR_BAD : ink);
+    char c[8];
+    snprintf(c, sizeof(c), "%u", (unsigned)(pushSteps / PUSH_TOP));   // boulders up the hill
+    mgCentered(c, 30, 3, ink);
+    if (hint) mgCentered(T(S_PUSH_HINT), 126, 2, ink);
+    mgTimeBar(now, PUSH_MS, 420);
+  } else if (miniGame == MG_SIMON) {
+    for (uint8_t i = 0; i < 4; i++) {
+      int x, y;
+      simonBerryPos(i, &x, &y);
+      bool lit = simonLit == (int8_t)i;
+      gfx->fillCircle(x, y, SIMON_BERRY, lit ? UI_WHITE : SIMON_COL[i]);
+      if (lit) gfx->fillCircle(x, y, SIMON_BERRY - 8, SIMON_COL[i]);
+      gfx->drawCircle(x, y, SIMON_BERRY, ink);
+      gfx->fillRect(x - 3, y - SIMON_BERRY - 10, 6, 12, C565(0x3a, 0x8a, 0x3a));
+    }
+    const uint8_t *th = pet.isEgg() ? nullptr : thumbs.get(pet.speciesId);
+    if (th) drawThumb(th, CX - thumbCell() / 2, CY - thumbCell() / 2, 2, false);
+    mgCentered(T(simonShowing ? S_SIMON_WATCH : S_SIMON_GO), 414, 2, ink);
+    char c[8];
+    snprintf(c, sizeof(c), "%u", mgScore);
+    gfx->setTextColor(ink);
+    gfx->setTextSize(3);
+    gfx->setCursor(CX - 120 - (int)strlen(c) * 9, CY - 132);
+    gfx->print(c);
+  } else if (miniGame == MG_SEEK) {
+    // The creature peeks out while it is shown and when it is found.
+    bool peek = seekStage == SEEK_SHOW || (seekStage == SEEK_REVEAL);
+    const uint8_t *th = pet.isEgg() ? nullptr : thumbs.get(pet.speciesId);
+    for (uint8_t i = 0; i < 3; i++) {
+      int x, y;
+      seekBushPos(i, now, &x, &y);
+      if (peek && i == seekPet && th) drawThumb(th, x - thumbCell() / 2, y - 60 - thumbCell() / 2, 2, false);
+      drawBush(x, y);
+      if (seekStage == SEEK_REVEAL && i == seekPicked && i != seekPet)
+        gfx->drawCircle(x, y - 10, SEEK_HALF, UI_BAR_BAD);
+    }
+    char c[12];
+    snprintf(c, sizeof(c), "%u/%u", (unsigned)(seekRound < SEEK_ROUNDS ? seekRound + 1 : SEEK_ROUNDS),
+             (unsigned)SEEK_ROUNDS);
+    mgCentered(c, 60, 2, ink);
+    if (seekStage == SEEK_SHOW && seekRound == 0) mgCentered(T(S_SEEK_HINT), 110, 2, ink);
+    if (seekStage == SEEK_PICK) mgCentered(T(S_SEEK_PICK), 110, 2, ink);
   }
   if (now < mgGradeUntil) {
-    uint16_t col = mgGradeStr == S_PERFECT ? UI_BAR_OK : mgGradeStr == S_GOOD ? UI_BAR_WARN : UI_BAR_BAD;
-    mgCentered(T(mgGradeStr), miniGame == MG_ROCK ? 330 : 360, 3, col);
+    uint16_t col = mgGradeStr == S_PERFECT || mgGradeStr == S_FOUND ? UI_BAR_OK :
+                   mgGradeStr == S_GOOD ? UI_BAR_WARN : UI_BAR_BAD;
+    int gy = miniGame == MG_ROCK ? 330 : miniGame == MG_PUSH ? 150 : 360;
+    mgCentered(T(mgGradeStr), gy, 3, col);
   }
   gfx->flush();
 }

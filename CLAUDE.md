@@ -614,9 +614,16 @@ name, the stats it raises, its start function). A game may train one stat,
 split its points across two through `Pet::trainSplit()` (same total, halved
 -- the owner's design), or raise joy and bond (`Pet::playJoyGame()`, which also
 makes petting fresh again: `caress()` pays 10/8/6/4/2/0 by `petStep`).
-Hybrids: ROCK SMASH (str+spe), BLOCK! (def+spe), TILT MAZE (spe+def), all in
-one dispatcher (`miniGame`, `mgPress`/`mgStep`/`renderMini`), tested by
-`minigame_test` with each guard negative-checked.
+Hybrids: ROCK SMASH (str+spe), BLOCK! (def+spe), TILT MAZE (spe+def),
+BOULDER PUSH (str+def); joy/bond: BERRY CATCH, MEMORY, HIDE AND SEEK. All but
+the first four single-stat games and Berry Catch live in one dispatcher
+(`miniGame`, `mgPress`/`mgStep`/`renderMini`); a game is a `MG_*` value, a
+start function and a `TRAIN_GAMES` row. `mgPay()` routes by the row's mask:
+`TR_JOY` games go through `playJoyGame()` (and pay the turn-up joy even at 0),
+the rest through `trainSplit()` (nothing earned, nothing charged).
+`minigame_test` drives each with a hand-held clock; every guard was
+negative-checked. Layout positions a test needs are functions
+(`blockAttackPos`, `simonBerryPos`, `seekBushPos`, `pushNeedle`), never numbers.
 
 - **Tilt Maze's axis signs are a GUESS** (`TILT_SIGN_X`/`_Y`). Nobody has
   tilted a real board yet; if the ball rolls uphill, flip the sign. The
