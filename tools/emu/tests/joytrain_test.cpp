@@ -70,9 +70,13 @@ int main() {
     Pet p; fresh(p);
     p.unattended = 300;
     p.caress();
-    ck(p.unattended == 300, "petting does not restart the grace window");
+    ck(p.unattended == 300, "petting does not restart the grace window (needs not full)");
     p.playJoyGame(5);
-    ck(p.unattended == 0, "playing does");
+    ck(p.unattended == 300, "nor does a game, on its own");
+    p.fullness = p.energy = p.hygiene = 100;
+    p.joy = 70;
+    p.playJoyGame(30);
+    ck(p.joy >= CARE_FULL_PCT && p.unattended == 0, "a game that completes full care does");
   }
 
   // --- 4. the petting step survives a reboot

@@ -625,9 +625,13 @@ one dispatcher (`miniGame`, `mgPress`/`mgStep`/`renderMini`), tested by
   `mgLeaveStripY()` sits above an attack launched from the top, and
   `minigame_test` fails if it is widened back to the usual 72.
 - Decay: `Pet::drainMinute()` is the ONE drain for both live ticks and the
-  offline catch-up. For `GRACE_MIN` (8 h) after the last care, needs floor at
+  offline catch-up. For `GRACE_MIN` (8 h) after the creature was last FULLY
+  cared for (all four needs at `CARE_FULL_PCT` 90), needs floor at
   `GRACE_FLOOR` and nothing counts against the creature; after it, mistakes,
-  neglect and the runaway apply. `decay_test` is the owner's scenario.
+  neglect and the runaway apply. **A single action does not restart the
+  window** -- the owner's rule. `Pet::graceCheck()` is the one place that
+  decides: on the rising edge to full care, or on a care action while full.
+  `decay_test` negative-checks each half.
 
 ### Done: trading, end to end (2026-10-14, v3.33) -- NOT YET RUN ON TWO BOARDS
 

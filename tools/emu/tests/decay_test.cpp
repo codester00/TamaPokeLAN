@@ -85,14 +85,61 @@ int main() {
     printf("      runaway-ready by %lu min untended\n", (unsigned long)p.unattended);
   }
 
-  // --- 4. any care action restarts the window
+  // --- 4. a single action does NOT restart the window (the owner's rule):
+  //        only full care -- every need at CARE_FULL_PCT -- does
   {
     Pet p; fresh(p); clockMin = 0;
     live(p, 7 * 60);
-    p.feedCandy();                   // a snack is care
-    ck(p.unattended == 0, "caring restarts the 8-hour window");
+    p.feedCandy();                   // a snack, nothing else
+    p.clean();                       // and a bath
+    ck(p.unattended >= 7 * 60, "a snack and a bath at 7 h do not restart the window");
+    live(p, 3 * 60);
+    ck(p.careMistakes >= 1, "so 7 h + a snack + 3 h is past the window, and counts");
+  }
+  {
+    Pet p; fresh(p); clockMin = 0;
     live(p, 7 * 60);
-    ck(p.careMistakes == 0, "so 7 h + a snack + 7 h is never penalised");
+    // Top up all four with real actions: bath, food, a joy game, then a rest.
+    p.clean();
+    while (p.fullness < 100) p.feed();
+    p.playJoyGame(30);
+    p.playJoyGame(30);
+    p.toggleLight();                 // to bed
+    live(p, 20);
+    p.toggleLight();                 // and up, rested
+    printf("      topped up: food=%u ene=%u joy=%u hyg=%u\n", p.fullness, p.energy, p.joy, p.hygiene);
+    ck(p.fullyCared(), "(every need is at the full-care line)");
+    ck(p.unattended == 0, "full care restarts the window");
+    live(p, 7 * 60);
+    ck(p.careMistakes == 0, "so 7 h + full care + 7 h is never penalised");
+  }
+  {
+    // Nearly full is not full: one need short and nothing restarts.
+    Pet p; fresh(p); clockMin = 0;
+    live(p, 3 * 60);
+    p.fullness = p.joy = p.hygiene = 100;
+    p.energy = CARE_FULL_PCT - 1;
+    p.clean();
+    ck(p.unattended >= 3 * 60, "three needs full and one just short does not restart it");
+    p.energy = CARE_FULL_PCT;
+    p.clean();
+    ck(p.unattended == 0, "and at the line exactly, it does");
+  }
+  {
+    // The clock starts at the top-up, not when the needs later slip under 90.
+    Pet p; fresh(p); clockMin = 0;
+    live(p, 3 * 60);
+    ck(p.unattended >= 3 * 60 - 1, "left alone after a top-up, the clock runs from the top-up");
+  }
+  {
+    // A creature kept topped up all day never runs out of window.
+    Pet p; fresh(p); clockMin = 0;
+    for (int h = 0; h < 14; h++) {
+      live(p, 50);
+      p.fullness = p.energy = p.joy = 100;   // stand-ins for feeding and a rest
+      p.clean();                             // a care action while fully cared for
+    }
+    ck(p.unattended < 60 && p.careMistakes == 0, "kept full for 14 h, the window keeps restarting");
   }
 
   // --- 5. the window forgives even a creature already at zero

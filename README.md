@@ -234,11 +234,15 @@ While **awake**:
 | JOY | **−1 every 6 min** (10/h) | **5/h more** if FOOD < 30, and 5/h more if HYG < 30 |
 
 - **~1 %/min** chance to poop while FOOD > 40 — about one every 100 minutes.
-- **The 8-hour grace window.** The clock is **awake minutes since you last
-  cared for it** (fed, cleaned, played, petted, trained); every care action
-  restarts it, and sleep and time with the board switched off don't count.
-  Inside the window no need drops below **15**. From full, 8 hours leaves it
-  around FOOD 20 / ENE 20 / JOY 15 / HYG 15.
+- **The 8-hour grace window.** It starts when the creature is **fully cared
+  for — all four needs at 90 or more** — and counts awake minutes from there.
+  A single snack, bath or game does **not** restart it, and neither does
+  petting: only getting every need back above 90 does (a care action while it
+  is already fully cared for counts too, so a creature kept topped up all day
+  never runs out of window). Sleep and time with the board switched off don't
+  count. Inside the window no need drops below **15**. From full, 8 hours
+  leaves it around FOOD 20 / ENE 20 / JOY 15 / HYG 15. Energy only comes back
+  with rest, so a full top-up usually means a nap.
 - **Past 8 hours** the needs fall to 0. A **care slip-up** is any need at **≤ 10**
   (counted at most once an hour); each one **delays evolution by 1 level** and
   cools the bond by 1. An hour at **zero on everything** makes it ready to
@@ -262,7 +266,8 @@ While **awake**:
   what it raises and how far along those stats already are. A session pays at
   most **18 training points**; a game that trains **two** stats splits them
   evenly (9 + 9), so it's the same total, divided. Leaving a game early keeps what
-  you earned. Every game is care: it restarts the 8-hour window.
+  you earned. A game restarts the 8-hour window only if it leaves every need at
+  90 or more.
   - 🥊 **Punching bag** — **STRENGTH** (~4 hits = 1 pt), tires it. +1 fitness
     per 10 hits (max +4).
   - 🎯 **Reaction test** — **SPEED**: tap the target before it shrinks away; the
@@ -294,8 +299,8 @@ While **awake**:
 - 🫧 **Bath:** clears poops, HYG → 100.
 - 👆 **Pet it:** wears off. Each tap gives **+10, +8, +6, +4, +2, then 0** JOY
   (and +1 bond while it still gives joy), until a joy/bond game (Berry Catch)
-  makes it fresh again. Petting doesn't restart the 8-hour window: it's
-  affection, not feeding.
+  makes it fresh again. Petting restarts the 8-hour window only if it is what
+  brings the last need up to 90.
 - 🌙 **Sleep:** rest — ENE **+6/min**, FOOD and JOY fall **1 every 18 min**
   and HYG **1 every 24 min**, with floors (FOOD 30 / JOY 35 / HYG 45). Sleep
   doesn't count toward the 8-hour window. No poops, no slip-ups, can't run away while

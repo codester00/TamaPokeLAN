@@ -563,6 +563,7 @@ void Pet::begin() {
         logKeyFailure("pet", "tnam");
     }
   }
+  wasFullyCared = fullyCared();   // a reboot is not a fresh top-up
   lastTick = millis();
 }
 
@@ -624,6 +625,7 @@ void Pet::drainMinute(bool offline) {
       joy = dropTo(joy, 1, 35);
     }
     if (ageMinutes % SLEEP_HYG_MIN == 0) hygiene = dropTo(hygiene, 1, 45);
+    if (!offline) graceCheck();
     return;
   }
   // Inside the 8-hour window -- and always while the board was off -- the needs
@@ -645,6 +647,7 @@ void Pet::drainMinute(bool offline) {
     if (hygiene < 30) joy = dropTo(joy, 1, fl);
   }
   if (ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) loseWeight(1, wFloor);
+  graceCheck();     // an action whose stats landed after its registerCare()
 }
 
 void Pet::setClock(uint32_t nowEpoch) {
@@ -1201,12 +1204,27 @@ int Pet::careBonus() const {
 }
 
 // primer cuidado del dia: avanza la racha y afianza el vinculo
-void Pet::registerCare(bool restartsWindow) {
+bool Pet::fullyCared() const {
+  return fullness >= CARE_FULL_PCT && energy >= CARE_FULL_PCT &&
+         joy >= CARE_FULL_PCT && hygiene >= CARE_FULL_PCT;
+}
+
+// The 8-hour window restarts only when the creature BECOMES fully cared for --
+// all four needs at CARE_FULL_PCT. A snack, a bath or a game on their own do
+// not, or one action every few hours would hold off neglect forever. On the
+// rising edge, so the clock starts at the top-up rather than when the needs
+// later slip below the line -- and on any care action while fully cared for,
+// so a creature kept topped up all day never runs out of window.
+void Pet::graceCheck(bool careAction) {
+  if (isEgg()) return;
+  bool full = fullyCared();
+  if (full && (careAction || !wasFullyCared)) unattended = 0;
+  wasFullyCared = full;
+}
+
+void Pet::registerCare() {
   if (isEgg() || ceremony != CER_NONE) return;
-  // Every care action restarts the 8-hour grace window -- except petting, or
-  // tapping the creature every few hours would hold off neglect forever
-  // without ever feeding it.
-  if (restartsWindow) unattended = 0;
+  graceCheck(true);
   uint32_t d = today();
   if (d == 0 || d == lastCareDay) return;  // sin reloj, o ya conto hoy
   if (lastCareDay == 0 || d == lastCareDay + 1) {
@@ -2009,6 +2027,7 @@ void Pet::setScreenOff(bool off) {
   if (!off && sleeping && sleepAuto == SLEEP_AUTO) {
     sleeping = false;
     sleepAuto = SLEEP_NONE;
+    graceCheck(true);
   }
   applyAutoSleep();
   save();
@@ -2018,6 +2037,7 @@ void Pet::toggleLight() {
   if (ceremony != CER_NONE) return;
   if (isEgg()) return;
   sleeping = !sleeping;
+  if (!sleeping) graceCheck(true);   // waking a rested creature can complete full care
   // The player's hand beats the clock until morning: waking it at 23:00 must
   // not be undone a minute later by the auto-sleep, and neither must putting
   // it to bed early.
@@ -2045,7 +2065,7 @@ void Pet::caress() {
     heartUntil = millis() + HEART_MS;
     addBond(1);
   }
-  registerCare(false);            // the daily streak, but not the grace window
+  registerCare();                 // the streak; the window only if this completed full care
 }
 
 uint8_t Pet::playJoyGame(uint8_t score) {

@@ -33,13 +33,17 @@
 // to 0, mistakes count again (each delays evolution a level), and an hour at
 // total zero makes the runaway possible -- around 11 h untended.
 //
-// "Untended" is AWAKE minutes since the last care action (Pet::unattended,
-// reset by registerCare()). Sleep and time with the board off do not count:
+// "Untended" is AWAKE minutes since the creature was last FULLY cared for:
+// every one of food, energy, joy and hygiene at CARE_FULL_PCT or more (the
+// owner's rule, v3.34). A single snack does not restart the window and does
+// not raise the floor back -- only full care does (Pet::graceCheck(), the one
+// place that decides). Sleep and time with the board off do not count:
 // sleep has its own gentler floors, and switching off has always been gentle.
 // Before v3.34 food fell 2/min and the rest 1/min -- empty in under an hour,
 // which is why the creature effectively had to be kept asleep.
 #define GRACE_MIN (8UL * 60)
 #define GRACE_FLOOR 15                     // the same 15 the board-off catch-up uses
+#define CARE_FULL_PCT 90                   // every need at least this = fully cared for
 #define DRAIN_FOOD_MIN 6                   // -1 every 6 min awake: 10/h
 #define DRAIN_ENERGY_MIN 6                 // 10/h (twice that when overweight)
 #define DRAIN_JOY_MIN 6                    // 10/h
@@ -191,7 +195,9 @@ public:
   // Received in a trade and not yet evolved by it: PMON_TRADE_EVO on the
   // stored record, carried across banking and swapping like the ID.
   bool tradeEvo = false;
-  uint16_t unattended = 0;      // awake minutes since the last care action; see GRACE_MIN
+  bool wasFullyCared = false;   // graceCheck() restarts the window on the rising edge
+  uint16_t unattended = 0;      // awake minutes since last fully cared for; see GRACE_MIN
+  bool fullyCared() const;      // every need at CARE_FULL_PCT: what restarts the window
   uint8_t careMistakes = 0;   // descuidos: cada uno retrasa la evolucion 1 nivel
   bool sleeping = false;
   uint32_t lastSeenEpoch = 0;   // ultima hora RTC vista (para progresion offline)
@@ -776,7 +782,10 @@ private:
   uint32_t milestoneUntil = 0; // celebracion de hito de racha
 
   uint32_t today() const { return lastSeenEpoch ? lastSeenEpoch / 86400 : 0; }
-  void registerCare(bool restartsWindow = true);   // primer cuidado del dia: racha + vinculo
+  void registerCare();
+  // Restarts the 8-hour window when every need has just reached CARE_FULL_PCT.
+  // The ONE rule for it: care actions, the drain and waking all ask this.
+  void graceCheck(bool careAction = false);   // primer cuidado del dia: racha + vinculo
   void addBond(uint8_t amt);
   uint8_t rollIV(int bonus) const;  // una tirada 8-31 empujada por el cuidado
   void rollIVs();                   // los 4, con las garantias de legendario/shiny
