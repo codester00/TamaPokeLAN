@@ -185,7 +185,7 @@ static constexpr uint32_t PET_CORE_MAGIC = 0x31504B54UL;  // "TKP1"
 // v3 appended the live creature's CreatureUid after the handover record.
 // v4 appended a flags byte (+3 reserved) after the CreatureUid: the pending
 // trade evolution.
-static constexpr uint16_t PET_CORE_VERSION = 4;
+static constexpr uint16_t PET_CORE_VERSION = 5;
 // Generous enough to read a record from a later build; see ckptRead().
 static constexpr size_t PET_CORE_CAP = 192;
 
@@ -264,6 +264,8 @@ static constexpr size_t PET_TAIL_MON = PET_FIXED + 4;       // the record itself
 // PET_TAIL_MON + the STORED length -- so it still lands right if PartyMon grows.
 static constexpr size_t PET_TAIL_UID = PET_TAIL_MON + sizeof(PartyMon);
 static constexpr size_t PET_TAIL_FLAGS = PET_TAIL_UID + sizeof(CreatureUid);   // v4, u8 + 3 reserved
+// v5 uses those 3 reserved bytes: u16 untended minutes (GRACE_MIN), then u8
+// the petting step. Spare bytes the reader already skipped, so nothing moved.
 static constexpr size_t PET_BODY = PET_TAIL_FLAGS + 4;
 static_assert(PET_BODY + CKPT_CRC <= PET_CORE_CAP, "raise PET_CORE_CAP");
 
@@ -567,6 +569,7 @@ void Pet::begin() {
 void Pet::newEgg() {
   ceremony = CER_NONE;
   neglectTicks = 0;
+  unattended = 0;     // a different creature: a fresh grace window
   weight = WEIGHT_START;
   speciesId = -1;
   prevSpeciesId = -1;
@@ -606,6 +609,43 @@ static uint8_t dropTo(uint8_t v, uint8_t d, uint8_t fl) {
   return (v - fl > d) ? v - d : fl;
 }
 
+// One minute of needs. tick() (a running board) and syncClock() (catching up
+// after the board was off) used to keep a copy each and had drifted apart; both
+// call this now. `offline` keeps the board-off rule: never below the floors,
+// and the time does not count as untended.
+void Pet::drainMinute(bool offline) {
+  const uint8_t wFloor = offline ? WEIGHT_OFFLINE_FLOOR : WEIGHT_MIN;
+  if (sleeping) {   // rest: energy comes back, the rest falls slowly to its floors
+    energy = clamp100(energy + 6);
+    if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1, wFloor);
+    if (ageMinutes % SLEEP_DRAIN_MIN == 0) {
+      fullness = dropTo(fullness, 1, 30);
+      joy = dropTo(joy, 1, 35);
+    }
+    if (ageMinutes % SLEEP_HYG_MIN == 0) hygiene = dropTo(hygiene, 1, 45);
+    return;
+  }
+  // Inside the 8-hour window -- and always while the board was off -- the needs
+  // stop at GRACE_FLOOR: hungry and tired, not neglected.
+  const uint8_t fl = (offline || unattended < GRACE_MIN) ? GRACE_FLOOR : 0;
+  if (!offline && unattended < 0xFFFF) unattended++;
+  // Offsets stagger the steps so the meters do not all tick on the same minute.
+  if (ageMinutes % DRAIN_FOOD_MIN == 0) fullness = dropTo(fullness, 1, fl);
+  if (ageMinutes % DRAIN_ENERGY_MIN == 3) {
+    energy = dropTo(energy, 1, fl);
+    if (weight > 50) energy = dropTo(energy, 1, fl);   // el sobrepeso da pereza
+  }
+  if (fullness > 40 && poops < 3 && random(100) < POOP_CHANCE_PCT) poops++;
+  if (ageMinutes % DRAIN_HYG_MIN == 0) hygiene = dropTo(hygiene, 1, fl);
+  if (poops && ageMinutes % DRAIN_POOP_MIN == 0) hygiene = dropTo(hygiene, poops, fl);
+  if (ageMinutes % DRAIN_JOY_MIN == 1) joy = dropTo(joy, 1, fl);
+  if (ageMinutes % DRAIN_SAD_MIN == 2) {
+    if (fullness < 30) joy = dropTo(joy, 1, fl);
+    if (hygiene < 30) joy = dropTo(joy, 1, fl);
+  }
+  if (ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) loseWeight(1, wFloor);
+}
+
 void Pet::setClock(uint32_t nowEpoch) {
   lastSeenEpoch = nowEpoch;
   if (nowEpoch) save();  // persiste ya: un corte de luz no pierde la referencia
@@ -628,27 +668,9 @@ void Pet::syncClock(uint32_t nowEpoch) {
       if (ageMinutes >= 3) hatch();  // eclosiona en tu ausencia
       continue;
     }
-    if (sleeping) {  // descanso: baja lento y con suelo, igual que en vivo
-      energy = clamp100(energy + 6);
-      if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1, WEIGHT_OFFLINE_FLOOR);
-      if (ageMinutes % 2 == 0) {
-        fullness = dropTo(fullness, 1, 30);
-        joy = dropTo(joy, 1, 35);
-      }
-      if (ageMinutes % 3 == 0) hygiene = dropTo(hygiene, 1, 45);
-      continue;
-    }
-    if (ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) loseWeight(1, WEIGHT_OFFLINE_FLOOR);
-    fullness = dropTo(fullness, 2, 15);
-    energy = dropTo(energy, 1, 15);
-    hygiene = dropTo(hygiene, 1, 15);
-    joy = dropTo(joy, 1, 15);
+    drainMinute(true);   // the same rates as a running board, never below the floors
   }
   if (!isEgg()) {
-    if (!sleeping) {  // durmiendo no ensucia
-      uint8_t p = poops + mins / 240;
-      poops = p > 3 ? 3 : p;
-    }
     // la evolucion NO se aplica offline: queda lista y la dispara el usuario
     // tocando al bicho cuando vuelve (para que vea la transformacion)
   }
@@ -690,13 +712,7 @@ void Pet::tick() {
   // cero, sin descuidos ni escapadas). despierto: comida -2/min, hig/joy -1/min.
   // El peso aun se quema y el descanso cuenta para la DEF (ver defTick).
   if (sleeping) {
-    energy = clamp100(energy + 6);
-    if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1);
-    if (ageMinutes % 2 == 0) {                 // ~4x mas lento que despierto
-      fullness = dropTo(fullness, 1, 30);
-      joy = dropTo(joy, 1, 35);
-    }
-    if (ageMinutes % 3 == 0) hygiene = dropTo(hygiene, 1, 45);
+    drainMinute(false);
     defTick(true);  // descansar tambien es bienestar: cuenta para la DEF
     checkMedals();  // aun puede cruzar un nivel por edad mientras duerme
     if (++ticksSinceSave >= 5) pendingSave = true;
@@ -705,26 +721,15 @@ void Pet::tick() {
 
   if (ageMinutes % MINUTES_PER_LEVEL == 0) sfxPlay(SFX_LEVEL);  // subio de nivel (despierto)
 
-  fullness = clamp100(fullness - 2);
-  energy = clamp100(energy - 1);
-  if (fullness > 40 && poops < 3 && random(100) < 15) poops++;
-
-  hygiene = clamp100(hygiene - 1 - 4 * poops);
-  // el sobrepeso da pereza: la energia cae el doble
-  if (weight > 50) energy = clamp100(energy - 1);
-  if (ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) loseWeight(1);
-
+  drainMinute(false);
   defTick(false);  // la calma forja la defensa
 
-  int dJoy = -1;
-  if (fullness < 30) dJoy -= 2;
-  if (hygiene < 30) dJoy -= 2;
-  joy = clamp100(joy + dJoy);
-
-  // Descuido: dejar una estadistica por los suelos cuenta como error de
-  // cuidado (con enfriamiento para no contar el mismo descuido cada minuto)
+  // A care mistake: a need at rock bottom, counted at most once an hour -- and
+  // only once the creature has gone GRACE_MIN untended. Inside the window the
+  // floors keep every need above 10 anyway; the explicit check means a later
+  // floor change cannot quietly start penalising the 8 hours again.
   if (mistakeCooldown > 0) mistakeCooldown--;
-  if (lowestStat() <= 10 && mistakeCooldown == 0) {
+  if (unattended >= GRACE_MIN && lowestStat() <= 10 && mistakeCooldown == 0) {
     careMistakes++;
     mistakeCooldown = 60;
     if (bond > 1) bond--;  // el descuido enfria el vinculo, pero sin arrasarlo:
@@ -737,7 +742,7 @@ void Pet::tick() {
 
   // abandono total: con TODO a cero durante una hora queda lista para escaparse;
   // NO se va sola, la dispara el usuario con el boton (final triste, lo presencia)
-  if (inTotalNeglect()) {
+  if (inTotalNeglect() && unattended >= GRACE_MIN) {   // the window forgives even this
     if (neglectTicks < RUNAWAY_TICKS) neglectTicks++;
   } else {
     neglectTicks = 0;  // un solo cuidado la salva
@@ -760,6 +765,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   if (m.empty()) return;
   ceremony = CER_NONE;
   neglectTicks = 0;
+  unattended = 0;     // a different creature: a fresh grace window
   speciesId = m.dex;
   prevSpeciesId = -1;
   eggTaps = 0;
@@ -838,6 +844,7 @@ bool Pet::switchTo(const PartyMon &m) {
   if (m.empty()) return false;
   ceremony = CER_NONE;
   neglectTicks = 0;
+  unattended = 0;     // a different creature: a fresh grace window
   speciesId = m.dex;
   prevSpeciesId = -1;
   eggTaps = 0;
@@ -1193,6 +1200,7 @@ int Pet::careBonus() const {
 // primer cuidado del dia: avanza la racha y afianza el vinculo
 void Pet::registerCare() {
   if (isEgg() || ceremony != CER_NONE) return;
+  unattended = 0;   // every care action restarts the 8-hour grace window
   uint32_t d = today();
   if (d == 0 || d == lastCareDay) return;  // sin reloj, o ya conto hoy
   if (lastCareDay == 0 || d == lastCareDay + 1) {
@@ -1546,7 +1554,8 @@ bool Pet::canRunawayNow() const {
   // leaving, until the next tick 60 s later cleared it. That tap is a caress --
   // the button is drawn over the creature -- so the window really was reachable
   // and it cost somebody a DRAGONAIR.
-  return !isEgg() && !sleeping && ceremony == CER_NONE &&
+  // And never inside the 8-hour grace window, whatever the meters read.
+  return !isEgg() && !sleeping && ceremony == CER_NONE && unattended >= GRACE_MIN &&
          neglectTicks >= RUNAWAY_TICKS && inTotalNeglect();
 }
 
@@ -2074,6 +2083,8 @@ bool Pet::saveCoreSnapshot() {
   memcpy(buf + PET_TAIL_MON, &endedMon, sizeof(PartyMon));
   memcpy(buf + PET_TAIL_UID, &uid, sizeof(CreatureUid));
   buf[PET_TAIL_FLAGS] = tradeEvo ? PMON_TRADE_EVO : 0;
+  ckptWr16(buf + PET_TAIL_FLAGS + 1, unattended);
+  buf[PET_TAIL_FLAGS + 3] = 0;   // the petting step (v5); see caress()
 
   uint16_t total = ckptSeal(buf, PET_BODY, PET_CORE_MAGIC, PET_CORE_VERSION, nextGen);
   const char *key = ckptSlot(nextGen, "petA", "petB");
@@ -2125,6 +2136,7 @@ bool Pet::loadCoreSnapshot() {
   endedMon = PartyMon();
   uid = CreatureUid();   // absent in a v1/v2 record: backfillUids() mints one
   tradeEvo = false;      // absent before v4: nothing was ever traded
+  unattended = 0;        // absent before v5
   if (body >= PET_TAIL_MON) {
     size_t monLen = ckptRd16(buf + PET_TAIL_MONLEN);
     // v3: the live creature's ID follows the handover at its STORED length.
@@ -2133,6 +2145,9 @@ bool Pet::loadCoreSnapshot() {
     // v4: the flags byte follows the ID, again located by the STORED length.
     const size_t fl = PET_TAIL_MON + monLen + sizeof(CreatureUid);
     if (monLen && fl + 1 <= body) tradeEvo = (buf[fl] & PMON_TRADE_EVO) != 0;
+    // v5: untended minutes, so switching off and on does not restart the window.
+    // A v4 record reads 0 here (its reserved bytes were zero): a fresh window.
+    if (monLen && fl + 3 <= body) unattended = ckptRd16(buf + fl + 1);
     if (monLen && PET_TAIL_MON + monLen <= body) {
       // Prefix rule again: a record from before PartyMon grew lands in the front
       // and the care block keeps its initialisers, which stateVersion 0 already

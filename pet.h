@@ -22,6 +22,33 @@
 // as 24, so it stays "a day" if the level rate is ever retuned.
 #define EVO_PENALTY_LEVELS ((uint8_t)((24UL * 60) / MINUTES_PER_LEVEL))
 #define RUNAWAY_TICKS 60                   // se escapa tras 1 h con TODO a cero
+// How fast needs fall while AWAKE (v3.34), and the owner's rule that sets it:
+// a child can walk away from a topped-up creature for 8 hours, screen on and
+// NOT put to sleep, and come back to one that is hungry, tired and asking for
+// attention -- but has not been penalised. Past 8 hours, neglect counts.
+//
+// So from 100, food, energy and joy each lose ~10 an hour and hygiene ~7.5
+// (plus 4 an hour for each poop): about 20 left at 8 h. Inside the window the
+// needs stop at GRACE_FLOOR and no care mistake is recorded; after it they fall
+// to 0, mistakes count again (each delays evolution a level), and an hour at
+// total zero makes the runaway possible -- around 11 h untended.
+//
+// "Untended" is AWAKE minutes since the last care action (Pet::unattended,
+// reset by registerCare()). Sleep and time with the board off do not count:
+// sleep has its own gentler floors, and switching off has always been gentle.
+// Before v3.34 food fell 2/min and the rest 1/min -- empty in under an hour,
+// which is why the creature effectively had to be kept asleep.
+#define GRACE_MIN (8UL * 60)
+#define GRACE_FLOOR 15                     // the same 15 the board-off catch-up uses
+#define DRAIN_FOOD_MIN 6                   // -1 every 6 min awake: 10/h
+#define DRAIN_ENERGY_MIN 6                 // 10/h (twice that when overweight)
+#define DRAIN_JOY_MIN 6                    // 10/h
+#define DRAIN_HYG_MIN 8                    // 7.5/h
+#define DRAIN_POOP_MIN 15                  // each poop on the floor: another 4/h
+#define DRAIN_SAD_MIN 12                   // hungry (<30) or dirty (<30): joy 5/h more, each
+#define POOP_CHANCE_PCT 1                  // per awake minute while fed (>40): ~one every 100 min
+#define SLEEP_DRAIN_MIN 18                 // asleep: food and joy 3.3/h -- gentler than awake
+#define SLEEP_HYG_MIN 24                   // asleep: hygiene 2.5/h
 // How long a FAILED checkpoint write waits before the idle-flush path in
 // loop() is allowed to retry it. See Pet::retryDue()'s comment -- without
 // this, a failing NVS write retried on every single loop iteration while the
@@ -153,6 +180,7 @@ public:
   // Received in a trade and not yet evolved by it: PMON_TRADE_EVO on the
   // stored record, carried across banking and swapping like the ID.
   bool tradeEvo = false;
+  uint16_t unattended = 0;      // awake minutes since the last care action; see GRACE_MIN
   uint8_t careMistakes = 0;   // descuidos: cada uno retrasa la evolucion 1 nivel
   bool sleeping = false;
   uint32_t lastSeenEpoch = 0;   // ultima hora RTC vista (para progresion offline)
@@ -719,6 +747,7 @@ private:
   uint8_t evoPen = 0;           // levels added to this creature's evolution gate
   bool retirePending = false;   // an early retire is under way; newEgg() spends it
   uint8_t neglectTicks = 0;
+  void drainMinute(bool offline);   // one minute of needs: the ONLY copy of the rates
   uint16_t goodTicks = 0;  // racha bien cuidado: forja la DEF
   uint32_t ceremonyUntil = 0;
   uint8_t bondToday = 0;       // tope diario de subida de vinculo

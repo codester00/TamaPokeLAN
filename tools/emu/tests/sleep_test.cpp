@@ -56,7 +56,7 @@ int main(){
     liveMinutes(p, 13, 120);
     printf("      two hours face-down at 13:00: food=%u joy=%u hyg=%u\n",
            p.fullness, p.joy, p.hygiene);
-    ck(p.fullness == 0, "it still gets hungry with the screen off during the day");
+    ck(p.fullness <= 85, "it still gets hungry with the screen off during the day");
   }
 
   // --- THE NIGHT: screen off after midnight and it sleeps
@@ -81,7 +81,7 @@ int main(){
     p.setScreenOff(true);
     liveMinutes(p, 20, 120);             // 20:00 -> 22:00, screen off
     ck(!p.sleeping, "screen off at 20:00 does not sleep it");
-    ck(p.fullness == 0, "and the evening drains like any other hour");
+    ck(p.fullness <= 85, "and the evening drains like any other hour");
   }
 
   // --- THE ONE THAT MATTERS: the whole night costs nothing
@@ -135,10 +135,11 @@ int main(){
     ck(!p.sleeping, "and it stays awake rather than nodding straight off again");
   }
 
-  // --- total neglect while AWAKE still ends badly: the teeth are still there
+  // --- total neglect while AWAKE still ends badly: the teeth are still there.
+  //     Since v3.34 it takes past the 8-hour grace window (decay_test).
   {
     Pet p; fresh(p, 9);
-    liveMinutes(p, 9, 170);
+    liveMinutes(p, 9, 13 * 60);
     ck(!p.sleeping, "ignored all day, still awake");
     ck(p.canRunawayNow(), "and genuine neglect still makes it ready to leave");
   }
@@ -162,6 +163,7 @@ int main(){
   {
     Pet p; fresh(p, 22);
     p.fullness = p.joy = p.energy = p.hygiene = 0;   // a neglected evening
+    p.unattended = GRACE_MIN;                        // ...after a whole untended day
     liveMinutes(p, 22, 60);
     ck(p.canRunawayNow(), "armed by an hour of total neglect before bed");
 
@@ -186,6 +188,7 @@ int main(){
   {
     Pet p; fresh(p, 22);
     p.fullness = p.joy = p.energy = p.hygiene = 0;
+    p.unattended = GRACE_MIN;
     liveMinutes(p, 22, 60);
     p.dbgSetSeen(atHour(9));                         // morning, awake, still empty
     p.fullness = p.joy = p.energy = p.hygiene = 0;

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.33-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.34-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -209,16 +209,30 @@ the navigation — three axes, one meaning each, everywhere:
 ### The four stats (0–100)
 
 Needs: **FOOD**, **JOY**, **ENE** (energy), **HYG** (hygiene). Start 80 / 80 / 80 / 100.
-While **awake**, per minute:
 
-| Stat | Drain/min | Notes |
+**The rule (v3.34): you can walk away from a topped-up creature for 8 hours**,
+screen on and awake, and come back to one that is hungry, tired and wants
+attention — but has not been penalised. Past 8 hours, neglect counts.
+
+While **awake**:
+
+| Stat | Drain | Notes |
 |---|---|---|
-| FOOD | −2 | |
-| ENE | −1 | −1 extra if out of shape (fitness < 50 → sluggish) |
-| HYG | −1 | **−4 more per poop** on screen (max 3 poops) |
-| JOY | −1 | **−2 extra** if FOOD < 30, **−2 extra** if HYG < 30 |
+| FOOD | **−1 every 6 min** (10/h) | |
+| ENE | **−1 every 6 min** (10/h) | twice that if out of shape (fitness < 50 → sluggish) |
+| HYG | **−1 every 8 min** (7.5/h) | **4/h more per poop** on screen (max 3 poops) |
+| JOY | **−1 every 6 min** (10/h) | **5/h more** if FOOD < 30, and 5/h more if HYG < 30 |
 
-- ~**15 %/min** chance to poop (only if FOOD > 40). Poops tank hygiene fast.
+- **~1 %/min** chance to poop while FOOD > 40 — about one every 100 minutes.
+- **The 8-hour grace window.** The clock is **awake minutes since you last
+  cared for it** (fed, cleaned, played, petted, trained); every care action
+  restarts it, and sleep and time with the board switched off don't count.
+  Inside the window no need drops below **15**. From full, 8 hours leaves it
+  around FOOD 20 / ENE 20 / JOY 15 / HYG 15.
+- **Past 8 hours** the needs fall to 0. A **care slip-up** is any need at **≤ 10**
+  (counted at most once an hour); each one **delays evolution by 1 level** and
+  cools the bond by 1. An hour at **zero on everything** makes it ready to
+  **run away** — roughly 13 hours untended from full.
 - **Fitness** (shown on the card, 0–99) starts at **75**, and next to it the
   creature's **weight in kg**: its real Pokédex weight at fitness 75, **1% lighter
   per point above, 1% heavier per point below** — so at most 24% under, at worst
@@ -227,8 +241,6 @@ While **awake**, per minute:
   27 min** asleep, up to **99**; while the board is **switched off** it rises no
   higher than **85**. Below **50** the energy drain doubles, and below **40** the
   creature is described as chubby.
-- **Care slip-up** = letting any stat hit **≤ 10** (60-min cooldown so it counts once).
-  Each slip-up **delays evolution by 1 level** and cools the bond by 1.
 
 ### Actions
 
@@ -245,8 +257,9 @@ While **awake**, per minute:
   +1 fitness per 10 hits (max +4).
 - 🫧 **Bath:** clears poops, HYG → 100.
 - 👆 **Pet it:** +5 JOY + bond.
-- 🌙 **Sleep:** rest — ENE **+6/min**, needs drain ~**4× slower** with floors
-  (FOOD 30 / JOY 35 / HYG 45). No poops, no slip-ups, can't run away while
+- 🌙 **Sleep:** rest — ENE **+6/min**, FOOD and JOY fall **1 every 18 min**
+  and HYG **1 every 24 min**, with floors (FOOD 30 / JOY 35 / HYG 45). Sleep
+  doesn't count toward the 8-hour window. No poops, no slip-ups, can't run away while
   asleep. **Screen off between midnight and 06:00 puts it to sleep**, and it
   stays asleep until you turn the screen back on — it wakes when *you* do, not
   at a fixed hour. The light button always overrides: a creature you sent to
