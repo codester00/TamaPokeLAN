@@ -31,7 +31,7 @@ static void fresh(Pet &p) {
   p.fullness = p.joy = p.energy = p.hygiene = 100;
   p.poops = 0;
   p.careMistakes = 0;
-  p.caress();                       // topped up = just cared for
+  p.feedCandy();                    // topped up = just cared for (petting is not care)
   p.fullness = p.joy = p.energy = p.hygiene = 100;
   p.lastSeenEpoch = at(0);
 }
