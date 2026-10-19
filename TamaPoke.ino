@@ -3566,7 +3566,7 @@ void renderGame() {
       gfx->setCursor(CX - strlen(rec) * 6, 214);
       gfx->print(rec);
     }
-    const char *msg = gameScore >= 10 ? T(S_GREAT_JOY) : T(S_PLUS_JOY);
+    const char *msg = T(S_PLUS_JOY);   // the owner's call: no "So much fun!" cheer
     gfx->setTextColor(ink);
     gfx->setCursor(CX - strlen(msg) * 6, 250);
     gfx->print(msg);
@@ -5676,8 +5676,8 @@ void renderPick() {
   uint8_t top = 0;          // the level cap shown on each cell; 0 = uncapped
   char head[40];
   if (pickTrainer == PICK_LAN) {
-    snprintf(head, sizeof(head), "%s: %s", T(S_LAN),
-             lanWantHost ? T(S_LAN_HOST) : T(S_LAN_JOIN));
+    // "HOST BATTLE" / "JOIN BATTLE" already say what this is; no "LAN: " prefix.
+    snprintf(head, sizeof(head), "%s", lanWantHost ? T(S_LAN_HOST) : T(S_LAN_JOIN));
   } else {
     const Trainer &t = PICK_TRAINERS[pickTrainer];
     for (int k = 0; k < t.count; k++)
