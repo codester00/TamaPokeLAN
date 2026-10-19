@@ -41,6 +41,7 @@ static bool qmiOk = false;
 static constexpr float STEP_THRESHOLD_G = 1.35f;
 static constexpr uint32_t STEP_DEBOUNCE_MS = 100;
 static float lastMagnitude = 0.0f;
+static float lastAx = 0.0f, lastAy = 0.0f;
 static uint32_t lastStepMs = 0;
 
 bool pedoBegin() {
@@ -81,6 +82,8 @@ uint32_t pedoPollSteps() {
   float x, y, z;
   if (!qmi.getAccelerometer(x, y, z)) return 0;
   float magnitude = sqrtf(x * x + y * y + z * z);
+  lastAx = x;
+  lastAy = y;
   uint32_t now = millis();
   uint32_t steps = 0;
   // Rising edge only -- crossing UP through the threshold -- so a footstep
@@ -98,3 +101,10 @@ uint32_t pedoPollSteps() {
 }
 
 float pedoLastMagnitude() { return lastMagnitude; }
+
+bool pedoTilt(float *x, float *y) {
+  if (!qmiOk) return false;
+  if (x) *x = lastAx;
+  if (y) *y = lastAy;
+  return true;
+}

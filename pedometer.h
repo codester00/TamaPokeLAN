@@ -20,3 +20,9 @@ uint32_t pedoPollSteps();
 // call regardless of whether it crossed the step threshold. Diagnostic only --
 // lets the serial console show live sensor values without a second I2C read.
 float pedoLastMagnitude();
+
+// The last raw accelerometer reading's X and Y (g), from the same poll -- for
+// Tilt Maze. False when there is no QMI8658 (or, in the emulator, no test has
+// set one). Which way is "left" on the panel is pinned in TamaPoke.ino
+// (TILT_SIGN_X/Y): the chip's axes are not the panel's, and only a board can say.
+bool pedoTilt(float *x, float *y);

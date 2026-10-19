@@ -230,6 +230,21 @@ void startCatch();
 void leaveCatch();
 void catchStep(uint32_t now);
 void renderCatch();
+// The hybrid training games (v3.34): each pays through Pet::trainSplit(), so
+// a game training two stats gives half to each -- the same total as a
+// single-stat game. One set of state, since only one can be open at a time.
+enum { MG_NONE, MG_ROCK, MG_BLOCK, MG_TILT };
+uint8_t miniGame = MG_NONE;
+// Up here, not beside Block!: arduino-cli's generated prototypes take it.
+struct BlockAttack { uint8_t side; uint32_t at, dur; bool live; };
+void startRock();
+void startBlock();
+void startTilt();
+void leaveMini();
+void mgPress(int16_t x, int16_t y, uint32_t now);
+void mgStep(uint32_t now);
+void renderMini();
+int mgLeaveStripY();
 
 // move picker, opened from the MOVES card page. Most learnsets are level 0, so
 // a level-up "you learned a move" prompt would almost never fire -- the moveset
@@ -1212,7 +1227,7 @@ void loop() {
   // 85 ms en juego/saco: margen seguro para que el redibujado no pise el envio
   // DMA del frame anterior (a 40-65 ms solapaba y causaba flashes negros; con
   // sprites grandes el dibujo tarda mas, asi que se deja colchon)
-  if (now - lastRender >= (uint32_t)((gameOpen || sackOpen || spdOpen || catchOpen) ? 85 : 100)) {
+  if (now - lastRender >= (uint32_t)((gameOpen || sackOpen || spdOpen || catchOpen || miniGame) ? 85 : 100)) {
     lastRender = now;
     render();
   }
@@ -1641,6 +1656,19 @@ void handleTouch() {
     return;
   }
 
+  // The hybrid games act on the touch-DOWN, so timing is the tap's own. The
+  // top strip leaves, keeping what was earned. In Block! the top is also a
+  // side to defend, so its strip is the thin band above where attacks start.
+  if (miniGame) {
+    if (pressed && !wasPressed) {
+      lastInteract = millis();
+      if (y < mgLeaveStripY()) leaveMini();
+      else mgPress(x, y, millis());
+    }
+    wasPressed = pressed;
+    return;
+  }
+
   // saco de entrenamiento: cada toque cuenta al instante (aporrear rapido)
   if (sackOpen) {
     if (pressed && !wasPressed) {
@@ -1779,6 +1807,7 @@ void onSwipeV(int dir) {
   if (gameOpen) { leaveGame(); return; }
   if (sackOpen) { leaveSack(); return; }
   if (catchOpen) { leaveCatch(); return; }
+  if (miniGame) { leaveMini(); return; }
   if (spdOpen)  { leaveSpeed(); return; }
   if (kbOpen || pet.ceremony) return;
   if (clockOpen) { if (back) clockOpen = false; return; }
@@ -2740,7 +2769,7 @@ uint8_t uiCurrentScreen() {
   if (martOpen) return SCR_MART;
   if (gymOpen) return gymPick ? SCR_GYMPICK : SCR_GYM;
   if (pet.hasLearnOffer()) return SCR_LEARN;
-  if (gameOpen || sackOpen || spdOpen || catchOpen) return SCR_GAME;
+  if (gameOpen || sackOpen || spdOpen || catchOpen || miniGame) return SCR_GAME;
   if (trainOpen) return SCR_TRAIN;
   if (menuOpen) return SCR_MENU;
   return SCR_MAIN;
@@ -3127,6 +3156,10 @@ void render() {
   }
   if (catchOpen) {
     renderCatch();
+    return;
+  }
+  if (miniGame) {
+    renderMini();
     return;
   }
   if (spdOpen) {
@@ -7484,6 +7517,9 @@ static const TrainGame TRAIN_GAMES[] = {
   { S_GAME_BAG,   TR_STR,          startSack },
   { S_GAME_REACT, TR_SPE,          startSpeedGame },
   { S_GAME_BALL,  TR_DEF,          startGame },
+  { S_GAME_ROCK,  TR_STR | TR_SPE, startRock },
+  { S_GAME_BLOCK, TR_DEF | TR_SPE, startBlock },
+  { S_GAME_TILT,  TR_SPE | TR_DEF, startTilt },
   { S_GAME_BERRY, TR_JOY | TR_BOND, startCatch },
 };
 #define TRAIN_GAME_COUNT (sizeof(TRAIN_GAMES) / sizeof(TRAIN_GAMES[0]))
@@ -7721,6 +7757,436 @@ void renderCatch() {
   int bw = 260, fw = (int)((uint64_t)bw * left / CATCH_MS);
   gfx->fillRoundRect(CX - bw / 2, 396, bw, 14, 5, UI_TRACK);
   if (fw > 2) gfx->fillRoundRect(CX - bw / 2, 396, fw, 14, 5, UI_BAR_OK);
+  gfx->flush();
+}
+
+// ---------- the hybrid training games ----------
+// Rock Smash (strength + speed), Block! (defence + speed), Tilt Maze (speed +
+// defence). Each counts what the player did into mgScore, converts that into
+// training points at the end, and pays them through Pet::trainSplit().
+uint8_t mgMask = 0;
+uint32_t mgStart = 0, mgUntil = 0, mgOverUntil = 0, mgLast = 0;
+uint16_t mgScore = 0;          // what the screen counts: smashes, blocks, goals
+uint16_t mgPoints = 0;         // what it pays, before trainSplit's session cap
+uint8_t mgGain[3] = { 0, 0, 0 };   // STR, DEF, SPE actually gained
+bool mgNoSensor = false;
+StrId mgGradeStr = S_MISS;     // PERFECT / GOOD / MISS, flashed until mgGradeUntil
+uint32_t mgGradeUntil = 0;
+
+// Rock Smash: a ring closes on the rock; tap as it lands. Beats speed up.
+#define ROCK_BEATS 16
+#define ROCK_LEAD_MS 1200
+#define ROCK_PERIOD0 1100
+#define ROCK_PERIOD_STEP 30
+#define ROCK_PERIOD_MIN 650
+#define ROCK_PERFECT_MS 90
+#define ROCK_GOOD_MS 180
+#define ROCK_EARLY_MS 350      // a tap earlier than this is not aimed at the beat
+#define ROCK_R 46
+#define ROCK_RING_R 150
+#define ROCK_CY 236
+uint8_t rockBeat = 0;          // the beat being waited on
+uint32_t rockBeatAt = 0, rockPeriod = ROCK_PERIOD0;
+uint8_t rockPerfects = 0, rockGoods = 0;
+
+// Block!: attacks fly in from the four sides; tap that side before they land.
+#define BLOCK_MS 20000UL
+#define BLOCK_MAX 4
+#define BLOCK_FROM 200
+#define BLOCK_SHIELD 60
+#define BLOCK_ATK_R 14         // an attack's drawn radius
+#define BLOCK_FULL 20          // blocks for a full session
+#define BLOCK_WHIFF_MS 400     // a tap at an empty side locks the shield this long
+BlockAttack blockAtk[BLOCK_MAX];
+uint32_t blockNext = 0, blockLockUntil = 0;
+static const int8_t BLOCK_DX[4] = { 0, 1, 0, -1 };   // up, right, down, left
+static const int8_t BLOCK_DY[4] = { -1, 0, 1, 0 };
+
+// Tilt Maze: roll the ball into the goal, around the holes, by tilting the
+// board. The sign of each axis is a guess until somebody tilts a real board:
+// flip one of these if the ball runs the wrong way.
+#define TILT_MS 30000UL
+#define TILT_ARENA 180
+#define TILT_BALL 14
+#define TILT_GOAL 26
+#define TILT_HOLE 22
+#define TILT_HOLES 2
+#define TILT_K 9.0f            // px per frame per g of tilt
+#define TILT_FRICTION 0.95f
+#define TILT_SIGN_X (-1.0f)
+#define TILT_SIGN_Y (1.0f)
+#define TILT_GOAL_PTS 3
+float tiltBx = CX, tiltBy = CY, tiltVx = 0, tiltVy = 0, tilt0x = 0, tilt0y = 0;
+float tiltGx = CX, tiltGy = CY, tiltHx[TILT_HOLES], tiltHy[TILT_HOLES];
+
+static uint8_t mgCap(uint16_t v) { return v > 255 ? 255 : (uint8_t)v; }
+
+static bool mgCanStart() { return !(pet.isEgg() || pet.sleeping || pet.ceremony); }
+
+static void mgBegin(uint8_t which, uint8_t mask) {
+  miniGame = which;
+  mgMask = mask;
+  mgStart = mgLast = millis();
+  mgOverUntil = 0;
+  mgScore = mgPoints = 0;
+  mgGain[0] = mgGain[1] = mgGain[2] = 0;
+  mgNoSensor = false;
+  mgGradeUntil = 0;
+}
+
+static void mgGrading(StrId g, uint32_t now) { mgGradeStr = g; mgGradeUntil = now + 450; }
+
+// Pays what was earned. Leaving early pays too, like every other game.
+static void mgPay() {
+  if (!mgPoints) return;                             // nothing earned, nothing charged
+  uint8_t a = pet.trAtk, d = pet.trDef, sp = pet.trSpe;
+  pet.trainSplit(mgMask, mgCap(mgPoints));
+  mgGain[0] = pet.trAtk - a;
+  mgGain[1] = pet.trDef - d;
+  mgGain[2] = pet.trSpe - sp;
+}
+
+static void mgFinish(uint32_t now) {
+  if (mgOverUntil) return;
+  if (!mgNoSensor) mgPay();
+  sfxPlay(mgNoSensor ? SFX_DENY : (mgPoints >= TRAIN_SESSION_MAX ? SFX_MEDAL : SFX_PLAY));
+  mgOverUntil = now + 3500;
+}
+
+void leaveMini() {
+  if (!mgOverUntil && !mgNoSensor) mgPay();
+  miniGame = MG_NONE;
+}
+
+// --- Rock Smash
+void startRock() {
+  if (!mgCanStart()) return;
+  mgBegin(MG_ROCK, TR_STR | TR_SPE);
+  rockBeat = 0;
+  rockPeriod = ROCK_PERIOD0;
+  rockBeatAt = mgStart + ROCK_LEAD_MS;
+  rockPerfects = rockGoods = 0;
+}
+
+static void rockAdvance() {
+  rockBeat++;
+  rockPeriod = rockPeriod > ROCK_PERIOD_MIN + ROCK_PERIOD_STEP ? rockPeriod - ROCK_PERIOD_STEP
+                                                               : ROCK_PERIOD_MIN;
+  rockBeatAt += rockPeriod;
+  // Two points a perfect, one a good: a flawless round is exactly a full session.
+  mgPoints = (uint16_t)((2 * rockPerfects + rockGoods) * TRAIN_SESSION_MAX / (2 * ROCK_BEATS));
+}
+
+static void rockPress(uint32_t now) {
+  if (rockBeat >= ROCK_BEATS) return;
+  if (now + ROCK_EARLY_MS < rockBeatAt) return;      // not aimed at this beat yet
+  uint32_t dt = now > rockBeatAt ? now - rockBeatAt : rockBeatAt - now;
+  if (dt <= ROCK_PERFECT_MS) { rockPerfects++; mgScore++; mgGrading(S_PERFECT, now); sfxPlay(SFX_HIT); }
+  else if (dt <= ROCK_GOOD_MS) { rockGoods++; mgScore++; mgGrading(S_GOOD, now); sfxPlay(SFX_TAP); }
+  else { mgGrading(S_MISS, now); sfxPlay(SFX_DENY); }
+  rockAdvance();
+}
+
+static void rockStep(uint32_t now) {
+  if (rockBeat < ROCK_BEATS && now > rockBeatAt + ROCK_GOOD_MS) {
+    mgGrading(S_MISS, now);                          // let it pass: a miss
+    rockAdvance();
+  }
+  if (rockBeat >= ROCK_BEATS && now > rockBeatAt - rockPeriod + ROCK_GOOD_MS) mgFinish(now);
+}
+
+// --- Block!
+void startBlock() {
+  if (!mgCanStart()) return;
+  mgBegin(MG_BLOCK, TR_DEF | TR_SPE);
+  mgUntil = mgStart + BLOCK_MS;
+  blockNext = mgStart + 700;
+  blockLockUntil = 0;
+  for (auto &b : blockAtk) b.live = false;
+}
+
+// Above this a tap leaves the game. In Block! that is above the top edge of
+// an attack just launched from the top.
+int mgLeaveStripY() { return miniGame == MG_BLOCK ? CY - BLOCK_FROM - BLOCK_ATK_R : 72; }
+int blockAttackR() { return BLOCK_ATK_R; }
+
+// Which side of the creature a tap is on: the dominant axis from the centre.
+uint8_t blockSideAt(int16_t x, int16_t y) {
+  int dx = x - CX, dy = y - CY;
+  if (abs(dx) > abs(dy)) return dx > 0 ? 1 : 3;
+  return dy > 0 ? 2 : 0;
+}
+
+// How far in an attack is, 0 at spawn to 1 when it lands.
+static float blockFrac(const BlockAttack &b, uint32_t now) {
+  return now <= b.at ? 0.0f : (float)(now - b.at) / (float)b.dur;
+}
+
+// Where attack i is drawn, or false if it is not in the air. The render and
+// the tests both ask this, so neither keeps its own copy of the lanes.
+bool blockAttackPos(int i, uint32_t now, int *x, int *y) {
+  const BlockAttack &b = blockAtk[i];
+  if (!b.live) return false;
+  float fr = blockFrac(b, now);
+  int d = BLOCK_FROM - (int)((BLOCK_FROM - BLOCK_SHIELD) * (fr > 1 ? 1 : fr));
+  *x = CX + BLOCK_DX[b.side] * d;
+  *y = CY + BLOCK_DY[b.side] * d;
+  return true;
+}
+
+static void blockPress(int16_t x, int16_t y, uint32_t now) {
+  if (now >= mgUntil || now < blockLockUntil) return;
+  uint8_t side = blockSideAt(x, y);
+  BlockAttack *best = nullptr;
+  for (auto &b : blockAtk)
+    if (b.live && b.side == side && (!best || blockFrac(b, now) > blockFrac(*best, now))) best = &b;
+  if (!best) {                                       // nothing there: the shield wobbles
+    blockLockUntil = now + BLOCK_WHIFF_MS;
+    mgGrading(S_MISS, now);
+    sfxPlay(SFX_DENY);
+    return;
+  }
+  best->live = false;
+  mgScore++;
+  mgPoints = (uint16_t)(mgScore * TRAIN_SESSION_MAX / BLOCK_FULL);
+  sfxPlay(SFX_HIT);
+}
+
+static void blockStep(uint32_t now) {
+  if (now >= mgUntil) { mgFinish(now); return; }
+  uint32_t el = now - mgStart;
+  for (auto &b : blockAtk)
+    if (b.live && blockFrac(b, now) >= 1.0f) { b.live = false; mgGrading(S_MISS, now); sfxPlay(SFX_DENY); }
+  if (now >= blockNext) {
+    uint8_t taken = 0;
+    for (auto &b : blockAtk) if (b.live) taken |= 1 << b.side;
+    if (taken != 0x0F) {
+      uint8_t side;
+      do { side = random(4); } while (taken & (1 << side));
+      for (auto &b : blockAtk) {
+        if (b.live) continue;
+        b.live = true;
+        b.side = side;
+        b.at = now;
+        b.dur = 1500 - el * 700 / BLOCK_MS;          // 1.5 s to land, 0.8 s by the end
+        break;
+      }
+    }
+    blockNext = now + 1100 - el * 600 / BLOCK_MS;    // one every 1.1 s, 0.5 s by the end
+  }
+}
+
+// --- Tilt Maze
+static float tiltDist(float ax, float ay, float bx, float by) {
+  return sqrtf((ax - bx) * (ax - bx) + (ay - by) * (ay - by));
+}
+
+// A random point inside the arena, at least `gap` from (x, y).
+static void tiltSpot(float *ox, float *oy, float x, float y, float gap) {
+  for (int tries = 0; tries < 40; tries++) {
+    float a = random(360) * 0.0174533f, r = 30 + random(TILT_ARENA - 30 - TILT_GOAL);
+    *ox = CX + r * cosf(a);
+    *oy = CY + r * sinf(a);
+    if (tiltDist(*ox, *oy, x, y) >= gap) return;
+  }
+}
+
+static void tiltLayout() {
+  tiltSpot(&tiltGx, &tiltGy, tiltBx, tiltBy, 110);
+  for (int i = 0; i < TILT_HOLES; i++) {
+    for (int tries = 0; tries < 40; tries++) {
+      tiltSpot(&tiltHx[i], &tiltHy[i], tiltBx, tiltBy, 70);
+      bool ok = tiltDist(tiltHx[i], tiltHy[i], tiltGx, tiltGy) >= TILT_GOAL + TILT_HOLE + 20;
+      for (int j = 0; j < i; j++)
+        if (tiltDist(tiltHx[i], tiltHy[i], tiltHx[j], tiltHy[j]) < 2 * TILT_HOLE + 10) ok = false;
+      if (ok) break;
+    }
+  }
+}
+
+void startTilt() {
+  if (!mgCanStart()) return;
+  mgBegin(MG_TILT, TR_SPE | TR_DEF);
+  mgUntil = mgStart + TILT_MS;
+  tiltBx = CX; tiltBy = CY; tiltVx = tiltVy = 0;
+  // Whatever angle the board is held at when the game opens is level.
+  if (!pedoTilt(&tilt0x, &tilt0y)) {
+    mgNoSensor = true;
+    mgOverUntil = mgStart + 2500;
+    sfxPlay(SFX_DENY);
+    return;
+  }
+  tiltLayout();
+}
+
+static void tiltStep(uint32_t now) {
+  if (now >= mgUntil) { mgFinish(now); return; }
+  float tx, ty;
+  if (!pedoTilt(&tx, &ty)) return;
+  // Scaled by the real frame time: the panel draws slower on hardware.
+  float f = (float)(now - mgLast) / 85.0f;
+  if (f > 3) f = 3;
+  tiltVx = (tiltVx + TILT_SIGN_X * (tx - tilt0x) * TILT_K * f) * TILT_FRICTION;
+  tiltVy = (tiltVy + TILT_SIGN_Y * (ty - tilt0y) * TILT_K * f) * TILT_FRICTION;
+  tiltBx += tiltVx * f;
+  tiltBy += tiltVy * f;
+  float d = tiltDist(tiltBx, tiltBy, CX, CY), lim = TILT_ARENA - TILT_BALL;
+  if (d > lim) {                                     // the wall: clamp and bounce
+    float nx = (tiltBx - CX) / d, ny = (tiltBy - CY) / d;
+    tiltBx = CX + nx * lim;
+    tiltBy = CY + ny * lim;
+    float vn = tiltVx * nx + tiltVy * ny;
+    if (vn > 0) { tiltVx -= 1.6f * vn * nx; tiltVy -= 1.6f * vn * ny; }
+  }
+  if (tiltDist(tiltBx, tiltBy, tiltGx, tiltGy) < TILT_GOAL - 6) {
+    mgScore++;
+    mgPoints = (uint16_t)(mgScore * TILT_GOAL_PTS);
+    sfxPlay(SFX_LEVEL);
+    tiltLayout();
+    return;
+  }
+  for (int i = 0; i < TILT_HOLES; i++)
+    if (tiltDist(tiltBx, tiltBy, tiltHx[i], tiltHy[i]) < TILT_HOLE - 4) {
+      tiltBx = CX; tiltBy = CY; tiltVx = tiltVy = 0;  // fell in: back to the middle
+      mgGrading(S_MISS, now);
+      sfxPlay(SFX_DENY);
+      return;
+    }
+}
+
+// --- shared
+void mgPress(int16_t x, int16_t y, uint32_t now) {
+  if (mgOverUntil) return;
+  if (miniGame == MG_ROCK) rockPress(now);
+  else if (miniGame == MG_BLOCK) blockPress(x, y, now);
+}
+
+// One frame of whichever game is open. Public so a test can drive it.
+void mgStep(uint32_t now) {
+  if (mgOverUntil) {
+    if (now > mgOverUntil) miniGame = MG_NONE;
+    return;
+  }
+  if (miniGame == MG_ROCK) rockStep(now);
+  else if (miniGame == MG_BLOCK) blockStep(now);
+  else if (miniGame == MG_TILT) tiltStep(now);
+  mgLast = now;
+}
+
+static void mgCentered(const char *s, int y, int size, uint16_t col) {
+  gfx->setTextColor(col);
+  gfx->setTextSize(size);
+  gfx->setCursor(CX - (int)strlen(s) * 3 * size, y);
+  gfx->print(s);
+}
+
+static void mgTimeBar(uint32_t now, uint32_t total, int y) {
+  uint32_t left = mgUntil > now ? mgUntil - now : 0;
+  int bw = 260, fw = (int)((uint64_t)bw * left / total);
+  gfx->fillRoundRect(CX - bw / 2, y, bw, 14, 5, UI_TRACK);
+  if (fw > 2) gfx->fillRoundRect(CX - bw / 2, y, fw, 14, 5, UI_BAR_OK);
+}
+
+static void renderMiniResult(uint16_t ink) {
+  if (mgNoSensor) {
+    mgCentered(T(S_TILT_NOSENSOR), 200, 2, ink);
+    return;
+  }
+  StrId fmt = miniGame == MG_ROCK ? S_SMASH_FMT : miniGame == MG_BLOCK ? S_BLOCKED_FMT : S_TILT_DONE_FMT;
+  char b[28];
+  snprintf(b, sizeof(b), T(fmt), mgScore);
+  mgCentered(b, 160, 3, ink);
+  // The two stats the game trains, in the order its name gives them.
+  static const StrId NAMES[3] = { S_TR_ATK, S_TR_DEF, S_TR_SPE };
+  int first = miniGame == MG_ROCK ? 0 : miniGame == MG_BLOCK ? 1 : 2;
+  int second = miniGame == MG_TILT ? 1 : 2;
+  char g[48];
+  snprintf(g, sizeof(g), T(S_GAIN2_FMT), mgGain[first], T(NAMES[first]), mgGain[second], T(NAMES[second]));
+  mgCentered(g, 220, 2, UI_BAR_BAD);
+}
+
+void renderMini() {
+  uint32_t now = millis();
+  drawGameScene();
+  bool night = sceneHour() < 6 || sceneHour() >= 20;
+  uint16_t ink = night ? UI_INK_NIGHT : UI_INK;
+  mgStep(now);
+  if (!miniGame) return;
+  if (mgOverUntil) {
+    renderMiniResult(ink);
+    gfx->flush();
+    return;
+  }
+  bool hint = now - mgStart < 2500;
+  if (miniGame == MG_ROCK) {
+    // The rock cracks a little more with every smash.
+    uint16_t stone = C565(0x8a, 0x82, 0x7a);
+    gfx->fillCircle(CX, ROCK_CY, ROCK_R, stone);
+    gfx->drawCircle(CX, ROCK_CY, ROCK_R, ink);
+    for (uint8_t i = 0; i < mgScore && i < ROCK_BEATS; i++) {
+      float a = i * 2.39996f;                        // golden angle: cracks spread evenly
+      int x1 = CX + (int)(10 * cosf(a)), y1 = ROCK_CY + (int)(10 * sinf(a));
+      int x2 = CX + (int)((ROCK_R - 4) * cosf(a + 0.3f)), y2 = ROCK_CY + (int)((ROCK_R - 4) * sinf(a + 0.3f));
+      gfx->drawLine(x1, y1, x2, y2, ink);
+    }
+    if (rockBeat < ROCK_BEATS && now + rockPeriod >= rockBeatAt) {
+      int32_t to = (int32_t)(rockBeatAt - now);
+      int r = ROCK_R + (int)((int64_t)(ROCK_RING_R - ROCK_R) * (to > 0 ? to : 0) / (int32_t)rockPeriod);
+      uint16_t col = to <= ROCK_PERFECT_MS && to >= -ROCK_PERFECT_MS ? UI_BAR_OK : UI_BAR_WARN;
+      gfx->drawCircle(CX, ROCK_CY, r, col);
+      gfx->drawCircle(CX, ROCK_CY, r + 1, col);
+      gfx->drawCircle(CX, ROCK_CY, r + 2, col);
+    }
+    char c[12];
+    snprintf(c, sizeof(c), "%u/%u", (unsigned)(rockBeat < ROCK_BEATS ? rockBeat + 1 : ROCK_BEATS),
+             (unsigned)ROCK_BEATS);
+    mgCentered(c, 400, 2, ink);
+    if (hint) mgCentered(T(S_ROCK_HINT), 62, 2, ink);
+  } else if (miniGame == MG_BLOCK) {
+    const uint8_t *th = pet.isEgg() ? nullptr : thumbs.get(pet.speciesId);
+    if (th) drawThumb(th, CX - thumbCell() / 2, CY - thumbCell() / 2, 3, false);
+    bool locked = now < blockLockUntil;
+    gfx->drawCircle(CX, CY, BLOCK_SHIELD, locked ? UI_BAR_BAD : ink);
+    gfx->drawCircle(CX, CY, BLOCK_SHIELD + 1, locked ? UI_BAR_BAD : ink);
+    for (int i = 0; i < BLOCK_MAX; i++) {
+      int x, y;
+      if (!blockAttackPos(i, now, &x, &y)) continue;
+      gfx->fillCircle(x, y, BLOCK_ATK_R, C565(0xf0, 0x80, 0x30));
+      gfx->fillCircle(x, y, BLOCK_ATK_R / 2, C565(0xff, 0xd8, 0x60));
+      gfx->drawCircle(x, y, BLOCK_ATK_R, ink);
+    }
+    // The four lanes are the axes, so the score and the clock sit on the
+    // diagonals, where nothing ever flies.
+    char c[8];
+    snprintf(c, sizeof(c), "%u", mgScore);
+    gfx->setTextColor(ink);
+    gfx->setTextSize(3);
+    gfx->setCursor(CX - 120 - (int)strlen(c) * 9, CY - 132);
+    gfx->print(c);
+    uint32_t left = mgUntil > now ? (mgUntil - now + 999) / 1000 : 0;
+    snprintf(c, sizeof(c), "%lu", (unsigned long)left);
+    gfx->setTextColor(left <= 5 ? UI_BAR_BAD : ink);
+    gfx->setCursor(CX + 120 - (int)strlen(c) * 9, CY - 132);
+    gfx->print(c);
+    if (hint) mgCentered(T(S_BLOCK_HINT), CY + 96, 2, ink);
+  } else {
+    gfx->drawCircle(CX, CY, TILT_ARENA, ink);
+    gfx->drawCircle(CX, CY, TILT_ARENA + 1, ink);
+    gfx->fillCircle((int)tiltGx, (int)tiltGy, TILT_GOAL, UI_BAR_OK);
+    gfx->drawCircle((int)tiltGx, (int)tiltGy, TILT_GOAL, ink);
+    for (int i = 0; i < TILT_HOLES; i++) gfx->fillCircle((int)tiltHx[i], (int)tiltHy[i], TILT_HOLE, RGB565_BLACK);
+    gfx->fillCircle((int)tiltBx, (int)tiltBy, TILT_BALL, UI_WHITE);
+    gfx->drawCircle((int)tiltBx, (int)tiltBy, TILT_BALL, ink);
+    char c[8];
+    snprintf(c, sizeof(c), "%u", mgScore);
+    mgCentered(c, 22, 3, ink);
+    if (hint) mgCentered(T(S_TILT_HINT), 120, 2, ink);
+    mgTimeBar(now, TILT_MS, 428);
+  }
+  if (now < mgGradeUntil) {
+    uint16_t col = mgGradeStr == S_PERFECT ? UI_BAR_OK : mgGradeStr == S_GOOD ? UI_BAR_WARN : UI_BAR_BAD;
+    mgCentered(T(mgGradeStr), miniGame == MG_ROCK ? 330 : 360, 3, col);
+  }
   gfx->flush();
 }
 

@@ -154,6 +154,16 @@ until you actually raise it.
 Sits between EXPLORE and the gyms on the tile axis. Real steps become
 Pokédollars at 1:1 — see § Game manual below for the wallet cap and price list.
 
+### Training
+
+| The games | Rock Smash | Block! | Tilt Maze |
+|---|---|---|---|
+| <img src="docs/screens/train.png" width="180"> | <img src="docs/screens/rock.png" width="180"> | <img src="docs/screens/block.png" width="180"> | <img src="docs/screens/tilt.png" width="180"> |
+
+The dumbbell opens a list of games, each naming the stats it raises and how far
+along they are. Some train one stat, some split the same points across two, and
+Berry Catch raises joy and bond instead — see § Actions below.
+
 ### Trading
 
 | Choosing a trade | When the connection drops |
@@ -259,6 +269,24 @@ While **awake**:
     window tightens as you go. +1 fitness per 10 hits (max +4).
   - ⚽ **Ball game** — **DEFENCE** (2 rallies = 1 pt), plus a little joy
     (**+3, +1 per 2 rallies**, max +13). +1 fitness per 5 rallies (max +4).
+  - 🪨 **Rock Smash** — **STRENGTH + SPEED**: a ring closes on a rock 16 times,
+    a little faster each beat (1.1 s down to 0.65 s). Tap as it lands: within
+    **0.09 s is PERFECT** (2), within **0.18 s GOOD** (1). All 16 perfect is a
+    full session (9 + 9). A tap well ahead of the ring is ignored; one aimed
+    at it but early spends the beat.
+  - 🛡️ **Block!** — **DEFENCE + SPEED**: for 20 s attacks fly at your creature
+    from the four sides (one every 1.1 s, down to 0.5 s; never two down one
+    side). Tap that side to block. Tapping a side with nothing on it wobbles
+    the shield for 0.4 s, so hammering every side doesn't work. **20 blocks**
+    is a full session.
+  - 🌀 **Tilt Maze** — **SPEED + DEFENCE**: tilt the board to roll a ball into
+    the green goal, around two holes (a hole sends it back to the middle). 30 s,
+    **3 points per goal**. Whatever angle you hold the board at when it starts
+    counts as level. Needs the board's motion sensor.
+
+    All three cost what any training does: −10 energy, −5 food, +4 joy, bond,
+    and +1 fitness per 5 points (max +4). A round that earned nothing costs
+    nothing.
   - 🍓 **Berry Catch** — **JOY + BOND**: drag the basket for 20 s, catch berries,
     dodge rocks (a rock costs a point; a miss costs nothing). Pays **+6 joy, +2
     per berry** (max **+30**) and **+1 bond per 8 berries** (+1 to +3), and makes

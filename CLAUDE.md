@@ -607,6 +607,28 @@ alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. The installer was NOT rebuilt: `web/` still
 ships v3.28 and its manifest says so.
 
+### Done: training games, petting that wears off, the 8-hour window (v3.34)
+
+The training icon opens a LIST of games (`TRAIN_GAMES`, one row per game:
+name, the stats it raises, its start function). A game may train one stat,
+split its points across two through `Pet::trainSplit()` (same total, halved
+-- the owner's design), or raise joy and bond (`Pet::playJoyGame()`, which also
+makes petting fresh again: `caress()` pays 10/8/6/4/2/0 by `petStep`).
+Hybrids: ROCK SMASH (str+spe), BLOCK! (def+spe), TILT MAZE (spe+def), all in
+one dispatcher (`miniGame`, `mgPress`/`mgStep`/`renderMini`), tested by
+`minigame_test` with each guard negative-checked.
+
+- **Tilt Maze's axis signs are a GUESS** (`TILT_SIGN_X`/`_Y`). Nobody has
+  tilted a real board yet; if the ball rolls uphill, flip the sign. The
+  emulator has no sensor unless a test calls `emuSetTilt()`.
+- **Block!'s leave strip is thin on purpose**: the top is a lane to defend, so
+  `mgLeaveStripY()` sits above an attack launched from the top, and
+  `minigame_test` fails if it is widened back to the usual 72.
+- Decay: `Pet::drainMinute()` is the ONE drain for both live ticks and the
+  offline catch-up. For `GRACE_MIN` (8 h) after the last care, needs floor at
+  `GRACE_FLOOR` and nothing counts against the creature; after it, mistakes,
+  neglect and the runaway apply. `decay_test` is the owner's scenario.
+
 ### Done: trading, end to end (2026-10-14, v3.33) -- NOT YET RUN ON TWO BOARDS
 
 **Built: the protocol** (`trade.h`/`trade.cpp`, `trade_test`) **and the
@@ -1844,7 +1866,7 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 47 suites (sprite_test skips without sprites)
+bash tools/emu/tests/run.sh          # all 51 suites (sprite_test skips without sprites)
 bash tools/emu/tests/run.sh battle   # just matching ones
 ```
 

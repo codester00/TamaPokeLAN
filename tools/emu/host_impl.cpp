@@ -159,6 +159,16 @@ bool batLowWarning() { return false; }
 bool pedoBegin() { return false; }
 uint32_t pedoPollSteps() { return 0; }
 float pedoLastMagnitude() { return 0.0f; }
+// Tilt Maze in the emulator: a test sets the tilt; with none set there is no sensor.
+static bool gEmuTiltSet = false;
+static float gEmuTiltX = 0, gEmuTiltY = 0;
+void emuSetTilt(float x, float y) { gEmuTiltX = x; gEmuTiltY = y; gEmuTiltSet = true; }
+bool pedoTilt(float *x, float *y) {
+  if (!gEmuTiltSet) return false;
+  if (x) *x = gEmuTiltX;
+  if (y) *y = gEmuTiltY;
+  return true;
+}
 
 // --- NVS headroom (nvsinfo.cpp on the board) ---
 // nvsEntryStats() itself is in nvsinfo_stub.cpp now, not here -- pet.cpp

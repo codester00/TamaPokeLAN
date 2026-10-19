@@ -202,6 +202,13 @@ extern float catchBasketX, catchTarget;
 struct CatchThing { float x, y, vy; bool rock, live; };
 extern CatchThing catchThings[];
 void startCatch();
+void startRock(); void startBlock(); void startTilt();
+extern uint32_t mgStart, mgUntil, rockBeatAt, rockPeriod, blockNext;
+extern uint16_t mgScore; extern uint8_t rockBeat;
+struct BlockAttack { uint8_t side; uint32_t at, dur; bool live; };
+extern BlockAttack blockAtk[];
+extern float tiltBx, tiltBy;
+void emuSetTilt(float, float);
 #include "trade.h"
 extern Trade trade;
 extern bool tradePicking;
@@ -296,9 +303,9 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
   }
   else if (!strcmp(screen, "clock"))   clockOpen = true;
   else if (!strcmp(screen, "menu"))    menuOpen = true;
-  else if (!strcmp(screen, "train") || !strcmp(screen, "train2")) {
+  else if (!strcmp(screen, "train") || !strcmp(screen, "train2") || !strcmp(screen, "train3")) {
     trainOpen = true;
-    trainPage = !strcmp(screen, "train2") ? 1 : 0;
+    trainPage = !strcmp(screen, "train2") ? 1 : !strcmp(screen, "train3") ? 2 : 0;
     pet.trAtk = pet.trMaxAtk() * 45 / 100; pet.trSpe = pet.trMaxSpe() * 80 / 100; pet.trDef = pet.trMaxDef();
   }
   else if (!strcmp(screen, "catch")) {
@@ -313,6 +320,32 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
       catchThings[i].vy = 0; catchThings[i].rock = (i == 2);
     }
     catchNextSpawn = millis() + 100000;
+  }
+  else if (!strcmp(screen, "rock")) {
+    // Mid-round: five smashes in, the ring a third of the way in.
+    startRock();
+    mgStart = millis() - 8000;         // past the opening hint
+    rockBeat = 5; mgScore = 5;
+    rockBeatAt = millis() + rockPeriod / 3;
+  }
+  else if (!strcmp(screen, "block")) {
+    startBlock();
+    mgStart = millis() - 6000;
+    mgUntil = millis() + 14000;
+    mgScore = 6;
+    blockNext = millis() + 100000;
+    const uint8_t sides[3] = { 1, 2, 3 };
+    for (int i = 0; i < 3; i++) {
+      blockAtk[i].live = true; blockAtk[i].side = sides[i];
+      blockAtk[i].dur = 1400; blockAtk[i].at = millis() - 300 - 350 * i;
+    }
+  }
+  else if (!strcmp(screen, "tilt")) {
+    emuSetTilt(0, 0);
+    startTilt();
+    mgStart = millis() - 6000;
+    mgScore = 2;
+    tiltBx = 300; tiltBy = 210;
   }
   else if (!strcmp(screen, "moves"))   { cardOpen = true; cardPage = 2; }
   else if (!strcmp(screen, "movepick")) { movePickOpen = true; }

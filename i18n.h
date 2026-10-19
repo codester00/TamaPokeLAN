@@ -9,7 +9,7 @@ enum Lang : uint8_t { LANG_ES = 0, LANG_EN, LANG_FR, LANG_DE, LANG_IT, LANG_PT, 
 extern Lang gLang;  // idioma activo (definido en i18n.cpp)
 
 // IDs de cadena. El orden debe coincidir con la tabla STRINGS de i18n.cpp.
-enum StrId : uint8_t {
+enum StrId : uint16_t {
   // estado del bicho (statusMsg)
   S_EVOLVING, S_EATING, S_LIKES, S_HUNGRY, S_NEEDS_BATH,
   S_EXHAUSTED, S_SAD, S_CHUBBY, S_IS_SHINY, S_HAPPY,
@@ -221,6 +221,20 @@ enum StrId : uint8_t {
   S_CATCH_FMT,
   S_CATCH_GAIN_FMT, // joy, then bond
   S_CATCH_HINT,
+  S_GAME_ROCK, // hybrid: strength + speed
+  S_GAME_BLOCK, // hybrid: defence + speed
+  S_GAME_TILT, // hybrid: speed + defence
+  S_ROCK_HINT,
+  S_BLOCK_HINT,
+  S_TILT_HINT,
+  S_PERFECT, // rhythm grade
+  S_GOOD, // rhythm grade
+  S_MISS, // rhythm grade
+  S_GAIN2_FMT, // two stats gained: +n NAME  +n NAME
+  S_BLOCKED_FMT,
+  S_SMASH_FMT,
+  S_TILT_DONE_FMT,
+  S_TILT_NOSENSOR,
   STR_COUNT
 };
 
