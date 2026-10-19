@@ -594,7 +594,8 @@ public:
     pendingSave = false;
     return true;
   }
-  void dbgRunawayReady() { fullness = joy = energy = hygiene = 0; neglectTicks = RUNAWAY_TICKS; }  // test
+  // test / ABANDON: everything a real runaway needs, the 8 untended hours included
+  void dbgRunawayReady() { fullness = joy = energy = hygiene = 0; neglectTicks = RUNAWAY_TICKS; unattended = GRACE_MIN; }
   // test: force what the egg holds and hatch it now (serial command EGG).
   // The legendary/shiny IV guarantees only fire inside hatch(), so without
   // this there is no way to exercise them from outside the class.
