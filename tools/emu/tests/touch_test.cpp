@@ -82,6 +82,7 @@ static void fire() {
 }
 
 // One press/release at (x,y), driven exactly as the SDL event loop drives it.
+void trainRowCenter(int i, int *x, int *y);
 static void click(int x, int y) {
   g_touchX = x; g_touchY = y; g_touchDown = true;
   fire();
@@ -157,21 +158,27 @@ int main(int argc, char **argv) {
   if (!trainOpen) { printf("FAIL: train icon did not open the submenu\n"); return 1; }
   printf("PASS: 5th icon opens the training submenu\n");
 
-  click(233, 178);                       // row 0 == STRENGTH == TRAIN_ROW_Y(0)+28
-  if (!sackOpen) { printf("FAIL: STRENGTH row did not start the sack\n"); return 1; }
-  printf("PASS: STRENGTH routes to the punching bag\n");
+  // The menu lists GAMES now (v3.34); each row's centre is asked of the
+  // firmware. Rows 0..2 are the bag, the reaction test and the ball game.
+  int rx, ry;
+  trainRowCenter(0, &rx, &ry);
+  click(rx, ry);
+  if (!sackOpen) { printf("FAIL: PUNCHING BAG row did not start the sack\n"); return 1; }
+  printf("PASS: PUNCHING BAG routes to the punching bag\n");
   sackOpen = false;
 
   click(tbx, tby);
-  click(233, 242);                       // row 1 == SPEED == TRAIN_ROW_Y(1)+28
-  if (!spdOpen) { printf("FAIL: SPEED row did not start the reaction test\n"); return 1; }
-  printf("PASS: SPEED routes to the reaction test\n");
+  trainRowCenter(1, &rx, &ry);
+  click(rx, ry);
+  if (!spdOpen) { printf("FAIL: REACTION TEST row did not start the reaction test\n"); return 1; }
+  printf("PASS: REACTION TEST routes to the reaction test\n");
   spdOpen = false;
 
   click(tbx, tby);
-  click(233, 306);                       // row 2 == DEFENCE -> the ball game
-  if (!gameOpen) { printf("FAIL: DEFENCE row did not start the ball game\n"); return 1; }
-  printf("PASS: DEFENCE routes to the ball game\n");
+  trainRowCenter(2, &rx, &ry);
+  click(rx, ry);
+  if (!gameOpen) { printf("FAIL: BALL GAME row did not start the ball game\n"); return 1; }
+  printf("PASS: BALL GAME routes to the ball game\n");
   gameOpen = false;
   trainOpen = false;
 

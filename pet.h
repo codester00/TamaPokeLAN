@@ -49,6 +49,17 @@
 #define POOP_CHANCE_PCT 1                  // per awake minute while fed (>40): ~one every 100 min
 #define SLEEP_DRAIN_MIN 18                 // asleep: food and joy 3.3/h -- gentler than awake
 #define SLEEP_HYG_MIN 24                   // asleep: hygiene 2.5/h
+// Petting wears off (the owner's design): each tap gives the next of these,
+// ending at 0, until a joy/bond minigame (playJoyGame) makes it fresh again.
+// Bond fades with it: +1 per tap while the joy is still above 0.
+#define PET_JOY_STEPS { 10, 8, 6, 4, 2, 0 }
+#define PET_JOY_STEP_COUNT 6
+#define JOYGAME_JOY_MAX 30                 // a good round of a joy game
+#define JOYGAME_BOND_MAX 3
+#define TRAIN_SESSION_MAX 18               // one session's training points, however split
+#define TR_STR 0x01
+#define TR_DEF 0x02
+#define TR_SPE 0x04
 // How long a FAILED checkpoint write waits before the idle-flush path in
 // loop() is allowed to retry it. See Pet::retryDue()'s comment -- without
 // this, a failing NVS write retried on every single loop iteration while the
@@ -453,12 +464,21 @@ public:
   bool isNightHour() const;
   void setScreenOff(bool off);  // the sketch reports the PWR button
   bool screenIsOff = false;
-  void dbgTick() { tick(); }   // tests drive minutes directly; tick() is private
+  void dbgTick() { tick(); }
+  void dbgResetBondToday() { bondToday = 0; }   // tests: a fresh daily bond allowance   // tests drive minutes directly; tick() is private
   // Keep the legacy key in step too, so tests also cover migration saves.
   void dbgSetSeen(uint32_t e) { lastSeenEpoch = e; prefs.putUInt("seen", e); }
   uint8_t sleepAuto = SLEEP_NONE;   // who decided the current sleep state  // dormir / despertar
   void clean();
-  void caress();  // tocar al bicho
+  void caress();  // tocar al bicho: joy and bond that WEAR OFF -- see PET_JOY_STEPS
+  // A joy/bond minigame: joy and bond scaled by the score, and petting is fresh
+  // again. Returns the joy gained.
+  uint8_t playJoyGame(uint8_t score);
+  // A training game's points split EVENLY across the stats in `mask` (TR_STR /
+  // TR_DEF / TR_SPE): the same total a single-stat game pays, divided. Each stat
+  // stops at its IV-bound ceiling. Returns what was really gained, all stats.
+  uint8_t trainSplit(uint8_t mask, uint8_t points);
+  uint8_t petStep = 0;            // how worn out petting is: index into PET_JOY_STEPS
   void eggTap();  // tocar el huevo: 3 toques y eclosiona
   void newEgg();   // empezar de cero con un inicial aleatorio
   void release();  // soltar (pulsacion larga + confirmar)
@@ -756,7 +776,7 @@ private:
   uint32_t milestoneUntil = 0; // celebracion de hito de racha
 
   uint32_t today() const { return lastSeenEpoch ? lastSeenEpoch / 86400 : 0; }
-  void registerCare();   // primer cuidado del dia: racha + vinculo
+  void registerCare(bool restartsWindow = true);   // primer cuidado del dia: racha + vinculo
   void addBond(uint8_t amt);
   uint8_t rollIV(int bonus) const;  // una tirada 8-31 empujada por el cuidado
   void rollIVs();                   // los 4, con las garantias de legendario/shiny

@@ -68,7 +68,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "(tienes a %s)", "5 minutos sin conexion", "Mira la pantalla de la otra:",
     "completo: %s  incompleto: %s", "DESHACER", "MANTENER", "conservas a %s", "recibes a %s",
     "No se puede deshacer", "Has mirado la otra consola?", "Cual cambias?", "EQUIPO",
-    "toca: cambiar", },
+    "toca: cambiar",
+    "SACO DE BOXEO", "REFLEJOS", "PELOTA", "ATRAPA BAYAS", "ALEGRIA", "VINCULO", "MAX", "ATRAPADAS: %u", "+%u alegria  +%u vinculo", "ARRASTRA PARA ATRAPAR", },
   // ---------------- EN ----------------
   {
     "Evolving!", "Yum yum!", "It likes it!", "It's hungry!", "Needs a bath!",
@@ -127,7 +128,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "%u:%02u remaining", "Trade appears incomplete", "Trade appears complete without confirmation",
     "(you have %s)", "No connection for 5 minutes", "Look at the other board's screen:",
     "complete: %s   incomplete: %s", "REVERT", "KEEP", "you keep %s", "you get %s",
-    "This cannot be undone", "Checked the other board?", "Trade which one?", "PARTY", "tap: switch", },
+    "This cannot be undone", "Checked the other board?", "Trade which one?", "PARTY", "tap: switch",
+    "PUNCHING BAG", "REACTION TEST", "BALL GAME", "BERRY CATCH", "JOY", "BOND", "MAX", "CAUGHT: %u", "+%u joy  +%u bond", "DRAG TO CATCH!", },
   // ---------------- FR ----------------
   {
     "Il evolue!", "Miam miam!", "Il aime ca!", "Il a faim!", "Besoin d'un bain!",
@@ -185,7 +187,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "reste %u:%02u", "L'echange semble incomplet", "Echange fait, sans confirmation", "(tu as %s)",
     "5 minutes sans connexion", "Regarde l'autre ecran:", "fait: %s   incomplet: %s", "ANNULER",
     "VALIDER", "tu gardes %s", "tu prends %s", "Impossible a annuler", "Tu as verifie l'autre?",
-    "Echanger lequel?", "EQUIPE", "touche: changer", },
+    "Echanger lequel?", "EQUIPE", "touche: changer",
+    "SAC DE FRAPPE", "REFLEXES", "BALLON", "ATTRAPE-BAIES", "JOIE", "LIEN", "MAX", "ATTRAPEES: %u", "+%u joie  +%u lien", "GLISSE POUR ATTRAPER", },
   // ---------------- DE ----------------
   {
     "Entwickelt sich!", "Mampf mampf!", "Gefaellt ihm!", "Hat Hunger!", "Braucht ein Bad!",
@@ -243,7 +246,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "noch %u:%02u", "Tausch scheint unfertig", "Tausch fertig, ohne Bestaetigung", "(du hast %s)",
     "5 Minuten keine Verbindung", "Sieh aufs andere Display:", "fertig: %s   unfertig: %s",
     "ZURUECK", "BEHALTEN", "du behaeltst %s", "du kriegst %s", "Nicht umkehrbar",
-    "Anderes Geraet geprueft?", "Welches tauschen?", "TEAM", "tippen: wechseln", },
+    "Anderes Geraet geprueft?", "Welches tauschen?", "TEAM", "tippen: wechseln",
+    "BOXSACK", "REAKTION", "BALLSPIEL", "BEERENFANG", "FREUDE", "BINDUNG", "MAX", "GEFANGEN: %u", "+%u Freude  +%u Bindung", "ZIEHEN ZUM FANGEN", },
   // ---------------- IT ----------------
   {
     "Si evolve!", "Gnam gnam!", "Gli piace!", "Ha fame!", "Vuole un bagno!",
@@ -301,7 +305,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "Scambio fatto, senza conferma", "(hai %s)", "5 minuti senza connessione",
     "Guarda l'altro schermo:", "fatto: %s   incompleto: %s", "ANNULLA", "CONFERMA", "tieni %s",
     "prendi %s", "Non si puo annullare", "Hai controllato l'altra?", "Quale scambi?", "SQUADRA",
-    "tocca: cambia", },
+    "tocca: cambia",
+    "SACCO DA BOXE", "RIFLESSI", "PALLA", "PRENDI BACCHE", "GIOIA", "LEGAME", "MAX", "PRESE: %u", "+%u gioia  +%u legame", "TRASCINA PER PRENDERE", },
   // ---------------- PT ----------------
   {
     "Evoluindo!", "Nham nham!", "Ele gosta!", "Esta com fome!", "Precisa de banho!",
@@ -358,7 +363,8 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "Ligacao perdida... a tentar", "faltam %u:%02u", "A troca parece incompleta",
     "Troca feita, sem confirmacao", "(tens %s)", "5 minutos sem ligacao", "Olha para o outro ecra:",
     "feita: %s   incompleta: %s", "DESFAZER", "MANTER", "ficas com %s", "recebes %s",
-    "Nao pode ser desfeito", "Viste a outra consola?", "Trocar qual?", "EQUIPA", "toca: mudar", },
+    "Nao pode ser desfeito", "Viste a outra consola?", "Trocar qual?", "EQUIPA", "toca: mudar",
+    "SACO DE BOXE", "REFLEXOS", "BOLA", "APANHA BAGAS", "ALEGRIA", "LACO", "MAX", "APANHADAS: %u", "+%u alegria  +%u laco", "ARRASTA PARA APANHAR", },
 };
 
 // Nombres de medalla en sus tres longitudes [idioma][medalla].

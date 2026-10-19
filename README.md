@@ -248,15 +248,26 @@ While **awake**:
   favorite flavor** → +35 FOOD, +10 JOY, only −1 fitness, ♥, bond, and it gets
   revealed.
 - 🍬 **Candy:** +10 FOOD, +12 JOY, but **−12 fitness** (fattening).
-- ⚽ **Play / minigame:** **+5 JOY, plus 2 per rally** (max +35), −ENE,
-  **+1 fitness per 5 rallies** (max +4 a session). Pure happiness — it trains nothing, so playing is never a stat grind.
-  Leaving early keeps what you earned.
-- 🎯 **Reaction test:** a target appears, tap it before it shrinks away. Trains
-  **SPEED**; the window tightens as you go. +1 fitness per 10 hits (max +4).
-- 🥊 **Training bag:** trains **STRENGTH** (~4 hits = 1 pt, cap +18/session), tires it.
-  +1 fitness per 10 hits (max +4).
+- 🏋️ **Training menu** (the dumbbell): a list of **games**, each row naming
+  what it raises and how far along those stats already are. A session pays at
+  most **18 training points**; a game that trains **two** stats splits them
+  evenly (9 + 9), so it's the same total, divided. Leaving a game early keeps what
+  you earned. Every game is care: it restarts the 8-hour window.
+  - 🥊 **Punching bag** — **STRENGTH** (~4 hits = 1 pt), tires it. +1 fitness
+    per 10 hits (max +4).
+  - 🎯 **Reaction test** — **SPEED**: tap the target before it shrinks away; the
+    window tightens as you go. +1 fitness per 10 hits (max +4).
+  - ⚽ **Ball game** — **DEFENCE** (2 rallies = 1 pt), plus a little joy
+    (**+3, +1 per 2 rallies**, max +13). +1 fitness per 5 rallies (max +4).
+  - 🍓 **Berry Catch** — **JOY + BOND**: drag the basket for 20 s, catch berries,
+    dodge rocks (a rock costs a point; a miss costs nothing). Pays **+6 joy, +2
+    per berry** (max **+30**) and **+1 bond per 8 berries** (+1 to +3), and makes
+    petting fresh again.
 - 🫧 **Bath:** clears poops, HYG → 100.
-- 👆 **Pet it:** +5 JOY + bond.
+- 👆 **Pet it:** wears off. Each tap gives **+10, +8, +6, +4, +2, then 0** JOY
+  (and +1 bond while it still gives joy), until a joy/bond game (Berry Catch)
+  makes it fresh again. Petting doesn't restart the 8-hour window: it's
+  affection, not feeding.
 - 🌙 **Sleep:** rest — ENE **+6/min**, FOOD and JOY fall **1 every 18 min**
   and HYG **1 every 24 min**, with floors (FOOD 30 / JOY 35 / HYG 45). Sleep
   doesn't count toward the 8-hour window. No poops, no slip-ups, can't run away while

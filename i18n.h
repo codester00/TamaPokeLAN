@@ -211,6 +211,16 @@ enum StrId : uint8_t {
   S_TRADE_PICK,
   S_TRADE_PARTYLBL, // picker hub: showing the party
   S_TRADE_HUBHINT, // picker hub: tap cycles party / box pages
+  S_GAME_BAG, // training menu: the strength game
+  S_GAME_REACT, // the speed game
+  S_GAME_BALL, // the defence game
+  S_GAME_BERRY, // the joy/bond game
+  S_ST_JOY, // what a game raises
+  S_ST_BOND,
+  S_ST_MAX, // a stat at its ceiling
+  S_CATCH_FMT,
+  S_CATCH_GAIN_FMT, // joy, then bond
+  S_CATCH_HINT,
   STR_COUNT
 };
 

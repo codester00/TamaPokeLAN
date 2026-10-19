@@ -48,6 +48,9 @@ bool tradeAcceptHit(int16_t x, int16_t y);
 bool tradeRevertHit(int16_t x, int16_t y);
 bool tradeKeepHit(int16_t x, int16_t y);
 bool tradeBackHit(int16_t x, int16_t y);
+int trainGameAt(int16_t x, int16_t y);
+bool trainBackHit(int16_t x, int16_t y);
+extern uint8_t trainPage;
 int uiButtonHitR();
 int uiCareArcTop(int i);
 int uiHeaderNameBottom();
@@ -296,6 +299,35 @@ int main(){
     int backTop = -1;
     for (int y = 0; y < 466 && backTop < 0; y++) if (tradeBackHit(233, (int16_t)y)) backTop = y;
     ck(backTop - accBottom >= 20, "trade: a dead band between ACCEPT/CLOSE and the back zone");
+  }
+
+  // The training list's rows (v3.34), measured off trainGameAt(): finger-sized,
+  // on the glass, and a dead band above the back zone.
+  {
+    const int FINGER = uiTapFinger();
+    trainPage = 0;
+    bool ok = true;
+    int lastBottom = -1;
+    for (int g = 0; g < 3; g++) {
+      int x0 = 999, y0 = 999, x1 = -1, y1 = -1;
+      for (int y = 0; y < 466; y++)
+        for (int x = 0; x < 466; x++)
+          if (trainGameAt((int16_t)x, (int16_t)y) == g) {
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+      if (x1 < 0 || y1 - y0 + 1 < FINGER) ok = false;
+      const int cx[4] = { x0, x1, x0, x1 }, cy[4] = { y0, y0, y1, y1 };
+      for (int k = 0; k < 4; k++)
+        if ((cx[k] - 233) * (cx[k] - 233) + (cy[k] - 233) * (cy[k] - 233) > 233 * 233) ok = false;
+      if (y1 > lastBottom) lastBottom = y1;
+    }
+    ck(ok, "training: every game row is finger-sized and on the glass");
+    int backTop = -1;
+    for (int y = 0; y < 466 && backTop < 0; y++) if (trainBackHit(233, (int16_t)y)) backTop = y;
+    ck(backTop - lastBottom >= 20, "training: a dead band between the last row and the back zone");
   }
 
   // The two upper care arcs once ran behind the Pokemon's name. Ask both

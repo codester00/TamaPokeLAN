@@ -570,6 +570,7 @@ void Pet::newEgg() {
   ceremony = CER_NONE;
   neglectTicks = 0;
   unattended = 0;     // a different creature: a fresh grace window
+  petStep = 0;
   weight = WEIGHT_START;
   speciesId = -1;
   prevSpeciesId = -1;
@@ -766,6 +767,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   ceremony = CER_NONE;
   neglectTicks = 0;
   unattended = 0;     // a different creature: a fresh grace window
+  petStep = 0;
   speciesId = m.dex;
   prevSpeciesId = -1;
   eggTaps = 0;
@@ -845,6 +847,7 @@ bool Pet::switchTo(const PartyMon &m) {
   ceremony = CER_NONE;
   neglectTicks = 0;
   unattended = 0;     // a different creature: a fresh grace window
+  petStep = 0;
   speciesId = m.dex;
   prevSpeciesId = -1;
   eggTaps = 0;
@@ -1198,9 +1201,12 @@ int Pet::careBonus() const {
 }
 
 // primer cuidado del dia: avanza la racha y afianza el vinculo
-void Pet::registerCare() {
+void Pet::registerCare(bool restartsWindow) {
   if (isEgg() || ceremony != CER_NONE) return;
-  unattended = 0;   // every care action restarts the 8-hour grace window
+  // Every care action restarts the 8-hour grace window -- except petting, or
+  // tapping the creature every few hours would hold off neglect forever
+  // without ever feeding it.
+  if (restartsWindow) unattended = 0;
   uint32_t d = today();
   if (d == 0 || d == lastCareDay) return;  // sin reloj, o ya conto hoy
   if (lastCareDay == 0 || d == lastCareDay + 1) {
@@ -1852,7 +1858,8 @@ uint8_t Pet::playResult(uint8_t score) {
   uint16_t v = (uint16_t)trDef + gain;
   trDef = v > trMaxDef() ? trMaxDef() : (uint8_t)v;
   gain = trDef - before;
-  joy = clamp100(joy + 5 + (score > 15 ? 30 : score * 2));
+  // Trimmed in v3.34 so the joy/bond games are where happiness comes from.
+  joy = clamp100(joy + 3 + (score > 20 ? 10 : score / 2));
   energy = dropTo(energy, 10 + score / 2, 5);
   fullness = dropTo(fullness, 5, 5);
   uint8_t burn = score / 5;
@@ -2030,10 +2037,62 @@ void Pet::clean() {
 void Pet::caress() {
   if (ceremony != CER_NONE) return;
   if (isEgg() || sleeping) return;
-  joy = clamp100(joy + 5);
-  heartUntil = millis() + HEART_MS;
-  addBond(1);
+  static const uint8_t STEPS[PET_JOY_STEP_COUNT] = PET_JOY_STEPS;
+  uint8_t g = STEPS[petStep < PET_JOY_STEP_COUNT ? petStep : PET_JOY_STEP_COUNT - 1];
+  if (petStep < PET_JOY_STEP_COUNT - 1) petStep++;
+  if (g) {                        // worn out: no heart, no joy, no bond
+    joy = clamp100(joy + g);
+    heartUntil = millis() + HEART_MS;
+    addBond(1);
+  }
+  registerCare(false);            // the daily streak, but not the grace window
+}
+
+uint8_t Pet::playJoyGame(uint8_t score) {
+  if (ceremony != CER_NONE || isEgg()) return 0;
+  // 6 for turning up, 2 more per point, to the cap; bond 1 + 1 per 8 points.
+  uint16_t g = 6 + (uint16_t)score * 2;
+  if (g > JOYGAME_JOY_MAX) g = JOYGAME_JOY_MAX;
+  uint8_t before = joy;
+  joy = clamp100(joy + g);
+  uint8_t b = 1 + score / 8;
+  addBond(b > JOYGAME_BOND_MAX ? JOYGAME_BOND_MAX : b);
+  petStep = 0;                    // petting is fresh again
+  energy = dropTo(energy, 5, 5);
+  fullness = dropTo(fullness, 3, 5);
+  if (score >= 5) heartUntil = millis() + HEART_MS;
   registerCare();
+  save();
+  return joy - before;
+}
+
+uint8_t Pet::trainSplit(uint8_t mask, uint8_t points) {
+  if (ceremony != CER_NONE || isEgg()) return 0;
+  if (points > TRAIN_SESSION_MAX) points = TRAIN_SESSION_MAX;
+  uint8_t *stat[3] = { &trAtk, &trDef, &trSpe };
+  const uint8_t cap[3] = { trMaxAtk(), trMaxDef(), trMaxSpe() };
+  uint8_t n = 0;
+  for (int i = 0; i < 3; i++) if (mask & (1 << i)) n++;
+  if (!n) return 0;
+  uint8_t share = points / n, extra = points % n, gained = 0;
+  for (int i = 0; i < 3; i++) {
+    if (!(mask & (1 << i))) continue;
+    uint8_t add = share + (extra ? 1 : 0);   // a remainder goes to the first stats
+    if (extra) extra--;
+    uint16_t v = (uint16_t)*stat[i] + add;
+    uint8_t now = v > cap[i] ? cap[i] : (uint8_t)v;
+    gained += now - *stat[i];
+    *stat[i] = now;
+  }
+  // The same costs as the single-stat games: it tires, it works up an appetite.
+  energy = dropTo(energy, 10, 5);
+  fullness = dropTo(fullness, 5, 5);
+  loseWeight(points / 5 > 4 ? 4 : points / 5);
+  joy = clamp100(joy + 4);
+  addBond((uint8_t)(2 + gained / 6));
+  registerCare();
+  save();
+  return gained;
 }
 
 void Pet::eggTap() {
@@ -2084,7 +2143,7 @@ bool Pet::saveCoreSnapshot() {
   memcpy(buf + PET_TAIL_UID, &uid, sizeof(CreatureUid));
   buf[PET_TAIL_FLAGS] = tradeEvo ? PMON_TRADE_EVO : 0;
   ckptWr16(buf + PET_TAIL_FLAGS + 1, unattended);
-  buf[PET_TAIL_FLAGS + 3] = 0;   // the petting step (v5); see caress()
+  buf[PET_TAIL_FLAGS + 3] = petStep;   // v5; see caress()
 
   uint16_t total = ckptSeal(buf, PET_BODY, PET_CORE_MAGIC, PET_CORE_VERSION, nextGen);
   const char *key = ckptSlot(nextGen, "petA", "petB");
@@ -2137,6 +2196,7 @@ bool Pet::loadCoreSnapshot() {
   uid = CreatureUid();   // absent in a v1/v2 record: backfillUids() mints one
   tradeEvo = false;      // absent before v4: nothing was ever traded
   unattended = 0;        // absent before v5
+  petStep = 0;
   if (body >= PET_TAIL_MON) {
     size_t monLen = ckptRd16(buf + PET_TAIL_MONLEN);
     // v3: the live creature's ID follows the handover at its STORED length.
@@ -2148,6 +2208,7 @@ bool Pet::loadCoreSnapshot() {
     // v5: untended minutes, so switching off and on does not restart the window.
     // A v4 record reads 0 here (its reserved bytes were zero): a fresh window.
     if (monLen && fl + 3 <= body) unattended = ckptRd16(buf + fl + 1);
+    if (monLen && fl + 4 <= body) petStep = buf[fl + 3] < PET_JOY_STEP_COUNT ? buf[fl + 3] : 0;
     if (monLen && PET_TAIL_MON + monLen <= body) {
       // Prefix rule again: a record from before PartyMon grew lands in the front
       // and the care block keeps its initialisers, which stateVersion 0 already

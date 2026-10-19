@@ -207,10 +207,29 @@ float sackShake = 0;
 uint8_t sackGain = 0;
 bool sackNewHi = false;
 
-// training submenu (the 5th icon): routes to the trainer for each stat.
-// DEF has no minigame -- it rises on its own from good wellbeing -- so its row
-// is informational and does not respond to a tap.
+// The training menu (the 5th icon): a list of GAMES, each row naming what it
+// raises (v3.34, the owner's design). A game may train one stat, split its
+// points across two (Pet::trainSplit), or raise joy and bond instead. One
+// table, TRAIN_GAMES below, drives the rows, the subtitles and the taps.
 bool trainOpen = false;
+uint8_t trainPage = 0;
+// Berry Catch: drag the basket, catch berries, dodge rocks. A joy/bond game --
+// it is what makes petting fresh again (Pet::playJoyGame).
+bool catchOpen = false;
+uint32_t catchUntil = 0, catchOverUntil = 0, catchNextSpawn = 0;
+float catchBasketX = 233, catchTarget = 233;
+uint16_t catchScore = 0;
+uint8_t catchJoyGain = 0, catchBondGain = 0;
+#define CATCH_MAX 8
+struct CatchThing { float x, y, vy; bool rock, live; };
+CatchThing catchThings[CATCH_MAX];
+#define CATCH_MS 20000UL
+#define CATCH_BASKET_Y 352
+#define CATCH_BASKET_HALF 46
+void startCatch();
+void leaveCatch();
+void catchStep(uint32_t now);
+void renderCatch();
 
 // move picker, opened from the MOVES card page. Most learnsets are level 0, so
 // a level-up "you learned a move" prompt would almost never fire -- the moveset
@@ -729,13 +748,6 @@ static inline bool btlCellHit(int i, int16_t x, int16_t y) {
   return x >= BTL_HIT_X0(i) && x <= BTL_HIT_X1(i) &&
          y >= BTL_HIT_Y0(i) && y <= BTL_HIT_Y1(i);
 }
-#define TRAIN_X 73
-#define TRAIN_Y 96
-#define TRAIN_W 320
-#define TRAIN_H 274
-#define TRAIN_ROW_H 56
-#define TRAIN_ROW_GAP 8
-#define TRAIN_ROW_Y(i) (TRAIN_Y + 54 + (i) * (TRAIN_ROW_H + TRAIN_ROW_GAP))
 
 // las 9 especies con sprite propio en flash (respaldo sin SD): dex -> indice
 int flashIdxForDex(int16_t dex) {
@@ -1200,7 +1212,7 @@ void loop() {
   // 85 ms en juego/saco: margen seguro para que el redibujado no pise el envio
   // DMA del frame anterior (a 40-65 ms solapaba y causaba flashes negros; con
   // sprites grandes el dibujo tarda mas, asi que se deja colchon)
-  if (now - lastRender >= (uint32_t)((gameOpen || sackOpen || spdOpen) ? 85 : 100)) {
+  if (now - lastRender >= (uint32_t)((gameOpen || sackOpen || spdOpen || catchOpen) ? 85 : 100)) {
     lastRender = now;
     render();
   }
@@ -1617,6 +1629,18 @@ void handleTouch() {
   int16_t x, y;
   bool pressed = touch.getPoint(&x, &y, 1) > 0;
 
+  // Berry Catch: the basket follows the finger for as long as it is down; a
+  // press in the top strip leaves, keeping what was caught (same as the bag).
+  if (catchOpen) {
+    if (pressed) {
+      lastInteract = millis();
+      if (!wasPressed && y < 72) leaveCatch();
+      else catchTarget = x;
+    }
+    wasPressed = pressed;
+    return;
+  }
+
   // saco de entrenamiento: cada toque cuenta al instante (aporrear rapido)
   if (sackOpen) {
     if (pressed && !wasPressed) {
@@ -1754,6 +1778,7 @@ void onSwipeV(int dir) {
   // the header tap no longer could once the ball became hittable up there.
   if (gameOpen) { leaveGame(); return; }
   if (sackOpen) { leaveSack(); return; }
+  if (catchOpen) { leaveCatch(); return; }
   if (spdOpen)  { leaveSpeed(); return; }
   if (kbOpen || pet.ceremony) return;
   if (clockOpen) { if (back) clockOpen = false; return; }
@@ -2339,20 +2364,7 @@ void onTap(int16_t x, int16_t y) {
     return;   // modal: nothing else on screen responds until it is answered
   }
   if (trainOpen) {
-    bool inPanel = (x >= TRAIN_X && x <= TRAIN_X + TRAIN_W &&
-                    y >= TRAIN_Y && y <= TRAIN_Y + TRAIN_H);
-    if (!inPanel) { trainOpen = false; return; }   // tap outside = back to the pet
-    for (int i = 0; i < 3; i++) {   // all three train something now
-      int ry = TRAIN_ROW_Y(i);
-      if (x < TRAIN_X + 18 || x > TRAIN_X + TRAIN_W - 18) continue;
-      if (y < ry || y > ry + TRAIN_ROW_H) continue;
-      sfxPlay(SFX_TAP);
-      trainOpen = false;
-      if (i == 0) startSack();
-      else if (i == 1) startSpeedGame();
-      else startGame();          // the ball game trains DEF
-      return;
-    }
+    trainTap(x, y);
     return;
   }
   // The menu is modal and has three independent ways out: the CLOSE row, a tap
@@ -2533,7 +2545,7 @@ void onTap(int16_t x, int16_t y) {
       if (i == BTN_FOOD) feedMenuUntil = millis() + 6000;
       else if (i == BTN_LIGHT) pet.toggleLight();
       else if (i == BTN_BATH) startBath();
-      else trainOpen = true;
+      else { trainOpen = true; trainPage = 0; }
       return;
     }
   }
@@ -2728,7 +2740,7 @@ uint8_t uiCurrentScreen() {
   if (martOpen) return SCR_MART;
   if (gymOpen) return gymPick ? SCR_GYMPICK : SCR_GYM;
   if (pet.hasLearnOffer()) return SCR_LEARN;
-  if (gameOpen || sackOpen || spdOpen) return SCR_GAME;
+  if (gameOpen || sackOpen || spdOpen || catchOpen) return SCR_GAME;
   if (trainOpen) return SCR_TRAIN;
   if (menuOpen) return SCR_MENU;
   return SCR_MAIN;
@@ -2823,6 +2835,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_BAGSCR:  p = &bagPage;     n = bagPages(); break;
     case SCR_MART:    p = &martPage;    n = martPages(); break;
     case SCR_CARD:    p = &cardPage;    n = CARD_PAGES; break;
+    case SCR_TRAIN:   p = &trainPage;   n = trainPages(); break;
     case SCR_MOVEPICK: {
       uint8_t all[64];
       uint8_t k = learnableList(all, sizeof(all));
@@ -3110,6 +3123,10 @@ void render() {
   }
   if (sackOpen) {
     renderSack();
+    return;
+  }
+  if (catchOpen) {
+    renderCatch();
     return;
   }
   if (spdOpen) {
@@ -7454,46 +7471,257 @@ static uint8_t trainPct(uint8_t cur, uint8_t cap) {
   return cap ? (uint8_t)((uint16_t)cur * 100 / cap) : 0;
 }
 
+// ---------- the training menu ----------
+#define TR_JOY 0x08   // display only: what a joy/bond game raises
+#define TR_BOND 0x10
+struct TrainGame {
+  StrId name;
+  uint8_t mask;       // TR_STR / TR_DEF / TR_SPE, or TR_JOY | TR_BOND
+  void (*start)();
+};
+// Order is the menu's order. A new game is one row here.
+static const TrainGame TRAIN_GAMES[] = {
+  { S_GAME_BAG,   TR_STR,          startSack },
+  { S_GAME_REACT, TR_SPE,          startSpeedGame },
+  { S_GAME_BALL,  TR_DEF,          startGame },
+  { S_GAME_BERRY, TR_JOY | TR_BOND, startCatch },
+};
+#define TRAIN_GAME_COUNT (sizeof(TRAIN_GAMES) / sizeof(TRAIN_GAMES[0]))
+#define TRAIN_PER_PAGE 3
+#define TRAIN_LIST_Y 80
+#define TRAIN_LIST_H UI_TAP_FINGER
+#define TRAIN_LIST_GAP 6
+#define TRAIN_LIST_ROW_Y(i) (TRAIN_LIST_Y + (i) * (TRAIN_LIST_H + TRAIN_LIST_GAP))
+#define TRAIN_BACK_ZONE_Y 396
+#define TRAIN_BACK_LABEL_Y 404
+static_assert(TRAIN_LIST_ROW_Y(TRAIN_PER_PAGE - 1) + TRAIN_LIST_H + 20 <= TRAIN_BACK_ZONE_Y,
+              "a dead band between the last row and the back zone");
+uint8_t trainPages() { return (uint8_t)((TRAIN_GAME_COUNT + TRAIN_PER_PAGE - 1) / TRAIN_PER_PAGE); }
+uint8_t trainGameCount() { return (uint8_t)TRAIN_GAME_COUNT; }
+
+// The rectangle of row i on the current page, asked of the round panel rather
+// than assumed: a box's CORNERS are what leave the glass.
+void trainRowRect(int i, int *x, int *y, int *w, int *h) {
+  int ry = TRAIN_LIST_ROW_Y(i);
+  // One width for every row: the narrowest the panel allows across the whole
+  // list, which also keeps the middle row clear of the rim scrollbar.
+  int half = uiSafeHalfWidthFor(TRAIN_LIST_ROW_Y(0),
+                                TRAIN_LIST_ROW_Y(TRAIN_PER_PAGE - 1) + TRAIN_LIST_H) - 12;
+  if (x) *x = CX - half;
+  if (y) *y = ry;
+  if (w) *w = 2 * half;
+  if (h) *h = TRAIN_LIST_H;
+}
+// Which game a tap lands on, or -1.
+int trainGameAt(int16_t x, int16_t y) {
+  for (int i = 0; i < TRAIN_PER_PAGE; i++) {
+    int idx = trainPage * TRAIN_PER_PAGE + i;
+    if (idx >= (int)TRAIN_GAME_COUNT) break;
+    int rx, ry, rw, rh;
+    trainRowRect(i, &rx, &ry, &rw, &rh);
+    if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) return idx;
+  }
+  return -1;
+}
+bool trainBackHit(int16_t x, int16_t y) { (void)x; return y >= TRAIN_BACK_ZONE_Y; }
+// The centre of row i of the current page, for tests that tap a game: asked of
+// the firmware, never retyped (CLAUDE.md § 3, a test's own copy of a layout).
+void trainRowCenter(int i, int *x, int *y) {
+  int rx, ry, rw, rh;
+  trainRowRect(i, &rx, &ry, &rw, &rh);
+  if (x) *x = rx + rw / 2;
+  if (y) *y = ry + rh / 2;
+}
+
+// "STRENGTH 45% + SPEED 80%", or "JOY + BOND": what a game raises, and how
+// far along each trained stat already is.
+static void trainSubtitle(uint8_t mask, char *out, size_t n) {
+  out[0] = 0;
+  struct { uint8_t bit; StrId name; uint8_t cur, cap; } part[] = {
+    { TR_STR, S_TR_ATK, pet.trAtk, pet.trMaxAtk() },
+    { TR_SPE, S_TR_SPE, pet.trSpe, pet.trMaxSpe() },
+    { TR_DEF, S_TR_DEF, pet.trDef, pet.trMaxDef() },
+    { TR_JOY, S_ST_JOY, 0, 0 },
+    { TR_BOND, S_ST_BOND, 0, 0 },
+  };
+  for (auto &p : part) {
+    if (!(mask & p.bit)) continue;
+    char one[28];
+    if (p.cap) {
+      uint8_t pct = trainPct(p.cur, p.cap);
+      if (pct >= 100) snprintf(one, sizeof(one), "%s %s", T(p.name), T(S_ST_MAX));
+      else snprintf(one, sizeof(one), "%s %u%%", T(p.name), (unsigned)pct);
+    } else {
+      snprintf(one, sizeof(one), "%s", T(p.name));
+    }
+    size_t l = strlen(out);
+    snprintf(out + l, n - l, "%s%s", l ? " + " : "", one);
+  }
+}
+
 void renderTrain() {
-  for (int y = 0; y < 466; y += 2)
-    gfx->drawFastHLine(0, y, 466, gNight ? 0x0000 : 0x2104);
-
-  gfx->fillRoundRect(TRAIN_X, TRAIN_Y, TRAIN_W, TRAIN_H, 18, UI_WHITE);
-  gfx->drawRoundRect(TRAIN_X, TRAIN_Y, TRAIN_W, TRAIN_H, 18, UI_INK);
-
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(2);
-  gfx->setCursor(CX - (int)strlen(T(S_TRAIN)) * 6, TRAIN_Y + 20);
+  gfx->setCursor(CX - (int)strlen(T(S_TRAIN)) * 6, 44);
   gfx->print(T(S_TRAIN));
-
-  const char *lbl[3] = { T(S_TR_ATK), T(S_TR_SPE), T(S_TR_DEF) };
-  uint8_t cur[3] = { pet.trAtk, pet.trSpe, pet.trDef };
-  uint8_t cap[3] = { pet.trMaxAtk(), pet.trMaxSpe(), pet.trMaxDef() };
-
-  for (int i = 0; i < 3; i++) {
-    int y = TRAIN_ROW_Y(i);
-    bool passive = false;      // every row opens a game now, DEF included
-    gfx->fillRoundRect(TRAIN_X + 18, y, TRAIN_W - 36, TRAIN_ROW_H, 12,
-                       passive ? UI_TRACK : UI_BG_DAY);
-    gfx->drawRoundRect(TRAIN_X + 18, y, TRAIN_W - 36, TRAIN_ROW_H, 12, UI_INK);
+  for (int i = 0; i < TRAIN_PER_PAGE; i++) {
+    int idx = trainPage * TRAIN_PER_PAGE + i;
+    if (idx >= (int)TRAIN_GAME_COUNT) break;
+    const TrainGame &g = TRAIN_GAMES[idx];
+    int rx, ry, rw, rh;
+    trainRowRect(i, &rx, &ry, &rw, &rh);
+    bool joyGame = g.mask & (TR_JOY | TR_BOND);
+    gfx->fillRoundRect(rx, ry, rw, rh, 14, joyGame ? UI_BG_DAY : UI_WHITE);
+    gfx->drawRoundRect(rx, ry, rw, rh, 14, UI_INK);
     gfx->setTextColor(UI_INK);
     gfx->setTextSize(2);
-    gfx->setCursor(TRAIN_X + 32, y + 10);
-    gfx->print(lbl[i]);
-
-    uint8_t pct = trainPct(cur[i], cap[i]);
-    int bx = TRAIN_X + 32, bw = TRAIN_W - 64, bh = 12, by = y + 34;
-    gfx->fillRoundRect(bx, by, bw, bh, 4, UI_TRACK);
-    int fw = (bw - 4) * pct / 100;
-    if (fw > 0)
-      gfx->fillRoundRect(bx + 2, by + 2, fw, bh - 4, 3, pct >= 100 ? UI_BAR_OK : UI_BAR_WARN);
+    gfx->setCursor(CX - (int)strlen(T(g.name)) * 6, ry + 24);
+    gfx->print(T(g.name));
+    char sub[64];
+    trainSubtitle(g.mask, sub, sizeof(sub));
+    gfx->setTextColor(joyGame ? UI_BAR_BAD : UI_INK_SOFT);
+    gfx->setTextSize(1);
+    gfx->setCursor(CX - (int)strlen(sub) * 3, ry + 58);
+    gfx->print(sub);
   }
-
-  gfx->setTextColor(UI_INK);
-  gfx->setTextSize(1);
-  gfx->setCursor(CX - (int)strlen(T(S_TR_DEF_HINT)) * 3, TRAIN_Y + TRAIN_H - 22);
-  gfx->print(T(S_TR_DEF_HINT));
+  gfx->setTextColor(UI_INK_SOFT);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(T(S_BACK)) * 6, TRAIN_BACK_LABEL_Y);
+  gfx->print(T(S_BACK));
+  uiChrome();     // the rim scrollbar: the list pages with a rim drag
   gfx->flush();   // without this the panel never updates and the screen freezes
+}
+
+void trainTap(int16_t x, int16_t y) {
+  int idx = trainGameAt(x, y);
+  if (idx >= 0) {
+    sfxPlay(SFX_TAP);
+    trainOpen = false;
+    TRAIN_GAMES[idx].start();
+    return;
+  }
+  if (trainBackHit(x, y)) { sfxPlay(SFX_TAP); trainOpen = false; }
+}
+
+// ---------- Berry Catch (joy + bond) ----------
+void startCatch() {
+  if (pet.isEgg() || pet.sleeping || pet.ceremony) return;
+  catchOpen = true;
+  catchUntil = millis() + CATCH_MS;
+  catchOverUntil = 0;
+  catchNextSpawn = millis() + 400;
+  catchBasketX = catchTarget = CX;
+  catchScore = 0;
+  for (auto &t : catchThings) t.live = false;
+}
+
+static void catchFinish() {
+  uint8_t b0 = pet.bond;
+  catchJoyGain = pet.playJoyGame(catchScore > 255 ? 255 : (uint8_t)catchScore);
+  catchBondGain = pet.bond - b0;
+  sfxPlay(catchScore >= 10 ? SFX_MEDAL : SFX_LEVEL);
+  catchOverUntil = millis() + 3500;
+}
+
+// Leaving early keeps what was caught, like every other game.
+void leaveCatch() {
+  if (!catchOverUntil) pet.playJoyGame(catchScore > 255 ? 255 : (uint8_t)catchScore);
+  catchOpen = false;
+}
+
+// One frame of the game. Public so a test can drive it without a panel.
+void catchStep(uint32_t now) {
+  if (catchOverUntil) return;
+  if (now >= catchUntil) { catchFinish(); return; }
+  float d = catchTarget - catchBasketX;                // the basket eases after the finger
+  catchBasketX += d > 18 ? 18 : (d < -18 ? -18 : d);
+  if (catchBasketX < 130) catchBasketX = 130;
+  if (catchBasketX > 336) catchBasketX = 336;
+  // Faster as the clock runs down: a spawn every 700 ms at the start, 380 at the end.
+  uint32_t left = catchUntil - now;
+  if (now >= catchNextSpawn) {
+    for (auto &t : catchThings) {
+      if (t.live) continue;
+      t.live = true;
+      t.x = 130 + random(207);
+      t.y = 70;
+      t.vy = 4.0f + (float)(CATCH_MS - left) / CATCH_MS * 4.0f;
+      t.rock = random(100) < 22;
+      break;
+    }
+    catchNextSpawn = now + 380 + left * 320 / CATCH_MS;
+  }
+  for (auto &t : catchThings) {
+    if (!t.live) continue;
+    t.y += t.vy;
+    if (t.y >= CATCH_BASKET_Y - 8 && t.y <= CATCH_BASKET_Y + 14 &&
+        fabsf(t.x - catchBasketX) <= CATCH_BASKET_HALF) {
+      t.live = false;
+      if (t.rock) { if (catchScore) catchScore--; sfxPlay(SFX_DENY); }
+      else { catchScore++; sfxPlay(SFX_TAP); }
+    } else if (t.y > 410) {
+      t.live = false;                                   // missed: no penalty
+    }
+  }
+}
+
+void renderCatch() {
+  uint32_t now = millis();
+  drawGameScene();
+  bool night = sceneHour() < 6 || sceneHour() >= 20;
+  uint16_t ink = night ? UI_INK_NIGHT : UI_INK;
+  if (catchOverUntil) {
+    if (now > catchOverUntil) { catchOpen = false; return; }
+    char b[24];
+    snprintf(b, sizeof(b), T(S_CATCH_FMT), catchScore);
+    gfx->setTextColor(ink);
+    gfx->setTextSize(3);
+    gfx->setCursor(CX - (int)strlen(b) * 9, 160);
+    gfx->print(b);
+    char g[40];
+    snprintf(g, sizeof(g), T(S_CATCH_GAIN_FMT), catchJoyGain, catchBondGain);
+    gfx->setTextColor(UI_BAR_BAD);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(g) * 6, 220);
+    gfx->print(g);
+    gfx->flush();
+    return;
+  }
+  catchStep(now);
+  for (auto &t : catchThings) {
+    if (!t.live) continue;
+    if (t.rock) {
+      gfx->fillCircle((int)t.x, (int)t.y, 14, C565(0x80, 0x7a, 0x74));
+      gfx->drawCircle((int)t.x, (int)t.y, 14, ink);
+    } else {
+      gfx->fillCircle((int)t.x, (int)t.y, 13, C565(0xd8, 0x3a, 0x4a));
+      gfx->fillCircle((int)t.x - 4, (int)t.y - 4, 3, UI_WHITE);
+      gfx->fillRect((int)t.x - 2, (int)t.y - 19, 4, 7, C565(0x3a, 0x8a, 0x3a));
+    }
+  }
+  int bx = (int)catchBasketX;
+  gfx->fillRoundRect(bx - CATCH_BASKET_HALF, CATCH_BASKET_Y, 2 * CATCH_BASKET_HALF, 26, 8,
+                     C565(0xa8, 0x70, 0x38));
+  gfx->drawRoundRect(bx - CATCH_BASKET_HALF, CATCH_BASKET_Y, 2 * CATCH_BASKET_HALF, 26, 8, ink);
+  gfx->drawFastHLine(bx - CATCH_BASKET_HALF + 4, CATCH_BASKET_Y + 9, 2 * CATCH_BASKET_HALF - 8, ink);
+  char sc[8];
+  snprintf(sc, sizeof(sc), "%u", catchScore);
+  gfx->setTextColor(ink);
+  gfx->setTextSize(4);
+  gfx->setCursor(CX - (int)strlen(sc) * 12, 92);
+  gfx->print(sc);
+  if (CATCH_MS - (catchUntil - now) < 2500) {       // the hint, for the first moments
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(T(S_CATCH_HINT)) * 6, 140);
+    gfx->print(T(S_CATCH_HINT));
+  }
+  uint32_t left = catchUntil > now ? catchUntil - now : 0;
+  int bw = 260, fw = (int)((uint64_t)bw * left / CATCH_MS);
+  gfx->fillRoundRect(CX - bw / 2, 396, bw, 14, 5, UI_TRACK);
+  if (fw > 2) gfx->fillRoundRect(CX - bw / 2, 396, fw, 14, 5, UI_BAR_OK);
+  gfx->flush();
 }
 
 // ---------- the box ----------

@@ -196,6 +196,12 @@ extern bool gShowAllAvatars;
 uint8_t squadCap(uint8_t, bool);
 #include "link.h"
 extern Link lan;
+extern bool trainOpen; extern uint8_t trainPage;
+extern uint16_t catchScore; extern uint32_t catchUntil, catchNextSpawn;
+extern float catchBasketX, catchTarget;
+struct CatchThing { float x, y, vy; bool rock, live; };
+extern CatchThing catchThings[];
+void startCatch();
 #include "trade.h"
 extern Trade trade;
 extern bool tradePicking;
@@ -290,7 +296,24 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
   }
   else if (!strcmp(screen, "clock"))   clockOpen = true;
   else if (!strcmp(screen, "menu"))    menuOpen = true;
-  else if (!strcmp(screen, "train"))   trainOpen = true;
+  else if (!strcmp(screen, "train") || !strcmp(screen, "train2")) {
+    trainOpen = true;
+    trainPage = !strcmp(screen, "train2") ? 1 : 0;
+    pet.trAtk = pet.trMaxAtk() * 45 / 100; pet.trSpe = pet.trMaxSpe() * 80 / 100; pet.trDef = pet.trMaxDef();
+  }
+  else if (!strcmp(screen, "catch")) {
+    // Mid-game, as a player would see it: a few berries and a rock in the air.
+    startCatch();
+    catchScore = 7;
+    catchUntil = millis() + 9000;      // past the opening hint
+    catchBasketX = catchTarget = 200;
+    const float xs[4] = { 170, 260, 320, 215 }, ys[4] = { 150, 230, 300, 330 };
+    for (int i = 0; i < 4; i++) {
+      catchThings[i].live = true; catchThings[i].x = xs[i]; catchThings[i].y = ys[i];
+      catchThings[i].vy = 0; catchThings[i].rock = (i == 2);
+    }
+    catchNextSpawn = millis() + 100000;
+  }
   else if (!strcmp(screen, "moves"))   { cardOpen = true; cardPage = 2; }
   else if (!strcmp(screen, "movepick")) { movePickOpen = true; }
   else if (!strcmp(screen, "battle2")) { startBattle(9, 50); }

@@ -29,6 +29,7 @@ extern bool cardOpen, galleryOpen, clockOpen, kbOpen, menuOpen, partyOpen, party
 extern bool trainOpen, movePickOpen, battleOpen, gymOpen, playerOpen, boxOpen, pickOpen;
 extern bool exploreOpen;
 extern bool martOpen;
+extern uint8_t trainPage;
 extern bool btlWild;
 extern uint8_t cardPage, gymPage, playerPage, movePickPage, boxPage, pickPage, partyDetail;
 extern uint8_t martPage;
@@ -110,6 +111,9 @@ int main(){
   // The Mart's catalogue is the static item table, not the bag -- always the
   // same length regardless of what is carried, so no seeding is needed.
   clearAll(); martOpen=true;                      check("mart",     &martOpen,     &martPage);
+  // The training menu lists GAMES (v3.34) and pages once there are more than
+  // fit -- four today, three a page.
+  clearAll(); trainOpen=true;                     check("training", &trainOpen,    &trainPage);
   // The Pokedex pages within ONE region and changes region on a vertical swipe.
   // Every species must be reachable: it was capped at 10 flat pages when the dex
   // was 151 long, which silently hid everything past 160 once it grew to 386.
