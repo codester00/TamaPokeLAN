@@ -619,6 +619,7 @@ void Pet::drainMinute(bool offline) {
   const uint8_t wFloor = offline ? WEIGHT_OFFLINE_FLOOR : WEIGHT_MIN;
   if (sleeping) {   // rest: energy comes back, the rest falls slowly to its floors
     energy = clamp100(energy + 6);
+    if (sleepAuto == SLEEP_NAP && energy >= 100) { napWake(); return; }
     if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1, wFloor);
     if (ageMinutes % SLEEP_DRAIN_MIN == 0) {
       fullness = dropTo(fullness, 1, 30);
@@ -1994,6 +1995,22 @@ bool Pet::isNightHour() const {
   return h >= NIGHT_START || h < NIGHT_END;
 }
 
+bool Pet::isNapHour() const {
+  if (!lastSeenEpoch) return false;    // no clock, no daytime: bed is bedtime
+  int h = (int)((lastSeenEpoch / 3600) % 24);
+  return h >= NAP_START && h < NAP_END;
+}
+
+// The end of a daytime nap: rested, it gets up by itself. Fully cared for, the
+// 8-hour window starts now; otherwise it wakes with no window left at all.
+void Pet::napWake() {
+  sleeping = false;
+  sleepAuto = SLEEP_NONE;
+  graceCheck(true);
+  if (!fullyCared() && unattended < GRACE_MIN) unattended = GRACE_MIN;
+  pendingSave = true;
+}
+
 // Auto-sleep needs the screen off AND the night hours, and is re-checked every
 // tick rather than only on the button, so a device put down at 21:00 nods off
 // at 22:00 and gets up at 06:00 without anyone touching it.
@@ -2040,8 +2057,8 @@ void Pet::toggleLight() {
   if (!sleeping) graceCheck(true);   // waking a rested creature can complete full care
   // The player's hand beats the clock until morning: waking it at 23:00 must
   // not be undone a minute later by the auto-sleep, and neither must putting
-  // it to bed early.
-  sleepAuto = SLEEP_PLAYER;
+  // it to bed early. In the daytime, bed is a nap and ends by itself.
+  sleepAuto = (sleeping && isNapHour()) ? SLEEP_NAP : SLEEP_PLAYER;
   save();
 }
 

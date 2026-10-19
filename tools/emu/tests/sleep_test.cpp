@@ -111,14 +111,15 @@ int main(){
     ck(!p.sleeping, "turning the screen back on is what wakes it");
   }
 
-  // --- the light button still beats both
+  // --- the light button still beats both. In the EVENING: a bed by hand in
+  //     the daytime is a nap that ends by itself (decay_test, section 6b).
   {
-    Pet p; fresh(p, 13);
+    Pet p; fresh(p, 19);
     p.toggleLight();
-    ck(p.sleeping, "the light puts it to bed by hand, in daylight");
+    ck(p.sleeping, "the light puts it to bed by hand, in the evening");
     p.setScreenOff(false);
     ck(p.sleeping, "and neither the screen...");
-    liveMinutes(p, 13, 30);
+    liveMinutes(p, 19, 30);
     ck(p.sleeping, "...nor the clock overrules that");
     p.toggleLight();
     ck(!p.sleeping, "only the light does");

@@ -324,8 +324,19 @@ While **awake**:
   doesn't count toward the 8-hour window. No poops, no slip-ups, can't run away while
   asleep. **Screen off between midnight and 06:00 puts it to sleep**, and it
   stays asleep until you turn the screen back on — it wakes when *you* do, not
-  at a fixed hour. The light button always overrides: a creature you sent to
-  bed stays there regardless of the clock.
+  at a fixed hour. The light button always overrides the screen.
+- 💤 **Naps (light button, 06:00–18:00):** a daytime bed is a **nap**, and the
+  creature **gets up by itself once fully rested** (from tired, about
+  15 minutes) — so you can put it down and go to school.
+  - **Fed, bathed and happy, just tired:** it wakes fully cared for, which
+    starts a fresh **8-hour window**. You come home to a hungry, tired, dirty
+    creature that is awake and glad to see you, with no slip-ups.
+  - **Put down hungry, dirty or unhappy:** it still wakes when rested, but with
+    **no protection left** — the 8-hour window is over and slip-ups count.
+    Neglect before a nap is still neglect.
+  - **Bed after 18:00 is bedtime:** it sleeps until you wake it, whatever the
+    clock says. With the clock never set there's no daytime, so a bed by hand
+    is always bedtime.
 
 ### Eggs & who you get (spawn odds)
 

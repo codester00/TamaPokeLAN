@@ -79,7 +79,16 @@
 // the light button still works by hand).
 #define NIGHT_START 0
 #define NIGHT_END 6
-enum : uint8_t { SLEEP_NONE = 0, SLEEP_AUTO, SLEEP_PLAYER };
+// A NAP (v3.34, the owner's rule): put to bed by hand between NAP_START and
+// NAP_END, the creature wakes by itself once fully rested, so a child can
+// send a tired creature to bed and go to school. If it was fed, bathed and
+// happy, waking fully cared for starts a fresh 8-hour window; if it was not,
+// it wakes with NO protection left -- neglect before a nap is still neglect.
+// Bed by hand after NAP_END is bedtime and lasts until somebody wakes it, and
+// with no clock there is no daytime, so it never naps. Pet::napWake().
+#define NAP_START 6
+#define NAP_END 18
+enum : uint8_t { SLEEP_NONE = 0, SLEEP_AUTO, SLEEP_PLAYER, SLEEP_NAP };
 #define DEF_TRAIN_TICKS 60                 // minutos de bienestar por +1 de DEF
 // Weight. A creature starts at a natural weight rather than 0.
 //   - WEIGHT_MIN is absolute: nothing takes weight below 1, because a creature
@@ -468,6 +477,7 @@ public:
   void play();
   void toggleLight();
   bool isNightHour() const;
+  bool isNapHour() const;     // a bed by hand now is a nap (NAP_START..NAP_END)
   void setScreenOff(bool off);  // the sketch reports the PWR button
   bool screenIsOff = false;
   void dbgTick() { tick(); }
@@ -782,10 +792,11 @@ private:
   uint32_t milestoneUntil = 0; // celebracion de hito de racha
 
   uint32_t today() const { return lastSeenEpoch ? lastSeenEpoch / 86400 : 0; }
-  void registerCare();
+  void registerCare();   // primer cuidado del dia: racha + vinculo
   // Restarts the 8-hour window when every need has just reached CARE_FULL_PCT.
   // The ONE rule for it: care actions, the drain and waking all ask this.
-  void graceCheck(bool careAction = false);   // primer cuidado del dia: racha + vinculo
+  void graceCheck(bool careAction = false);
+  void napWake();        // a daytime nap ends by itself; see NAP_START
   void addBond(uint8_t amt);
   uint8_t rollIV(int bonus) const;  // una tirada 8-31 empujada por el cuidado
   void rollIVs();                   // los 4, con las garantias de legendario/shiny

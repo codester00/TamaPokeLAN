@@ -639,6 +639,14 @@ negative-checked. Layout positions a test needs are functions
   window** -- the owner's rule. `Pet::graceCheck()` is the one place that
   decides: on the rising edge to full care, or on a care action while full.
   `decay_test` negative-checks each half.
+- Naps: a bed by hand between `NAP_START` 06:00 and `NAP_END` 18:00 is
+  `SLEEP_NAP`, and `Pet::napWake()` gets it up at full energy -- the owner's
+  rule, so a child can put a tired creature down and go to school. Waking
+  fully cared for starts a fresh window; waking without full care ENDS it
+  (`unattended = GRACE_MIN`), by the owner's call: neglect before a nap is
+  still neglect. Evening bed and no clock are bedtime, as before. This
+  replaces "a bed by hand is never ended by the clock" for daytime only;
+  `sleep_test`'s light-button case moved to 19:00 for that reason.
 
 ### Done: trading, end to end (2026-10-14, v3.33) -- NOT YET RUN ON TWO BOARDS
 

@@ -20,8 +20,9 @@ void sfxPlay(uint8_t) {}
 static int bad = 0;
 static void ck(bool ok, const char *w) { printf("%s  %s\n", ok ? "PASS" : "FAIL", w); if (!ok) bad++; }
 
-// 13:00, so nothing here is near the night window
-static uint32_t at(uint32_t minutes) { return 13UL * 3600 + 90 + minutes * 60; }
+// 13:00 unless a case moves it, so nothing is near the night window
+static uint32_t baseSec = 13UL * 3600 + 90;
+static uint32_t at(uint32_t minutes) { return baseSec + minutes * 60; }
 
 static void fresh(Pet &p) {
   p.begin();
@@ -157,10 +158,67 @@ int main() {
     live(a, 4 * 60);
     uint8_t awakeFood = a.fullness;
     Pet s; fresh(s); clockMin = 0;
+    baseSec = 20UL * 3600 + 90;      // bed at 20:00 is bedtime, not a nap
+    clockMin = 0;
+    s.lastSeenEpoch = at(0);
     s.toggleLight();                 // put to bed by hand
     live(s, 4 * 60);
+    baseSec = 13UL * 3600 + 90;
     ck(s.sleeping && s.fullness > awakeFood, "four hours asleep cost less food than four awake");
     ck(s.unattended == 0, "and sleeping time does not count as untended");
+  }
+
+  // --- 6b. a DAYTIME NAP (the owner's rule): it wakes by itself when rested
+  {
+    // Fed, bathed and happy, just tired: put it down at 08:00 and go to school.
+    baseSec = 8UL * 3600 + 90;
+    Pet p; fresh(p); clockMin = 0;
+    p.lastSeenEpoch = at(0);
+    p.unattended = 120;
+    p.energy = 20;
+    p.toggleLight();
+    uint32_t woke = 0;
+    for (uint32_t m = 0; m < 60 && p.sleeping; m++) { live(p, 1); woke = m + 1; }
+    printf("      a tired, cared-for creature napped %lu min\n", (unsigned long)woke);
+    ck(!p.sleeping && p.energy == 100, "a daytime nap ends by itself once it is rested");
+    ck(p.unattended <= 1, "waking fully cared for starts a fresh 8-hour window");
+    live(p, 7 * 60);                 // the school day
+    ck(p.careMistakes == 0 && !p.sleeping, "so it is awake, and unpunished, when school is out");
+    ck(p.fullness <= 40 && p.energy <= 40, "and hungry and tired, ready for its trainer");
+  }
+  {
+    // Tired AND hungry: the same nap, but neglect before it is still neglect.
+    baseSec = 8UL * 3600 + 90;
+    Pet p; fresh(p); clockMin = 0;
+    p.lastSeenEpoch = at(0);
+    p.unattended = 60;
+    p.energy = 20;
+    p.fullness = 20;
+    p.toggleLight();
+    for (uint32_t m = 0; m < 60 && p.sleeping; m++) live(p, 1);
+    ck(!p.sleeping, "a hungry creature's nap ends too");
+    ck(p.unattended >= GRACE_MIN, "but it wakes with no protection left");
+    live(p, 7 * 60);
+    ck(p.careMistakes >= 1, "and the school day counts against it");
+  }
+  {
+    // Bed in the evening is bedtime: it stays asleep until somebody wakes it.
+    baseSec = 19UL * 3600 + 90;
+    Pet p; fresh(p); clockMin = 0;
+    p.lastSeenEpoch = at(0);
+    p.energy = 20;
+    p.toggleLight();
+    live(p, 10 * 60);                // to 05:00
+    ck(p.sleeping, "put to bed at 19:00, it is still asleep the next morning");
+    // A daytime nap that ran past the end of the day is still a nap; but a bed
+    // with no clock is never one.
+    Pet q; fresh(q);
+    q.lastSeenEpoch = 0;
+    q.energy = 20;
+    q.toggleLight();
+    for (int m = 0; m < 120; m++) q.dbgTick();
+    ck(q.sleeping, "with no clock there is no daytime: bed is bedtime");
+    baseSec = 13UL * 3600 + 90;
   }
 
   // --- 7. the window survives a reboot (it lives in the checkpoint)
