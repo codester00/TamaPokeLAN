@@ -631,9 +631,16 @@ tier equally likely, level = live pet +-5 (hard: 1-100), shiny flat 1/4096.
 2. **Areas unlock by badge**, per region and per the games' own order.
    Explore picks region -> area. A new paged screen, so it MUST be added to
    `uiRimTarget()` and `swipe_test`.
-3. **Habitat zones for Unova onward** (no decomp): 6-8 zones (grass, forest,
-   cave, mountain, water, urban, night), placed by habitat data where it
-   exists and by type otherwise. NOT VERIFIED, and labelled as such.
+3. **Unova onward: real areas from published data, not invented zones**
+   (owner's call, 2026-10-20). No decomp exists, so source the per-route
+   tables -- species, level range, encounter rate, day/night -- from
+   PokeAPI's location-area encounter data first (machine-readable, already
+   our data source; strong for Gen 5-7: B2W2, XY, USUM), and from Bulbapedia /
+   Serebii location pages where PokeAPI is thin (Galar and Paldea; Paldea is
+   open-world, so use its named areas). Facts only, never copied prose. Same
+   shape and same generator output as the decomp regions, so the game cannot
+   tell them apart; but `verify_*` lists them as NOT VERIFIED, as the Gen 5+
+   gym rosters already are.
 4. **Weighted species inside an area**, not uniform. **Evolved forms only at
    believable levels** (at or above their evolution level). **Hard = live pet
    +5..+15**, not 1-100.
@@ -644,7 +651,9 @@ tier equally likely, level = live pet +-5 (hard: 1-100), shiny flat 1/4096.
    screen's stored region choice if an area index is added.
 
 **B. The clock drifts** (owner's report: ~3 h over a week; ~1 min lag in a
-20-minute test). The panel reads the PCF85063 through `rtcEpoch()`, cached in
+20-minute test). The owner later noted a battery change left the board
+disconnected for a while, which may explain the week-long figure; the
+20-minute lag still needs B1. The panel reads the PCF85063 through `rtcEpoch()`, cached in
 `pet.lastSeenEpoch` every 30 s. MEASURE BEFORE FIXING:
 1. Two cheap software effects can fake a lag: the 30 s cache, and
    `applyClock()` writing seconds = 0 from that stale cache. Together they
