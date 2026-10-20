@@ -187,19 +187,36 @@ int main() {
     ck(p.fullness <= 40 && p.energy <= 40, "and hungry and tired, ready for its trainer");
   }
   {
-    // Tired AND hungry: the same nap, but neglect before it is still neglect.
+    // Tired AND hungry, with 3 hours of the window left: the nap neither
+    // restarts the window nor takes the rest of it away.
     baseSec = 8UL * 3600 + 90;
     Pet p; fresh(p); clockMin = 0;
     p.lastSeenEpoch = at(0);
-    p.unattended = 60;
+    const uint16_t left = 3 * 60;
+    p.unattended = GRACE_MIN - left;
     p.energy = 20;
     p.fullness = 20;
     p.toggleLight();
     for (uint32_t m = 0; m < 60 && p.sleeping; m++) live(p, 1);
     ck(!p.sleeping, "a hungry creature's nap ends too");
-    ck(p.unattended >= GRACE_MIN, "but it wakes with no protection left");
-    live(p, 7 * 60);
-    ck(p.careMistakes >= 1, "and the school day counts against it");
+    ck(p.unattended == GRACE_MIN - left, "and wakes with exactly the window it had left");
+    uint8_t lowestSeen = 100;
+    for (uint32_t m = 0; m < left - 1; m++) { live(p, 1); if (lowest(p) < lowestSeen) lowestSeen = lowest(p); }
+    ck(p.careMistakes == 0 && lowestSeen >= GRACE_FLOOR, "still protected until those 3 hours are up");
+    live(p, 4 * 60);
+    ck(p.careMistakes >= 1, "and once they are, the rest of the school day counts");
+  }
+  {
+    // A window already spent stays spent: a nap is not a top-up.
+    baseSec = 8UL * 3600 + 90;
+    Pet p; fresh(p); clockMin = 0;
+    p.lastSeenEpoch = at(0);
+    p.unattended = GRACE_MIN + 30;
+    p.energy = 20;
+    p.fullness = 20;
+    p.toggleLight();
+    for (uint32_t m = 0; m < 60 && p.sleeping; m++) live(p, 1);
+    ck(!p.sleeping && p.unattended >= GRACE_MIN, "napping past the window does not buy it back");
   }
   {
     // Bed in the evening is bedtime: it stays asleep until somebody wakes it.

@@ -2002,12 +2002,12 @@ bool Pet::isNapHour() const {
 }
 
 // The end of a daytime nap: rested, it gets up by itself. Fully cared for, the
-// 8-hour window starts now; otherwise it wakes with no window left at all.
+// 8-hour window starts now. Otherwise the nap changes nothing: whatever was
+// left of the window is still left, and a window already spent stays spent.
 void Pet::napWake() {
   sleeping = false;
   sleepAuto = SLEEP_NONE;
   graceCheck(true);
-  if (!fullyCared() && unattended < GRACE_MIN) unattended = GRACE_MIN;
   pendingSave = true;
 }
 

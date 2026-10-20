@@ -642,9 +642,9 @@ negative-checked. Layout positions a test needs are functions
 - Naps: a bed by hand between `NAP_START` 06:00 and `NAP_END` 18:00 is
   `SLEEP_NAP`, and `Pet::napWake()` gets it up at full energy -- the owner's
   rule, so a child can put a tired creature down and go to school. Waking
-  fully cared for starts a fresh window; waking without full care ENDS it
-  (`unattended = GRACE_MIN`), by the owner's call: neglect before a nap is
-  still neglect. Evening bed and no clock are bedtime, as before. This
+  fully cared for starts a fresh window; waking without full care leaves the
+  window exactly as it was -- neither restarted nor ended, by the owner's call
+  (an earlier version ended it; `decay_test` fails if either comes back). Evening bed and no clock are bedtime, as before. This
   replaces "a bed by hand is never ended by the clock" for daytime only;
   `sleep_test`'s light-button case moved to 19:00 for that reason.
 

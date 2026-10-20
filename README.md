@@ -331,9 +331,10 @@ While **awake**:
   - **Fed, bathed and happy, just tired:** it wakes fully cared for, which
     starts a fresh **8-hour window**. You come home to a hungry, tired, dirty
     creature that is awake and glad to see you, with no slip-ups.
-  - **Put down hungry, dirty or unhappy:** it still wakes when rested, but with
-    **no protection left** — the 8-hour window is over and slip-ups count.
-    Neglect before a nap is still neglect.
+  - **Put down hungry, dirty or unhappy:** it still wakes when rested, and the
+    nap **changes nothing about the 8-hour window**. With 3 hours of it left,
+    it wakes with those same 3 hours, and slip-ups count once they run out. A
+    window that was already over stays over: a nap is not a top-up.
   - **Bed after 18:00 is bedtime:** it sleeps until you wake it, whatever the
     clock says. With the clock never set there's no daytime, so a bed by hand
     is always bedtime.

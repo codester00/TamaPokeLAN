@@ -83,7 +83,8 @@
 // NAP_END, the creature wakes by itself once fully rested, so a child can
 // send a tired creature to bed and go to school. If it was fed, bathed and
 // happy, waking fully cared for starts a fresh 8-hour window; if it was not,
-// it wakes with NO protection left -- neglect before a nap is still neglect.
+// the nap neither restarts nor ends the window -- whatever was left of it is
+// still left, and nothing more.
 // Bed by hand after NAP_END is bedtime and lasts until somebody wakes it, and
 // with no clock there is no daytime, so it never naps. Pet::napWake().
 #define NAP_START 6
