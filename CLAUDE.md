@@ -16,7 +16,8 @@ Personal, non-commercial fan project. Code MIT; sprites CC BY-NC (PMD SpriteColl
 | `trade.cpp/.h` | Trading protocol (radio-free, testable): pending journal, receipts, reconcile. The design is the header comment |
 | `save.cpp/.h` | `EXPORT`/`IMPORT`: the key-driven save backup (`SAVE_FIELDS`) |
 | `wild.cpp/.h`, `inventory.cpp/.h`, `items.h` | Wild encounters and capture, the bag, Poke Mart prices |
-| `pedometer.cpp/.h` | Software step detector on the QMI8658's raw accelerometer |
+| `pedometer.cpp/.h` | Software step detector on the QMI8658's raw accelerometer; also `pedoTilt()` for Tilt Maze |
+| `sensorlib_guard.h` | Refuses to build against SensorLib 0.5.0 (it boot-loops the board) |
 | `types.h` | Type-effectiveness helpers over the generated 18x18 chart in `dex.h` |
 | `party.cpp/.h` | The 6 retired pets banked by farewell/release (not runaway) |
 | `i18n.cpp/.h` | 6-language string table (ES/EN/FR/DE/IT/PT) |
@@ -340,6 +341,11 @@ dex_data.py" while it did not, so `sprites-sinnoh.pak` could never be built),
 so **Sinnoh had no row in the Pokedex chooser at all** while the gallery cycled
 it happily. Derive the list; never restate it.
 
+**And wearing a STRING ID:** `StrId` was `enum : uint8_t`, and the string table
+passed 256 entries in v3.34 (the hybrid games' strings). The compiler caught it
+as an enumerator out of range -- the lucky case. It is `uint16_t` now; anything
+that stores a string id in a struct must use `StrId`, never `uint8_t`.
+
 **What hides it:** the neighbouring code is often already correct, so the screen
 looks half-right and nobody suspects a width. `SdThumbs::get()` takes an
 `int16_t`, so the gallery and the silhouettes were perfect while the creature on
@@ -604,8 +610,8 @@ rule, threshold and save field stays on `weight`, so nothing stored changed.
 undone on the reboot), `factoryReset()` reports a failed `clear()` and `WIPE`
 says `WIPE FAILED` instead of `DONE`, the IMPORT path's empty-string false
 alarm, and the emulator's `putString()` return value, which differed from the
-hardware's and hid that alarm. The installer was NOT rebuilt: `web/` still
-ships v3.28 and its manifest says so.
+hardware's and hid that alarm. (The installer was not rebuilt at the time;
+`web/` has shipped v3.34 since 2026-10-20 -- see HANDOVER.md § 1e.)
 
 ### Done: training games, petting that wears off, the 8-hour window (v3.34)
 
@@ -639,6 +645,13 @@ negative-checked. Layout positions a test needs are functions
   window** -- the owner's rule. `Pet::graceCheck()` is the one place that
   decides: on the rising edge to full care, or on a care action while full.
   `decay_test` negative-checks each half.
+- **Save format:** the pet checkpoint is `PET_CORE_VERSION` 5. The three bytes
+  v4 reserved after the trade-evolution flag now hold `unattended` (u16) and
+  `petStep` (u8) -- spare bytes the v4 reader already skipped, so 3.33 reads a
+  3.34 save fine. New sleep state `SLEEP_NAP` = 3 rides in the existing
+  `sleepAuto` byte; 3.33 treats it as a bed by hand (asleep until the light).
+  `tools/debugger/tpsave.py` decodes both. An existing creature gets a fresh
+  window on its first 3.34 boot (`unattended` reads 0).
 - Naps: a bed by hand between `NAP_START` 06:00 and `NAP_END` 18:00 is
   `SLEEP_NAP`, and `Pet::napWake()` gets it up at full energy -- the owner's
   rule, so a child can put a tired creature down and go to school. Waking
@@ -648,7 +661,12 @@ negative-checked. Layout positions a test needs are functions
   replaces "a bed by hand is never ended by the clock" for daytime only;
   `sleep_test`'s light-button case moved to 19:00 for that reason.
 
-### Done: trading, end to end (2026-10-14, v3.33) -- NOT YET RUN ON TWO BOARDS
+### Done: trading, end to end (2026-10-14, v3.33) -- trades confirmed between real boards
+
+**Hardware status (2026-10-19):** the owner traded successfully between two
+real boards on v3.33. The dropped-connection recovery (the stuck screen, the
+five-minute window, REVERT/KEEP) has still only run in `trade_test` and
+`trade_ui_test`, not on hardware.
 
 **Built: the protocol** (`trade.h`/`trade.cpp`, `trade_test`) **and the
 firmware half** (`trade_ui_test`): a TRADE button on the LAN screen, one modal
@@ -1204,7 +1222,7 @@ invalidate the ones after it, so a failure early is worth stopping on.
    music loop and the six cues. The volume curve (`500 * vol`) is a guess at
    what sounds linear; expect to tune it.
 5. **LAN, on TWO boards.** `linknow.cpp` has never executed. Pair from the gym
-   chooser's LAN BATTLE button. `linkNowEnd()` prints rx / tx / tx failures /
+   chooser's LAN button (it was LAN BATTLE until v3.34). `linkNowEnd()` prints rx / tx / tx failures /
    packets dropped as another pair's / ring overflows -- read those before
    assuming anything works. Treat the first session as debugging.
 6. **Gen 2/3 sprite streaming**, once `pack_pmd.py` has been run for them. Until
@@ -1657,8 +1675,12 @@ What changed for 386 species:
 
 ### The three drain paths, and why only one had no floor
 
-Worth knowing before touching balance, because the asymmetry cost a player a
-creature:
+**Superseded in part by v3.34:** the awake drain now has a floor too -- 15 for
+`GRACE_MIN` (8 h) after the creature was last fully cared for -- and runs at
+~10/h, not 1-2/min, through the one `Pet::drainMinute()` that the offline
+catch-up also uses. See § TODO "Done: training games... the 8-hour window".
+The table below is how it was BEFORE that, kept because it explains why the
+screen-off auto-sleep exists:
 
 | path | when | floor |
 |---|---|---|
@@ -2110,6 +2132,11 @@ fire. The moveset is edited on demand from card page 4 instead, which is both
 simpler and closer to what was asked for.
 
 ### Training mechanics — deliberately unresolved
+
+**Superseded by v3.34's training games** (§ TODO "Done: training games..."):
+the menu is a list of ten games, DEF has an active trainer (the ball game) and
+three hybrid games split points into it. The passive +1 per `DEF_TRAIN_TICKS` is
+still there. The note below is history.
 
 Training already exists and is already EV-shaped: `trAtk/trDef/trSpe` (`pet.h:47`)
 capped by `trMaxFor(iv) = 70 + 30*iv/31`, feeding `calcStat()`. ATK trains via the

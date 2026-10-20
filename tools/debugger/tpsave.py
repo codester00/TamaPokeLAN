@@ -99,7 +99,7 @@ FRIENDLY_NAMES = {
     "mvlv": "Last move-learn level",
     "bk": "Berry known", "shy": "Shiny", "eshy": "Egg is shiny",
     "stpk": "Starter pick (true only before first boot)",
-    "evop": "Evolution penalty (days)", "slpa": "Auto-sleep state", "rtpn": "Retire pending",
+    "evop": "Evolution penalty (days)", "slpa": "Sleep state (0 none, 1 auto at night, 2 bed by hand, 3 daytime nap -- v3.34)", "rtpn": "Retire pending",
     # PartyMon fields (party/box slots, and the checkpoint tail handover)
     "dex": "Species (dex #)", "ageMinutes": "Age (minutes)",
     "ivAtk": "IV: Attack", "ivDef": "IV: Defense", "ivSpe": "IV: Speed", "ivHp": "IV: HP",
@@ -114,6 +114,8 @@ FRIENDLY_NAMES = {
     "uidSerial": "ID: serial (0 = no ID yet)",
     "flags": "Flags (1 = evolves by trade when next raised)",
     "tradeEvo": "Evolves by trade when raised",
+    "unattended": "Awake minutes since last FULLY cared for (8-hour window = 480; v3.34)",
+    "petStep": "Petting worn out: 0 = fresh (+10 joy) .. 5 = no effect until a joy game (v3.34)",
     # the player -- outlives every creature (save.cpp's SAVE_FIELDS)
     "tnam": "Trainer name", "avtr": "Avatar index", "badg": "Kanto badges (easy, bitmask)",
     "reg": "Current region", "eggR": "Egg region history (bytes)",
@@ -559,6 +561,10 @@ def decode_pet_checkpoint(raw: bytes) -> dict:
         # v4: the trade-evolution flag after the ID
         if mon_len and at + 12 + 1 <= body_len:
             d["tradeEvo"] = bool(raw[at + 12] & 1)
+        # v5 (v3.34): the bytes v4 reserved -- u16 untended minutes, u8 petting step
+        if mon_len and at + 12 + 4 <= body_len and version >= 5:
+            d["unattended"] = struct.unpack_from("<H", raw, at + 13)[0]
+            d["petStep"] = raw[at + 15]
     return d
 
 

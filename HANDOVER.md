@@ -4,8 +4,9 @@ Written 2026-08-20, updated through 2026-08-23, so work could resume after a
 restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 **authoritative wherever the two disagree**.
 
-> **§ 1d is the newest (2026-10-11) and describes the repo as it is now.**
-> Read it first; everything below it is history, kept for the reasoning.
+> **§ 1e is the newest (2026-10-20) and describes the repo as it is now.**
+> Read it first. § 1d (2026-10-12) is the state before it; everything below
+> that is history, kept for the reasoning.
 >
 > **§ 1 below is current as of v3.22 (2026-09-08). Sections 0 and 2 to 4c are an
 > August snapshot kept for the reasoning in them, and their branch names, version
@@ -33,7 +34,64 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 ---
 
-## 1d. Where things stand now (2026-10-12)
+## 1e. Where things stand now (2026-10-20)
+
+| | |
+|---|---|
+| Published firmware | **v3.28** is still the last TAG. `main` is at **v3.34** and the installer page (https://codester00.github.io/TamaPokeLAN/web/) serves it as the untagged current build |
+| Repo version | **3.34** in `TamaPoke.ino`, the README badge and `web/manifest.json` |
+| Release notes | `docs/release-notes/v3.34.md` is written (everything since v3.28, for players), so tagging v3.34 off `main` would pass `check_release.py` |
+| Tests | 51 suites, all pass, plus `check_savefile.mjs` |
+| Firmware | esp32 core 3.3.0, GFX Library 1.6.9, **SensorLib 0.4.1**, XPowersLib 0.3.4 |
+| Owner's boards | several; two had **v3.33**, and **trading worked between real boards**. v3.34 has not been on a board yet |
+
+**What landed in v3.34** (all in CLAUDE.md § TODO "Done: training games..."):
+
+- The LAN button (was LAN BATTLE) opens HOST BATTLE / JOIN BATTLE / TRADE.
+- **Ten training games** in a paged list (`TRAIN_GAMES`). Seven are new: four
+  hybrids that split points across two stats through `Pet::trainSplit()`, and
+  three joy/bond games through `Pet::playJoyGame()`. Petting wears off
+  (10/8/6/4/2/0) until a joy/bond game refreshes it.
+- **Decay rework.** One drain (`Pet::drainMinute()`) for live and offline time;
+  awake rates ~10/h; an **8-hour grace window** (`GRACE_MIN`) with needs
+  floored at 15 and no penalties. The window restarts ONLY on full care -- all
+  four needs at `CARE_FULL_PCT` 90 (`Pet::graceCheck()`).
+- **Daytime naps** (`SLEEP_NAP`, 06:00-18:00): a bed by hand wakes itself at
+  full energy; it never changes how much of the window is left unless it wakes
+  fully cared for.
+- `StrId` widened to `uint16_t` -- the string table passed 256 entries.
+
+**Things an updater should know (also in the README's "Updating" section and
+the release notes):**
+
+- The save carries over. The pet checkpoint is now **version 5**: the 3 bytes
+  v4 reserved hold `unattended` (u16) and `petStep` (u8). A v3.33 board reading
+  a v5 save just ignores them, so a downgrade to 3.33 is safe. The one oddity:
+  a creature napping when downgraded stays asleep until someone presses the
+  light, because 3.33 does not know sleep state 3.
+- An existing creature starts v3.34 with a fresh 8-hour window (`unattended`
+  reads 0 from a v4 record).
+- **Going below v3.31 still empties the party and box** (the record grew).
+- `tools/debugger/tpsave.py` decodes the v5 fields and names sleep state 3.
+
+**Verify on a board first, in this order:**
+
+1. The save survives the 3.33 -> 3.34 install (`EXPORT` first).
+2. **Tilt Maze's axis signs** (`TILT_SIGN_X`/`_Y` in `TamaPoke.ino`) are a guess.
+   Tilt right, watch the ball; flip the sign that is wrong.
+3. Touch feel of the new games: Rock Smash's timing windows (90/180 ms), Block!'s
+   thin top-edge leave strip, Memory's berry hit areas.
+4. A daytime nap wakes by itself in about 15 minutes; an evening bed does not.
+5. Still open from before: § 1a's `lanLeave()` fix against the original
+   guest-quits-mid-battle repro, and the power-key flush.
+
+**Ideas the owner was offered and has not decided on:** a visible sign of the
+8-hour protection (kids cannot see whether it is running), and a cue when a nap
+ends.
+
+---
+
+## 1d. Where things stood (2026-10-12)
 
 | | |
 |---|---|

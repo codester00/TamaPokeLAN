@@ -38,7 +38,7 @@ life cycle (egg by rarity → evolution → farewell/release/runaway, each gated
 behind a decision dialog), bred-Pokédex with gallery, turn-based trainer, wild
 and LAN battles, **wild capture and a shared bag**, battle stats (IVs +
 training), retention hooks (streak / bond / medals / name), biome + real-time
-backgrounds, ball minigame, training bag, animated bath, RTC with offline
+backgrounds, **ten training games**, animated bath, RTC with offline
 progression, battery (AXP2101) and PWR button, anti-burn-in dimming,
 **sound (ES8311)**, **6 UI languages (English default)**, **starter choice on
 first run**, and a one-click **web installer**.
@@ -54,8 +54,16 @@ out of the egg pool until it is — the same gating every region has always used
   win/loss records kept per rival.
 - **Trading** — swap a party or box creature one-for-one with another board,
   over the same radio as LAN battles. Built so a dropped connection or a flat
-  battery mid-trade never loses a creature; see § Trading below. *Tested in the
-  emulator against a simulated second board, not yet between two real boards.*
+  battery mid-trade never loses a creature; see § Trading below. Trades have
+  been done between real boards; the dropped-connection recovery has so far
+  only been exercised in the emulator.
+- **Ten training games** (v3.34) — pick a game from a list instead of a fixed
+  stat; some train one stat, some split the same points across two, and three
+  raise joy and bond instead. § Actions has every rule.
+- **Kinder care rules** (v3.34) — walk away from a fully cared-for creature
+  for **8 hours** and it will be hungry and tired but unpunished; petting wears
+  off until you play with it; a daytime **nap** ends by itself so a child can
+  put it to bed and go to school. § The four stats and § Actions.
 - **The Poké Mart** — spend real steps, turned into Pokédollars, on balls,
   potions and vitamins between EXPLORE and the gyms.
 - **A pedometer** drives it, with no extra battery draw — the QMI8658's own
@@ -523,8 +531,8 @@ what rate-limits rematching. A fully trained creature is told so.
 
 ### LAN battles
 
-Pair two boards over ESP-NOW from the gym ladder's **LAN BATTLE** button — one
-hosts, one joins. Bring whichever team you like: unlike the gym ladders there
+Pair two boards over ESP-NOW from the gym chooser's **LAN** button, then
+**HOST BATTLE** on one board and **JOIN BATTLE** on the other. Bring whichever team you like: unlike the gym ladders there
 is no level or team-size cap, since you already know what your opponent is
 bringing. A running **head-to-head record** is kept against each rival —
 keyed by their device, not their typed name, so renaming doesn't reset the
@@ -532,7 +540,7 @@ score — and shown on the pairing screen the next time you two fight.
 
 ### Trading
 
-From the gym chooser's **LAN BATTLE** button, tap **TRADE** on both boards.
+From the gym chooser's **LAN** button, tap **TRADE** on both boards.
 They find each other on their own (no host or join).
 
 - **What can be traded:** any creature in your **party or box**, never the
@@ -669,9 +677,10 @@ the games: **they cap training.**
 - IVs are shown on the Battle page of the stat card; a perfect 31 is highlighted.
 
 Training: **STRENGTH** ← the bag, **SPEED** ← the reaction test, **DEFENSE** ← the
-ball game (and still 1 h of wellbeing passively). **VIT** can't be trained. All three
-live in the training menu now; the ball moved off the home row when it became
-defence's trainer.
+ball game (and still 1 h of wellbeing passively), and two stats at half rate each
+from Rock Smash (STR + SPD), Block! (DEF + SPD), Tilt Maze (SPD + DEF) and Boulder
+Push (STR + DEF). A session pays at most 18 points however it is split. **VIT**
+can't be trained. All of them live in the training menu (§ Actions).
 
 **Special attack and defence** come off the species' own `bSpA`/`bSpD` base stats
 (Alakazam is 50 Attack but 135 Special Attack), reusing the physical IV and
@@ -786,6 +795,29 @@ timing, DMA tearing, PSRAM or audio — those still need the board.
 the SD over Web Serial, no Arduino needed. Serve it over HTTPS or `localhost`
 (secure context) and open it in **Chrome/Edge**. See [`web/README.md`](web/README.md).
 
+### Updating from an older version
+
+Your creature, party, box, bag, badges and Pokédex carry over: the installer
+never writes the part of the flash that holds the save. Still, **download a
+backup first** (the installer's *Backup, then install* does it for you), and
+**leave "Erase device" unchecked** — that box is the one thing that wipes a save.
+
+- **A black screen right after installing is usually not a crash.** The board
+  can be left in its download mode. Hold **PWR for about 10 seconds** to switch
+  it fully off, then press it again.
+- **Coming from v3.28 or earlier:** every creature is given its own ID on the
+  first boot (needed for trading). **Going back below v3.31 afterwards empties
+  the party and the box**, because older versions cannot read the longer
+  records — keep the backup you took if you might downgrade.
+- **Coming to v3.34:** hunger, energy, joy and hygiene now fall much more
+  slowly while awake. An existing pet starts with a fresh 8-hour care window
+  when it first boots on v3.34; after that only a **full** top-up (all four
+  needs at 90+) restarts it. Petting wears off until you play a joy/bond game. A pet that was already asleep stays asleep until you wake it.
+  The LAN BATTLE button is now just **LAN**, with HOST BATTLE, JOIN BATTLE and
+  TRADE inside.
+- **Building it yourself:** SensorLib must be **0.4.1**. 0.5.0 compiles and then
+  boot-loops the board; the build now refuses it.
+
 ### Generate and load the sprites yourself
 
 All sprites come from **[PMD SpriteCollab](https://github.com/PMDCollab/SpriteCollab)**
@@ -876,6 +908,14 @@ beach, forest, volcano, mountain, snow). Sleeping forces night.
 - `sdmon.h` / `sdmon.cpp` — TPK1 (animated) and TPK2 (PMD) sprites + thumbnails, and file reception over USB (PUT/LS)
 - `rtcbat.h` / `rtcbat.cpp` — PCF85063 RTC + AXP2101 PMU (battery, brightness, PWR button)
 - `audio.h` / `audio.cpp` — ES8311 + I2S + Game-Boy-style tone synth (non-blocking task)
+- `battle.h` / `battle.cpp` — the battle engine: damage, crits, stages, ailments, turn order, the AI
+- `link.h` / `link.cpp` — the LAN battle protocol, radio-free so it can be tested
+- `linknow.h` / `linknow.cpp` — its ESP-NOW transport, shared with trading
+- `trade.h` / `trade.cpp` — the trading protocol (the design is the header comment)
+- `save.h` / `save.cpp` — `EXPORT` / `IMPORT`, the key-driven save backup
+- `wild.h` / `wild.cpp`, `inventory.h` / `inventory.cpp`, `items.h` — wild encounters, capture, the bag, Mart prices
+- `pedometer.h` / `pedometer.cpp` — software step detector (and the tilt reading Tilt Maze uses)
+- `sensorlib_guard.h` — refuses to build against SensorLib 0.5.0, which boot-loops the board
 - `i18n.h` / `i18n.cpp` — the 6-language string tables
 - `move_names.h` — GENERATED (`gen_moves.py`): move display names in all 6 languages
 - `dex.h` — GENERATED (`gen_dex.py`): the species table, `DEX_COUNT` 1025
