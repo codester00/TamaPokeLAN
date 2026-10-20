@@ -613,6 +613,58 @@ alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. (The installer was not rebuilt at the time;
 `web/` has shipped v3.34 since 2026-10-20 -- see HANDOVER.md § 1e.)
 
+### NEXT SESSION: action list (agreed with the owner 2026-10-20)
+
+v3.38 (avatars + blackout) is on the branch, NOT on `main` yet -- ask before
+merging. Then, in this order:
+
+**A. Explore rework** (owner said yes to everything below except step-based
+encounters, which are on hold). Today: one region-wide pool per region, tiers
+70/22/7/1 % (common / evolution-only / rare / legendary), every species in a
+tier equally likely, level = live pet +-5 (hard: 1-100), shiny flat 1/4096.
+1. **Real per-location tables** from the disassemblies: `pret/pokered`
+   (`data/wild/maps/*.asm`), `pokecrystal`, `pokeemerald`, `pokeplatinum`. A
+   generator in `tools/` emits `wild_areas.h` (area name, species, level
+   range, weight); a verify step diffs it against the source, the same way
+   `verify_rosters.py` does. Night-only slots come from Crystal's
+   morn/day/nite tables, where they exist.
+2. **Areas unlock by badge**, per region and per the games' own order.
+   Explore picks region -> area. A new paged screen, so it MUST be added to
+   `uiRimTarget()` and `swipe_test`.
+3. **Habitat zones for Unova onward** (no decomp): 6-8 zones (grass, forest,
+   cave, mountain, water, urban, night), placed by habitat data where it
+   exists and by type otherwise. NOT VERIFIED, and labelled as such.
+4. **Weighted species inside an area**, not uniform. **Evolved forms only at
+   believable levels** (at or above their evolution level). **Hard = live pet
+   +5..+15**, not 1-100.
+5. **Legendaries move to fixed locations** (e.g. Mewtwo in Cerulean Cave after
+   the Elite 4), not a 1 % roll anywhere. Keep the "never draw an art-less
+   species" filter and the region-pack filter on every path.
+6. Save impact: probably none (encounters are not stored), but check the Explore
+   screen's stored region choice if an area index is added.
+
+**B. The clock drifts** (owner's report: ~3 h over a week; ~1 min lag in a
+20-minute test). The panel reads the PCF85063 through `rtcEpoch()`, cached in
+`pet.lastSeenEpoch` every 30 s. MEASURE BEFORE FIXING:
+1. Two cheap software effects can fake a lag: the 30 s cache, and
+   `applyClock()` writing seconds = 0 from that stale cache. Together they
+   explain most of a minute in 20 minutes. Fix both: refresh the cache on the
+   minute, and keep the seconds when only the hour or minute changed.
+2. Measure real drift: log `rtc=` (STATS) against host time over several hours,
+   via `tools/debugger/`. A crystal-controlled RTC should be within seconds a
+   day; 3 h a week is ~1.8 %, which points at a fault (oscillator setup, the
+   RTC losing power while the board is off, or something writing the RTC),
+   not normal drift.
+3. Then the update path, cheapest first:
+   - **"Set clock" from the web installer / debugger over USB**, using the
+     browser's time (`RTCSET` already exists).
+   - **Wi-Fi NTP**: enter the network once on the touch keyboard, sync daily.
+     Must coexist with ESP-NOW (same radio).
+   - **PCF85063 offset register** to trim any small residual drift once
+     measured.
+   - Bluetooth time from a phone is possible but the most work; and a daily
+     "is this the right time?" prompt is the fallback if all else fails.
+
 ### Done: every trainer class is an avatar, and Mom's blackout (v3.38)
 
 `tools/gen_avatars.py` now emits 19 playable avatars -- the eight there were
