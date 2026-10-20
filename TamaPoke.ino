@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.36"
+#define FW_VERSION "3.37"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -220,6 +220,7 @@ uint32_t catchUntil = 0, catchOverUntil = 0, catchNextSpawn = 0;
 float catchBasketX = 233, catchTarget = 233;
 uint16_t catchScore = 0;
 uint8_t catchJoyGain = 0, catchBondGain = 0;
+uint32_t catchOuchUntil = 0;     // a caught rock flashes "-1" over the basket
 #define CATCH_MAX 8
 struct CatchThing { float x, y, vy; bool rock, live; };
 CatchThing catchThings[CATCH_MAX];
@@ -3504,8 +3505,10 @@ void renderSack() {
     gfx->setTextSize(4);
     gfx->setCursor(CX - strlen(b) * 12, 150);
     gfx->print(b);
-    char g[18];
-    snprintf(g, sizeof(g), T(S_STR_GAIN_FMT), sackGain);
+    char g[32];
+    if (!sackGain && pet.trAtk >= pet.trMaxAtk())       // +0 at the ceiling says why
+      snprintf(g, sizeof(g), "%s %s", T(S_TR_ATK), T(S_ST_MAX));
+    else snprintf(g, sizeof(g), T(S_STR_GAIN_FMT), sackGain);
     gfx->setTextColor(UI_BAR_BAD);
     gfx->setTextSize(3);
     gfx->setCursor(CX - strlen(g) * 9, 210);
@@ -5587,8 +5590,10 @@ void renderSpeed() {
     gfx->setTextSize(4);
     gfx->setCursor(CX - strlen(b) * 12, 150);
     gfx->print(b);
-    char g[20];
-    snprintf(g, sizeof(g), T(S_SPD_GAIN_FMT), spdGain);
+    char g[32];
+    if (!spdGain && pet.trSpe >= pet.trMaxSpe())        // +0 at the ceiling says why
+      snprintf(g, sizeof(g), "%s %s", T(S_TR_SPE), T(S_ST_MAX));
+    else snprintf(g, sizeof(g), T(S_SPD_GAIN_FMT), spdGain);
     gfx->setTextColor(UI_BAR_WARN);
     gfx->setTextSize(3);
     gfx->setCursor(CX - strlen(g) * 9, 210);
@@ -7648,6 +7653,22 @@ void trainTap(int16_t x, int16_t y) {
 }
 
 // ---------- Berry Catch (joy + bond) ----------
+// One gain on a result screen. A zero says WHY instead of reading as a broken
+// game: "JOY MAX" when the stat is already at its ceiling, "BOND MAX TODAY"
+// when the daily bond allowance is spent. A zero with room left is just +0.
+static void gainPart(char *out, size_t n, uint8_t gain, StrId name, bool atMax, bool today) {
+  if (!gain && today) snprintf(out, n, "%s %s", T(name), T(S_MAX_TODAY));
+  else if (!gain && atMax) snprintf(out, n, "%s %s", T(name), T(S_ST_MAX));
+  else snprintf(out, n, T(S_PLUS_FMT), gain, T(name));
+}
+
+// "+n JOY  +n BOND", or the reason either one paid nothing. Public for tests.
+void joyGainText(char *out, size_t n, uint8_t joyGain, uint8_t bondGain) {
+  char a[24], b[28];
+  gainPart(a, sizeof(a), joyGain, S_ST_JOY, pet.joy >= 100, false);
+  gainPart(b, sizeof(b), bondGain, S_ST_BOND, pet.bond >= 100, pet.bond < 100 && pet.bondCappedToday());
+  snprintf(out, n, "%s  %s", a, b);
+}
 void startCatch() {
   if (pet.isEgg() || pet.sleeping || pet.ceremony) return;
   catchOpen = true;
@@ -7656,6 +7677,7 @@ void startCatch() {
   catchNextSpawn = millis() + 400;
   catchBasketX = catchTarget = CX;
   catchScore = 0;
+  catchOuchUntil = 0;
   for (auto &t : catchThings) t.live = false;
 }
 
@@ -7701,7 +7723,7 @@ void catchStep(uint32_t now) {
     if (t.y >= CATCH_BASKET_Y - 8 && t.y <= CATCH_BASKET_Y + 14 &&
         fabsf(t.x - catchBasketX) <= CATCH_BASKET_HALF) {
       t.live = false;
-      if (t.rock) { if (catchScore) catchScore--; sfxPlay(SFX_DENY); }
+      if (t.rock) { if (catchScore) catchScore--; catchOuchUntil = now + 600; sfxPlay(SFX_DENY); }
       else { catchScore++; sfxPlay(SFX_TAP); }
     } else if (t.y > 410) {
       t.live = false;                                   // missed: no penalty
@@ -7722,8 +7744,8 @@ void renderCatch() {
     gfx->setTextSize(3);
     gfx->setCursor(CX - (int)strlen(b) * 9, 160);
     gfx->print(b);
-    char g[40];
-    snprintf(g, sizeof(g), T(S_CATCH_GAIN_FMT), catchJoyGain, catchBondGain);
+    char g[56];
+    joyGainText(g, sizeof(g), catchJoyGain, catchBondGain);
     gfx->setTextColor(UI_BAR_BAD);
     gfx->setTextSize(2);
     gfx->setCursor(CX - (int)strlen(g) * 6, 220);
@@ -7735,8 +7757,17 @@ void renderCatch() {
   for (auto &t : catchThings) {
     if (!t.live) continue;
     if (t.rock) {
-      gfx->fillCircle((int)t.x, (int)t.y, 14, C565(0x80, 0x7a, 0x74));
-      gfx->drawCircle((int)t.x, (int)t.y, 14, ink);
+      // A rock has to read as "avoid" at a glance: dark and lumpy, with a red
+      // cross on it -- a plain grey ball looked like it might be another berry.
+      int x = (int)t.x, y = (int)t.y;
+      uint16_t stone = C565(0x5a, 0x55, 0x50);
+      gfx->fillCircle(x - 4, y + 2, 11, stone);
+      gfx->fillCircle(x + 5, y + 3, 10, stone);
+      gfx->fillCircle(x, y - 5, 10, stone);
+      for (int k = -1; k <= 1; k++) {
+        gfx->drawLine(x - 7 + k, y - 7, x + 7 + k, y + 7, UI_BAR_BAD);
+        gfx->drawLine(x + 7 + k, y - 7, x - 7 + k, y + 7, UI_BAR_BAD);
+      }
     } else {
       gfx->fillCircle((int)t.x, (int)t.y, 13, C565(0xd8, 0x3a, 0x4a));
       gfx->fillCircle((int)t.x - 4, (int)t.y - 4, 3, UI_WHITE);
@@ -7748,6 +7779,12 @@ void renderCatch() {
                      C565(0xa8, 0x70, 0x38));
   gfx->drawRoundRect(bx - CATCH_BASKET_HALF, CATCH_BASKET_Y, 2 * CATCH_BASKET_HALF, 26, 8, ink);
   gfx->drawFastHLine(bx - CATCH_BASKET_HALF + 4, CATCH_BASKET_Y + 9, 2 * CATCH_BASKET_HALF - 8, ink);
+  if (now < catchOuchUntil) {                       // a rock in the basket costs a berry
+    gfx->setTextColor(UI_BAR_BAD);
+    gfx->setTextSize(3);
+    gfx->setCursor(bx - 18, CATCH_BASKET_Y - 34);
+    gfx->print("-1");
+  }
   char sc[8];
   snprintf(sc, sizeof(sc), "%u", catchScore);
   gfx->setTextColor(ink);
@@ -8080,13 +8117,15 @@ static void tiltStep(uint32_t now) {
 // tap while it is in the green to shove the boulder up the slope. A tap
 // outside the bar's middle lets it slip back, so mashing loses ground.
 #define PUSH_MS 20000UL
-#define PUSH_FULL 60           // steps for a full session
+#define PUSH_FULL 45           // steps for a full session (a perfect round is ~54)
 #define PUSH_TOP 10            // steps from the foot of the slope to the top
 #define PUSH_GREEN 0.12f       // half-widths of the zones, as a fraction of the bar
 #define PUSH_YELLOW 0.30f
 #define PUSH_SLIP_MS 350
-#define PUSH_F0 (1.0f / 1400)  // needle swings per ms at the start...
-#define PUSH_F1 (1.0f / 900)   // ...and by the end
+// Slowed 25% in v3.37 (was 1/1400 and 1/900): on the board the panel's touch
+// latency made the green too hard to hit in time.
+#define PUSH_F0 (1.0f / 1867)  // needle swings per ms at the start...
+#define PUSH_F1 (1.0f / 1200)  // ...and by the end
 uint16_t pushSteps = 0;
 uint32_t pushLockUntil = 0;
 
@@ -8383,8 +8422,8 @@ static void renderMiniResult(uint16_t ink) {
   }
   mgCentered(b, 160, 3, ink);
   if (mgMask & TR_JOY) {
-    char g[40];
-    snprintf(g, sizeof(g), T(S_CATCH_GAIN_FMT), mgJoyGain, mgBondGain);
+    char g[56];
+    joyGainText(g, sizeof(g), mgJoyGain, mgBondGain);
     mgCentered(g, 220, 2, UI_BAR_BAD);
     return;
   }
@@ -8392,8 +8431,12 @@ static void renderMiniResult(uint16_t ink) {
   static const StrId NAMES[3] = { S_TR_ATK, S_TR_DEF, S_TR_SPE };
   int first = miniGame == MG_ROCK || miniGame == MG_PUSH ? 0 : miniGame == MG_BLOCK ? 1 : 2;
   int second = miniGame == MG_TILT || miniGame == MG_PUSH ? 1 : 2;
-  char g[48];
-  snprintf(g, sizeof(g), T(S_GAIN2_FMT), mgGain[first], T(NAMES[first]), mgGain[second], T(NAMES[second]));
+  const uint8_t tr[3] = { pet.trAtk, pet.trDef, pet.trSpe };
+  const uint8_t cap[3] = { pet.trMaxAtk(), pet.trMaxDef(), pet.trMaxSpe() };
+  char a[24], c[24], g[52];
+  gainPart(a, sizeof(a), mgGain[first], NAMES[first], tr[first] >= cap[first], false);
+  gainPart(c, sizeof(c), mgGain[second], NAMES[second], tr[second] >= cap[second], false);
+  snprintf(g, sizeof(g), "%s  %s", a, c);
   mgCentered(g, 220, 2, UI_BAR_BAD);
 }
 

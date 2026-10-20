@@ -248,6 +248,8 @@ enum StrId : uint16_t {
   S_SEEK_FMT,
   S_FOUND,
   S_NOT_HERE,
+  S_PLUS_FMT, // a gain on a result screen: +n NAME
+  S_MAX_TODAY, // bond's daily allowance is used up
   STR_COUNT
 };
 

@@ -319,7 +319,7 @@ int main() {
     ready(); startPush();
     for (uint32_t t = mgStart; !mgOverUntil; t += 85) { mgPress(CXT, CYT, t); mgStep(t); }
     printf("      a masher pushed %u steps\n", pushSteps);
-    ck(pushSteps < 60 / 4, "mashing gets nowhere");
+    ck(mgPoints < TRAIN_SESSION_MAX / 4, "mashing gets nowhere");
   }
 
   // ---------- Memory ----------

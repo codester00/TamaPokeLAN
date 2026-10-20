@@ -639,6 +639,12 @@ negative-checked. Layout positions a test needs are functions
   `minigame_test` pins all four directions (negative-checked against the
   v3.35 mapping). The emulator has no sensor, so if the board or its mounting
   ever changes, re-measure on hardware before touching it.
+- **A zero on a result screen must say why** (v3.37). A player read "+0 joy
+  +0 bond" as three broken games; it was joy at 100 plus the 20-a-day bond cap
+  (`BOND_DAILY_MAX`, `Pet::bondCappedToday()`). `gainPart()`/`joyGainText()`
+  print JOY MAX / BOND MAX TODAY / a stat's MAX instead, and `catch_test` plays
+  each case for real. Boulder Push's needle was slowed 25% the same release for
+  touch latency, with `PUSH_FULL` 60 -> 45 to keep a good round a full session.
 - **Block!'s leave strip is thin on purpose**: the top is a lane to defend, so
   `mgLeaveStripY()` sits above an attack launched from the top, and
   `minigame_test` fails if it is widened back to the usual 72.

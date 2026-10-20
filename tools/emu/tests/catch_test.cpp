@@ -26,6 +26,9 @@ extern CatchThing catchThings[];
 void startCatch();
 void leaveCatch();
 void catchStep(uint32_t now);
+void joyGainText(char *out, size_t n, uint8_t joyGain, uint8_t bondGain);
+extern uint32_t catchOuchUntil;
+#include <cstring>
 static int bad = 0;
 static void ck(bool ok, const char *w) { printf("%s  %s\n", ok ? "PASS" : "FAIL", w); if (!ok) bad++; }
 
@@ -80,6 +83,41 @@ int main() {
   j0 = pet.joy;
   leaveCatch();
   ck(!catchOpen && pet.joy > j0 && pet.petStep == 0, "leaving early still pays, and refreshes petting");
+
+  // A rock in the basket says so: the "-1" flash over the basket.
+  startCatch();
+  now = catchUntil - 20000;
+  catchTarget = catchBasketX;
+  drop(true, 0, now);
+  ck(catchOuchUntil > now, "a caught rock flashes -1");
+  drop(false, 0, now);
+  catchOuchUntil = 0;
+  drop(false, 0, now);
+  ck(catchOuchUntil == 0, "and a berry does not");
+  leaveCatch();
+
+  // A result that paid nothing says WHY, rather than "+0 joy +0 bond" -- which
+  // a player read as the game being broken (v3.37). Each case is played for
+  // real, so the text is judged against what playJoyGame() actually paid.
+  char g[64];
+  auto play = [&](uint8_t joy, bool spentToday) {
+    pet.joy = joy; pet.bond = 40; pet.dbgResetBondToday();
+    if (spentToday) while (!pet.bondCappedToday()) pet.playJoyGame(30);
+    pet.joy = joy;
+    uint8_t b0 = pet.bond;
+    uint8_t jg = pet.playJoyGame(12);
+    joyGainText(g, sizeof(g), jg, pet.bond - b0);
+    printf("      joy=%u spent=%d -> \"%s\"\n", joy, spentToday, g);
+  };
+  play(20, false);
+  ck(strstr(g, "+30 JOY") && strstr(g, " BOND") && !strstr(g, "+0") && !strstr(g, "MAX"), "room to grow: plain gains");
+  play(100, false);
+  ck(strstr(g, "JOY MAX") && strstr(g, "+") && !strstr(g, "TODAY"), "joy already full: JOY MAX");
+  play(20, true);
+  ck(strstr(g, "+30 JOY") && strstr(g, "BOND MAX TODAY"), "bond allowance spent: BOND MAX TODAY");
+  play(100, true);
+  ck(strstr(g, "JOY MAX") && strstr(g, "BOND MAX TODAY") && !strstr(g, "+"),
+     "both: neither reads as +0");
 
   printf("%s\n", bad ? "FAILURES" : "all good");
   return bad ? 1 : 0;

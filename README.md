@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.36-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.37-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -300,16 +300,17 @@ While **awake**:
     counts as level. Needs the board's motion sensor.
 
   - 🪨 **Boulder Push** — **STRENGTH + DEFENCE**: a needle swings across a power
-    bar, faster as the 20 s run on. Tap while it's in the **green** to shove the
+    bar (one swing every ~1.9 s at first, ~1.2 s by the end). Tap while it's in the **green** to shove the
     boulder up the slope 2 steps (**yellow**: 1). Tap outside the middle and it
     **slips back** a step and won't budge for 0.35 s, so mashing gets nowhere.
-    **60 steps** is a full session.
+    **45 steps** is a full session; a perfect round is about 54.
 
     All four cost what any training does: −10 energy, −5 food, +4 joy, bond,
     and +1 fitness per 5 points (max +4). A round that earned nothing costs
     nothing.
   - 🍓 **Berry Catch** — **JOY + BOND**: drag the basket for 20 s, catch berries,
-    dodge rocks (a rock costs a point; a miss costs nothing). Pays **+6 joy, +2
+    dodge rocks (dark, with a red cross: one in the basket costs a point and
+    flashes −1; a miss costs nothing). Pays **+6 joy, +2
     per berry** (max **+30**) and **+1 bond per 8 berries** (+1 to +3), and makes
     petting fresh again.
   - 🧠 **Memory** — **JOY + BOND**: four berries light up in a sequence; tap
@@ -322,6 +323,10 @@ While **awake**:
     Memory and Hide and Seek pay like Berry Catch (**+6 joy** for playing, then
     2 per point to **+30**; bond **+1 per 8 points**, max +3), and make petting
     fresh again — even a round with nothing found pays the +6.
+
+    Joy stops at 100 and bond rises at most **20 a day**, so a game can pay
+    nothing: the result then reads **JOY MAX** or **BOND MAX TODAY** instead of
+    +0. A training stat at its ceiling reads **MAX** the same way.
 - 🫧 **Bath:** clears poops, HYG → 100.
 - 👆 **Pet it:** wears off. Each tap gives **+10, +8, +6, +4, +2, then 0** JOY
   (and +1 bond while it still gives joy), until a joy/bond game (Berry Catch)

@@ -1249,7 +1249,7 @@ void Pet::registerCare() {
 }
 
 void Pet::addBond(uint8_t amt) {
-  if (bondToday >= 20) return;  // tope diario: el vinculo no se farmea
+  if (bondToday >= BOND_DAILY_MAX) return;  // tope diario: el vinculo no se farmea
   bond = clamp100(bond + amt);
   bondToday += amt;
 }

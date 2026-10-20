@@ -44,6 +44,7 @@
 #define GRACE_MIN (8UL * 60)
 #define GRACE_FLOOR 15                     // the same 15 the board-off catch-up uses
 #define CARE_FULL_PCT 90                   // every need at least this = fully cared for
+#define BOND_DAILY_MAX 20                  // bond any one day can add; it is not farmable
 #define DRAIN_FOOD_MIN 6                   // -1 every 6 min awake: 10/h
 #define DRAIN_ENERGY_MIN 6                 // 10/h (twice that when overweight)
 #define DRAIN_JOY_MIN 6                    // 10/h
@@ -208,6 +209,7 @@ public:
   bool wasFullyCared = false;   // graceCheck() restarts the window on the rising edge
   uint16_t unattended = 0;      // awake minutes since last fully cared for; see GRACE_MIN
   bool fullyCared() const;      // every need at CARE_FULL_PCT: what restarts the window
+  bool bondCappedToday() const { return bondToday >= BOND_DAILY_MAX; }   // why a game paid no bond
   uint8_t careMistakes = 0;   // descuidos: cada uno retrasa la evolucion 1 nivel
   bool sleeping = false;
   uint32_t lastSeenEpoch = 0;   // ultima hora RTC vista (para progresion offline)

@@ -39,7 +39,7 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 | | |
 |---|---|
 | Published firmware | **v3.28** is still the last TAG. `main` is at **v3.34** and the installer page (https://codester00.github.io/TamaPokeLAN/web/) serves it as the untagged current build |
-| Repo version | **3.36** in `TamaPoke.ino`, the README badge and `web/manifest.json` (3.35 and 3.36 = 3.34 + Tilt Maze steering fixes; notes in `docs/release-notes/`) |
+| Repo version | **3.37** in `TamaPoke.ino`, the README badge and `web/manifest.json` (3.35 and 3.36 = 3.34 + Tilt Maze steering fixes; 3.37 slows Boulder Push and explains zero gains; notes in `docs/release-notes/`) |
 | Release notes | `docs/release-notes/v3.34.md` is written (everything since v3.28, for players), so tagging v3.34 off `main` would pass `check_release.py` |
 | Tests | 51 suites, all pass, plus `check_savefile.mjs` |
 | Firmware | esp32 core 3.3.0, GFX Library 1.6.9, **SensorLib 0.4.1**, XPowersLib 0.3.4 |
