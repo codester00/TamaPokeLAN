@@ -12,6 +12,7 @@
 #include "battle.h"
 #include "trainers.h"
 #include "inventory.h"
+#include "avatars.h"
 #include <chrono>
 #include <thread>
 #include <string>
@@ -65,6 +66,9 @@ uint8_t learnableList(uint8_t *out, uint8_t max);
 #define MOVE_PICK_PER_PAGE 5
 #define MOVE_PICK_Y(i) (76 + (i) * 58)
 extern uint8_t cardPage;
+extern bool avatarPickOpen; extern uint8_t avatarPage;
+void avatarCellPos(uint8_t slot, int *x, int *y);
+int uiTapFinger();
 
 // handleTouch() self-gates to 50 Hz off millis(), so real time must pass
 // between polls; a tight loop() spin would be swallowed by that gate.
@@ -226,9 +230,18 @@ int main(int argc, char **argv) {
   printf("PASS: training gained from a field item persists immediately\n");
   bagOpen = false;
 
+  // v3.38: the avatar opens a picker; a tap on another cell chooses it.
   uint8_t oldAvatar = pet.avatar;
   playerOpen = true;
   click(233, 100);
+  if (!avatarPickOpen) { printf("FAIL: tapping the avatar did not open the picker\n"); return 1; }
+  {
+    if (avatarPage * 9 + 1 >= AVATAR_COUNT) avatarPage = 0;   // a page with two cells
+    uint8_t slot = (avatarPage * 9 == oldAvatar) ? 1 : 0;     // not the one worn
+    int cx, cy;
+    avatarCellPos(slot, &cx, &cy);
+    click(cx + uiTapFinger() / 2, cy + uiTapFinger() / 2);
+  }
   Pet afterAvatar;
   afterAvatar.begin();
   if (pet.avatar == oldAvatar || afterAvatar.avatar != pet.avatar) {
