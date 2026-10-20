@@ -631,11 +631,14 @@ the rest through `trainSplit()` (nothing earned, nothing charged).
 negative-checked. Layout positions a test needs are functions
 (`blockAttackPos`, `simonBerryPos`, `seekBushPos`, `pushNeedle`), never numbers.
 
-- **Tilt Maze's axis signs** (`TILT_SIGN_X`/`_Y`) were a guess. The first
-  real board (2026-10-20) found left/right correct and up/down backwards, so
-  only `TILT_SIGN_Y` was flipped. No test
-  can pin the direction -- the emulator has no sensor unless a test calls
-  `emuSetTilt()` -- so a change to them needs a board.
+- **Tilt Maze's axes are SWAPPED, not just signed** (v3.36). The QMI8658 sits
+  a quarter-turn round from the panel: on a real board tilting down sent the
+  ball left, left sent it up, up sent it right. Two rounds of sign flips
+  (v3.34, v3.35) could never fix that. `tiltToScreen()` is the one mapping --
+  sensor +x = board tilted down, sensor +y = tilted left -- and
+  `minigame_test` pins all four directions (negative-checked against the
+  v3.35 mapping). The emulator has no sensor, so if the board or its mounting
+  ever changes, re-measure on hardware before touching it.
 - **Block!'s leave strip is thin on purpose**: the top is a lane to defend, so
   `mgLeaveStripY()` sits above an attack launched from the top, and
   `minigame_test` fails if it is widened back to the usual 72.

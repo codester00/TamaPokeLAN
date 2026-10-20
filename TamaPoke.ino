@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.35"
+#define FW_VERSION "3.36"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -7810,8 +7810,10 @@ static const int8_t BLOCK_DX[4] = { 0, 1, 0, -1 };   // up, right, down, left
 static const int8_t BLOCK_DY[4] = { -1, 0, 1, 0 };
 
 // Tilt Maze: roll the ball into the goal, around the holes, by tilting the
-// board. Checked on a real board (2026-10-20): left/right was right as first
-// guessed, up/down was backwards and is flipped.
+// board. The QMI8658 sits a quarter-turn round from the panel, so its axes are
+// SWAPPED relative to the screen, not merely signed differently: on a real
+// board (2026-10-20) tilting down sent the ball left, left sent it up and up
+// sent it right. tiltToScreen() is the one place that maps them.
 #define TILT_MS 30000UL
 #define TILT_ARENA 180
 #define TILT_BALL 14
@@ -7820,8 +7822,12 @@ static const int8_t BLOCK_DY[4] = { -1, 0, 1, 0 };
 #define TILT_HOLES 2
 #define TILT_K 9.0f            // px per frame per g of tilt
 #define TILT_FRICTION 0.95f
-#define TILT_SIGN_X (-1.0f)
-#define TILT_SIGN_Y (-1.0f)
+// Sensor-axis change (dx, dy) -> the screen direction the ball should roll.
+// Board-verified: sensor +x is the screen tilting DOWN, sensor +y is LEFT.
+void tiltToScreen(float dx, float dy, float *sx, float *sy) {
+  *sx = -dy;
+  *sy = dx;
+}
 #define TILT_GOAL_PTS 3
 float tiltBx = CX, tiltBy = CY, tiltVx = 0, tiltVy = 0, tilt0x = 0, tilt0y = 0;
 float tiltGx = CX, tiltGy = CY, tiltHx[TILT_HOLES], tiltHy[TILT_HOLES];
@@ -8040,8 +8046,10 @@ static void tiltStep(uint32_t now) {
   // Scaled by the real frame time: the panel draws slower on hardware.
   float f = (float)(now - mgLast) / 85.0f;
   if (f > 3) f = 3;
-  tiltVx = (tiltVx + TILT_SIGN_X * (tx - tilt0x) * TILT_K * f) * TILT_FRICTION;
-  tiltVy = (tiltVy + TILT_SIGN_Y * (ty - tilt0y) * TILT_K * f) * TILT_FRICTION;
+  float ax, ay;
+  tiltToScreen(tx - tilt0x, ty - tilt0y, &ax, &ay);
+  tiltVx = (tiltVx + ax * TILT_K * f) * TILT_FRICTION;
+  tiltVy = (tiltVy + ay * TILT_K * f) * TILT_FRICTION;
   tiltBx += tiltVx * f;
   tiltBy += tiltVy * f;
   float d = tiltDist(tiltBx, tiltBy, CX, CY), lim = TILT_ARENA - TILT_BALL;

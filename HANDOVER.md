@@ -39,7 +39,7 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 | | |
 |---|---|
 | Published firmware | **v3.28** is still the last TAG. `main` is at **v3.34** and the installer page (https://codester00.github.io/TamaPokeLAN/web/) serves it as the untagged current build |
-| Repo version | **3.35** in `TamaPoke.ino`, the README badge and `web/manifest.json` (3.35 = 3.34 + the Tilt Maze up/down fix; notes in `docs/release-notes/v3.35.md`) |
+| Repo version | **3.36** in `TamaPoke.ino`, the README badge and `web/manifest.json` (3.35 and 3.36 = 3.34 + Tilt Maze steering fixes; notes in `docs/release-notes/`) |
 | Release notes | `docs/release-notes/v3.34.md` is written (everything since v3.28, for players), so tagging v3.34 off `main` would pass `check_release.py` |
 | Tests | 51 suites, all pass, plus `check_savefile.mjs` |
 | Firmware | esp32 core 3.3.0, GFX Library 1.6.9, **SensorLib 0.4.1**, XPowersLib 0.3.4 |
@@ -77,9 +77,9 @@ the release notes):**
 **Verify on a board first, in this order:**
 
 1. The save survives the 3.33 -> 3.34 install (`EXPORT` first).
-2. **Tilt Maze's axis signs** (`TILT_SIGN_X`/`_Y` in `TamaPoke.ino`): the first
-   board found up/down backwards (left/right was right); only Y was flipped.
-   Confirm it on the next flash.
+2. **Tilt Maze**: the sensor's axes turned out to be swapped relative to the
+   screen (a quarter-turn), not just reversed; v3.36's `tiltToScreen()` maps
+   them from the owner's measurements. Confirm all four directions on a board.
 3. Touch feel of the new games: Rock Smash's timing windows (90/180 ms), Block!'s
    thin top-edge leave strip, Memory's berry hit areas.
 4. A daytime nap wakes by itself in about 15 minutes; an evening bed does not.

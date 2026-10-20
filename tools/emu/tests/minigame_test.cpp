@@ -223,12 +223,19 @@ int main() {
       emuSetTilt(tx, ty);
       for (uint32_t t = mgStart + 85; t < mgStart + 600; t += 85) mgStep(t);
     };
-    run(0.3f, 0); float right = tiltBx - CXT;
-    run(-0.3f, 0); float left = tiltBx - CXT;
-    ck(fabsf(right) > 5 && right * left < 0, "tilting rolls the ball, and the other way rolls it back");
-    run(0, 0.3f); float down = tiltBy - CYT;
-    run(0, -0.3f); float up = tiltBy - CYT;
-    ck(fabsf(down) > 5 && down * up < 0, "on both axes");
+    // The mapping the owner measured on a real board: sensor +x is the board
+    // tilted DOWN, sensor +y is tilted LEFT. Pinned so a refactor cannot
+    // quietly swap the axes back -- the emulator has no sensor to notice.
+    run(0.3f, 0);
+    float dX = tiltBx - CXT, dY = tiltBy - CYT;
+    ck(dY > 5 && fabsf(dX) < 1, "tilting the board down rolls the ball down, and only down");
+    run(0, 0.3f);
+    dX = tiltBx - CXT; dY = tiltBy - CYT;
+    ck(dX < -5 && fabsf(dY) < 1, "tilting it left rolls the ball left, and only left");
+    run(-0.3f, 0);
+    ck(tiltBy - CYT < -5, "tilting it up rolls the ball up");
+    run(0, -0.3f);
+    ck(tiltBx - CXT > 5, "tilting it right rolls the ball right");
 
     run(1.0f, 1.0f);
     float maxR = 0;
