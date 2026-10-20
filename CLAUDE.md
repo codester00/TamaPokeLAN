@@ -645,6 +645,9 @@ negative-checked. Layout positions a test needs are functions
   window** -- the owner's rule. `Pet::graceCheck()` is the one place that
   decides: on the rising edge to full care, or on a care action while full.
   `decay_test` negative-checks each half.
+- **The window is SECRET, by the owner's call.** Nothing on screen says whether
+  it is running, and a nap ending makes no sound or message. Do not add one --
+  it was offered and declined: the protection is a quiet reward for good care.
 - **Save format:** the pet checkpoint is `PET_CORE_VERSION` 5. The three bytes
   v4 reserved after the trade-evolution flag now hold `unattended` (u16) and
   `petStep` (u8) -- spare bytes the v4 reader already skipped, so 3.33 reads a

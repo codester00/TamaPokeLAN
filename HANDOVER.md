@@ -85,9 +85,10 @@ the release notes):**
 5. Still open from before: § 1a's `lanLeave()` fix against the original
    guest-quits-mid-battle repro, and the power-key flush.
 
-**Ideas the owner was offered and has not decided on:** a visible sign of the
-8-hour protection (kids cannot see whether it is running), and a cue when a nap
-ends.
+**Decided against, by the owner (2026-10-20): no indicator of the 8-hour
+protection and no cue when a nap ends.** The protection is a secret reward for
+good care, not a meter to manage. Do not add an icon, a message or a sound for
+either.
 
 ---
 
