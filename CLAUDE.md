@@ -613,6 +613,30 @@ alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. (The installer was not rebuilt at the time;
 `web/` has shipped v3.34 since 2026-10-20 -- see HANDOVER.md § 1e.)
 
+### Done: every trainer class is an avatar, and Mom's blackout (v3.38)
+
+`tools/gen_avatars.py` now emits 19 playable avatars -- the eight there were
+plus every Gen 1 trainer class with its own overworld sprite (which sprite a
+class uses was read from pokered's `data/maps/objects`, not guessed from file
+names) -- and a separate `NPC_ART[]` for MOM and OAK. **`PICKS` is
+APPEND-ONLY**: the save stores the avatar as its index, so `avatar_test` pins
+the first eight by name. NPCs live in their own array so they can never be
+picked or shift an index. Oak has no use yet, by the owner's call.
+
+- The card's avatar opens a 3x3 picker (`avatarPickOpen`, `SCR_AVATAR`, rim
+  paging through `uiRimTarget()`); cells are `UI_TAP_FINGER` and the test aims
+  with `avatarCellPos()`/`avatarAt()`.
+- **The blackout:** losing a gym or wild fight sets `btlLost`; dismissing the
+  last message opens `SCR_BLACKOUT` (Mom on a dark screen), and the next tap or
+  swipe goes HOME (`uiTileGo(TILE_PET)`). `BLACKOUT_MIN_MS` stops the double
+  tap that cleared the last message from skipping her. **No penalty, by
+  design** (Gen 1 halved your money; this takes nothing), and a LAN fight
+  never blacks out. `blackout_test` plays real fights through `onTap()`.
+- `drawArt()` is `static` on purpose: `genproto.py` would otherwise emit a
+  prototype naming `AvatarArt` above the include that defines it.
+- The swimmer, left out of the first eight for sitting low in its cell, is
+  centred vertically now (`CENTRE` in the generator).
+
 ### Done: training games, petting that wears off, the 8-hour window (v3.34)
 
 The training icon opens a LIST of games (`TRAIN_GAMES`, one row per game:

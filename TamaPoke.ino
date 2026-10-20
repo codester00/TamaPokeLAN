@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.37"
+#define FW_VERSION "3.38"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -276,7 +276,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[SCR_COUNT];   // const is internal linkage in C++
 
@@ -306,6 +306,16 @@ uint8_t pickCandidates();
 void uiConfirmRects(int *b1Top, int *b1Bot, int *b2Top, int *b2Bot);
 void renderParty();
 void renderBox();
+// The avatar picker and the blackout screen sit below the handlers that open
+// them (v3.38).
+uint8_t avatarPages();
+void avatarCellPos(uint8_t slot, int *x, int *y);
+int avatarAt(int16_t x, int16_t y);
+void avatarPickTap(int16_t x, int16_t y);
+void renderAvatarPick();
+void renderBlackout();
+void blackoutDismiss();
+static void drawArt(const AvatarArt &a, int x, int y, int s);   // static: no generated prototype
 // The bag and wild encounters are defined ~3000 lines below render() and the
 // touch handler that reach them. arduino-cli does not always auto-prototype,
 // and the emulator's generated proto.h would hide that -- see the note above.
@@ -328,7 +338,7 @@ const char *const SCREEN_NAME[SCR_COUNT] = {
   "starter", "region", "gallery", "dexpick", "movepick", "box",
   "party", "keyboard", "card", "player", "clock", "gym", "gympick",
   "explore", "mart", "lan", "pick", "battle", "win", "learn", "train", "menu",
-  "bag", "minigame", "main", "trade"
+  "bag", "minigame", "main", "trade", "avatar", "blackout"
 };
 
 // Badge art for a region, or nullptr when that region has none yet.
@@ -357,6 +367,12 @@ bool btlOver = false;
 bool btlWon = false;
 bool btlNewBadge = false;
 uint32_t btlWinUntil = 0;   // the win screen is up
+// A gym or wild fight was lost: when its last message is dismissed, the
+// blackout screen comes up and Mom sends you home (v3.38). Never for a LAN
+// fight -- a friendly match with a rival is not a blackout.
+bool btlLost = false;
+bool blackoutOpen = false;
+uint32_t blackoutAt = 0;
 // A trainer fight is a run of 1v1s: both sides queue their squad and the next
 // one steps up when the current one faints. This is the whole difficulty curve
 // -- no gating, just attrition, so one strong creature sweeps Brock and dies
@@ -610,6 +626,16 @@ bool playerOpen = false;
 // one page, and the page you are on IS the region -- no extra control needed,
 // and horizontal paging already works everywhere else.
 uint8_t playerPage = 0;
+// The avatar picker, opened from the avatar on the player card (v3.38). There
+// are too many trainer classes now to step through one tap at a time.
+bool avatarPickOpen = false;
+uint8_t avatarPage = 0;
+// A 3x3 grid of finger-sized cells: UI_TAP_FINGER each, and the grid's corners
+// stay inside the glass (radius ~205 of 233).
+#define AV_COLS 3
+#define AV_PER_PAGE 9
+#define AV_CELL UI_TAP_FINGER
+#define AV_GRID_Y 96
 #define PLAYER_PAGES (GYM_REGIONS + 1)
 #define playerBadgeRegion (playerPage % GYM_REGIONS)
 uint8_t gymPage = 0;
@@ -1787,6 +1813,7 @@ void openClock();  // prototipo
 
 void onSwipeV(int dir) {
   if (pet.awaitingStarter()) return;  // bloqueado durante la eleccion de inicial
+  if (blackoutOpen) { blackoutDismiss(); return; }
   if (menuOpen) { menuOpen = false; return; }   // any swipe closes the menu
   if (battleOpen) return;   // no swiping out of a fight
   const bool back = dir > 0;
@@ -1853,7 +1880,11 @@ void onSwipeV(int dir) {
     sfxPlay(SFX_TAP);
     return;
   }
-  if (playerOpen) { if (back) uiTileGo(TILE_PET); return; }
+  if (playerOpen) {
+    if (avatarPickOpen) { if (back) avatarPickOpen = false; return; }   // back to the card
+    if (back) uiTileGo(TILE_PET);
+    return;
+  }
   if (partyOpen) {
     if (partyDetail) { if (back) partyDetail = 0; return; }
     if (back) {
@@ -2216,6 +2247,7 @@ void onSwipe(int dir) {
   // taught on the first screen they ever see.
   if (pet.awaitingStarter()) { rpickSwipe(dir); return; }
   if (menuOpen) { menuOpen = false; return; }   // any swipe closes the menu
+  if (blackoutOpen) { blackoutDismiss(); return; }
   if (battleOpen || tradeOpen) return;   // no swiping out of a fight or a trade
 
   int t = uiTileIndex();
@@ -2235,6 +2267,7 @@ void onSwipe(int dir) {
 
   // Off the axis are modals -- pickers, sheets, minigames. None of them page
   // any more, so here horizontal simply backs out.
+  if (avatarPickOpen) { avatarPickOpen = false; return; }
   if (pickOpen) { pickOpen = false; return; }
   if (trainOpen) { trainOpen = false; return; }
   if (bagOpen) { bagOpen = false; return; }
@@ -2269,6 +2302,10 @@ void onTap(int16_t x, int16_t y) {
   }
   if (tradeOpen) {
     tradeTap(x, y);
+    return;
+  }
+  if (blackoutOpen) {
+    blackoutDismiss();
     return;
   }
   if (battleOpen) {
@@ -2306,6 +2343,7 @@ void onTap(int16_t x, int16_t y) {
     return;
   }
   if (playerOpen) {
+    if (avatarPickOpen) { avatarPickTap(x, y); return; }
     if (playerPage == 0 && y >= 32 && y < 68) {   // the name: rename yourself
       openKeyboardFor(KB_TRAINER);
       sfxPlay(SFX_TAP);
@@ -2313,8 +2351,8 @@ void onTap(int16_t x, int16_t y) {
     }
     // the avatar is the only other live target; everything else backs out
     if (playerPage == 0 && x > CX - 40 && x < CX + 40 && y > 70 && y < 146) {
-      pet.avatar = (uint8_t)((pet.avatar + 1) % AVATAR_COUNT);
-      pet.saveNow();
+      avatarPickOpen = true;
+      avatarPage = (uint8_t)((pet.avatar % AVATAR_COUNT) / AV_PER_PAGE);   // open on yours
       sfxPlay(SFX_TAP);
       return;
     }
@@ -2757,13 +2795,14 @@ RTC_NOINIT_ATTR uint32_t gCrumbHeap;
 uint8_t uiCurrentScreen() {
   if (pet.awaitingStarter()) return starterRegionDone ? SCR_STARTER : SCR_REGION;
   if (tradeOpen) return SCR_TRADE;
+  if (blackoutOpen) return SCR_BLACKOUT;
   if (galleryOpen) return galleryPick ? SCR_DEXPICK : SCR_GALLERY;
   if (movePickOpen) return SCR_MOVEPICK;
   if (partyOpen) return boxOpen ? SCR_BOX : SCR_PARTY;
   if (bagOpen) return SCR_BAGSCR;
   if (kbOpen) return SCR_KEYBOARD;
   if (cardOpen) return SCR_CARD;
-  if (playerOpen) return SCR_PLAYER;
+  if (playerOpen) return avatarPickOpen ? SCR_AVATAR : SCR_PLAYER;
   if (clockOpen) return SCR_CLOCK;
   if (btlWinUntil) return SCR_WIN;
   if (battleOpen) return SCR_BATTLE;
@@ -2827,6 +2866,7 @@ void uiTileGo(int i) {
   if (i < 0) i = 0;
   if (i >= TILE_COUNT) i = TILE_COUNT - 1;
   exploreOpen = gymOpen = partyOpen = galleryOpen = playerOpen = false;
+  avatarPickOpen = false;
   cordPick = false;
   boxOpen = false;
   boxDetail = partyDetail = 0;
@@ -2864,6 +2904,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_GYM:     p = &gymPage;     n = (TRAINER_COUNT + GYM_ROWS - 1) / GYM_ROWS; break;
     case SCR_GALLERY: p = &galleryPage; n = (uint8_t)GAL_PAGES; break;
     case SCR_PLAYER:  p = &playerPage;  n = PLAYER_PAGES; break;
+    case SCR_AVATAR:  p = &avatarPage;  n = avatarPages(); break;
     case SCR_BOX:     p = &boxPage;     n = BOX_SLOTS / BOX_PER_PAGE; break;
     case SCR_BAGSCR:  p = &bagPage;     n = bagPages(); break;
     case SCR_MART:    p = &martPage;    n = martPages(); break;
@@ -3129,6 +3170,10 @@ void render() {
     renderTrade();
     return;
   }
+  if (blackoutOpen) {
+    renderBlackout();
+    return;
+  }
   if (galleryOpen) {
     if (galleryPick) { renderRegionPick(RPICK_FOR_DEX); return; }
     renderGallery();
@@ -3209,7 +3254,8 @@ void render() {
     return;
   }
   if (playerOpen) {
-    renderPlayer();
+    if (avatarPickOpen) renderAvatarPick();
+    else renderPlayer();
     return;
   }
   if (pet.hasLearnOffer()) {
@@ -4344,6 +4390,7 @@ void startLinkBattle() {
   btlWon = false;
   btlMenu = 0;
   btlWinUntil = 0;
+  btlLost = false;
   btlSwapWho = -1;
   lanWaitSince = 0;      // a rematch reuses this screen; the old wait is over
   lanQuitConfirm = false;
@@ -4380,6 +4427,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlWon = false;
   btlMenu = 0;
   btlWinUntil = 0;
+  btlLost = false;
   btlSwapWho = -1;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
@@ -4413,6 +4461,7 @@ void startBattle(int16_t dex, uint8_t lvl) {
   btlWon = false;
   btlMenu = 0;
   btlWinUntil = 0;
+  btlLost = false;
   btlSwapWho = -1;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
@@ -4757,6 +4806,7 @@ static void btlResolve(uint8_t yourMove) {
     // that screen is the badge ceremony, and it has no badge to show.
     if (btlWon && btlWild) { btlSay("%s", T(S_BTL_WIN)); wildGrantDrops(); return; }
     if (btlWon && btlTrainer >= 0) { btlWinUntil = millis() + 60000; return; }
+    btlLost = !btlWon;   // a LAN fight returned above: only gyms and the wild black out
     btlSay("%s", T(S_BTL_LOSE));
   }
 }
@@ -5266,6 +5316,11 @@ void battleTap(int16_t x, int16_t y) {
       audioMusic(MUS_NONE);
       battleOpen = false;
       btlWild = false;
+      if (btlLost && !btlLink) {   // out of creatures: black out, Mom takes over
+        btlLost = false;
+        blackoutOpen = true;
+        blackoutAt = millis();
+      }
       // Back to the LAN screen rather than all the way out: that is where a
       // rematch is offered, and re-pairing for every fight would be tedious.
       // lanLeave() matters here specifically: this is the path a mid-battle
@@ -5525,6 +5580,105 @@ void renderPlayer() {
   gfx->setCursor(CX - strlen(T(S_BACK)) * 6, 392);
   gfx->print(T(S_BACK));
   uiChrome();
+  gfx->flush();
+}
+
+// ---------- the avatar picker (v3.38) ----------
+// Every trainer class is playable now, which is too many to step through by
+// tapping the avatar. The grid's geometry is answered by functions, so a test
+// taps where the firmware draws rather than re-typing the numbers.
+uint8_t avatarPages() { return (AVATAR_COUNT + AV_PER_PAGE - 1) / AV_PER_PAGE; }
+
+// The top-left corner of grid cell `slot` (0..AV_PER_PAGE-1) on any page.
+void avatarCellPos(uint8_t slot, int *x, int *y) {
+  *x = CX - AV_COLS * AV_CELL / 2 + (slot % AV_COLS) * AV_CELL;
+  *y = AV_GRID_Y + (slot / AV_COLS) * AV_CELL;
+}
+
+// Which avatar is under (x, y) on the current page, or -1.
+int avatarAt(int16_t x, int16_t y) {
+  for (uint8_t slot = 0; slot < AV_PER_PAGE; slot++) {
+    int i = avatarPage * AV_PER_PAGE + slot;
+    if (i >= AVATAR_COUNT) break;
+    int cx, cy;
+    avatarCellPos(slot, &cx, &cy);
+    if (x >= cx && x < cx + AV_CELL && y >= cy && y < cy + AV_CELL) return i;
+  }
+  return -1;
+}
+
+void avatarPickTap(int16_t x, int16_t y) {
+  int i = avatarAt(x, y);
+  if (i < 0) return;                 // between cells or past the last: nothing
+  pet.avatar = (uint8_t)i;
+  pet.saveNow();
+  avatarPickOpen = false;            // back to the card, wearing it
+  sfxPlay(SFX_TAP);
+}
+
+void renderAvatarPick() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(T(S_AVATAR_PICK)) * 6, 62);
+  gfx->print(T(S_AVATAR_PICK));
+  for (uint8_t slot = 0; slot < AV_PER_PAGE; slot++) {
+    int i = avatarPage * AV_PER_PAGE + slot;
+    if (i >= AVATAR_COUNT) break;
+    int cx, cy;
+    avatarCellPos(slot, &cx, &cy);
+    if (i == pet.avatar % AVATAR_COUNT) {   // the one you are wearing
+      gfx->fillRoundRect(cx + 3, cy + 3, AV_CELL - 6, AV_CELL - 6, 10, UI_TRACK);
+      gfx->drawRoundRect(cx + 3, cy + 3, AV_CELL - 6, AV_CELL - 6, 10, UI_INK);
+    }
+    drawAvatar((uint8_t)i, cx + (AV_CELL - AVATAR_PX * 4) / 2, cy + 6, 4);
+    const char *an = AVATARS[i].name;
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(1);
+    gfx->setCursor(cx + AV_CELL / 2 - (int)strlen(an) * 3, cy + 76);
+    gfx->print(an);
+  }
+  uiChrome();
+  gfx->flush();
+}
+
+// ---------- the blackout (v3.38) ----------
+// Losing a gym or wild fight used to end on one more line of battle text. Now
+// the screen goes dark, as it does in the games, and Mom is waiting at home.
+// Nothing is taken from the player -- no money, no training; it is a moment,
+// not a penalty.
+#define BLACKOUT_MIN_MS 700   // a quick double tap on the last message must not skip her
+
+void blackoutDismiss() {
+  if (millis() - blackoutAt < BLACKOUT_MIN_MS) return;
+  blackoutOpen = false;
+  uiTileGo(TILE_PET);                // you wake up at home
+}
+
+void renderBlackout() {
+  gfx->fillScreen(RGB565_BLACK);
+  char l[48];
+  const char *tn = pet.trainerName[0] ? pet.trainerName : T(S_TRAINER);
+  snprintf(l, sizeof(l), T(S_BLACKOUT_FMT), tn);
+  gfx->setTextColor(UI_WHITE);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(l) * 6, 76);
+  gfx->print(l);
+  gfx->setTextColor(UI_TRACK);
+  gfx->setCursor(CX - (int)strlen(T(S_BLACKOUT_SUB)) * 6, 106);
+  gfx->print(T(S_BLACKOUT_SUB));
+  // Home: a warm card with Mom on it.
+  gfx->fillRoundRect(CX - 160, 146, 320, 226, 24, UI_BG_DAY);
+  drawArt(NPC_ART[NPC_MOM], CX - AVATAR_PX * 3, 160, 6);
+  gfx->setTextColor(UI_INK);
+  gfx->setCursor(CX - (int)strlen(T(S_MOM_1)) * 6, 280);
+  gfx->print(T(S_MOM_1));
+  gfx->setCursor(CX - (int)strlen(T(S_MOM_2)) * 6, 310);
+  gfx->print(T(S_MOM_2));
+  gfx->setTextColor(UI_TRACK);
+  gfx->setCursor(CX - (int)strlen(T(S_BACK)) * 6, 392);
+  gfx->print(T(S_BACK));
   gfx->flush();
 }
 
@@ -7434,6 +7588,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlMenu = 0;
   btlBagPage = 0;
   btlWinUntil = 0;
+  btlLost = false;
   btlSwapWho = -1;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
@@ -9658,7 +9813,11 @@ const char *statusMsg() {
 // dibuja un mapa de n x n pixeles escalado; silhouette=true lo pinta en tinta
 // An 8bpp indexed avatar, same shape as the badge art: 0xFF is transparent.
 void drawAvatar(uint8_t which, int x, int y, int s) {
-  const AvatarArt &a = AVATARS[which % AVATAR_COUNT];
+  drawArt(AVATARS[which % AVATAR_COUNT], x, y, s);
+}
+
+// Any of the overworld sprites: a player's avatar or a character like Mom.
+static void drawArt(const AvatarArt &a, int x, int y, int s) {
   for (int r = 0; r < AVATAR_PX; r++)
     for (int c = 0; c < AVATAR_PX; c++) {
       uint8_t v = a.idx[r * AVATAR_PX + c];

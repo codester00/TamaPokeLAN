@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.37-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.38-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -193,6 +193,10 @@ while it keeps trying — see § Trading in the manual below.
 | Trainer card | Johto badges | The box |
 |---|---|---|
 | <img src="docs/screens/player.png" width="240"> | <img src="docs/screens/player2.png" width="240"> | <img src="docs/screens/box.png" width="240"> |
+
+| Choose your look | More trainers | Blacked out |
+|---|---|---|
+| <img src="docs/screens/avatarpick.png" width="240"> | <img src="docs/screens/avatarpick2.png" width="240"> | <img src="docs/screens/blackout.png" width="240"> |
 
 ## Game manual (the actual numbers)
 
@@ -507,6 +511,12 @@ A caught creature takes a party slot, then a box slot, then asks — the same pa
 farewell already uses. It is **not** added to the Pokédex on capture: registration
 means "you raised this", so it happens when you actually make it the one you raise.
 
+**Losing.** When a gym or wild fight is lost, the screen goes dark: you have
+**blacked out**, and Mom is waiting at home to tell you your team is all better.
+A tap or a swipe takes you back to your creature. Nothing is taken from you — no
+money and no training; it is a moment, not a penalty. A LAN battle never blacks
+out: a friendly match is just a result.
+
 ### Gym battles and badges
 
 **TMs unlock at level 40**, all at once, and nothing before — so the early game
@@ -709,6 +719,10 @@ split lives on the species, not the individual — no extra IVs to roll.
   nothing is more than ten pages from the front.
 - **Name:** tap the header to open the touch keyboard; the nickname replaces the
   species name there and on the stat card.
+- **Your avatar:** tap it on the trainer card to choose a look. There are **19**:
+  RED, BLUE, and every Gen 1 trainer class with a sprite of its own (BEAUTY, BIKER,
+  CHANNELER, ACE M/F, FISHER, GAMBLER, GENTLEMAN, GIRL, HIKER, ROCKER, ROCKET,
+  SAILOR, SCIENTIST, SUPER NERD, SWIMMER, YOUNGSTER), three pages of nine.
 - **Languages:** the UI ships in 6 — English (default), Spanish, French, German,
   Italian, Portuguese — switchable from Settings. Move names and battle
   narration follow whichever is chosen.

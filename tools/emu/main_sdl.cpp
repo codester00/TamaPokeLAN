@@ -192,6 +192,7 @@ extern uint8_t btlMyAct;
 extern uint8_t btlTrainGain, btlTrainWhich;
 extern bool lanWantHost;
 extern bool gShowAllAvatars;
+extern bool avatarPickOpen, blackoutOpen; extern uint8_t avatarPage;
 #define PICK_LAN 0xFF
 uint8_t squadCap(uint8_t, bool);
 #include "link.h"
@@ -487,6 +488,16 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
     pet.renameTrainer("DYLAN");
     playerOpen = true;
     gShowAllAvatars = true;
+  }
+  else if (!strcmp(screen, "avatarpick")) {   // the real picker, page 1
+    pet.avatar = 3; playerOpen = true; avatarPickOpen = true; avatarPage = 0;
+  }
+  else if (!strcmp(screen, "avatarpick2")) {  // the second page
+    pet.avatar = 14; playerOpen = true; avatarPickOpen = true; avatarPage = 1;
+  }
+  else if (!strcmp(screen, "blackout")) {
+    pet.renameTrainer("DYLAN");
+    blackoutOpen = true;
   }
   else if (!strcmp(screen, "player")) { pet.renameTrainer("DYLAN"); pet.badges = 0xBF; pet.badgesHard = 0x0A; pet.streak = 5; playerOpen = true; }
   else if (!strcmp(screen, "player2")) {

@@ -250,6 +250,11 @@ enum StrId : uint16_t {
   S_NOT_HERE,
   S_PLUS_FMT, // a gain on a result screen: +n NAME
   S_MAX_TODAY, // bond's daily allowance is used up
+  S_AVATAR_PICK, // avatar picker title
+  S_BLACKOUT_FMT, // after losing a battle: the trainer
+  S_BLACKOUT_SUB, // why
+  S_MOM_1, // Mom, first line
+  S_MOM_2, // Mom, second line
   STR_COUNT
 };
 
