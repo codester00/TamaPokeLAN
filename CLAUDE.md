@@ -631,8 +631,9 @@ the rest through `trainSplit()` (nothing earned, nothing charged).
 negative-checked. Layout positions a test needs are functions
 (`blockAttackPos`, `simonBerryPos`, `seekBushPos`, `pushNeedle`), never numbers.
 
-- **Tilt Maze's axis signs** (`TILT_SIGN_X`/`_Y`) were a guess, and the first
-  real board (2026-10-20) found both backwards; they are flipped now. No test
+- **Tilt Maze's axis signs** (`TILT_SIGN_X`/`_Y`) were a guess. The first
+  real board (2026-10-20) found left/right correct and up/down backwards, so
+  only `TILT_SIGN_Y` was flipped. No test
   can pin the direction -- the emulator has no sensor unless a test calls
   `emuSetTilt()` -- so a change to them needs a board.
 - **Block!'s leave strip is thin on purpose**: the top is a lane to defend, so

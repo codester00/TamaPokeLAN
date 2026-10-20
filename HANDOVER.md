@@ -78,8 +78,8 @@ the release notes):**
 
 1. The save survives the 3.33 -> 3.34 install (`EXPORT` first).
 2. **Tilt Maze's axis signs** (`TILT_SIGN_X`/`_Y` in `TamaPoke.ino`): the first
-   board found both backwards and both were flipped. Confirm the flip feels
-   right on the next flash.
+   board found up/down backwards (left/right was right); only Y was flipped.
+   Confirm it on the next flash.
 3. Touch feel of the new games: Rock Smash's timing windows (90/180 ms), Block!'s
    thin top-edge leave strip, Memory's berry hit areas.
 4. A daytime nap wakes by itself in about 15 minutes; an evening bed does not.

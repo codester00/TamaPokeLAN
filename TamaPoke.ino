@@ -7810,8 +7810,8 @@ static const int8_t BLOCK_DX[4] = { 0, 1, 0, -1 };   // up, right, down, left
 static const int8_t BLOCK_DY[4] = { -1, 0, 1, 0 };
 
 // Tilt Maze: roll the ball into the goal, around the holes, by tilting the
-// board. Both signs were flipped after the first tilt on a real board
-// (2026-10-20): the original guess ran the ball backwards.
+// board. Checked on a real board (2026-10-20): left/right was right as first
+// guessed, up/down was backwards and is flipped.
 #define TILT_MS 30000UL
 #define TILT_ARENA 180
 #define TILT_BALL 14
@@ -7820,7 +7820,7 @@ static const int8_t BLOCK_DY[4] = { -1, 0, 1, 0 };
 #define TILT_HOLES 2
 #define TILT_K 9.0f            // px per frame per g of tilt
 #define TILT_FRICTION 0.95f
-#define TILT_SIGN_X (1.0f)
+#define TILT_SIGN_X (-1.0f)
 #define TILT_SIGN_Y (-1.0f)
 #define TILT_GOAL_PTS 3
 float tiltBx = CX, tiltBy = CY, tiltVx = 0, tiltVy = 0, tilt0x = 0, tilt0y = 0;
