@@ -631,9 +631,10 @@ the rest through `trainSplit()` (nothing earned, nothing charged).
 negative-checked. Layout positions a test needs are functions
 (`blockAttackPos`, `simonBerryPos`, `seekBushPos`, `pushNeedle`), never numbers.
 
-- **Tilt Maze's axis signs are a GUESS** (`TILT_SIGN_X`/`_Y`). Nobody has
-  tilted a real board yet; if the ball rolls uphill, flip the sign. The
-  emulator has no sensor unless a test calls `emuSetTilt()`.
+- **Tilt Maze's axis signs** (`TILT_SIGN_X`/`_Y`) were a guess, and the first
+  real board (2026-10-20) found both backwards; they are flipped now. No test
+  can pin the direction -- the emulator has no sensor unless a test calls
+  `emuSetTilt()` -- so a change to them needs a board.
 - **Block!'s leave strip is thin on purpose**: the top is a lane to defend, so
   `mgLeaveStripY()` sits above an attack launched from the top, and
   `minigame_test` fails if it is widened back to the usual 72.
