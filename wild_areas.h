@@ -44,12 +44,14 @@ static const WildSlot WILD_SLOTS[] = {
   { 10, 500, WILD_WHEN_ANY, 0 },  // CATERPIE
   { 13, 500, WILD_WHEN_ANY, 0 },  // WEEDLE
   // ROUTE 22
-  { 19, 2752, WILD_WHEN_ANY, 0 },  // RATTATA
-  { 56, 2752, WILD_WHEN_ANY, 0 },  // MANKEY
-  { 54, 1575, WILD_WHEN_ANY, 0 },  // PSYDUCK
-  { 79, 1575, WILD_WHEN_ANY, 0 },  // SLOWPOKE
-  { 60, 734, WILD_WHEN_ANY, 0 },  // POLIWAG
-  { 21, 612, WILD_WHEN_ANY, 0 },  // SPEAROW
+  { 19, 2500, WILD_WHEN_ANY, 0 },  // RATTATA
+  { 56, 2500, WILD_WHEN_ANY, 0 },  // MANKEY
+  { 54, 1431, WILD_WHEN_ANY, 0 },  // PSYDUCK
+  { 79, 1430, WILD_WHEN_ANY, 0 },  // SLOWPOKE
+  { 60, 667, WILD_WHEN_ANY, 0 },  // POLIWAG
+  { 61, 667, WILD_WHEN_ANY, 20 },  // POLIWHIRL
+  { 21, 555, WILD_WHEN_ANY, 0 },  // SPEAROW
+  { 130, 250, WILD_WHEN_ANY, 15 },  // GYARADOS
   // VIRIDIAN FOREST
   { 10, 4000, WILD_WHEN_ANY, 0 },  // CATERPIE
   { 13, 4000, WILD_WHEN_ANY, 0 },  // WEEDLE
@@ -81,21 +83,22 @@ static const WildSlot WILD_SLOTS[] = {
   { 54, 8, WILD_WHEN_ANY, 0 },  // PSYDUCK
   { 79, 8, WILD_WHEN_ANY, 0 },  // SLOWPOKE
   // ROUTES 24-25
-  { 72, 1894, WILD_WHEN_ANY, 0 },  // TENTACOOL
-  { 10, 1137, WILD_WHEN_ANY, 0 },  // CATERPIE
-  { 13, 1136, WILD_WHEN_ANY, 0 },  // WEEDLE
-  { 16, 852, WILD_WHEN_ANY, 0 },  // PIDGEY
-  { 63, 852, WILD_WHEN_ANY, 0 },  // ABRA
-  { 43, 710, WILD_WHEN_ANY, 0 },  // ODDISH
-  { 69, 710, WILD_WHEN_ANY, 0 },  // BELLSPROUT
-  { 54, 494, WILD_WHEN_ANY, 0 },  // PSYDUCK
-  { 79, 494, WILD_WHEN_ANY, 0 },  // SLOWPOKE
-  { 98, 477, WILD_WHEN_ANY, 0 },  // KRABBY
-  { 116, 477, WILD_WHEN_ANY, 0 },  // HORSEA
-  { 130, 256, WILD_WHEN_ANY, 15 },  // GYARADOS
-  { 60, 227, WILD_WHEN_ANY, 0 },  // POLIWAG
-  { 11, 142, WILD_WHEN_ANY, 4 },  // METAPOD
-  { 14, 142, WILD_WHEN_ANY, 4 },  // KAKUNA
+  { 72, 1852, WILD_WHEN_ANY, 0 },  // TENTACOOL
+  { 10, 1111, WILD_WHEN_ANY, 0 },  // CATERPIE
+  { 13, 1111, WILD_WHEN_ANY, 0 },  // WEEDLE
+  { 16, 833, WILD_WHEN_ANY, 0 },  // PIDGEY
+  { 63, 833, WILD_WHEN_ANY, 0 },  // ABRA
+  { 43, 695, WILD_WHEN_ANY, 0 },  // ODDISH
+  { 69, 695, WILD_WHEN_ANY, 0 },  // BELLSPROUT
+  { 54, 482, WILD_WHEN_ANY, 0 },  // PSYDUCK
+  { 79, 482, WILD_WHEN_ANY, 0 },  // SLOWPOKE
+  { 98, 467, WILD_WHEN_ANY, 0 },  // KRABBY
+  { 116, 467, WILD_WHEN_ANY, 0 },  // HORSEA
+  { 130, 250, WILD_WHEN_ANY, 15 },  // GYARADOS
+  { 60, 222, WILD_WHEN_ANY, 0 },  // POLIWAG
+  { 61, 222, WILD_WHEN_ANY, 20 },  // POLIWHIRL
+  { 11, 139, WILD_WHEN_ANY, 4 },  // METAPOD
+  { 14, 139, WILD_WHEN_ANY, 4 },  // KAKUNA
   // ROUTES 5-6
   { 16, 2222, WILD_WHEN_ANY, 0 },  // PIDGEY
   { 52, 1945, WILD_WHEN_ANY, 0 },  // MEOWTH
@@ -507,45 +510,45 @@ static const WildSlot WILD_SLOTS[] = {
   { 54, 8, WILD_WHEN_ANY, 0 },  // PSYDUCK
   { 79, 8, WILD_WHEN_ANY, 0 },  // SLOWPOKE
 };
-#define WILD_SLOT_COUNT 435
+#define WILD_SLOT_COUNT 438
 
 static const WildArea WILD_AREAS[] = {
   { "ROUTE 1", 0, 0, 0, 2, 1, 12 },
   { "ROUTE 2", 0, 0, 2, 4, 1, 12 },
-  { "ROUTE 22", 0, 0, 6, 6, 1, 12 },
-  { "VIRIDIAN FOREST", 0, 0, 12, 5, 1, 12 },
-  { "ROUTE 3", 0, 1, 17, 6, 11, 19 },
-  { "MT. MOON", 0, 1, 23, 4, 11, 19 },
-  { "ROUTE 4", 0, 1, 27, 11, 11, 19 },
-  { "ROUTES 24-25", 0, 1, 38, 15, 11, 19 },
-  { "ROUTES 5-6", 0, 2, 53, 14, 14, 22 },
-  { "ROUTE 11", 0, 2, 67, 10, 14, 22 },
-  { "DIGLETTS CAVE", 0, 2, 77, 2, 14, 22 },
-  { "ROUTES 7-8", 0, 3, 79, 8, 19, 27 },
-  { "ROUTES 9-10", 0, 3, 87, 11, 19, 27 },
-  { "ROCK TUNNEL", 0, 3, 98, 6, 19, 27 },
-  { "POKEMON TOWER", 0, 4, 104, 3, 33, 41 },
-  { "ROUTES 12-15", 0, 4, 107, 14, 33, 41 },
-  { "ROUTES 16-18", 0, 4, 121, 10, 33, 41 },
-  { "SAFARI ZONE", 0, 4, 131, 23, 33, 41 },
-  { "SEAFOAM ISLANDS", 0, 5, 154, 11, 33, 41 },
-  { "POWER PLANT", 0, 5, 165, 5, 33, 41 },
-  { "POKEMON MANSION", 0, 5, 170, 19, 33, 41 },
-  { "SEA ROUTES 19-21", 0, 5, 189, 11, 33, 41 },
-  { "KINDLE ROAD", 0, 7, 200, 20, 40, 48 },
-  { "MT. EMBER", 0, 7, 220, 11, 40, 48 },
-  { "BERRY FOREST", 0, 7, 231, 27, 40, 48 },
-  { "CAPE BRINK", 0, 7, 258, 15, 40, 48 },
-  { "ROUTE 23", 0, 8, 273, 13, 44, 52 },
-  { "VICTORY ROAD", 0, 8, 286, 10, 44, 52 },
-  { "CERULEAN CAVE", 0, 13, 296, 18, 60, 70 },
-  { "ICEFALL CAVE", 0, 13, 314, 23, 60, 70 },
-  { "LOST CAVE", 0, 13, 337, 6, 60, 70 },
-  { "FIVE ISLAND", 0, 13, 343, 19, 60, 70 },
-  { "SIX ISLAND", 0, 13, 362, 34, 60, 70 },
-  { "ALTERING CAVE", 0, 13, 396, 1, 60, 70 },
-  { "SEVAULT CANYON", 0, 13, 397, 25, 60, 70 },
-  { "TANOBY RUINS", 0, 13, 422, 13, 60, 70 },
+  { "ROUTE 22", 0, 0, 6, 8, 1, 12 },
+  { "VIRIDIAN FOREST", 0, 0, 14, 5, 1, 12 },
+  { "ROUTE 3", 0, 1, 19, 6, 11, 19 },
+  { "MT. MOON", 0, 1, 25, 4, 11, 19 },
+  { "ROUTE 4", 0, 1, 29, 11, 11, 19 },
+  { "ROUTES 24-25", 0, 1, 40, 16, 11, 19 },
+  { "ROUTES 5-6", 0, 2, 56, 14, 14, 22 },
+  { "ROUTE 11", 0, 2, 70, 10, 14, 22 },
+  { "DIGLETTS CAVE", 0, 2, 80, 2, 14, 22 },
+  { "ROUTES 7-8", 0, 3, 82, 8, 19, 27 },
+  { "ROUTES 9-10", 0, 3, 90, 11, 19, 27 },
+  { "ROCK TUNNEL", 0, 3, 101, 6, 19, 27 },
+  { "POKEMON TOWER", 0, 4, 107, 3, 33, 41 },
+  { "ROUTES 12-15", 0, 4, 110, 14, 33, 41 },
+  { "ROUTES 16-18", 0, 4, 124, 10, 33, 41 },
+  { "SAFARI ZONE", 0, 4, 134, 23, 33, 41 },
+  { "SEAFOAM ISLANDS", 0, 5, 157, 11, 33, 41 },
+  { "POWER PLANT", 0, 5, 168, 5, 33, 41 },
+  { "POKEMON MANSION", 0, 5, 173, 19, 33, 41 },
+  { "SEA ROUTES 19-21", 0, 5, 192, 11, 33, 41 },
+  { "KINDLE ROAD", 0, 7, 203, 20, 40, 48 },
+  { "MT. EMBER", 0, 7, 223, 11, 40, 48 },
+  { "BERRY FOREST", 0, 7, 234, 27, 40, 48 },
+  { "CAPE BRINK", 0, 7, 261, 15, 40, 48 },
+  { "ROUTE 23", 0, 8, 276, 13, 44, 52 },
+  { "VICTORY ROAD", 0, 8, 289, 10, 44, 52 },
+  { "CERULEAN CAVE", 0, 13, 299, 18, 60, 70 },
+  { "ICEFALL CAVE", 0, 13, 317, 23, 60, 70 },
+  { "LOST CAVE", 0, 13, 340, 6, 60, 70 },
+  { "FIVE ISLAND", 0, 13, 346, 19, 60, 70 },
+  { "SIX ISLAND", 0, 13, 365, 34, 60, 70 },
+  { "ALTERING CAVE", 0, 13, 399, 1, 60, 70 },
+  { "SEVAULT CANYON", 0, 13, 400, 25, 60, 70 },
+  { "TANOBY RUINS", 0, 13, 425, 13, 60, 70 },
 };
 #define WILD_AREA_COUNT 36
 

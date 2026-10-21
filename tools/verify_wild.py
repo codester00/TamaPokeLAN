@@ -15,9 +15,8 @@ FAILS when:
 REPORTS, for review:
   - each area's level band, derived from the gym ladder in trainers.h the same
     way the firmware will (docs/explore-plan.md § 6.1);
-  - evolved forms left out of an area because their floor is above its band
-    (and where each can first be met instead), and the ones kept above their
-    band because no other area has them (§ 6.3);
+  - evolved forms whose floor is above their area's band -- they stay in that
+    area and appear at their floor (§ 6.3);
   - species with no art, which the firmware can never draw;
   - regions with no areas yet, and any region whose data is NOT VERIFIED.
 """
@@ -36,14 +35,6 @@ import wild_areas as WA                    # noqa: E402
 from dex_data import DEX, REGIONS          # noqa: E402
 
 DECOMP_SOURCES = {'frlg'}   # sources that ARE the game's own tables
-
-
-def G_floor(area, dex, areas):
-    for a in areas:
-        for d, _, fl in a['slots']:
-            if d == dex and a['region'] == area['region']:
-                return fl
-    return 0
 
 
 def main():
@@ -97,23 +88,9 @@ def main():
     print('\nlevel bands (from trainers.h; gate = ladder trainers beaten):')
     for a in areas:
         print('  %-17s gate %-2s  L%d-%d' % (a['name'], a['gate'], *a['band']))
-    first = {}
-    for a in areas:
-        for d, _, _ in a['slots']:
-            k = (a['region'], d)
-            if k not in first or a['gate'] < first[k]['gate']:
-                first[k] = a
-    left = [(a, d) for a in areas for d in a['dropped']]
-    if left:
-        print('\nleft out of an area, floor above its band, met elsewhere (%d):' % len(left))
-        for a, d in left:
-            f = first[(a['region'], d)]
-            print('  %-11s floor L%-3d not in %-17s (L%d-%d) -> first met in %s (gate %d)'
-                  % (DEX[d - 1][2], G_floor(a, d, areas), a['name'], *a['band'],
-                     f['name'], f['gate']))
     over = [(a, d, fl) for a in areas for d, _, fl in a['slots'] if fl > a['band'][1]]
     if over:
-        print('\nkept above the band because nowhere else has them -- they appear at their floor (%d):' % len(over))
+        print('\nabove the band: they stay in their area and appear at their floor (%d):' % len(over))
         for a, d, fl in over:
             print('  %-11s L%d in %s (band L%d-%d)' % (DEX[d - 1][2], fl, a['name'], *a['band']))
     art = sorted({d for a in areas for d, _, _ in a['slots'] if d in noart})

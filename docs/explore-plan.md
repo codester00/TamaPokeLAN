@@ -184,14 +184,13 @@ species' floor is the lower of (its evolution level) and (the lowest level the
 source game has it wild).** A Metapod can be L5; a Venusaur, never wild in
 FireRed, can never be below L32.
 
-**When the floor is above the area's band** (found by Phase 1, see § 14), the
-evolved form is **left out of that area if another area of the region has it
-inside its own band**, and **kept at its floor if not**. FireRed's best rod
-puts a level 15+ Gyarados and a level 20+ Poliwhirl on Route 22, which opens
-before Brock (cap 14): both are left out there and first met on Route 4 and
-Routes 5–6. Dugtrio is only ever in Diglett's Cave, so it stays there at L26
-in a 14–22 band, because a species must never become unobtainable to tidy a
-band. `verify_wild.py` lists both kinds.
+**When the floor is above the area's band, the species stays in its area
+anyway and appears at its floor** (owner's call, 2026-10-21: keep every
+creature where the game puts it). FireRed's best rod puts a level 15+
+Gyarados and a level 20+ Poliwhirl on Route 22, which opens before Brock (cap
+14), and Dugtrio is L26 in Diglett's Cave's 14-22 band. Those are edge cases
+the gym ladder already absorbs: it caps every creature's level in the fight,
+the same way it handles an over-raised pet. `verify_wild.py` lists them.
 
 Evolve-up (an early-route roll becoming the evolved form) is **dropped**.
 Bands now follow the ladder, so an area's own species list already fits its

@@ -30,12 +30,12 @@ decide is each species' FLOOR: the lowest level an evolved form may appear
 at, the lower of our own evolution level and the lowest level the game itself
 has it wild (§ 6.3).
 
-An evolved form whose floor is above its area's band is LEFT OUT of that area
-when it can be met in another area of the region inside that area's band --
-so a level 15 Gyarados does not wait on Route 22 before Brock. When it can be
-met nowhere else (Dugtrio, only ever in Diglett's Cave) it STAYS, and the
-firmware raises its level to the floor: a species must never become
-unobtainable to tidy a band.
+Every species STAYS in the area the game puts it in (owner's call). An evolved
+form whose floor is above its area's band -- FireRed's best rod puts a level
+15+ Gyarados on Route 22, before Brock's cap of 14 -- simply appears at its
+floor, above the band. That is the same edge the gym ladder already handles
+for an over-raised pet: the ladder caps every creature's level in the fight,
+so a strong early catch is handicapped there anyway.
 """
 import json
 import os
@@ -238,12 +238,8 @@ def build(refresh=False):
                 return min(src_min[dex], lvl)
             return src_min[dex] if dex in pre else 0
 
-        fits = {d for a in mine for d in a['mix'] if floor_of(d) <= a['band'][1]}
         for a in mine:
-            keep = {d: p for d, p in a['mix'].items()
-                    if floor_of(d) <= a['band'][1] or d not in fits}
-            a['dropped'] = sorted(set(a['mix']) - set(keep))
-            a['slots'] = [(d, w, floor_of(d)) for d, w in scale(keep)]
+            a['slots'] = [(d, w, floor_of(d)) for d, w in scale(a['mix'])]
         for dex, area, script in reg['legends']:
             if area not in names:
                 sys.exit('gen_wild: legend #%d names unknown area %r' % (dex, area))
