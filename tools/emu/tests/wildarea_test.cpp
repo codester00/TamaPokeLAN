@@ -34,13 +34,17 @@ int main(){
   bool sums=true, gates=true, names=true, dexes=true, bands=true, slices=true;
   for (int i=0;i<WILD_AREA_COUNT;i++){
     const WildArea &a=WILD_AREAS[i];
-    uint32_t t=0;
+    // Each time band is its own distribution: a slot counts in every band its
+    // `when` bits name, and each band must add up to the total on its own.
+    for (uint8_t b=WILD_WHEN_MORN;b<=WILD_WHEN_NITE;b<<=1){
+      uint32_t t=0;
+      for (int k=0;k<a.count;k++) if (WILD_SLOTS[a.first+k].when & b) t+=WILD_SLOTS[a.first+k].weight;
+      if (t!=WILD_WEIGHT_TOTAL) sums=false;
+    }
     for (int k=0;k<a.count;k++){
       const WildSlot &s=WILD_SLOTS[a.first+k];
-      t+=s.weight;
-      if (s.dex<1 || s.dex>DEX_COUNT || !s.weight) dexes=false;
+      if (s.dex<1 || s.dex>DEX_COUNT || !s.weight || !s.when || (s.when & ~WILD_WHEN_ANY)) dexes=false;
     }
-    if (t!=WILD_WEIGHT_TOTAL) sums=false;
     if (!(a.gate<=TRAINER_GYMS || a.gate==WILD_GATE_CHAMPION)) gates=false;
     size_t n=strlen(a.name);
     if (!n || n>16) names=false;
@@ -50,7 +54,8 @@ int main(){
         i>=WILD_REGION_AREAS[a.region][0]+WILD_REGION_AREAS[a.region][1]) slices=false;
   }
   ck(WILD_AREA_COUNT>0 && wildRegionHasAreas(0), "Kanto has areas");
-  ck(sums, "every area's weights add up to WILD_WEIGHT_TOTAL");
+  ck(sums, "every area's weights add up to WILD_WEIGHT_TOTAL in each time band");
+  ck(wildRegionHasAreas(1), "Johto has areas");
   ck(dexes, "every slot is a real species with a weight");
   ck(gates, "every gate is a badge count or the champion");
   ck(names, "every area name is 1-16 printable ASCII characters");
@@ -109,6 +114,33 @@ int main(){
 
   // ---- time of day ---------------------------------------------------------
   ck(wildTimeBand(-1)==WILD_WHEN_DAY, "a clock that was never set counts as day");
+  // A creature of the night (Crystal has them: Hoothoot on Route 29) is met at
+  // night and never by day. Found from the data, so the check cannot pass on
+  // an area that happens to have no night-only slot.
+  {
+    int na=-1; int16_t nd=0;
+    for (int i=0;i<WILD_AREA_COUNT && na<0;i++){
+      const WildArea &a=WILD_AREAS[i];
+      for (int k=0;k<a.count && na<0;k++){
+        const WildSlot &s=WILD_SLOTS[a.first+k];
+        if (s.when!=WILD_WHEN_NITE) continue;
+        bool byDay=false;
+        for (int j=0;j<a.count;j++)
+          if (WILD_SLOTS[a.first+j].dex==s.dex && (WILD_SLOTS[a.first+j].when & WILD_WHEN_DAY)) byDay=true;
+        if (!byDay){ na=i; nd=s.dex; }
+      }
+    }
+    ck(na>=0, "some area has a creature only met at night");
+    if (na>=0){
+      bool day=false, night=false;
+      for (uint32_t r=0;r<WILD_WEIGHT_TOTAL;r++){
+        if (wildAreaPick((uint16_t)na,WILD_WHEN_DAY,r)==nd) day=true;
+        if (wildAreaPick((uint16_t)na,WILD_WHEN_NITE,r)==nd) night=true;
+      }
+      printf("      %s: %s\n", WILD_AREAS[na].name, DEX_TBL[nd].name);
+      ck(night && !day, "it is met at night and never by day");
+    }
+  }
   ck(wildTimeBand(3)==WILD_WHEN_NITE && wildTimeBand(4)==WILD_WHEN_MORN &&
      wildTimeBand(9)==WILD_WHEN_MORN && wildTimeBand(10)==WILD_WHEN_DAY &&
      wildTimeBand(17)==WILD_WHEN_DAY && wildTimeBand(18)==WILD_WHEN_NITE,

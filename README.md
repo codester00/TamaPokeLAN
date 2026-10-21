@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.39-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.40-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -149,11 +149,12 @@ way. Same reasoning that makes Hoenn Emerald throughout.
 Wild creatures are met by exploring rather than only in gyms. The `< REGION >`
 selector picks where the next encounter comes from, independently of your egg's
 region, so changing hunting grounds never rerolls or moves the egg. Regions whose
-sprite pack is not installed are skipped. **Kanto is split into the games' own
-areas** -- Route 1, Viridian Forest, Mt. Moon, the Safari Zone, Cerulean Cave and
-31 more -- each holding the creatures FireRed and LeafGreen put there, and each
-opening with the badge that opened it in the games. Tap the area row to choose
-one; a locked area says which badge it needs. Weaken one and throw a ball to keep it;
+sprite pack is not installed are skipped. **Kanto and Johto are split into the
+games' own areas** -- Route 1, Mt. Moon and Cerulean Cave; Route 29, Ilex Forest
+and the Whirl Islands; 71 in all -- each holding the creatures the games put
+there, and each opening with the badge that opened it in the games. Tap the area
+row to choose one; a locked area says which badge it needs, and a starred one
+has a legendary waiting. Weaken one and throw a ball to keep it;
 a caught creature goes to the party or the box, and does *not* fill the Pokédex
 until you actually raise it.
 
@@ -450,13 +451,62 @@ fishing rod and Rock Smash, every creature at the game's own rate within its
 method, the methods weighted walk 1.0 / surf 0.5 / fishing 0.3 / Rock Smash 0.2.
 `tools/verify_wild.py --table` prints every area's exact odds.
 
+**Johto's areas (v3.40).** 35 areas from Crystal's own tables (the
+`pret/pokecrystal` disassembly) -- Crystal alone, which keeps every one of them
+verifiable against the game. Crystal has **morning (04-10), day (10-18) and
+night (18-04)**, and so does Johto here: in the grass Hoothoot comes out at night,
+read from the board's clock (a clock that was never set counts as day). Johto
+adds **Headbutt** trees (weight 0.2, the only home of Heracross, Aipom and Pineco
+in Crystal); its Rock Smash rocks are Crystal's own four (Cianwood, Route 40,
+Dark Cave, Slowpoke Well). Fishing uses Crystal's super rod groups, with their
+day and night catches. Not wild in Crystal's Johto, so not in Johto's areas:
+Mareep's line, Houndour, Murkrow, Slugma, Girafarig, Remoraid (a swarm only),
+Sudowoodo (a one-off encounter), the starters, the babies and many final forms
+-- eggs and evolution still bring them. `tools/verify_wild.py` lists every Johto
+species no area offers.
+
 **An area opens with the badge that opened it in the games**, on either
-difficulty: Route 1, 2, 22 and Viridian Forest from the start; Mt. Moon after
-the Boulder Badge; the Safari Zone after the Rainbow Badge; Seafoam Islands and
-the Power Plant after the Soul Badge (that was Surf); Sevii Islands 1-3 after the
-Volcano Badge; Victory Road after the Earth Badge; Cerulean Cave and Sevii 4-7
-after the champion. A locked area is listed, greyed, saying what it needs --
-`REQUIRES BOULDER BADGE`.
+difficulty. Kanto: Route 1, 2, 22 and Viridian Forest from the start; Mt. Moon
+after the Boulder Badge; the Safari Zone after the Rainbow Badge; Seafoam Islands
+and the Power Plant after the Soul Badge (that was Surf); Sevii Islands 1-3 after
+the Volcano Badge; Victory Road after the Earth Badge; Cerulean Cave and Sevii
+4-7 after the champion. Johto: Routes 29-31, Route 46, Sprout Tower and Dark Cave
+from the start; Ilex Forest after the Hive Badge (Cut); Route 36 after the Plain
+Badge (the SquirtBottle); the sea after the Fog Badge (Surf); the Whirl Islands
+after the Glacier Badge (Whirlpool); Dragon's Den and Victory Road after the
+Rising Badge; Tin Tower and Mt. Silver after the champion. A locked area is
+listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
+
+**Legendaries live somewhere (v3.40).** Each story legendary has a home:
+
+| Legendary | Home | Appears after | Level |
+|---|---|---|---|
+| Articuno | Seafoam Islands | Soul Badge | 50 |
+| Zapdos | Power Plant | Soul Badge | 50 |
+| Moltres | Mt. Ember | Volcano Badge | 50 |
+| Mewtwo | Cerulean Cave | the champion | 70 |
+| Raikou, Entei | Burned Tower, then **roaming Johto** | Plain Badge | 40 |
+| Suicune | Burned Tower (Tin Tower's first floor has no wild table) | Glacier Badge | 40 |
+| Lugia | Whirl Islands | the champion | 60 |
+| Ho-Oh | Tin Tower | the champion | 60 |
+
+| A legendary is waiting |
+|---|
+| <img src="docs/screens/areaj.png" width="240"> |
+
+Levels are read from the games' scripts. The **first Explore in its home after
+its badge always meets it** -- once. Win, lose, run or let it flee, the meeting
+is spent as the fight starts; after that it comes back in **3 %** of that area's
+encounters (a roamer, in 3 % across every open area of its region) until it is
+**caught**, and then never again. Its home's row wears a star while it is still
+out there. Difficulty does not change its level.
+
+**Story legendaries are caught, not hatched.** A legendary with a home is never
+in an egg. **Mythicals** (Mew, Celebi and the rest) have no home in any game's
+story and stay egg-only, rare, under the same egg odds as ever: the legendary
+egg tier opens at 25 species registered and is 3 % of eggs, 10 % after a
+farewell, plus a care bonus. Regions whose areas have not landed yet keep their
+legendaries in eggs and in the old 1 % wild roll until they do.
 
 **Levels follow the gym ladder, not your pet.** An area's band ends just below
 the level cap of the next gym battle it leads to:
@@ -490,8 +540,6 @@ not landed yet keep the old region-wide pool:
 - **Shiny**: exactly **1/4096** per encounter, flooring every IV at 20 without
   capping one that already rolled higher.
 - Ordinary IVs roll **8–31**, independently.
-- Kanto's legendaries are not in its areas yet; they get fixed homes (Articuno
-  in Seafoam Islands, Mewtwo in Cerulean Cave) in the next step.
 
 **Catching.** Pick a ball from the battle **BAG**. It spends your turn either way,
 so throwing is never free.
@@ -1000,7 +1048,7 @@ runaway-ready state) · `WIPE` (factory reset → new game) · `BEEP` (audio tes
 `PARTY` / `PARTY <dex>` / `PARTY CLEAR` (inspect and fill the party) ·
 `FOCUS <slot>` (swap the creature you are raising with a party slot) ·
 `BAG` (list it) · `GIVE <key> [n]` (stock it) · `WILD` / `WILD HARD` (force an
-encounter, naming the area) · `AREA` / `AREA <n>` (list the Explore region's
+encounter, naming the area and flagging a legendary) · `AREA` / `AREA <n>` (list the Explore region's
 areas with their gates and bands / pick one) ·
 `TIME <epoch>` / `RTCSET <epoch>` · `HEALTH` (uptime + heap for the soak test) ·
 `LS` / `PUT` (SD files).

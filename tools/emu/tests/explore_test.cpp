@@ -94,9 +94,17 @@ int main() {
   onTap(rightX, rightY);
   ck(exploreRegion == 2, "the selector skips a region whose pack is missing");
 
+  // A region whose areas have not landed draws from its own whole pool. Which
+  // region that is changes as areas land (Johto was one until v3.40), so it is
+  // FOUND, never named -- a region with areas may hold another region's
+  // species (Johto's Route 29 has Pidgey) and would make this check wrong.
+  uint8_t noAreas = REGION_ALL;
+  for (uint8_t r = 0; r < REGION_COUNT && noAreas == REGION_ALL; r++)
+    if (r != REGION_ALL && r != pet.region && !wildRegionHasAreas(r)) noAreas = r;
+  ck(noAreas != REGION_ALL, "(some region still has no areas)");
   gRegionArt = 0xFFFF;
-  ck(startWildBattle(1, false), "an installed selected region starts an encounter");
-  ck(wildDex >= REGIONS[1].lo && wildDex <= REGIONS[1].hi,
+  ck(startWildBattle(noAreas, false), "an installed selected region starts an encounter");
+  ck(wildDex >= REGIONS[noAreas].lo && wildDex <= REGIONS[noAreas].hi,
      "the encounter comes from the selected region, not the egg region");
 
   // ---------------------------------------------------------------- areas
@@ -176,11 +184,16 @@ int main() {
 
   // A region without areas yet: the row cannot open a list, encounters still work.
   areaListOpen = false;
-  exploreRegion = 1;
+  exploreRegion = noAreas;
   tapRect(exploreAreaRect);
   ck(!areaListOpen, "a region without areas has no list to open");
   battleOpen = false; exploreOpen = true;
-  ck(startWildBattle(1, true), "and it still has encounters, from the whole region");
+  ck(startWildBattle(noAreas, true), "and it still has encounters, from the whole region");
+  // and Johto, which has areas since v3.40, opens its list like Kanto does
+  battleOpen = false; exploreOpen = true; exploreRegion = 1;
+  tapRect(exploreAreaRect);
+  ck(areaListOpen && exploreAreaOf(1) != WILD_NO_AREA, "Johto's area row opens Johto's list");
+  areaListOpen = false;
 
   // ALL is switched off (EXPLORE_ALLOW_ALL 0). The selector must visit every
   // installed region and never ALL -- the first half proves the second is not

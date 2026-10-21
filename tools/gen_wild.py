@@ -8,20 +8,26 @@ Two inputs, kept apart on purpose:
 
 - tools/wild_areas.py, HAND-WRITTEN: which maps make an area, its name, its
   badge gate, where each legendary lives.
-- the pret disassemblies, FETCHED: every species, encounter rate and level.
-  Nothing a game decides is typed by hand, so nothing can be misremembered.
+- the pret disassemblies, FETCHED: every species, encounter rate, level and
+  time of day, and every legendary's level. Nothing a game decides is typed
+  by hand, so nothing can be misremembered.
 
 The raw sources are cached in tools/wild_cache/ (gitignored). Output is
 deterministic: two runs over the same sources give the same bytes, which is
 what lets verify_wild.py compare the committed header against a fresh build.
 
-How an area's weights are made (docs/explore-plan.md § 12):
+How an area's weights are made (docs/explore-plan.md § 12), once for EACH time
+band (morning, day, night -- Crystal's own bands; a game with no times of day
+gives three identical answers):
   1. per version, per encounter method: average the method's species
-     distribution over the area's maps that have that method, using each
-     slot's in-game rate;
+     distribution over the area's maps that have that method in this band,
+     using each slot's in-game rate;
   2. mix the methods by METHOD_WEIGHT, renormalised over the methods present;
-  3. average the two versions, so an exclusive comes in at half weight;
+  3. average the versions, so an exclusive comes in at half weight;
   4. scale to WILD_WEIGHT_TOTAL, never rounding a present species to zero.
+A species whose weight is the same in several bands is emitted ONCE with those
+bands' bits, so a game without times of day costs no more than before.
+
 Levels are NOT taken from the source. Each area's BAND comes from the gym
 ladder in trainers.h (§ 6.1): gate 0 is 1 .. first cap - 2, gate g is the
 next battle's cap - 10 .. cap - 2, the champion's areas cap - 5 .. cap + 5,
@@ -57,21 +63,18 @@ CACHE = os.path.join(HERE, 'wild_cache')
 OUT = os.path.join(ROOT, 'wild_areas.h')
 WEIGHT_TOTAL = 10000
 
-SOURCES = {
-    'frlg': {
-        'json': 'https://raw.githubusercontent.com/pret/pokefirered/master/src/data/wild_encounters.json',
-        'script': 'https://raw.githubusercontent.com/pret/pokefirered/master/data/maps/%s/scripts.inc',
-        'versions': ('FireRed', 'LeafGreen'),
-        # Only the best rod counts (plan § 4): FRLG's fishing table is
-        # old rod 0-1, good rod 2-4, super rod 5-9.
-        'fishing_slots': range(5, 10),
-    },
-}
+MORN, DAY, NITE = 1, 2, 4
+ANY = MORN | DAY | NITE
+BANDS = (MORN, DAY, NITE)
 
-METHOD_KEYS = {'land_mons': 'land', 'water_mons': 'water',
-               'fishing_mons': 'fishing', 'rock_smash_mons': 'rock_smash'}
+FRLG = 'https://raw.githubusercontent.com/pret/pokefirered/master/'
+CRYSTAL = 'https://raw.githubusercontent.com/pret/pokecrystal/master/'
 
 SLUG = {slug: n for n, slug, *_ in DEX}
+
+# source -> every map that source has wild encounters on, filled in by the
+# loaders for verify_wild.py's "nothing silently dropped" check.
+SOURCE_MAPS = {}
 
 # trainers.h's ladders, in REGIONS order.
 LADDER_ARRAYS = ['TRAINERS_KANTO', 'TRAINERS_JOHTO', 'TRAINERS_HOENN',
@@ -107,7 +110,7 @@ def band(caps, gate):
 
 
 def dex_of(const):
-    """SPECIES_MR_MIME -> 122. A species the dex does not know is a hard error."""
+    """SPECIES_MR_MIME / MR__MIME -> 122. An unknown species is a hard error."""
     s = re.sub(r'[^a-z0-9]', '', const.replace('SPECIES_', '').lower())
     if s not in SLUG:
         sys.exit('gen_wild: unknown species %s' % const)
@@ -128,37 +131,216 @@ def fetch(url, name, refresh=False):
         return f.read()
 
 
-def load_source(src, refresh=False):
-    """-> {version: {map: {method: [(dex, min_level, rate), ...]}}}"""
-    cfg = SOURCES[src]
-    d = json.loads(fetch(cfg['json'], src + '_wild_encounters.json', refresh))
+# ---------------------------------------------------------------------------
+# Sources. Each loader returns
+#   {version: {map: {method: [(dex, level, rate, when), ...]}}}
+# with `rate` the slot's in-game percentage within its method and `when` the
+# time bands it applies to.
+
+def load_frlg(refresh=False):
+    d = json.loads(fetch(FRLG + 'src/data/wild_encounters.json',
+                         'frlg_wild_encounters.json', refresh))
     group = d['wild_encounter_groups'][0]
     rates = {f['type']: f['encounter_rates'] for f in group['fields']}
-    out = {v: {} for v in cfg['versions']}
+    keys = {'land_mons': 'land', 'water_mons': 'water',
+            'fishing_mons': 'fishing', 'rock_smash_mons': 'rock_smash'}
+    out = {'FireRed': {}, 'LeafGreen': {}}
     for e in group['encounters']:
-        ver = next((v for v in cfg['versions'] if e['base_label'].endswith(v)), None)
+        ver = next((v for v in out if e['base_label'].endswith(v)), None)
         if ver is None:
             sys.exit('gen_wild: encounter %s belongs to no version' % e['base_label'])
         m = out[ver].setdefault(e['map'].replace('MAP_', ''), {})
-        for key, method in METHOD_KEYS.items():
+        for key, method in keys.items():
             if key not in e:
                 continue
             slots = list(enumerate(e[key]['mons']))
             if method == 'fishing':
-                slots = [(i, s) for i, s in slots if i in cfg['fishing_slots']]
-            m[method] = [(dex_of(s['species']), s['min_level'], rates[key][i])
+                # Only the best rod counts (plan § 4): FRLG's fishing table is
+                # old rod 0-1, good rod 2-4, super rod 5-9.
+                slots = [(i, s) for i, s in slots if i >= 5]
+            m[method] = [(dex_of(s['species']), s['min_level'], rates[key][i], ANY)
                          for i, s in slots]
+    SOURCE_MAPS['frlg'] = set(out['FireRed']) | set(out['LeafGreen'])
     return out
 
 
-def legend_level(src, script_map, dex, refresh=False):
-    """The level a static legendary is fought at, read from the game's script."""
-    text = fetch(SOURCES[src]['script'] % script_map,
-                 '%s_%s_scripts.inc' % (src, script_map), refresh)
-    for const, lvl in re.findall(r'setwildbattle\s+(SPECIES_\w+),\s*(\d+)', text):
+def camel_to_const(name):
+    """Crystal's map file names -> its map constants: MountMortar1FOutside ->
+    MOUNT_MORTAR_1F_OUTSIDE. Every result is checked against the encounter
+    tables' own constants by the caller, so a bad split fails loudly."""
+    s = re.sub(r'(?<=[a-z])(?=[A-Z0-9])', '_', name)
+    s = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', '_', s)
+    return s.upper()
+
+
+def crystal_prob(text, label):
+    """A cumulative percentage table from probabilities.asm -> per-slot rates."""
+    block = text.split(label + ':')[1].split('assert_table_length')[0]
+    cum = [int(x) for x in re.findall(r'mon_prob\s+(\d+),', block)]
+    return [b - a for a, b in zip([0] + cum, cum)]
+
+
+def crystal_wild(text, kind, rates):
+    """johto_grass/kanto_grass (kind 'grass': morn/day/nite blocks of 7) or the
+    water files (kind 'water': one block of 3) -> {map: [(dex, lvl, rate, when)]}."""
+    out = {}
+    for mp, body in re.findall(r'def_%s_wildmons (\w+)(.*?)end_%s_wildmons' % (kind, kind),
+                               text, re.S):
+        mons = re.findall(r'db\s+(\d+),\s*(\w+)', body)
+        if kind == 'grass':
+            n = len(rates)
+            if len(mons) != 3 * n:
+                sys.exit('gen_wild: %s has %d grass slots' % (mp, len(mons)))
+            slots = []
+            for b, when in enumerate(BANDS):
+                for i in range(n):
+                    lvl, sp = mons[b * n + i]
+                    slots.append((dex_of(sp), int(lvl), rates[i], when))
+        else:
+            slots = [(dex_of(sp), int(lvl), rates[i], ANY) for i, (lvl, sp) in enumerate(mons)]
+        out[mp] = slots
+    return out
+
+
+def crystal_fish(fish, maps_asm, water_maps):
+    """The SUPER rod's table for each map with water, by its map's fish group.
+    Time groups are day (Crystal's day covers morning too) or night."""
+    group_of = {}
+    for camel, grp in re.findall(r'^\s*map (\w+),.*?(FISHGROUP_\w+)\s*$', maps_asm, re.M):
+        group_of[camel_to_const(camel)] = grp
+    order = re.findall(r'fishgroup [^,]+,\s*\.(\w+)_Old', fish)
+    time_rows = re.findall(r'db (\w+),\s*(\d+),\s*(\w+),\s*(\d+) ; \d+',
+                           fish.split('TimeFishGroups:')[1])
+    names = {}
+    for i, base in enumerate(order):
+        names['FISHGROUP_' + camel_to_const(base)] = base
+    out = {}
+    for mp in water_maps:
+        grp = group_of.get(mp)
+        if not grp or grp == 'FISHGROUP_NONE':
+            continue
+        base = names.get(grp)
+        if base is None:
+            sys.exit('gen_wild: %s uses fish group %s, not in fish.asm' % (mp, grp))
+        block = fish.split('.%s_Super:' % base)[1].split('\n.')[0]
+        prev, slots = 0, []
+        for line in block.splitlines():
+            m = re.match(r'\s*db\s+(\d+) percent(?: \+ 1)?,\s*(.*)$', line)
+            if not m:
+                continue
+            cum, rest = int(m.group(1)), m.group(2)
+            rate, prev = cum - prev, cum
+            tg = re.match(r'time_group (\d+)', rest)
+            if tg:
+                dsp, dlv, nsp, nlv = time_rows[int(tg.group(1))]
+                slots.append((dex_of(dsp), int(dlv), rate, MORN | DAY))
+                slots.append((dex_of(nsp), int(nlv), rate, NITE))
+            else:
+                sp, lv = [x.strip() for x in rest.split(',')]
+                slots.append((dex_of(sp), int(lv), rate, ANY))
+        out[mp] = slots
+    return out
+
+
+def crystal_trees(treemons, set_name):
+    """A headbutt tree set -> slots. Common and rare trees depend on the player's
+    ID, so each counts half."""
+    block = treemons.split('TreeMonSet_%s:' % set_name)[1].split('\nTreeMonSet_')[0]
+    tables = block.split('db -1')
+    slots = []
+    lists = [t for t in tables if re.search(r'db\s+\d+,\s*\w+,\s*\d+', t)]
+    for t in lists:
+        for pct, sp, lv in re.findall(r'db\s+(\d+),\s*(\w+),\s*(\d+)', t):
+            slots.append((dex_of(sp), int(lv), int(pct) / len(lists), ANY))
+    return slots
+
+
+def load_crystal(refresh=False, needed=()):
+    """Crystal's grass, surf, super rod, Headbutt and Rock Smash tables, for the
+    maps the area table names (`needed`)."""
+    g = lambda p: fetch(CRYSTAL + p, 'crystal_' + p.replace('/', '_'), refresh)
+    prob = g('data/wild/probabilities.asm')
+    grass_r = crystal_prob(prob, 'GrassMonProbTable')
+    water_r = crystal_prob(prob, 'WaterMonProbTable')
+    grass, water = {}, {}
+    for f in ('johto', 'kanto'):
+        grass.update(crystal_wild(g('data/wild/%s_grass.asm' % f), 'grass', grass_r))
+        water.update(crystal_wild(g('data/wild/%s_water.asm' % f), 'water', water_r))
+    maps_asm = g('data/maps/maps.asm')
+    fish = crystal_fish(g('data/wild/fish.asm'), maps_asm, set(water))
+    treemons = g('data/wild/treemons.asm')
+    # Two tables in one file, read the way the engine reads them: Headbutt
+    # looks a map up in TreeMonMaps, Rock Smash in RockMonMaps (GetTreeMonSet
+    # in engine/events/treemons.asm takes the first entry for the map).
+    tm = g('data/wild/treemon_maps.asm')
+    def first_sets(section):
+        block = tm.split(section + ':')[1].split('\n\n')[0]
+        sets = {}
+        for mp, st in re.findall(r'treemon_map (\w+),\s*TREEMON_SET_(\w+)', block):
+            sets.setdefault(mp, st)
+        return sets
+    tree_of, rock_of = first_sets('TreeMonMaps'), first_sets('RockMonMaps')
+    out = {}
+    for mp in needed:
+        m = {}
+        if mp in grass:
+            m['land'] = grass[mp]
+        if mp in water:
+            m['water'] = water[mp]
+        if mp in fish:
+            m['fishing'] = fish[mp]
+        if tree_of.get(mp, 'NONE') != 'NONE':
+            m['headbutt'] = crystal_trees(treemons, tree_of[mp].capitalize())
+        if rock_of.get(mp, 'NONE') != 'NONE':
+            m['rock_smash'] = crystal_trees(treemons, rock_of[mp].capitalize())
+        if not m:
+            sys.exit('gen_wild: Crystal map %s has no encounters of any kind' % mp)
+        out[mp] = m
+    # Every map the source has encounters on, for verify_wild.py's coverage
+    # check: the Johto tables, Johto's trees and rocks, and the Kanto-file maps
+    # that are Johto's road to its Elite Four.
+    johto = set(crystal_wild(g('data/wild/johto_grass.asm'), 'grass', grass_r))
+    johto |= set(crystal_wild(g('data/wild/johto_water.asm'), 'water', water_r))
+    johto |= {k for k, v in tree_of.items() if v != 'NONE' and not re.match(r'ROUTE_(\d|1\d|2[0-5])$', k)}
+    johto |= {k for k, v in rock_of.items() if v != 'NONE'}
+    SOURCE_MAPS['crystal'] = johto | {'ROUTE_26', 'ROUTE_27', 'ROUTE_28', 'TOHJO_FALLS', 'VICTORY_ROAD'}
+    return {'Crystal': out}
+
+
+def legend_level(src, leg, refresh=False):
+    """The level a legendary is fought at, read from the game's own script."""
+    dex = leg['dex']
+    if src == 'frlg':
+        text = fetch(FRLG + 'data/maps/%s/scripts.inc' % leg['script'],
+                     'frlg_%s_scripts.inc' % leg['script'], refresh)
+        pat = r'setwildbattle\s+(SPECIES_\w+),\s*(\d+)'
+    elif leg.get('roams'):
+        # Raikou and Entei start roaming from InitRoamMons at one shared level.
+        text = fetch(CRYSTAL + 'engine/overworld/wildmons.asm',
+                     'crystal_engine_overworld_wildmons.asm', refresh)
+        init = text.split('InitRoamMons:')[1].split('\n\n\n')[0]
+        names = re.findall(r'ld a, (\w+)\s*\n\s*ld \[wRoamMon\dSpecies\]', init)
+        lvl = re.search(r'; level\s*\n\s*ld a, (\d+)', init)
+        if lvl and dex in [dex_of(n) for n in names]:
+            return int(lvl.group(1))
+        sys.exit('gen_wild: #%d is not one of InitRoamMons %s' % (dex, names))
+    else:
+        text = fetch(CRYSTAL + 'maps/%s.asm' % leg['script'],
+                     'crystal_maps_%s.asm' % leg['script'], refresh)
+        pat = r'loadwildmon\s+(\w+),\s*(\d+)'
+    for const, lvl in re.findall(pat, text):
         if dex_of(const) == dex:
             return int(lvl)
-    sys.exit('gen_wild: no setwildbattle for #%d in %s' % (dex, script_map))
+    sys.exit('gen_wild: no wild battle for #%d in %s' % (dex, leg['script']))
+
+
+def load_source(reg, refresh=False):
+    if reg['source'] == 'frlg':
+        return load_frlg(refresh)
+    if reg['source'] == 'crystal':
+        needed = [mp for _n, _g, maps in reg['areas'] for mp in maps]
+        return load_crystal(refresh, needed)
+    sys.exit('gen_wild: unknown source %r' % reg['source'])
 
 
 def pre_evolutions():
@@ -177,60 +359,53 @@ def pre_evolutions():
     return pre
 
 
+def mix_band(data, versions, maps, when):
+    """One time band's species distribution over an area (steps 1-3)."""
+    mix = {}
+    for v in versions:
+        per_method = {}
+        for method in WA.METHOD_WEIGHT:
+            dists = []
+            for mp in maps:
+                slots = [s for s in data[v].get(mp, {}).get(method, []) if s[3] & when]
+                if not slots:
+                    continue
+                tot = sum(s[2] for s in slots)
+                dist = {}
+                for dex, _lv, r, _w in slots:
+                    dist[dex] = dist.get(dex, 0) + r / tot
+                dists.append(dist)
+            if dists:
+                avg = {}
+                for dist in dists:
+                    for dex, p in dist.items():
+                        avg[dex] = avg.get(dex, 0) + p / len(dists)
+                per_method[method] = avg
+        if not per_method:
+            continue
+        wsum = sum(WA.METHOD_WEIGHT[m] for m in per_method)
+        for method, dist in per_method.items():
+            for dex, p in dist.items():
+                mix[dex] = mix.get(dex, 0) + p * WA.METHOD_WEIGHT[method] / wsum / len(versions)
+    return mix
+
+
 def build(refresh=False):
     """-> (areas, legends) in emit order. Each area is a dict with name,
-    region, gate, maps and slots [(dex, weight, floor)]."""
+    region, gate, maps, band and slots [(dex, weight, when, floor)]; each legend
+    a dict with dex, area (index), level, gate and roams."""
     pre = pre_evolutions()
     caps = ladder_caps()
     areas, legends = [], []
     for reg in WA.REGIONS:
-        data = load_source(reg['source'], refresh)
-        versions = SOURCES[reg['source']]['versions']
-        # The lowest level each species is wild at anywhere in this game.
-        src_min = {}
+        data = load_source(reg, refresh)
+        versions = sorted(data)
+        src_min = {}   # the lowest level each species is wild at in this game
         for v in versions:
             for methods in data[v].values():
                 for slots in methods.values():
-                    for dex, lv, _ in slots:
+                    for dex, lv, _r, _w in slots:
                         src_min[dex] = min(src_min.get(dex, 255), lv)
-        names = set()
-        for name, gate, maps in reg['areas']:
-            if name in names:
-                sys.exit('gen_wild: area %r twice' % name)
-            names.add(name)
-            mix = {}
-            for v in versions:
-                per_method = {}
-                for method in WA.METHOD_WEIGHT:
-                    dists = []
-                    for mp in maps:
-                        slots = data[v].get(mp, {}).get(method)
-                        if not slots:
-                            continue
-                        tot = sum(r for _, _, r in slots)
-                        dist = {}
-                        for dex, _, r in slots:
-                            dist[dex] = dist.get(dex, 0) + r / tot
-                        dists.append(dist)
-                    if dists:
-                        avg = {}
-                        for dist in dists:
-                            for dex, p in dist.items():
-                                avg[dex] = avg.get(dex, 0) + p / len(dists)
-                        per_method[method] = avg
-                if not per_method:
-                    continue
-                wsum = sum(WA.METHOD_WEIGHT[m] for m in per_method)
-                for method, dist in per_method.items():
-                    for dex, p in dist.items():
-                        share = p * WA.METHOD_WEIGHT[method] / wsum / len(versions)
-                        mix[dex] = mix.get(dex, 0) + share
-            if not mix:
-                sys.exit('gen_wild: area %r has no encounters' % name)
-            areas.append({'name': name, 'region': reg['region'], 'gate': gate,
-                          'maps': maps, 'mix': mix,
-                          'band': band(caps[reg['region']], gate)})
-        mine = [a for a in areas if a['region'] == reg['region']]
 
         def floor_of(dex):
             lvl = pre.get(dex)
@@ -238,16 +413,42 @@ def build(refresh=False):
                 return min(src_min[dex], lvl)
             return src_min[dex] if dex in pre else 0
 
-        for a in mine:
-            a['slots'] = [(d, w, floor_of(d)) for d, w in scale(a['mix'])]
-        for dex, area, script in reg['legends']:
-            if area not in names:
-                sys.exit('gen_wild: legend #%d names unknown area %r' % (dex, area))
-            idx = next(i for i, a in enumerate(areas) if a['name'] == area
+        names = set()
+        for name, gate, maps in reg['areas']:
+            if name in names:
+                sys.exit('gen_wild: area %r twice' % name)
+            names.add(name)
+            per_band = {}
+            for when in BANDS:
+                mix = mix_band(data, versions, maps, when)
+                if not mix:
+                    sys.exit('gen_wild: area %r has no encounters at time %d' % (name, when))
+                per_band[when] = dict(scale(mix))
+            # One slot per (species, weight) with the bands that share it.
+            slots = {}
+            for when in BANDS:
+                for dex, w in per_band[when].items():
+                    slots[(dex, w)] = slots.get((dex, w), 0) | when
+            ordered = sorted(slots.items(), key=lambda kv: (-kv[0][1], kv[0][0], kv[1]))
+            areas.append({'name': name, 'region': reg['region'], 'gate': gate,
+                          'maps': maps, 'band': band(caps[reg['region']], gate),
+                          'per_band': per_band,
+                          'slots': [(dex, w, when, floor_of(dex))
+                                    for (dex, w), when in ordered]})
+        for leg in reg['legends']:
+            if leg['area'] not in names:
+                sys.exit('gen_wild: legend #%d names unknown area %r' % (leg['dex'], leg['area']))
+            idx = next(i for i, a in enumerate(areas) if a['name'] == leg['area']
                        and a['region'] == reg['region'])
-            legends.append((dex, idx, legend_level(reg['source'], script, dex, refresh)))
-    order = [d for d, _, _ in legends]
-    if order != WA.LEGEND_ORDER[:len(order)] or len(order) != len(WA.LEGEND_ORDER):
+            gate = leg.get('gate', areas[idx]['gate'])
+            if gate not in tuple(range(9)) + (WA.GATE_CHAMPION,) or gate < areas[idx]['gate']:
+                sys.exit('gen_wild: legend #%d gate %r is not at or after its area\'s'
+                         % (leg['dex'], gate))
+            legends.append({'dex': leg['dex'], 'area': idx, 'gate': gate,
+                            'roams': bool(leg.get('roams')),
+                            'level': legend_level(reg['source'], leg, refresh)})
+    order = [lg['dex'] for lg in legends]
+    if order != WA.LEGEND_ORDER:
         sys.exit('gen_wild: legends %s do not follow LEGEND_ORDER %s -- that '
                  'list is APPEND-ONLY, it indexes the save' % (order, WA.LEGEND_ORDER))
     return areas, legends
@@ -256,7 +457,7 @@ def build(refresh=False):
 def scale(mix):
     """Probabilities -> integer weights summing to WEIGHT_TOTAL, largest
     remainder first, and never a present species rounded down to zero."""
-    total = sum(mix.values())   # < 1 once an area has left a species out
+    total = sum(mix.values())
     items = sorted(mix.items(), key=lambda kv: (-kv[1], kv[0]))
     raw = [(d, p / total * WEIGHT_TOTAL) for d, p in items]
     out = {d: max(1, int(x)) for d, x in raw}
@@ -273,6 +474,12 @@ def scale(mix):
     return sorted(out.items(), key=lambda kv: (-kv[1], kv[0]))
 
 
+WHEN_NAME = {ANY: 'WILD_WHEN_ANY', MORN: 'WILD_WHEN_MORN', DAY: 'WILD_WHEN_DAY',
+             NITE: 'WILD_WHEN_NITE', MORN | DAY: 'WILD_WHEN_MORN | WILD_WHEN_DAY',
+             MORN | NITE: 'WILD_WHEN_MORN | WILD_WHEN_NITE',
+             DAY | NITE: 'WILD_WHEN_DAY | WILD_WHEN_NITE'}
+
+
 def emit(areas, legends):
     n_regions = len(DEX_REGIONS)
     o = []
@@ -281,14 +488,15 @@ def emit(areas, legends):
              '// games\' own data (the pret disassemblies). tools/verify_wild.py proves\n'
              '// this file still matches both. Design: docs/explore-plan.md.\n'
              '#pragma once\n#include <stdint.h>\n\n')
-    o.append('#define WILD_WEIGHT_TOTAL %d   // every area\'s weights sum to this\n' % WEIGHT_TOTAL)
+    o.append('#define WILD_WEIGHT_TOTAL %d   // each time band\'s weights in an area sum to this\n' % WEIGHT_TOTAL)
     o.append('#define WILD_GATE_CHAMPION %d  // ladder positions: 0 open, 1-8 badges, 13 champion\n' % WA.GATE_CHAMPION)
     o.append('#define WILD_WHEN_MORN 1\n#define WILD_WHEN_DAY 2\n#define WILD_WHEN_NITE 4\n'
              '#define WILD_WHEN_ANY 7\n')
+    o.append('#define WILD_LEGEND_ROAMS 1   // WildLegend::flags: met anywhere in its region\n')
     o.append('#define WILD_REGIONS %d       // real regions, REGIONS order (no ALL)\n\n' % n_regions)
     o.append('struct WildSlot {\n'
              '  int16_t dex;       // NOT uint8_t -- see CLAUDE.md trap 2\n'
-             '  uint16_t weight;   // share of WILD_WEIGHT_TOTAL\n'
+             '  uint16_t weight;   // share of WILD_WEIGHT_TOTAL in each band it is in\n'
              '  uint8_t when;      // WILD_WHEN_* bits\n'
              '  uint8_t floor;     // lowest level it may appear at, 0 = none\n'
              '};\n'
@@ -303,17 +511,19 @@ def emit(areas, legends):
              '// APPEND-ONLY: the save stores a legendary by its index here.\n'
              'struct WildLegend {\n'
              '  int16_t dex;\n'
-             '  uint16_t area;     // into WILD_AREAS -- NOT uint8_t: nine regions pass 255\n'
-             '  uint8_t level;     // the level the game fights it at\n'
+             '  uint16_t area;     // its home, into WILD_AREAS -- NOT uint8_t: nine regions pass 255\n'
+             '  uint8_t level;     // the level the game fights it at, read from its script\n'
+             '  uint8_t gate;      // ladder position that lets it appear (at or after its area\'s)\n'
+             '  uint8_t flags;     // WILD_LEGEND_ROAMS\n'
              '};\n\n')
     o.append('static const WildSlot WILD_SLOTS[] = {\n')
     first = 0
     spans = []
     for a in areas:
         o.append('  // %s\n' % a['name'])
-        for dex, w, floor in a['slots']:
-            o.append('  { %d, %d, WILD_WHEN_ANY, %d },  // %s\n'
-                     % (dex, w, floor, DEX[dex - 1][2]))
+        for dex, w, when, floor in a['slots']:
+            o.append('  { %d, %d, %s, %d },  // %s\n'
+                     % (dex, w, WHEN_NAME[when], floor, DEX[dex - 1][2]))
         spans.append((first, len(a['slots'])))
         first += len(a['slots'])
     o.append('};\n#define WILD_SLOT_COUNT %d\n\n' % first)
@@ -336,8 +546,12 @@ def emit(areas, legends):
         o.append('  { %d, %d },  // %s\n' % (idx[0] if idx else 0, len(idx), DEX_REGIONS[r][0]))
     o.append('};\n\n')
     o.append('static const WildLegend WILD_LEGENDS[] = {\n')
-    for dex, area, lvl in legends:
-        o.append('  { %d, %d, %d },  // %s, %s\n' % (dex, area, lvl, DEX[dex - 1][2], areas[area]['name']))
+    for lg in legends:
+        o.append('  { %d, %d, %d, %d, %s },  // %s, %s%s\n'
+                 % (lg['dex'], lg['area'], lg['level'], lg['gate'],
+                    'WILD_LEGEND_ROAMS' if lg['roams'] else '0',
+                    DEX[lg['dex'] - 1][2], areas[lg['area']]['name'],
+                    ', roams' if lg['roams'] else ''))
     o.append('};\n#define WILD_LEGEND_COUNT %d\n' % len(legends))
     return ''.join(o)
 
@@ -350,8 +564,9 @@ def check(areas):
                      % (n, WA.NAME_MAX))
         if a['gate'] not in tuple(range(9)) + (WA.GATE_CHAMPION,):
             sys.exit('gen_wild: area %r has gate %r' % (n, a['gate']))
-        if sum(w for _, w, _ in a['slots']) != WEIGHT_TOTAL:
-            sys.exit('gen_wild: area %r weights do not sum to %d' % (n, WEIGHT_TOTAL))
+        for when in BANDS:
+            if sum(w for _d, w, wh, _f in a['slots'] if wh & when) != WEIGHT_TOTAL:
+                sys.exit('gen_wild: area %r band %d does not sum to %d' % (n, when, WEIGHT_TOTAL))
 
 
 def main():

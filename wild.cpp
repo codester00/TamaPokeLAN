@@ -11,6 +11,8 @@ static_assert(sizeof(WILD_REGION_AREAS[0][0]) >= 2, "WILD_REGION_AREAS must hold
 static_assert(sizeof(((WildLegend *)0)->area) >= 2, "WildLegend::area must hold an area index past 255");
 static_assert(sizeof(decltype(wildAreaFirst(0))) >= 2, "wildAreaFirst() must return an area index past 255");
 static_assert(WILD_AREA_COUNT < WILD_NO_AREA, "WILD_NO_AREA is a real area");
+static_assert(WILD_LEGEND_COUNT <= 8 * LEGEND_BYTES,
+              "the save's legendary bitmasks are full -- raise LEGEND_BYTES (pet.h)");
 
 static uint8_t shinyBonus(uint8_t bonus) {
   return bonus > WILD_SHINY_BONUS_MAX ? WILD_SHINY_BONUS_MAX : bonus;
@@ -150,12 +152,17 @@ bool wildAreaNeedsChampion(uint16_t a) { return areaAt(a).gate >= WILD_GATE_CHAM
 uint8_t wildAreaLvMin(uint16_t a) { return areaAt(a).lvMin; }
 uint8_t wildAreaLvMax(uint16_t a) { return areaAt(a).lvMax; }
 
+// THE gate: ladder position `gate` in `region` is open once the trainer before
+// it is beaten on either difficulty. Areas and legendaries both ask this.
+static bool gateOpen(uint8_t region, uint8_t gate, const Pet &p) {
+  if (gate == 0) return true;
+  uint8_t bit = (uint8_t)(gate - 1);   // the ladder trainer that opens it
+  return p.hasBadge(region, bit, false) || p.hasBadge(region, bit, true);
+}
+
 bool wildAreaUnlocked(uint16_t area, const Pet &p) {
   if (area >= WILD_AREA_COUNT) return false;
-  const WildArea &a = WILD_AREAS[area];
-  if (a.gate == 0) return true;
-  uint8_t bit = (uint8_t)(a.gate - 1);   // the ladder trainer that opens it
-  return p.hasBadge(a.region, bit, false) || p.hasBadge(a.region, bit, true);
+  return gateOpen(WILD_AREAS[area].region, WILD_AREAS[area].gate, p);
 }
 
 uint8_t wildTimeBand(int hour) {
@@ -208,4 +215,49 @@ uint8_t wildAreaLevel(uint16_t area, int16_t dex, uint32_t roll) {
     if (s.dex == dex && lvl < s.floor) lvl = s.floor;
   }
   return lvl > MAX_LEVEL ? MAX_LEVEL : lvl;
+}
+
+// ---------------------------------------------------------------------------
+// Legendaries.
+
+uint8_t wildLegendCount() { return WILD_LEGEND_COUNT; }
+int16_t wildLegendDex(uint8_t i) { return i < WILD_LEGEND_COUNT ? WILD_LEGENDS[i].dex : 0; }
+uint16_t wildLegendHome(uint8_t i) { return i < WILD_LEGEND_COUNT ? WILD_LEGENDS[i].area : WILD_NO_AREA; }
+uint8_t wildLegendLevel(uint8_t i) { return i < WILD_LEGEND_COUNT ? WILD_LEGENDS[i].level : 1; }
+bool wildLegendRoams(uint8_t i) {
+  return i < WILD_LEGEND_COUNT && (WILD_LEGENDS[i].flags & WILD_LEGEND_ROAMS);
+}
+
+bool wildIsExploreLegend(int16_t dex) {
+  for (uint8_t i = 0; i < WILD_LEGEND_COUNT; i++)
+    if (WILD_LEGENDS[i].dex == dex) return true;
+  return false;
+}
+
+bool wildLegendLive(uint8_t i, const Pet &p) {
+  if (i >= WILD_LEGEND_COUNT || p.legendCaught(i)) return false;
+  const WildLegend &l = WILD_LEGENDS[i];
+  return gateOpen(WILD_AREAS[l.area].region, l.gate, p) && speciesHasArt(l.dex) &&
+         regionAvailable(regionOfDex(l.dex));
+}
+
+int wildLegendFor(uint16_t area, const Pet &p, uint32_t roll) {
+  if (area >= WILD_AREA_COUNT) return -1;
+  for (uint8_t i = 0; i < WILD_LEGEND_COUNT; i++)   // a home's first meeting
+    if (WILD_LEGENDS[i].area == area && !p.legendMet(i) && wildLegendLive(i, p)) return i;
+  uint8_t cand[WILD_LEGEND_COUNT ? WILD_LEGEND_COUNT : 1], n = 0;
+  for (uint8_t i = 0; i < WILD_LEGEND_COUNT; i++) {
+    const WildLegend &l = WILD_LEGENDS[i];
+    bool here = l.area == area ||
+                ((l.flags & WILD_LEGEND_ROAMS) && WILD_AREAS[l.area].region == WILD_AREAS[area].region);
+    if (here && p.legendMet(i) && wildLegendLive(i, p)) cand[n++] = i;
+  }
+  if (!n || roll % 100 >= WILD_LEGEND_PCT) return -1;
+  return cand[(roll / 100) % n];
+}
+
+bool wildAreaHasLegend(uint16_t area, const Pet &p) {
+  for (uint8_t i = 0; i < WILD_LEGEND_COUNT; i++)
+    if (WILD_LEGENDS[i].area == area && wildLegendLive(i, p)) return true;
+  return false;
 }

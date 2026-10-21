@@ -194,6 +194,7 @@ extern bool lanWantHost;
 extern bool gShowAllAvatars;
 extern bool avatarPickOpen, blackoutOpen; extern uint8_t avatarPage;
 extern bool areaListOpen; extern uint8_t areaPage; extern uint16_t exploreAreaPick[];
+extern uint8_t exploreRegion;
 #define PICK_LAN 0xFF
 uint8_t squadCap(uint8_t, bool);
 #include "link.h"
@@ -389,6 +390,11 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
     pet.badges = 0x07;
     exploreOpen = true; areaListOpen = true; areaPage = 4;
     exploreAreaPick[0] = 13;      // ROUTES 9-10 (WILD_AREAS index 12, stored + 1)
+  }
+  else if (!strcmp(screen, "areaj")) {  // Johto at three badges: the Burned Tower starred
+    for (uint8_t b = 0; b < 3; b++) pet.winBadge(1, b, false);
+    exploreOpen = true; areaListOpen = true; exploreRegion = 1;
+    areaPage = 5;                 // ROUTES 36-37, BURNED TOWER, ROUTES 38-39
   }
   else if (!strcmp(screen, "mart")) { pet.wallet = 12345; pet.stepsTotal = 87654; martOpen = true; }
   else if (!strcmp(screen, "martconfirm")) {

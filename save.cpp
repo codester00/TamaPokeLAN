@@ -39,6 +39,7 @@ const SaveField SAVE_FIELDS[] = {
   { "ghi", SK_U16 },    { "shi", SK_U16 },    { "qhi", SK_U16 },
   // the Poke Mart: 1 pedometer step = $1
   { "wlt", SK_U32 },    { "stps", SK_U32 },
+  { "lgnd", SK_BYTES },   // Explore's legendaries: met bits, then caught bits
   // the banked creatures, and what you are carrying
   { "party", SK_BYTES }, { "box", SK_BYTES }, { "bag", SK_BYTES },
   // remembered LAN opponents -- its own key, same reasoning as the box

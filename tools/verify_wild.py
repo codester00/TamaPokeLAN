@@ -34,7 +34,8 @@ import gen_wild as G                       # noqa: E402
 import wild_areas as WA                    # noqa: E402
 from dex_data import DEX, REGIONS          # noqa: E402
 
-DECOMP_SOURCES = {'frlg'}   # sources that ARE the game's own tables
+DECOMP_SOURCES = {'frlg', 'crystal'}   # sources that ARE the game's own tables
+WHEN = {1: 'morning', 2: 'day', 4: 'night'}
 
 
 def main():
@@ -46,25 +47,8 @@ def main():
         bad += 1
         print('FAIL  ' + msg)
 
-    # 1. every map with encounters is accounted for, exactly once
-    for reg in WA.REGIONS:
-        data = G.load_source(reg['source'], refresh)
-        have = set()
-        for v in data.values():
-            have |= set(v)
-        seen = {}
-        for name, _gate, maps in reg['areas']:
-            for mp in maps:
-                if mp in seen:
-                    fail('%s map %s is in both %r and %r' % (reg['source'], mp, seen[mp], name))
-                seen[mp] = name
-                if mp not in have:
-                    fail('%s area %r names map %s, which has no encounters' % (reg['source'], name, mp))
-        for mp in sorted(have - set(seen) - set(reg['skip'])):
-            fail('%s map %s has wild encounters but is in no area and not in SKIP' % (reg['source'], mp))
-    print('maps: every map with encounters is in exactly one area or SKIP' if not bad else '')
-
-    # 2. the committed header is what the generator makes now
+    # 1. the committed header is what the generator makes now (this also runs
+    #    every loader, which records the maps each source has encounters on)
     areas, legends = G.build(refresh)
     G.check(areas)
     fresh = G.emit(areas, legends)
@@ -77,45 +61,77 @@ def main():
     else:
         print('wild_areas.h matches a fresh build')
 
-    # 3. legendary levels (gen_wild read them from the scripts; say so)
-    for dex, area, lvl in legends:
-        print('legend: %-9s L%-3d in %s (level read from the game script)'
-              % (DEX[dex - 1][2], lvl, areas[area]['name']))
+    # 2. every map with encounters is accounted for, exactly once
+    for reg in WA.REGIONS:
+        have = G.SOURCE_MAPS[reg['source']]
+        seen = {}
+        for name, _gate, maps in reg['areas']:
+            for mp in maps:
+                if mp in seen:
+                    fail('%s map %s is in both %r and %r' % (reg['source'], mp, seen[mp], name))
+                seen[mp] = name
+                if mp not in have:
+                    fail('%s area %r names map %s, which has no encounters' % (reg['source'], name, mp))
+        for mp in sorted(have - set(seen) - set(reg['skip'])):
+            fail('%s map %s has wild encounters but is in no area and not in SKIP' % (reg['source'], mp))
+        print('maps: every %s map with encounters is in exactly one area or SKIP (%d maps)'
+              % (reg['source'], len(have)))
+
+    # 3. legendaries (gen_wild read every level from the game's own script)
+    for lg in legends:
+        print('legend: %-9s L%-3d home %-15s gate %-2d%s'
+              % (DEX[lg['dex'] - 1][2], lg['level'], areas[lg['area']]['name'], lg['gate'],
+                 '  roams its region once met' if lg['roams'] else ''))
 
     # 4. bands, floors and where things can first be met
     noart = set(int(x) for x in re.findall(
         r'\d+', open(os.path.join(ROOT, 'noart.h')).read().split('= {')[1].split('}')[0]))
     print('\nlevel bands (from trainers.h; gate = ladder trainers beaten):')
     for a in areas:
-        print('  %-17s gate %-2s  L%d-%d' % (a['name'], a['gate'], *a['band']))
-    over = [(a, d, fl) for a in areas for d, _, fl in a['slots'] if fl > a['band'][1]]
+        print('  %-7s %-17s gate %-2s  L%d-%d' % (REGIONS[a['region']][0], a['name'], a['gate'], *a['band']))
+    over, seen_over = [], set()
+    for i, a in enumerate(areas):
+        for d, _w, _wh, fl in a['slots']:
+            if fl > a['band'][1] and (i, d) not in seen_over:
+                seen_over.add((i, d))
+                over.append((a, d, fl))
     if over:
         print('\nabove the band: they stay in their area and appear at their floor (%d):' % len(over))
         for a, d, fl in over:
             print('  %-11s L%d in %s (band L%d-%d)' % (DEX[d - 1][2], fl, a['name'], *a['band']))
-    art = sorted({d for a in areas for d, _, _ in a['slots'] if d in noart})
+    art = sorted({d for a in areas for d, _w, _wh, _f in a['slots'] if d in noart})
     if art:
         print('\nno art (the firmware skips these): %s' % ', '.join(DEX[d - 1][2] for d in art))
 
-    # 5. coverage by region
+    # 5. coverage by region, and which of each region's own species no area has
     print('\nregions:')
-    for r, (name, *_r) in enumerate(REGIONS):
+    legend_dex = {lg['dex'] for lg in legends}
+    for r, (name, lo, hi, *_r) in enumerate(REGIONS):
         regs = [g for g in WA.REGIONS if g['region'] == r]
+        n = sum(1 for a in areas if a['region'] == r)
         if not regs:
             print('  %-7s no areas yet -- keeps the old region-wide pool' % name)
-        elif regs[0]['source'] in DECOMP_SOURCES:
-            print('  %-7s %d areas, VERIFIED against the %s disassembly'
-                  % (name, sum(1 for a in areas if a['region'] == r), regs[0]['source']))
-        else:
-            print('  %-7s %d areas, NOT VERIFIED (no disassembly; %s)'
-                  % (name, sum(1 for a in areas if a['region'] == r), regs[0]['source']))
+            continue
+        verified = regs[0]['source'] in DECOMP_SOURCES
+        print('  %-7s %d areas, %s' % (name, n, 'VERIFIED against the %s disassembly' % regs[0]['source']
+                                       if verified else 'NOT VERIFIED (no disassembly; %s)' % regs[0]['source']))
+        met = {d for a in areas if a['region'] == r for d, _w, _wh, _f in a['slots']} | legend_dex
+        missing = [d for d in range(lo, hi + 1) if d not in met]
+        if missing:
+            print('          its own species no area or legendary home offers (%d): %s'
+                  % (len(missing), ', '.join(DEX[d - 1][2] for d in missing)))
 
     if '--table' in sys.argv:
         for a in areas:
-            print('\n%s (gate %d, L%d-%d)' % (a['name'], a['gate'], *a['band']))
-            for dex, w, floor in a['slots']:
-                print('  %5.2f%%  %-12s%s' % (w / 100, DEX[dex - 1][2],
-                                             '  floor L%d' % floor if floor else ''))
+            print('\n%s / %s (gate %d, L%d-%d)' % (REGIONS[a['region']][0], a['name'], a['gate'], *a['band']))
+            for b in (1, 2, 4):
+                rows = [(d, w, fl) for d, w, wh, fl in a['slots'] if wh & b]
+                if b > 1 and rows == [(d, w, fl) for d, w, wh, fl in a['slots'] if wh & 1]:
+                    continue   # the same as the morning: say it once
+                label = 'all day' if all(wh == 7 for _d, _w, wh, _f in a['slots']) else WHEN[b]
+                print('  [%s]' % label)
+                for d, w, fl in rows:
+                    print('    %5.2f%%  %-12s%s' % (w / 100, DEX[d - 1][2], '  floor L%d' % fl if fl else ''))
 
     print('\n%s' % ('FAILED: %d problem(s)' % bad if bad else 'OK'))
     return 1 if bad else 0

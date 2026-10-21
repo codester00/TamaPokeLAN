@@ -53,6 +53,7 @@ SAVE_FIELDS = [
     ("medal", SK_U16), ("tmedal", SK_U16), ("mstone", SK_U16),
     ("ghi", SK_U16), ("shi", SK_U16), ("qhi", SK_U16),
     ("wlt", SK_U32), ("stps", SK_U32),
+    ("lgnd", SK_BYTES),   # v3.40: Explore's legendaries, met bits then caught bits
     ("party", SK_BYTES), ("box", SK_BYTES), ("bag", SK_BYTES),
     ("rivals", SK_BYTES),
     ("lang", SK_U8), ("snd", SK_BOOL), ("vol", SK_U8),
@@ -129,6 +130,8 @@ FRIENDLY_NAMES = {
     "qhi": "Minigame high score: joy game",
     "wlt": "Poke Mart wallet ($, 1 pedometer step = $1, capped at 999999)",
     "stps": "Lifetime pedometer step count (never spent, display only)",
+    "lgnd": "Explore legendaries (v3.40): 16 bytes of MET bits then 16 of CAUGHT bits; "
+            "bit i is WILD_LEGENDS[i] in wild_areas.h (append-only, so an index never moves)",
     "lang": "Language index", "snd": "Sound enabled", "vol": "Volume (0-10)",
 }
 

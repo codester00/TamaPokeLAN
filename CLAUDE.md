@@ -630,9 +630,10 @@ which supersedes the six numbered items below wherever they differ** (levels
 follow the gym ladder, not the pet; hard = smarter AI, same levels; locked
 rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
-egg-only; ALL is switched off). **Phases 1 and 2 are done for Kanto (v3.39,
-on branch, see "Done: Kanto's areas" below)**; the owner wants Kanto confirmed
-working on a board before the next region. Then Phase 3 (legendaries). The original brief, kept for
+egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
+the legendaries and Johto's areas (v3.40)** -- see the two "Done" entries
+below. Next: Hoenn (Emerald), then Sinnoh (Platinum), the same way. None of it
+has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
 70/22/7/1 % (common / evolution-only / rare / legendary), every species in a
@@ -688,6 +689,54 @@ disconnected for a while, which may explain the week-long figure; the
      measured.
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
+
+### Done: legendaries with homes, and Johto's areas (v3.40, not yet on a board)
+
+Nine story legendaries live in Explore (`WILD_LEGENDS`, generated): Kanto's
+birds and Mewtwo, Johto's beasts, Lugia and Ho-Oh. Johto is 35 areas from
+Crystal, with morning/day/night slots and Headbutt trees. The plan's § 7-8.
+
+- **One rule for a legendary: `wildLegendFor()`.** The home's guaranteed first
+  meeting wins; otherwise `WILD_LEGEND_PCT` (3) of encounters, at home -- or
+  anywhere in the region for a roamer -- until caught. A legendary has its OWN
+  gate (`WildLegend::gate`, at or after its home's): Suicune's home, the Burned
+  Tower, opens at three badges but Suicune at seven. `gateOpen()` in wild.cpp
+  is the one gate rule for areas and legendaries both.
+- **"Met" is set as the fight STARTS, and saved there** (`startWildBattle()`).
+  Wild battles end in half a dozen places; the start is one. A power cut
+  mid-fight costs the guarantee, never the legendary. "Caught" is set in
+  `btlThrowBall()` and saved with the creature.
+- **Save: `PLAYER_VERSION` 4.** The player checkpoint's tail gains a length
+  byte, then `LEGEND_BYTES` (16) of met bits and 16 of caught bits; the legacy
+  key `lgnd` (in `SAVE_FIELDS`) carries both halves. **The bit index is the
+  position in `WILD_LEGENDS`, APPEND-ONLY** -- `gen_wild.py` refuses an order
+  that is not `LEGEND_ORDER` in `tools/wild_areas.py`. Growing `LEGEND_BYTES`
+  needs a new legacy key (the blob splits at it). `legend_test` proves a reload
+  through the checkpoint ALONE and through the legacy key alone -- each was
+  vacuous without the other's half deleted.
+- **Story legendaries leave the egg pool through `eggCanHold()`**, the ONE
+  predicate both egg rolls ask now (they each had their own copy of the pack and
+  art filters). `wildIsExploreLegend()` decides, so a region's legendaries leave
+  eggs exactly when their homes land. Mythicals have no home and stay.
+- **Crystal's data has traps of its own**, all handled in `gen_wild.py`:
+  map constants are derived from `maps.asm`'s CamelCase names
+  (`camel_to_const()`, checked against the tables); Rock Smash is
+  `RockMonMaps` and Headbutt `TreeMonMaps` in ONE file -- the engine reads the
+  FIRST entry for a map in each (`GetTreeMonSet`), and Cianwood appears in both;
+  fishing is the map's fish group's SUPER rod, with time groups giving a day
+  (morning + day) and a night catch; Raikou and Entei's level is
+  `InitRoamMons`'s, not a script's. Routes 26-28, Tohjo Falls and Victory Road
+  sit in Crystal's KANTO files but are Johto's road to its Elite Four.
+- **Weights are per time band now**: an area's slots that name a band must sum
+  to `WILD_WEIGHT_TOTAL` in that band; a species with the same weight in several
+  bands is one slot. Kanto's data came out byte-identical.
+- Crystal alone (Q-A) costs some species Gold/Silver had wild: Mareep's line,
+  Houndour, Murkrow, Slugma, Girafarig, plus Remoraid (swarm only) and
+  Sudowoodo (static). `verify_wild.py` lists each region's natives no area
+  offers. Eggs still bring them.
+- Best-rod fishing puts some evolved forms above early bands in Johto (Kingler
+  L28 on Route 30, Lanturn L27 on Route 29) -- the owner's rule keeps them where
+  the game puts them, at their floor. `verify_wild.py` lists all 20.
 
 ### Done: Kanto's areas -- Explore Phase 2 (v3.39, not yet on a board)
 
@@ -2072,7 +2121,7 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 54 suites (sprite_test skips without sprites)
+bash tools/emu/tests/run.sh          # all 56 suites (sprite_test skips without sprites)
 bash tools/emu/tests/run.sh battle   # just matching ones
 ```
 

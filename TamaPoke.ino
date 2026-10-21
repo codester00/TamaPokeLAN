@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.39"
+#define FW_VERSION "3.40"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -726,6 +726,7 @@ bool btlWild = false;
 int16_t wildDex = 0;
 uint8_t wildLvl = 1;
 uint8_t wildIv[4] = { 0, 0, 0, 0 };   // atk, def, spe, hp
+int8_t wildLegend = -1;   // the WILD_LEGENDS index being fought, or -1 (wild.h)
 bool wildShiny = false;
 bool wildCaught = false;
 // What a win handed over, for the settlement lines on the win screen.
@@ -1446,8 +1447,8 @@ void handleSerial() {
     uint8_t rg = currentExploreRegion();
     uint16_t area = exploreAreaOf(rg);
     if (startWildBattle(rg, hard))
-      Serial.printf("wild %s Lv.%u%s iv=%u/%u/%u/%u in %s\n", DEX_TBL[wildDex].name,
-                    wildLvl, wildShiny ? " *SHINY*" : "",
+      Serial.printf("wild %s%s Lv.%u%s iv=%u/%u/%u/%u in %s\n", DEX_TBL[wildDex].name,
+                    wildLegend >= 0 ? " (LEGENDARY)" : "", wildLvl, wildShiny ? " *SHINY*" : "",
                     wildIv[0], wildIv[1], wildIv[2], wildIv[3],
                     area == WILD_NO_AREA ? REGIONS[rg].name : wildAreaName(area));
     else
@@ -1469,9 +1470,10 @@ void handleSerial() {
     uint16_t cur = exploreAreaOf(rg);
     for (uint8_t i = 0; i < n; i++) {
       uint16_t a = (uint16_t)(first + i);
-      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s\n", a == cur ? '*' : ' ', i,
+      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s%s\n", a == cur ? '>' : ' ', i,
                     wildAreaName(a), wildAreaGate(a), wildAreaLvMin(a), wildAreaLvMax(a),
-                    wildAreaUnlocked(a, pet) ? "" : "  locked");
+                    wildAreaUnlocked(a, pet) ? "" : "  locked",
+                    wildAreaHasLegend(a, pet) ? "  legendary" : "");
     }
     Serial.println("DONE");
   } else if (line.startsWith("FOCUS ")) {
@@ -3239,6 +3241,16 @@ static void areaCentred(const char *t, int cx, int y, int maxW) {
   gfx->print(t);
 }
 
+// An area's name, starred while a legendary that lives there is still to be
+// caught and can appear -- the one hint that the area holds something more.
+// A locked area never gives its legendary away.
+void areaCentredName(uint16_t area, bool open_, int cx, int y, int maxW) {
+  char t[24];
+  snprintf(t, sizeof(t), (open_ && wildAreaHasLegend(area, pet)) ? "* %s *" : "%s",
+           wildAreaName(area));
+  areaCentred(t, cx, y, maxW);
+}
+
 void openAreaList() {
   uint8_t region = currentExploreRegion();
   if (!wildRegionHasAreas(region)) return;
@@ -3286,7 +3298,7 @@ void renderAreaList() {
       gfx->drawRoundRect(rx + 2, ry + 2, rw - 4, rh - 4, 10, UI_BAR_OK);
     }
     gfx->setTextColor(live ? UI_INK : UI_INK_SOFT);
-    areaCentred(wildAreaName(a), CX, ry + 22, rw - 16);
+    areaCentredName(a, open_, CX, ry + 22, rw - 16);
     char sub[40];
     if (!open_) areaGateText(a, sub, sizeof(sub));
     else if (!live) snprintf(sub, sizeof(sub), "%s", T(S_NEED_PACK));
@@ -3342,7 +3354,7 @@ void renderExplore() {
     areaCentred(T(S_AREA_WHOLE), CX, ay + 39, aw - 24);
   } else {
     gfx->setTextColor(UI_INK);
-    areaCentred(wildAreaName(area), CX, ay + 22, aw - 60);
+    areaCentredName(area, true, CX, ay + 22, aw - 60);
     char sub[24];
     if (areaLive) snprintf(sub, sizeof(sub), T(S_AREA_LV_FMT),
                            wildAreaLvMin(area), wildAreaLvMax(area));
@@ -4892,6 +4904,9 @@ static void btlThrowBall(ItemKey k) {
     wildCaught = true;
     btlOver = true;
     btlWon = true;
+    // A legendary with a home is caught for good: it stops appearing in
+    // Explore. Saved by the saveNow() below, with the creature itself.
+    if (wildLegend >= 0) pet.setLegendCaught((uint8_t)wildLegend);
     wildStoreCaught();
     // wildStoreCaught() saves the PARTY (or the pet checkpoint, via
     // setEnded(), only in the both-full fallback) -- but the common case
@@ -7805,16 +7820,28 @@ bool startWildBattle(uint8_t region, bool hard) {
   if (!exploreRegionAllowed(region)) return false;
   int16_t dex = 0;
   uint8_t lvl = 1;
+  int legend = -1;
   if (wildRegionHasAreas(region)) {
     // A region with areas draws from the one the player chose, weighted by the
     // game's own encounter rates, at the level band its gym ladder sets.
     // Difficulty does not touch either: hard is the smart AI (btlHard below).
     uint16_t area = exploreAreaOf(region);
     if (area == WILD_NO_AREA || !wildAreaUnlocked(area, pet)) return false;
-    dex = wildAreaPick(area, wildTimeBand(exploreHour()),
-                       (uint32_t)random(65536) * 31u + random(31));
-    if (!dex) return false;   // nothing live: the area reads NEEDS PACK
-    lvl = wildAreaLevel(area, dex, (uint32_t)random(65536));
+    // A legendary first: its guaranteed meeting at home, or the rare repeat.
+    // It is MET as the fight starts, and saved then: wild battles end in half a
+    // dozen places (caught, fled, ran, fainted, won), and one start is a single
+    // place to get right. A power cut mid-fight costs the guarantee, never the
+    // legendary -- the rare repeat still applies.
+    legend = wildLegendFor(area, pet, (uint32_t)random(65536) * 31u + random(31));
+    if (legend >= 0) {
+      dex = wildLegendDex((uint8_t)legend);
+      lvl = wildLegendLevel((uint8_t)legend);
+    } else {
+      dex = wildAreaPick(area, wildTimeBand(exploreHour()),
+                         (uint32_t)random(65536) * 31u + random(31));
+      if (!dex) return false;   // nothing live: the area reads NEEDS PACK
+      lvl = wildAreaLevel(area, dex, (uint32_t)random(65536));
+    }
   } else {
     // A region whose areas have not landed yet keeps the region-wide pool.
     uint8_t tier = wildTierForRoll((uint8_t)random(100));
@@ -7830,6 +7857,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   }
   wildDex = dex;
   wildLvl = lvl;
+  wildLegend = (int8_t)legend;
   for (int i = 0; i < 4; i++) wildIv[i] = (uint8_t)(8 + random(24));
   // Bonus 0: nothing in this build earns one yet, so every wild shiny is the
   // flat 1/4096. The parameter stays because it is where a farewell reward
@@ -7841,6 +7869,10 @@ bool startWildBattle(uint8_t region, bool hard) {
 
   buildSquad(0, TRAINER_TEAM_MAX, squadMask);
   if (!btlSquadN) return false;
+  if (legend >= 0 && !pet.legendMet((uint8_t)legend)) {
+    pet.setLegendMet((uint8_t)legend);   // the guaranteed meeting is spent
+    pet.saveNow();
+  }
 
   // Built through Pet like every other opponent, so it uses the same stat
   // formula and the same learnset-driven moveset the player's creature does.

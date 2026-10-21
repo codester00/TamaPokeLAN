@@ -3,6 +3,7 @@
 #include "dex.h"
 #include "moves.h"
 #include "noart.h"   // speciesHasArt(): the egg pool skips what cannot be drawn
+#include "wild.h"    // wildIsExploreLegend(): legendaries with a home are caught, not hatched
 #include "audio.h"
 #include "nvsinfo.h"  // headroom numbers on a checkpoint failure -- see saveCoreSnapshot()
 #include <stddef.h>
@@ -316,7 +317,10 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // variable tail. v1 records still read -- the tail is simply shorter, which is
 // exactly "no money yet", the right default.
 // v3 appended the creature-ID serial counter after them, same rule.
-static constexpr uint16_t PLAYER_VERSION = 3;
+// v4 appended Explore's legendaries: a byte giving the length of each bitmask,
+// then the met bits, then the caught bits -- the length travels with them, as
+// the arrays' dimensions do in the header, so LEGEND_BYTES can grow.
+static constexpr uint16_t PLAYER_VERSION = 4;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -326,7 +330,7 @@ static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
 static constexpr size_t PLAYER_MAX =
     PLAYER_FIXED + 2 * PLAYER_DEX_BYTES + 4 * (GYM_REGIONS - 1) +
     2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
-    4 /* uidSerial */ + CKPT_CRC;
+    4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -412,6 +416,10 @@ bool Pet::savePlayerSnapshot() {
   cur.put(&wallet, sizeof(wallet));
   cur.put(&stepsTotal, sizeof(stepsTotal));
   cur.put(&uidSerial, sizeof(uidSerial));   // v3
+  const uint8_t legendBytes = LEGEND_BYTES;  // v4
+  cur.put(&legendBytes, 1);
+  cur.put(legendMetBits, sizeof(legendMetBits));
+  cur.put(legendCaughtBits, sizeof(legendCaughtBits));
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -502,6 +510,16 @@ bool Pet::loadPlayerSnapshot() {
   // if that is a rewind, the per-boot salt is what keeps re-issued serials
   // apart from the old ones (CreatureUid, party.h).
   if (body >= need + 12) uidSerial = ckptRd32(buf + need + 8);
+  // v4 tail: the legendaries. Absent means none met and none caught, which is
+  // what a save from before Explore had legendaries truly is.
+  if (body >= need + 13) {
+    size_t lb = buf[need + 12];
+    if (body >= need + 13 + 2 * lb) {
+      CkptCursor lc{ buf, need + 13, body };
+      lc.take(legendMetBits, sizeof(legendMetBits), lb);
+      lc.take(legendCaughtBits, sizeof(legendCaughtBits), lb);
+    }
+  }
 
   // REGION_ALL is the LAST entry of the table and is stored RAW, so a save from
   // a build with fewer regions has a number that now means somebody else --
@@ -1049,6 +1067,18 @@ static uint8_t eggRegionFallback(uint8_t want) {
   return want;                      // no art anywhere: behave as we always did
 }
 
+// Can an egg contain this species? ONE answer for both rolls below -- the
+// first egg of a run and the reroll when the region changes -- since each used
+// to keep its own copy of these conditions (CLAUDE.md trap 1).
+//   - its region's sprite pack is installed: ALL spans every region, so a
+//     missing Sinnoh pack must not put a Sinnoh creature in a mixed egg;
+//   - it has art somewhere, or it would only ever draw as a number;
+//   - it is not a legendary with a home in Explore: those are caught, never
+//     hatched (owner's call). Mythicals have no home and stay in eggs.
+static bool eggCanHold(int16_t d) {
+  return regionAvailable(regionOfDex(d)) && speciesHasArt(d) && !wildIsExploreLegend(d);
+}
+
 int16_t Pet::pickEggSpecies() {
   const uint8_t use = eggRegionFallback(region % REGION_COUNT);
   const RegionInfo &rg = REGIONS[use];
@@ -1077,13 +1107,7 @@ int16_t Pet::pickEggSpecies() {
       for (int16_t d = rg.lo; d <= rg.hi && n < CAND_MAX; d++) {
         if (DEX_TBL[d].rarity != t) continue;
         if (pass == 0 && !lineHasUnregistered(d)) continue;
-        // ALL spans every region, so filter per species: a missing Sinnoh pack
-        // must not put a Sinnoh creature in a mixed egg.
-        if (!regionAvailable(regionOfDex(d))) continue;
-        // And a species with no art ANYWHERE never hatches, pack or no pack --
-        // it would be a creature that can only ever draw as a number. It keeps
-        // its dex slot; it is simply not something an egg can contain.
-        if (!speciesHasArt(d)) continue;
+        if (!eggCanHold(d)) continue;
         cand[n++] = d;
       }
       if (n > 0) return cand[random(n)];
@@ -1101,8 +1125,7 @@ int16_t Pet::rollInRegion(uint8_t r, uint8_t tier) {
     int16_t cand[CAND_MAX];
     int n = 0;
     for (int16_t d = rg.lo; d <= rg.hi && n < CAND_MAX; d++)
-      if (DEX_TBL[d].rarity == t && regionAvailable(regionOfDex(d)) &&
-          speciesHasArt(d)) cand[n++] = d;
+      if (DEX_TBL[d].rarity == t && eggCanHold(d)) cand[n++] = d;
     if (n) return cand[random(n)];
   }
   return rg.starters[0];      // a region with nothing in it cannot happen
@@ -2377,6 +2400,16 @@ bool Pet::save() {
   SAVE_KEY(prefs.putUShort("qhi", spdHi), "qhi");
   SAVE_KEY(prefs.putUInt("wlt", wallet), "wlt");
   SAVE_KEY(prefs.putUInt("stps", stepsTotal), "stps");
+  {
+    // The legendaries' legacy key: met bits then caught bits, one blob, like
+    // the Pokedex's. The checkpoint above is the truth; this is what EXPORT
+    // carries and what a torn checkpoint falls back to. The split between the
+    // two halves IS LEGEND_BYTES, so growing it needs a new key, not this one.
+    uint8_t lg[2 * LEGEND_BYTES];
+    memcpy(lg, legendMetBits, LEGEND_BYTES);
+    memcpy(lg + LEGEND_BYTES, legendCaughtBits, LEGEND_BYTES);
+    SAVE_KEY(prefs.putBytes("lgnd", lg, sizeof(lg)), "lgnd");
+  }
   SAVE_STR_KEY(prefs.putString("nick", nick), "nick", nick);
 #undef SAVE_KEY
 #undef SAVE_STR_KEY
@@ -2450,6 +2483,12 @@ void Pet::load() {
   wallet = prefs.getUInt("wlt", 0);
   if (wallet > WALLET_CAP) wallet = WALLET_CAP;
   stepsTotal = prefs.getUInt("stps", 0);
+  {
+    uint8_t lg[2 * LEGEND_BYTES] = { 0 };
+    loadBlob(prefs, "lgnd", lg, sizeof(lg));
+    memcpy(legendMetBits, lg, LEGEND_BYTES);
+    memcpy(legendCaughtBits, lg + LEGEND_BYTES, LEGEND_BYTES);
+  }
   prefs.getString("nick", nick, sizeof(nick));
   // Moves load last: relearnFromLevel() needs speciesId and ageMinutes, both of
   // which are read above. A save from before moves existed has no "mvs" key and

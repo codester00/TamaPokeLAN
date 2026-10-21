@@ -124,3 +124,35 @@ int16_t wildAreaPick(uint16_t area, uint8_t when, uint32_t roll);
 // appears below where it could exist, so a Route 22 Gyarados is L15 even though
 // the band stops at 12 (the gym ladder's cap handicaps it there).
 uint8_t wildAreaLevel(uint16_t area, int16_t dex, uint32_t roll);
+
+// ---------------------------------------------------------------------------
+// Legendaries with a home (WILD_LEGENDS, docs/explore-plan.md § 7). Each is
+// MET once for certain -- the first Explore in its home area after its gate --
+// and after that turns up now and then (WILD_LEGEND_PCT of encounters) in its
+// home, or anywhere in its region if it roams, until it is CAUGHT. The met and
+// caught bits are the player's (Pet::legendMet/legendCaught), indexed by a
+// legend's position in WILD_LEGENDS, which is append-only for that reason.
+constexpr uint8_t WILD_LEGEND_PCT = 3;
+
+uint8_t wildLegendCount();
+int16_t wildLegendDex(uint8_t i);
+uint16_t wildLegendHome(uint8_t i);
+uint8_t wildLegendLevel(uint8_t i);
+bool wildLegendRoams(uint8_t i);
+
+// Is this species a legendary with a home in Explore? Those are caught, never
+// hatched (owner's call): the egg pool leaves them out, region by region, as
+// each region's homes land. Mythicals have no home and stay in eggs.
+bool wildIsExploreLegend(int16_t dex);
+
+// Can legendary i appear at all for this player: not caught, its gate open, its
+// art and its pack present.
+bool wildLegendLive(uint8_t i, const Pet &p);
+
+// The legendary this Explore in `area` meets, or -1 for an ordinary encounter.
+// A home's guaranteed first meeting comes before anything else; otherwise the
+// roll decides the rare repeat. Pure: the roll is passed in.
+int wildLegendFor(uint16_t area, const Pet &p, uint32_t roll);
+
+// Does the area hold a legendary still to be caught? (The star on its row.)
+bool wildAreaHasLegend(uint16_t area, const Pet &p);

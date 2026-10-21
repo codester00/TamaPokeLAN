@@ -397,5 +397,16 @@ command. New `wildarea_test`; `explore_test`, `swipe_test`, `flush_test` and
 `wild_test` extended. 13 guards negative-checked. The whole suite and the real
 `arduino-cli` firmware build pass.
 
-**Next:** the owner confirms Kanto on a board, then Phase 3 (legendaries,
-starting with Kanto's), then the other regions.
+**Phase 3 and Johto: DONE (2026-10-21, v3.40, on the branch, not on a board)**,
+in one release rather than two (the plan's 3.40 + 3.41), at the owner's
+request to add the legendaries and build the next region overnight. Nine
+legendaries (Kanto's four, Johto's five) with homes, gates, roaming, the save
+bitmasks and the egg exclusion; Johto's 35 areas from Crystal with time-of-day
+slots and Headbutt. `legend_test` and `legendui_test` are new.
+
+One deviation from § 7.1 worth knowing: "met" is recorded as the fight
+STARTS, not as it ends -- one place instead of six, at the cost of a power cut
+mid-fight spending the guarantee (the rare repeat still applies).
+
+**Next:** Hoenn (Emerald, `pokeemerald`'s JSON is FireRed's shape, so the FRLG
+loader nearly fits), then Sinnoh (Platinum).

@@ -320,6 +320,10 @@ static const TrainerSet TRAINER_SETS[GYM_REGIONS] = {
 static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
   { "BOULDER BADGE", "CASCADE BADGE", "THUNDER BADGE", "RAINBOW BADGE",
     "SOUL BADGE", "MARSH BADGE", "VOLCANO BADGE", "EARTH BADGE" },
+  // Johto, in THIS ladder's order: Chuck (Storm) is fifth and Jasmine
+  // (Mineral) sixth, as TRAINERS_JOHTO has them.
+  { "ZEPHYR BADGE", "HIVE BADGE", "PLAIN BADGE", "FOG BADGE",
+    "STORM BADGE", "MINERAL BADGE", "GLACIER BADGE", "RISING BADGE" },
 };
 
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the

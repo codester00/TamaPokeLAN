@@ -25,7 +25,8 @@ GATE_CHAMPION = 13
 # How the encounter methods of one area share it. Within a method the game's
 # own slot rates stand; between methods these weights apply, renormalised over
 # the methods the area actually has (owner-approved in the plan, § 12).
-METHOD_WEIGHT = {'land': 1.0, 'water': 0.5, 'fishing': 0.3, 'rock_smash': 0.2}
+METHOD_WEIGHT = {'land': 1.0, 'water': 0.5, 'fishing': 0.3, 'rock_smash': 0.2,
+                 'headbutt': 0.2}   # Crystal's trees: Heracross, Aipom and Pineco live nowhere else
 
 # The longest area name the area list will be asked to draw.
 NAME_MAX = 16
@@ -135,22 +136,107 @@ KANTO = {
     'skip': {},
     # The legendaries that live in this region, ONE HOME PER SPECIES. FireRed's
     # roaming Raikou/Entei/Suicune are Johto's and get their home there.
-    # (dex, area, script map in the decomp, the level is READ from that script)
+    # The level is READ from the game's own script ('script' is its map), never
+    # typed. 'gate' defaults to the home area's; 'roams' marks a legendary that,
+    # once met, can turn up in any open area of its region.
     'legends': [
-        (144, 'SEAFOAM ISLANDS', 'SeafoamIslands_B4F'),   # Articuno
-        (145, 'POWER PLANT',     'PowerPlant'),           # Zapdos
+        {'dex': 144, 'area': 'SEAFOAM ISLANDS', 'script': 'SeafoamIslands_B4F'},  # Articuno
+        {'dex': 145, 'area': 'POWER PLANT',     'script': 'PowerPlant'},          # Zapdos
         # Moltres's summit has no wild table of its own, so Mt. Ember is the
         # area it borrows (docs/explore-plan.md § 7.2).
-        (146, 'MT. EMBER',       'MtEmber_Summit'),       # Moltres
-        (150, 'CERULEAN CAVE',   'CeruleanCave_B1F'),     # Mewtwo
+        {'dex': 146, 'area': 'MT. EMBER',       'script': 'MtEmber_Summit'},      # Moltres
+        {'dex': 150, 'area': 'CERULEAN CAVE',   'script': 'CeruleanCave_B1F'},    # Mewtwo
     ],
 }
 
-REGIONS = [KANTO]
+# ---------------------------------------------------------------------------
+# JOHTO -- Crystal alone (owner's call, Q-A): it is what pret's pokecrystal
+# disassembly holds, so it stays verifiable, and it already carries nearly every
+# species Gold and Silver had. Crystal has times of day, and they come through:
+# a Hoothoot on Route 29 is a night creature here too. Gates follow Crystal's
+# progression and its HMs: Cut after Bugsy (Ilex Forest), the SquirtBottle after
+# Whitney (Route 36), Surf with the Fog Badge, Whirlpool with the Glacier Badge
+# (Whirl Islands). Routes 26-28, Tohjo Falls and Victory Road live in Crystal's
+# KANTO files but are the road to Johto's own Elite Four, so they are Johto's.
+JOHTO = {
+    'region': 1,
+    'source': 'crystal',
+    'areas': [
+        ('ROUTE 29',         0, ['ROUTE_29', 'NEW_BARK_TOWN']),
+        ('ROUTE 30',         0, ['ROUTE_30', 'CHERRYGROVE_CITY']),
+        ('ROUTE 31',         0, ['ROUTE_31', 'VIOLET_CITY']),
+        ('ROUTE 46',         0, ['ROUTE_46']),
+        ('SPROUT TOWER',     0, ['SPROUT_TOWER_2F', 'SPROUT_TOWER_3F']),
+        ('DARK CAVE',        0, ['DARK_CAVE_VIOLET_ENTRANCE']),
+        # Falkner
+        ('ROUTE 32',         1, ['ROUTE_32']),
+        ('RUINS OF ALPH',    1, ['RUINS_OF_ALPH_OUTSIDE', 'RUINS_OF_ALPH_INNER_CHAMBER']),
+        ('UNION CAVE',       1, ['UNION_CAVE_1F', 'UNION_CAVE_B1F']),
+        ('ROUTE 33',         1, ['ROUTE_33', 'AZALEA_TOWN']),
+        ('SLOWPOKE WELL',    1, ['SLOWPOKE_WELL_B1F', 'SLOWPOKE_WELL_B2F']),
+        # Bugsy -- Cut opens Ilex Forest
+        ('ILEX FOREST',      2, ['ILEX_FOREST']),
+        ('ROUTE 34',         2, ['ROUTE_34']),
+        ('ROUTE 35',         2, ['ROUTE_35']),
+        ('NATIONAL PARK',    2, ['NATIONAL_PARK']),
+        # Whitney -- the SquirtBottle moves the Sudowoodo off Route 36
+        ('ROUTES 36-37',     3, ['ROUTE_36', 'ROUTE_37']),
+        ('BURNED TOWER',     3, ['BURNED_TOWER_1F', 'BURNED_TOWER_B1F', 'ECRUTEAK_CITY']),
+        ('ROUTES 38-39',     3, ['ROUTE_38', 'ROUTE_39']),
+        # Morty -- the Fog Badge lets Surf be used
+        ('ROUTES 40-41',     4, ['ROUTE_40', 'ROUTE_41', 'OLIVINE_CITY',
+                                 'OLIVINE_PORT', 'CIANWOOD_CITY']),
+        ('ROUTE 42',         4, ['ROUTE_42']),
+        ('MT. MORTAR',       4, ['MOUNT_MORTAR_1F_OUTSIDE', 'MOUNT_MORTAR_1F_INSIDE',
+                                 'MOUNT_MORTAR_2F_INSIDE', 'MOUNT_MORTAR_B1F']),
+        ('ROUTE 43',         4, ['ROUTE_43']),
+        ('LAKE OF RAGE',     4, ['LAKE_OF_RAGE']),
+        ('UNION CAVE B2F',   4, ['UNION_CAVE_B2F']),
+        # Pryce -- Mahogany opens Route 44 and the Ice Path; the Glacier Badge
+        # lets Whirlpool be used
+        ('ROUTE 44',         7, ['ROUTE_44']),
+        ('ICE PATH',         7, ['ICE_PATH_1F', 'ICE_PATH_B1F', 'ICE_PATH_B2F_MAHOGANY_SIDE',
+                                 'ICE_PATH_B2F_BLACKTHORN_SIDE', 'ICE_PATH_B3F']),
+        ('ROUTE 45',         7, ['ROUTE_45', 'BLACKTHORN_CITY']),
+        ('DARK CAVE NORTH',  7, ['DARK_CAVE_BLACKTHORN_ENTRANCE']),
+        ('WHIRL ISLANDS',    7, ['WHIRL_ISLAND_NW', 'WHIRL_ISLAND_NE', 'WHIRL_ISLAND_SW',
+                                 'WHIRL_ISLAND_CAVE', 'WHIRL_ISLAND_SE', 'WHIRL_ISLAND_B1F',
+                                 'WHIRL_ISLAND_B2F', 'WHIRL_ISLAND_LUGIA_CHAMBER']),
+        # Clair
+        ('DRAGONS DEN',      8, ['DRAGONS_DEN_B1F']),
+        ('ROUTES 26-27',     8, ['ROUTE_26', 'ROUTE_27']),
+        ('TOHJO FALLS',      8, ['TOHJO_FALLS']),
+        ('VICTORY ROAD',     8, ['VICTORY_ROAD']),
+        # After the champion -- Tin Tower's upper floors and Mt. Silver
+        ('TIN TOWER',        GATE_CHAMPION, ['TIN_TOWER_%dF' % i for i in range(2, 10)]),
+        ('MT. SILVER',       GATE_CHAMPION, ['ROUTE_28', 'SILVER_CAVE_OUTSIDE',
+                                             'SILVER_CAVE_ROOM_1', 'SILVER_CAVE_ROOM_2',
+                                             'SILVER_CAVE_ROOM_3', 'SILVER_CAVE_ITEM_ROOMS']),
+    ],
+    # Johto maps the source has encounters on that are deliberately not here.
+    'skip': {},
+    'legends': [
+        # Raikou and Entei flee the Burned Tower and roam Johto from then on --
+        # met there once, then anywhere in Johto now and then until caught.
+        {'dex': 243, 'area': 'BURNED TOWER', 'roams': True},              # Raikou
+        {'dex': 244, 'area': 'BURNED TOWER', 'roams': True},              # Entei
+        # Suicune waits in Tin Tower's first floor once the Clear Bell is had,
+        # after the Radio Tower (seven badges). That floor has no wild table, so
+        # it borrows Ecruteak's other tower (§ 7.2).
+        {'dex': 245, 'area': 'BURNED TOWER', 'script': 'TinTower1F', 'gate': 7},  # Suicune
+        # Lugia needs the Silver Wing and Ho-Oh the Rainbow Wing, both after the
+        # champion in Crystal.
+        {'dex': 249, 'area': 'WHIRL ISLANDS', 'script': 'WhirlIslandLugiaChamber',
+         'gate': GATE_CHAMPION},                                          # Lugia
+        {'dex': 250, 'area': 'TIN TOWER', 'script': 'TinTowerRoof'},      # Ho-Oh
+    ],
+}
+
+REGIONS = [KANTO, JOHTO]
 
 # WILD_LEGENDS[] is stored by INDEX in the save (the met/caught bitmasks), so
 # the order legendaries are emitted in is APPEND-ONLY -- the same rule as move
 # indices and avatar picks. gen_wild.py emits them region by region in the
 # order above; a new region's legends must go AFTER every existing one, which
 # gen_wild.py enforces against LEGEND_ORDER.
-LEGEND_ORDER = [144, 145, 146, 150]
+LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250]

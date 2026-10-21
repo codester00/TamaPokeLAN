@@ -179,6 +179,11 @@ struct RivalRecord {
   uint16_t losses = 0;
 };
 
+// Room in the save for the legendaries with a home in Explore (WILD_LEGENDS):
+// one bit each, met and caught. 16 bytes = 128 legendaries; wild.cpp fails the
+// build before WILD_LEGENDS outgrows it.
+#define LEGEND_BYTES 16
+
 class Pet {
 public:
   // Estadisticas 0..100
@@ -426,6 +431,25 @@ public:
   // ask it, so they cannot disagree about what an ID is made of.
   uint32_t uidSerial = 0;   // the last serial handed out; the next is +1
   CreatureUid mintUid();
+
+  // Explore's legendaries (wild.h): player-wide, so newEgg() never touches
+  // them. Bit i is WILD_LEGENDS[i], an APPEND-ONLY index -- the same rule as
+  // move indices. MET is set when the guaranteed first meeting happens, CAUGHT
+  // when one is caught; caught ends it for good.
+  uint8_t legendMetBits[LEGEND_BYTES] = { 0 };
+  uint8_t legendCaughtBits[LEGEND_BYTES] = { 0 };
+  bool legendMet(uint8_t i) const {
+    return i < 8 * LEGEND_BYTES && (legendMetBits[i >> 3] >> (i & 7) & 1);
+  }
+  bool legendCaught(uint8_t i) const {
+    return i < 8 * LEGEND_BYTES && (legendCaughtBits[i >> 3] >> (i & 7) & 1);
+  }
+  void setLegendMet(uint8_t i) { if (i < 8 * LEGEND_BYTES) legendMetBits[i >> 3] |= (uint8_t)(1 << (i & 7)); }
+  void setLegendCaught(uint8_t i) {
+    if (i >= 8 * LEGEND_BYTES) return;
+    legendCaughtBits[i >> 3] |= (uint8_t)(1 << (i & 7));
+    setLegendMet(i);   // caught implies met, whatever path got there
+  }
   // A new random salt for this boot -- see CreatureUid. begin() calls it; a
   // test that simulates a reboot without re-running begin() can call it too.
   static void uidNewBoot();
