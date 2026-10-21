@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.45-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.46-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -459,7 +459,8 @@ in Kanto), Hoenn's after the **Feather Badge** (Emerald's is in Mossdeep),
 Sinnoh's after the **champion** (Platinum's is in the Battle Zone's Fight
 Area), Unova's after the **champion** (B2W2's only rod is Cedric Juniper's
 gift after the Hall of Fame), Kalos's after the **Fairy Badge** (Route 16's
-Fishing Shack). Until then the area's other creatures share its encounters at their
+Fishing Shack), Alola's after **Lana's trial** (Sun/Moon's only rod is her
+reward, with the Waterium Z). Until then the area's other creatures share its encounters at their
 own relative rates. **Nothing on the screen says so** -- by design, like the
 care window: the row is not greyed, nothing is starred, and an area always has
 something to meet. Easy or hard badges both count. Creatures met only that way
@@ -525,6 +526,30 @@ at once in the grass) come in at weight 0.2 like Unova's phenomena; Rock Smash
 counts; the scripted ambushes (ceiling, trash can, bush, ground, sky), berry
 trees and the Friend Safari are left out.
 
+**Alola's areas (v3.46).** 54 areas from Sun and Moon, both versions averaged,
+from PokeAPI (NOT VERIFIED). Sun and Moon, not Ultra Sun and Ultra Moon, because
+the trial ladder is Sun and Moon's: Kukui is champion and Lana's totem is
+Wishiwashi. Mixing the two would give an island challenge that exists in
+neither. Alola has no gyms, so a gate is a trial or grand trial passed, in the
+ladder's order -- Ilima, Lana, Kiawe, Mallow, Sophocles, Mina, Nanu, Hapu --
+and a locked area names the Z-Crystal it needs, `REQUIRES WATERIUM Z`. Mina
+sits sixth by level, so Poni's coast opens after her trial and inland Poni
+after Nanu's. Three things in PokeAPI's Sun/Moon data are handled on the way in:
+
+- **SOS allies count**, at weight 0.2 like the phenomena: a creature that only
+  ever answers a call for help (Pikachu, Mareanie, Goomy, Castform, Hakamo-o)
+  would otherwise never be met. Allies of a fished creature are left out.
+- **"Bubbling spots" are two things under one name**: the rippling fishing
+  rocks, and the rustling grass, dust clouds and bird shadows on land. A row is
+  the rod's when the same place's rod catches that species, and a phenomenon
+  otherwise -- so Route 2's Makuhita is there from the start and Brooklet
+  Hill's Magikarp waits for the rod.
+- **Fishing and SOS rows all start at level 10** in the data, even on Poni
+  (10-59). They are read at the top three levels of their range instead,
+  Sun/Moon's usual spread.
+
+Island Scan, berry trees, gifts and trades are left out.
+
 **NO VALID SPRITES (v3.45).** Every area is built from the games' data whether
 or not its creatures can be drawn yet. An open area with nothing to meet that
 can be drawn -- its species have no art yet, or all it holds still waits behind
@@ -578,7 +603,16 @@ Cave after the Cliff Badge; Route 12 after the Rumble Badge; the Lumiose
 Badlands and Azure Bay after the Plant Badge; Route 14 after the Voltage Badge;
 Routes 15-17, the Lost Hotel and Frost Cavern after the Fairy Badge; Routes
 18-20, Terminus Cave and the Pokemon Village after the Psychic Badge; Route 21
-and Victory Road after the Iceberg Badge. A locked area is
+and Victory Road after the Iceberg Badge. Alola: Route 1, Hau'oli, Route 2,
+its cemetery and Verdant Cavern from the start; the rest of Melemele, Ten Carat
+Hill and Akala up to Brooklet Hill after Ilima's trial (Normalium Z); the open
+sea, Routes 6-7 and Wela Volcano Park after Lana's (Waterium Z); Route 8 and Lush
+Jungle after Kiawe's (Firium Z); the end of Akala and Ula'ula up to Mount
+Hokulani and Route 11 after Mallow's (Grassium Z); the rest of Ula'ula after
+Sophocles's (Electrium Z); Seafolk Village, Poni Wilds and the Ancient Poni Path
+after Mina's (Fairium Z); Exeggutor Island and Vast Poni Canyon after Nanu's
+grand trial (Darkinium Z); Mount Lanakila after Hapu's (Groundium Z); Poni's far
+side and Resolution Cave after the champion. A locked area is
 listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 
 **Legendaries live somewhere (v3.40).** Each story legendary has a home:
@@ -611,10 +645,22 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Kyurem | Giant Chasm | the champion | 70 |
 | Xerneas, Yveltal | Route 13 (Team Flare's HQ under Lumiose has no wild table) | Psychic Badge | 50 |
 | Zygarde | Terminus Cave | the champion | 70 |
+| Solgaleo, Lunala | Vast Poni Canyon (the Altars of the Sunne and Moone have no wild table) | Darkinium Z (Nanu) | 55 |
+| Tapu Koko, Lele, Bulu, Fini | Route 1 (Mahalo Trail), Akala Outskirts, Haina Desert, Poni Wilds -- beside their ruins | the champion | 60 |
+| Nihilego, Buzzwole, Pheromosa, Xurkitree | Wela Volcano Park, Melemele Meadow, Verdant Cavern, Lush Jungle | the champion | 55, 65, 60, 65 |
+| Celesteela, Kartana, Guzzlord | Haina Desert, Route 17, Resolution Cave | the champion | 65, 60, 70 |
+| Necrozma | Ten Carat Hill | the champion | 75 |
 
 Unova's levels are PokeAPI's B2W2 static encounters. Tornadus, Thundurus and
 Landorus are never met in B2W2 (only through the 3DS Dream Radar), so like the
 mythicals they stay rare egg spawns.
+
+Alola's levels are PokeAPI's Sun/Moon encounters. The **Ultra Beasts** are not
+legendaries in the games' own terms, but each is one creature met once at a
+fixed place after the Hall of Fame (Looker's quest), so they get homes like the
+legendaries and leave the rare egg tier. Necrozma needs every Ultra Beast caught
+in the game; here it waits for the champion like them. Type: Null and Cosmog are
+gifts, never fought, so they stay in eggs.
 
 | A legendary is waiting |
 |---|

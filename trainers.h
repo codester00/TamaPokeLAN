@@ -335,6 +335,10 @@ static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
   // Kalos is X / Y's order, as TRAINERS_KALOS has it.
   { "BUG BADGE", "CLIFF BADGE", "RUMBLE BADGE", "PLANT BADGE",
     "VOLTAGE BADGE", "FAIRY BADGE", "PSYCHIC BADGE", "ICEBERG BADGE" },
+  // Alola has no badges: each trial and grand trial gives a Z-Crystal, in
+  // TRAINERS_ALOLA's order (Mina sixth, by level).
+  { "NORMALIUM Z", "WATERIUM Z", "FIRIUM Z", "GRASSIUM Z",
+    "ELECTRIUM Z", "FAIRIUM Z", "DARKINIUM Z", "GROUNDIUM Z" },
 };
 
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the

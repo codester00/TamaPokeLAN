@@ -258,7 +258,12 @@ POKEAPI_METHODS = {'walk': 'land', 'dark-grass': 'land', 'surf': 'water',
                    'bridge-spots': 'phenomenon', 'surf-spots': 'phenomenon',
                    'yellow-flowers': 'land', 'red-flowers': 'land',
                    'purple-flowers': 'land', 'rough-terrain': 'land',
-                   'horde': 'phenomenon', 'rock-smash': 'rock_smash'}
+                   'horde': 'phenomenon', 'rock-smash': 'rock_smash',
+                   # Sun/Moon: an SOS ally is a creature the wild one calls in,
+                   # a phenomenon of its own. 'bubbling-spots' is decided per
+                   # row in load_pokeapi(); 'sos-from-bubbling-spot' (allies of
+                   # a fished creature) is left out.
+                   'sos': 'phenomenon'}
 POKEAPI_SEASONS = ('season-spring', 'season-summer', 'season-autumn', 'season-winter')
 
 
@@ -306,6 +311,8 @@ def load_pokeapi(reg, refresh=False):
     t = pokeapi_tables(refresh)
     vids = {t['version'][v]: v for v in reg['versions']}
     out = {v: {} for v in reg['versions']}
+    bubbling = []
+    exclude = set(reg.get('exclude', ()))
     for e in t['encounters']:
         if e['version_id'] not in vids:
             continue
@@ -313,8 +320,9 @@ def load_pokeapi(reg, refresh=False):
         if int(region) != reg['pokeapi_region']:
             continue
         sl = t['slot'][e['encounter_slot_id']]
-        method = POKEAPI_METHODS.get(t['method'][sl['encounter_method_id']])
-        if not method:
+        raw = t['method'][sl['encounter_method_id']]
+        method = POKEAPI_METHODS.get(raw)
+        if not method and raw != 'bubbling-spots':
             continue
         conds = t['cond'].get(e['id'], set())
         seasons = conds & set(POKEAPI_SEASONS)
@@ -323,23 +331,46 @@ def load_pokeapi(reg, refresh=False):
         dex = t['species'][e['pokemon_id']]
         if dex > len(DEX):
             sys.exit('gen_wild: PokeAPI species %d is past the dex' % dex)
+        if dex in exclude:
+            continue
+        lo, hi = int(e['min_level']), int(e['max_level'])
+        # Sun/Moon's fishing and SOS rows all start at level 10 however late
+        # the map (Poni Gauntlet's read 10-59): the floor is PokeAPI's, the
+        # top is the map's. Such a row is met at the top's spread instead.
+        if reg.get('level_spread') and hi - lo > reg['level_spread']:
+            lo = hi - reg['level_spread']
         rate = int(sl['rarity']) * (len(seasons) / len(POKEAPI_SEASONS) if seasons else 1)
-        out[vids[e['version_id']]].setdefault(mp, {}).setdefault(method, []).append(
-            (dex, int(e['min_level']), rate, ANY))
+        row = (vids[e['version_id']], mp, (dex, lo, rate, ANY))
+        if raw == 'bubbling-spots':
+            bubbling.append(row)
+            continue
+        out[row[0]].setdefault(mp, {}).setdefault(method, []).append(row[2])
+    # 'bubbling-spots' in Sun/Moon is two different things under one name: the
+    # rippling fishing rocks on water, and the rustling grass, dust clouds and
+    # bird shadows on land (Route 2's Makuhita, Haina Desert's Sandile). A row
+    # is fishing when the same map's rod catches that species, else it is a
+    # phenomenon -- Route 7 has both, a fishing spot and Diglett's dust cloud.
+    for v, mp, slot in bubbling:
+        fished = {s[0] for s in out[v].get(mp, {}).get('fishing', [])}
+        method = 'fishing' if slot[0] in fished else 'phenomenon'
+        out[v].setdefault(mp, {}).setdefault(method, []).append(slot)
     SOURCE_MAPS[reg['source']] = set().union(*(set(v) for v in out.values()))
     return out
 
 
 def pokeapi_static_level(reg, leg, refresh=False):
     """A legendary's level from PokeAPI's static encounters at its 'static'
-    location area, in the region's versions. A static that only happens when
-    a previous game's legendary went uncaught is left out."""
+    location area, in the region's versions -- or its 'method' there, for
+    one the data lists as a walk-in (Sun/Moon's Ultra Beasts, Necrozma). A
+    static that only happens when a previous game's legendary went uncaught
+    is left out."""
     t = pokeapi_tables(refresh)
     vids = {t['version'][v] for v in reg['versions']}
     lv = [int(e['min_level']) for e in t['encounters']
           if e['version_id'] in vids and t['species'][e['pokemon_id']] == leg['dex']
           and t['area'][e['location_area_id']][0] == leg['static']
-          and t['method'][t['slot'][e['encounter_slot_id']]['encounter_method_id']] == 'static'
+          and t['method'][t['slot'][e['encounter_slot_id']]['encounter_method_id']]
+              == leg.get('method', 'static')
           and 'special-encounter-couldnt-capture-before' not in t['cond'].get(e['id'], set())]
     if not lv:
         sys.exit('gen_wild: PokeAPI has no static #%d at %s' % (leg['dex'], leg['static']))

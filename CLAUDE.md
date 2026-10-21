@@ -632,8 +632,9 @@ rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
 the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
-Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45)** -- see the "Done" entries
-below. Next: Alola (USUM, PokeAPI; NOT VERIFIED -- the first region with many art-less species in its areas). None of it
+Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45), Alola's (v3.46)** -- see the "Done" entries
+below. Next: Galar (Sword's ladder; PokeAPI's Gen 8 encounter data is thin, so check
+what it holds before planning). None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
@@ -690,6 +691,47 @@ disconnected for a while, which may explain the week-long figure; the
      measured.
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
+
+### Done: Alola's areas and legendaries (v3.46, not yet on a board)
+
+54 areas from **Sun + Moon** (averaged) via PokeAPI, NOT VERIFIED; 14
+legendaries appended (49 now, of `LEGEND_BYTES` 16's 128 bits); `BADGE_NAMES`
+row 6 names the Z-Crystals (`REQUIRES WATERIUM Z`); the rod after Lana (gate 2).
+
+- **Sun/Moon, not the plan's USUM**, because `TRAINERS_ALOLA` is Sun/Moon's
+  (Kukui champion, Lana's Wishiwashi). Areas from one game and a ladder from
+  another is the Emerald-vs-R/S mistake § Phase 3 warns about. PokeAPI holds
+  USUM too (1216 rows a version against 891) if the ladder ever moves.
+- **Gates follow the ladder, which is not the story order**: Mina is sixth by
+  level (`TRAINERS_ALOLA`), so Poni's coast opens after her and inland Poni
+  after Nanu. Melemele Sea waits for Lana as well -- she gives the Lapras
+  Paddle -- though surfing is otherwise ungated, as in every region.
+- **`'sos': 'phenomenon'`** (weight 0.2). 37 species are met ONLY as SOS allies
+  in the data (Pikachu, Mareanie, Goomy, Castform, Hakamo-o...).
+  `sos-from-bubbling-spot` (allies of a fished creature) stays out. An SOS ally
+  is not rod-gated even when, in the game, it answers a fished caller.
+- **`bubbling-spots` is decided per row in `load_pokeapi()`**: fishing when the
+  same map's rod (`super-rod`) catches that species, else a phenomenon. PokeAPI
+  files Sun/Moon's rustling grass, dust clouds and bird shadows under the same
+  method as the rippling fishing rocks; Route 7 has both (a rod and Diglett's
+  dust cloud), so it cannot be a per-map rule. `wildarea_test` checks Route
+  2's Makuhita is open from the start.
+- **`level_spread`**: PokeAPI's Sun/Moon fishing and SOS rows all start at 10
+  (Poni Gauntlet reads 10-59), so a row wider than 3 levels is read at the top
+  3. It decides evolved floors: `wildarea_test` pins Poni Gauntlet's Dragonair
+  to Dratini's evolution level, not 10.
+- **The Ultra Beasts are legends with homes** (`'exclude'` keeps their
+  rate-100 walk rows out of the pools), met after the champion, as Looker's
+  quest has them. They were RARE-tier eggs; as homes they leave the egg pool
+  through `eggCanHold()`. A legend's `'method': 'walk'` reads its level from
+  those rows. Necrozma (Ten Carat Hill, L75) needs every UB caught in the game;
+  here the champion. Type: Null and Cosmog are gifts: egg-only.
+- Tapus borrow the area beside their ruins: Route 1 (Mahalo Trail), Akala
+  Outskirts, Haina Desert, Poni Wilds (which carries the Breaker Coast's
+  fishing). Solgaleo/Lunala borrow Vast Poni Canyon.
+- `legend_test`'s "no homes yet" egg check moved to Galar. Negative-checked:
+  the bubbling split, `level_spread`, the UB exclusion, the rod gate, and the
+  UB egg filter. Earlier regions came out byte-identical.
 
 ### Done: NO VALID SPRITES, and Kalos's areas (v3.45, not yet on a board)
 

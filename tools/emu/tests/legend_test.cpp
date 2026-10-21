@@ -209,6 +209,31 @@ int main(){
     ck(count(term,p,zyg)==10000, "and is there after");
   }
 
+  // ---- Alola (v3.46, from PokeAPI): Solgaleo and Lunala, the Tapus, the
+  // Ultra Beasts and Necrozma -------------------------------------------------
+  {
+    int sol=legendOf(791), lun=legendOf(792), koko=legendOf(785), buzz=legendOf(794);
+    int guzz=legendOf(799), necro=legendOf(800);
+    int canyon=areaIn(6,"VAST PONI CANYON"), r1a=areaIn(6,"ROUTE 1"), meadow=areaIn(6,"MELEMELE MEADOW");
+    ck(sol>=0 && lun>=0 && koko>=0 && buzz>=0 && guzz>=0 && necro>=0 && canyon>=0 && r1a>=0 &&
+       meadow>=0, "Alola's legendaries and areas are found");
+    ck(legendOf(789)<0 && legendOf(772)<0, "Cosmog and Type: Null are gifts, never fought: no home");
+    Pet p; badges(p,6,6);
+    ck(!wildAreaUnlocked((uint16_t)canyon,p) && count(canyon,p,sol)==0,
+       "Vast Poni Canyon waits for Nanu's grand trial, and Solgaleo with it");
+    p.winBadge(6,6,false);
+    ck(count(canyon,p,sol)==10000, "then Solgaleo meets you once at the altar");
+    p.setLegendMet(sol);
+    ck(count(canyon,p,lun)==10000, "then Lunala -- both versions' in one home");
+    ck(count(r1a,p,koko)==0 && count(meadow,p,buzz)==0,
+       "Route 1 and Melemele Meadow are open, but Tapu Koko and Buzzwole wait for the champion");
+    p.winBadge(6,TRAINER_COUNT-1,false);
+    ck(count(r1a,p,koko)==10000 && count(meadow,p,buzz)==10000,
+       "and after the Hall of Fame they are there");
+    ck(wildLegendLevel(sol)==55 && wildLegendLevel(koko)==60 && wildLegendLevel(guzz)==70 &&
+       wildLegendLevel(necro)==75, "at PokeAPI's Sun/Moon levels, walk-ins included");
+  }
+
   // ---- the save --------------------------------------------------------------
   {
     Pet a; a.begin();
@@ -252,18 +277,24 @@ int main(){
     }
     ck(!homed, "no egg hatches a legendary that has a home in Explore");
     ck(mew && celebi, "while Mew and Celebi still hatch -- the legendary tier is not empty");
-    // Hoenn's through Kalos's have homes (v3.42-v3.45); Alola's do not yet.
+    // Hoenn's through Alola's have homes (v3.42-v3.46); Galar's do not yet.
     // Found by asking wildIsExploreLegend(), not by a typed range.
-    bool homed2=false, alolaLegend=false, forces=false;
+    bool homed2=false, galarLegend=false, forces=false, ub=false, gifts=false;
     for (int i=0;i<900;i++){
-      for (uint8_t r=2;r<=5;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
-      int16_t k=p.rollInRegion(6,R_LEGENDARIO);
-      if (k>=785 && k<=800 && !wildIsExploreLegend(k)) alolaLegend=true;   // the Tapus .. Necrozma
+      for (uint8_t r=2;r<=6;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
+      int16_t k=p.rollInRegion(7,R_LEGENDARIO);
+      if (k>=888 && k<=898 && !wildIsExploreLegend(k)) galarLegend=true;   // Zacian .. Calyrex
       int16_t u=p.rollInRegion(4,R_LEGENDARIO);
       if (u==641 || u==642 || u==645) forces=true;
+      // The Ultra Beasts were RARE-tier eggs until they got homes.
+      if (wildIsExploreLegend(p.rollInRegion(6,R_RARO))) ub=true;
+      int16_t a=p.rollInRegion(6,R_LEGENDARIO);
+      if (a==772 || a==789) gifts=true;
     }
-    ck(!homed2, "Hoenn's through Kalos's homed legendaries left their eggs with their areas");
-    ck(alolaLegend, "and a region whose legendaries have no homes yet still hatches them");
+    ck(!homed2, "Hoenn's through Alola's homed legendaries left their eggs with their areas");
+    ck(!ub, "and so did the Ultra Beasts, from the rare tier");
+    ck(gifts, "while Type: Null and Cosmog, gifts in the game, still hatch");
+    ck(galarLegend, "and a region whose legendaries have no homes yet still hatches them");
     ck(forces, "Tornadus, Thundurus and Landorus, never met in B2W2, still hatch");
   }
 

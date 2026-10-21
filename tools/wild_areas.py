@@ -693,7 +693,139 @@ KALOS = {
     ],
 }
 
-REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA, KALOS]
+# Alola is SUN / MOON from PokeAPI, NOT VERIFIED (no Gen 7 decomp). Alola has
+# no gyms: the ladder is the trial captains and kahunas in TRAINERS_ALOLA's
+# order, so a gate is a trial passed. Mina sits sixth there by level, which is
+# why Poni opens after her (she is Poni's captain) and the rest of it after
+# Nanu, whose grand trial sends you there in the game.
+ALOLA = {
+    'region': 6,
+    'source': 'pokeapi-sm',
+    'versions': ['sun', 'moon'],
+    'pokeapi_region': 7,
+    # PokeAPI's Sun/Moon fishing and SOS rows all start at level 10, however
+    # late the map; load_pokeapi() meets them at the top of their range.
+    'level_spread': 3,
+    # The Ultra Beasts are walk-ins at rate 100 in the data, but in the game
+    # each is ONE creature met after the Hall of Fame (Looker's quest). They
+    # are legendaries with homes below, not part of any area's pool.
+    'exclude': [793, 794, 795, 796, 797, 798, 799],
+    # Sun/Moon has ONE rod: Lana hands it over after her trial at Brooklet
+    # Hill, with the Waterium Z (Bulbapedia, twinfinite, attackofthefanboy).
+    'super_rod': {'gate': 2, 'note': 'Lana, after her trial at Brooklet Hill'},
+    'areas': [
+        # Melemele, before Ilima's trial
+        ('ROUTE 1',          0, ['alola-route-1/east', 'alola-route-1/west',
+                                 'alola-route-1/hauoli-outskirts']),
+        ('HAUOLI CITY',      0, ['hauoli-city/shopping-district']),
+        ('ROUTE 2',          0, ['alola-route-2/north', 'alola-route-2/south']),
+        ('HAUOLI CEMETERY',  0, ['hauoli-cemetery']),
+        ('VERDANT CAVERN',   0, ['verdant-cavern/trial-site']),
+        # Ilima -- the rest of Melemele, then Akala up to Lana's trial
+        ('ROUTE 3',          1, ['alola-route-3/north', 'alola-route-3/south']),
+        ('MELEMELE MEADOW',  1, ['melemele-meadow']),
+        ('ROUTE 1 SOUTH',    1, ['alola-route-1/south']),
+        ('SEAWARD CAVE',     1, ['seaward-cave']),
+        ('KALAE BAY',        1, ['kalae-bay']),
+        ('TEN CARAT HILL',   1, ['ten-carat-hill/inside', 'ten-carat-hill/farthest-hollow']),
+        ('ROUTE 4',          1, ['alola-route-4']),
+        ('PANIOLA RANCH',    1, ['paniola-ranch', 'paniola-town']),
+        ('ROUTE 5',          1, ['alola-route-5']),
+        ('BROOKLET HILL',    1, ['brooklet-hill/north', 'brooklet-hill/south',
+                                 'brooklet-hill/totems-den']),
+        # Lana -- she also gives the Lapras Paddle, so the open sea waits too
+        ('MELEMELE SEA',     2, ['melemele-sea']),
+        ('ROUTE 6',          2, ['alola-route-6/north', 'alola-route-6/south']),
+        ('ROUTE 7',          2, ['alola-route-7']),
+        ('WELA VOLCANO',     2, ['wela-volcano-park']),
+        # Kiawe
+        ('ROUTE 8',          3, ['alola-route-8/main']),
+        ('LUSH JUNGLE',      3, ['lush-jungle/north', 'lush-jungle/south',
+                                 'lush-jungle/west', 'lush-jungle/east-cave']),
+        # Mallow -- the end of Akala, and Ula'ula up to Sophocles
+        ('DIGLETTS TUNNEL',  4, ['digletts-tunnel']),
+        ('ROUTE 9',          4, ['alola-route-9/main']),
+        ('MEMORIAL HILL',    4, ['memorial-hill']),
+        ('AKALA OUTSKIRTS',  4, ['akala-outskirts']),
+        ('HANO BEACH',       4, ['hano-beach']),
+        ('MALIE CITY',       4, ['malie-city/outer-cape']),
+        ('MALIE GARDEN',     4, ['malie-garden']),
+        ('ROUTE 10',         4, ['alola-route-10']),
+        ('MOUNT HOKULANI',   4, ['mount-hokulani/main']),
+        ('ROUTE 11',         4, ['alola-route-11']),
+        # Sophocles -- the rest of Ula'ula
+        ('ROUTE 12',         5, ['alola-route-12']),
+        ('BLUSH MOUNTAIN',   5, ['blush-mountain']),
+        ('SECLUDED SHORE',   5, ['secluded-shore']),
+        ('ROUTE 13',         5, ['alola-route-13']),
+        ('HAINA DESERT',     5, ['haina-desert']),
+        ('TAPU VILLAGE',     5, ['tapu-village']),
+        ('ROUTE 14',         5, ['alola-route-14']),
+        ('THRIFTY MEGAMART', 5, ['thrifty-megamart/abandoned-site']),
+        ('ROUTE 15',         5, ['alola-route-15/main']),
+        ('ROUTE 16',         5, ['alola-route-16/main']),
+        ('ULAULA MEADOW',    5, ['ulaula-meadow']),
+        ('ROUTE 17',         5, ['alola-route-17/northeast', 'alola-route-17/west']),
+        # Mina -- Poni's coast. The Breaker Coast is fishing only, so it rides
+        # with the wilds beside it.
+        ('SEAFOLK VILLAGE',  6, ['seafolk-village/main']),
+        ('PONI WILDS',       6, ['poni-wilds', 'poni-breaker-coast']),
+        ('ANC. PONI PATH',   6, ['ancient-poni-path']),
+        # Nanu -- inland Poni, the canyon to the altar
+        ('EXEGGUTOR ISLAND', 7, ['exeggutor-island']),
+        ('VAST PONI CANYON', 7, ['vast-poni-canyon/inside', 'vast-poni-canyon/outside',
+                                 'vast-poni-canyon/northwest']),
+        # Hapu -- Mount Lanakila, the way to the League
+        ('MOUNT LANAKILA',   8, ['mount-lanakila/cave', 'mount-lanakila/outside']),
+        # The champion -- Poni's far side. Poni Coast's dust clouds ride with
+        # the plains above it.
+        ('PONI GROVE',       GATE_CHAMPION, ['poni-grove']),
+        ('PONI PLAINS',      GATE_CHAMPION, ['poni-plains/center', 'poni-plains/east',
+                                             'poni-plains/north', 'poni-plains/west',
+                                             'poni-coast']),
+        ('PONI MEADOW',      GATE_CHAMPION, ['poni-meadow']),
+        ('PONI GAUNTLET',    GATE_CHAMPION, ['poni-gauntlet']),
+        ('RESOLUTION CAVE',  GATE_CHAMPION, ['resolution-cave']),
+    ],
+    'skip': {},
+    'legends': [
+        # Solgaleo (Sun) and Lunala (Moon) at the Altar of the Sunne / Moone,
+        # at the top of Vast Poni Canyon, before Hapu's grand trial.
+        {'dex': 791, 'area': 'VAST PONI CANYON', 'static': 'altar-of-the-sunne', 'gate': 7},
+        {'dex': 792, 'area': 'VAST PONI CANYON', 'static': 'altar-of-the-moone', 'gate': 7},
+        # The four guardians wait in their ruins after the Hall of Fame. No
+        # ruin has a wild table, so each borrows the area beside it: Mahalo
+        # Trail behind Iki Town (Route 1), north of Akala Outskirts, inside
+        # Haina Desert, east of Poni Breaker Coast (Bulbapedia).
+        {'dex': 785, 'area': 'ROUTE 1', 'static': 'ruins-of-conflict', 'gate': GATE_CHAMPION},
+        {'dex': 786, 'area': 'AKALA OUTSKIRTS', 'static': 'ruins-of-life', 'gate': GATE_CHAMPION},
+        {'dex': 787, 'area': 'HAINA DESERT', 'static': 'ruins-of-abundance', 'gate': GATE_CHAMPION},
+        {'dex': 788, 'area': 'PONI WILDS', 'static': 'ruins-of-hope', 'gate': GATE_CHAMPION},
+        # The Ultra Beasts, one each where Looker's quest sends you after the
+        # Hall of Fame. Buzzwole and Kartana are Sun's, Pheromosa and
+        # Celesteela Moon's; both versions' are here, as with Xerneas/Yveltal.
+        {'dex': 793, 'area': 'WELA VOLCANO', 'static': 'wela-volcano-park',
+         'method': 'walk', 'gate': GATE_CHAMPION},                              # Nihilego
+        {'dex': 794, 'area': 'MELEMELE MEADOW', 'static': 'melemele-meadow',
+         'method': 'walk', 'gate': GATE_CHAMPION},                              # Buzzwole
+        {'dex': 795, 'area': 'VERDANT CAVERN', 'static': 'verdant-cavern/trial-site',
+         'method': 'walk', 'gate': GATE_CHAMPION},                              # Pheromosa
+        {'dex': 796, 'area': 'LUSH JUNGLE', 'static': 'lush-jungle/all-areas',
+         'method': 'walk', 'gate': GATE_CHAMPION},                              # Xurkitree
+        {'dex': 797, 'area': 'HAINA DESERT', 'static': 'haina-desert',
+         'method': 'walk', 'gate': GATE_CHAMPION},                              # Celesteela
+        {'dex': 798, 'area': 'ROUTE 17', 'static': 'alola-route-17/all-areas',
+         'method': 'walk', 'gate': GATE_CHAMPION},                              # Kartana
+        {'dex': 799, 'area': 'RESOLUTION CAVE', 'static': 'resolution-cave',
+         'method': 'walk', 'gate': GATE_CHAMPION},                              # Guzzlord
+        # Necrozma, in Ten Carat Hill's Farthest Hollow once every Ultra Beast
+        # is caught. That condition has no gate of its own here: the champion.
+        {'dex': 800, 'area': 'TEN CARAT HILL', 'static': 'ten-carat-hill/farthest-hollow',
+         'method': 'walk', 'gate': GATE_CHAMPION},
+    ],
+}
+
+REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA, KALOS, ALOLA]
 
 # WILD_LEGENDS[] is stored by INDEX in the save (the met/caught bitmasks), so
 # the order legendaries are emitted in is APPEND-ONLY -- the same rule as move
@@ -704,4 +836,6 @@ LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250,
                 377, 378, 379, 380, 381, 382, 383, 384,
                 480, 481, 482, 483, 484, 485, 486, 487, 488,
                 638, 639, 640, 643, 644, 646,
-                716, 717, 718]
+                716, 717, 718,
+                791, 792, 785, 786, 787, 788,
+                793, 794, 795, 796, 797, 798, 799, 800]

@@ -44,7 +44,7 @@ gym next to it come from the same game.
 | Sinnoh | Platinum (+ Diamond/Pearl, Q-A) | `pret/pokeplatinum` `res/field/encounters/encounters_*.json` | VERIFIED |
 | Unova | Black 2 + White 2 | PokeAPI CSV | NOT VERIFIED |
 | Kalos | X + Y | PokeAPI CSV | NOT VERIFIED |
-| Alola | Ultra Sun + Ultra Moon | PokeAPI CSV | NOT VERIFIED |
+| Alola | Sun + Moon (the ladder's games; USUM was planned) | PokeAPI CSV | NOT VERIFIED |
 | Galar | Sword + Shield | PokeAPI CSV | NOT VERIFIED |
 | Paldea | Scarlet + Violet | Bulbapedia / Serebii (PokeAPI has 0 rows) | NOT VERIFIED |
 
@@ -446,6 +446,11 @@ area is built whether or not its creatures have art; an open area with nothing
 drawable greys out reading NO VALID SPRITES and lights up when the art lands
 or its gate opens (the owner's call, replacing the generator's refusal).
 
-**Next:** Alola (Ultra Sun/Ultra Moon), the same PokeAPI loader. Alola has
-islands and trials rather than gyms; its ladder in `trainers.h` decides the
-gates, as everywhere.
+**Alola: DONE (2026-10-21, v3.46).** 54 areas from Sun/Moon via PokeAPI (NOT
+VERIFIED) -- Sun/Moon rather than USUM because the trial ladder is Sun/Moon's.
+Gates are trials passed, named by their Z-Crystal. SOS allies and Gen 7's land
+phenomena count at 0.2; Solgaleo, Lunala, the Tapus, the seven Ultra Beasts and
+Necrozma have homes.
+
+**Next:** Galar (Sword). PokeAPI's Gen 8 encounter data is thin; check what it
+holds before choosing between it and the published location pages.

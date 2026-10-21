@@ -28,6 +28,18 @@ static int areaNamed(const char *n){
   for (int i=0;i<WILD_AREA_COUNT;i++) if(!strcmp(WILD_AREAS[i].name,n)) return i;
   return -1;
 }
+// Region by region: Alola has its own ROUTE 1.
+static int areaIn(uint8_t region, const char *n){
+  for (uint8_t k=0;k<wildAreaCount(region);k++)
+    if (!strcmp(wildAreaName(wildAreaFirst(region)+k),n)) return wildAreaFirst(region)+k;
+  return -1;
+}
+// Over every roll: how often `dex` is picked in `area` by day.
+static int picks(int area, const Pet &p, int16_t dex){
+  int n=0;
+  for (uint32_t r=0;r<WILD_WEIGHT_TOTAL;r++) if (wildAreaPick((uint16_t)area,WILD_WHEN_DAY,p,r)==dex) n++;
+  return n;
+}
 
 int main(){
   // Every gate open in both regions: the picks below are about the tables, the
@@ -68,6 +80,7 @@ int main(){
   ck(wildRegionHasAreas(3), "Sinnoh has areas");
   ck(wildRegionHasAreas(4), "Unova has areas");
   ck(wildRegionHasAreas(5), "Kalos has areas");
+  ck(wildRegionHasAreas(6), "Alola has areas");
   {
     // A locked row says which badge it needs; a region with areas whose badge
     // names were never filled in would name a leader instead.
@@ -414,6 +427,38 @@ int main(){
       for (uint8_t b=WILD_WHEN_MORN;b<=WILD_WHEN_NITE;b<<=1)
         if (wildAreaHasLive((uint16_t)i,b,all)!=(wildAreaState((uint16_t)i,b,all)==WILD_AREA_LIVE)) same=false;
     ck(same, "wildAreaHasLive() and wildAreaState() never disagree");
+  }
+
+
+  // ---- Alola (v3.46, Sun/Moon from PokeAPI) ----------------------------------
+  // Three things its data needs that no earlier region did, each asked of the
+  // firmware's own picks.
+  {
+    int r2=areaIn(6,"ROUTE 2"), meadow=areaIn(6,"MELEMELE MEADOW"), brook=areaIn(6,"BROOKLET HILL");
+    ck(r2>=0 && meadow>=0 && brook>=0, "Alola's Route 2, Melemele Meadow and Brooklet Hill are found");
+    Pet none;
+    // 'bubbling-spots' is both rustling grass and a fishing rock. Route 2's
+    // Makuhita is met only in the grass, so it is open from the start; read
+    // as fishing it would wait for Lana's rod.
+    ck(wildAreaUnlocked((uint16_t)r2,none) && picks(r2,none,296)>0,
+       "Route 2's rustling grass gives Makuhita before any trial: a phenomenon, not the rod");
+    // The rod itself waits for Lana: Brooklet Hill's Magikarp is fished only.
+    Pet ilima; ilima.winBadge(6,0,false);
+    Pet lana=ilima; lana.winBadge(6,1,false);
+    ck(wildAreaUnlocked((uint16_t)brook,ilima) && picks(brook,ilima,129)==0,
+       "Brooklet Hill opens after Ilima, but its Magikarp waits for Lana's rod");
+    ck(picks(brook,lana,129)>0, "and bites once her trial is passed");
+    // The Ultra Beasts are rate-100 walk-ins in the data; they are homes, not
+    // pool members: no roll of the meadow's pool names Buzzwole.
+    ck(picks(meadow,all,794)==0, "Melemele Meadow's pool never holds Buzzwole -- it is a legendary home");
+    ck(wildIsExploreLegend(794) && wildIsExploreLegend(800), "Buzzwole and Necrozma have homes");
+    // PokeAPI starts every Sun/Moon SOS and fishing row at level 10, however
+    // late the map. Poni Gauntlet's Dragonair is an SOS ally at 56-59 there;
+    // read at 10, its floor would drop below its own evolution level.
+    int gaunt=areaIn(6,"PONI GAUNTLET"), fl=-1;
+    if (gaunt>=0) for (int k=0;k<WILD_AREAS[gaunt].count;k++)
+      if (WILD_SLOTS[WILD_AREAS[gaunt].first+k].dex==148) fl=WILD_SLOTS[WILD_AREAS[gaunt].first+k].floor;
+    ck(fl==DEX_TBL[147].evolveLevel, "Poni Gauntlet's Dragonair is floored at Dratini's evolution level, not 10");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);
