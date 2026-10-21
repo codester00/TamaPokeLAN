@@ -631,9 +631,9 @@ follow the gym ladder, not the pet; hard = smarter AI, same levels; locked
 rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
-the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41)**
--- see the "Done" entries
-below. Next: Hoenn (Emerald), then Sinnoh (Platinum), the same way. None of it
+the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
+Hoenn's areas and legendaries (v3.42)** -- see the "Done" entries
+below. Next: Sinnoh (Platinum), the same way. None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
@@ -691,7 +691,37 @@ disconnected for a while, which may explain the week-long figure; the
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
 
+### Done: Hoenn's areas and legendaries (v3.42, not yet on a board)
+
+43 areas from Emerald (`pokeemerald`'s `wild_encounters.json`, the same shape
+as FireRed's, read by one `load_gen3()`), 8 legendaries appended to
+`WILD_LEGENDS` (17 now, `LEGEND_BYTES` 16 has room for 128), `BADGE_NAMES`
+row 3, the Super Rod at Mossdeep (gate 6). No time of day, no Headbutt.
+
+- **A map listed twice keeps its FIRST table.** Both Altering Caves carry nine
+  sets; the engine uses the first (Zubat) until a Mystery Event changes a var.
+  The loader used to overwrite, so Kanto's came out as Smeargle (set 9).
+- **Legendaries with no wild table at their door borrow the area it is in**:
+  the Regis (Route 111 desert, Routes 105-109, Route 120; gate 7, Dive for the
+  Sealed Chamber), Kyogre (Routes 126-129, where Marine Cave surfaces),
+  Groudon (Routes 113-114, Terra Cave). Latias and Latios both ROAM (Emerald
+  roams one and offers the other by event ticket), home Routes 130-134, level
+  from `roamer.c`. Rayquaza is Sky Pillar, after the champion.
+- Cave of Origin's three unused Ruby/Sapphire maps are in `skip`.
+- `legend_test`'s "a region without homes still hatches its legendaries" moved
+  to Sinnoh, asked through `wildIsExploreLegend()`. `wildarea_test` fails if a
+  region with areas lacks badge names. Negative-checked: the badge row, the
+  Regis' gate, the Latis' roaming.
+- Natives Emerald never has wild (verify_wild lists 58): starters, Feebas
+  (Route 119's tile fishing is engine code, not a table), Surskit, Meditite,
+  Zangoose/Lunatone (other versions), fossils, Beldum, Castform. Eggs bring them.
+
 ### Done: the best rod waits for its badge, secretly (v3.41, not yet on a board)
+
+**Kept out of the player-facing text by the owner's call**: the installer page
+and release notes only allude to "storyline progression locks adapted from the
+real games' data". The README manual and these notes carry it in full -- it is
+hidden from players, never from developers.
 
 The fishing slots are the Super Rod's, so each carries its own gate
 (`WildSlot::gate`): the ladder position the game hands the rod out at --
@@ -757,6 +787,10 @@ Crystal, with morning/day/night slots and Headbutt trees. The plan's § 7-8.
 - **Weights are per time band now**: an area's slots that name a band must sum
   to `WILD_WEIGHT_TOTAL` in that band; a species with the same weight in several
   bands is one slot. Kanto's data came out byte-identical.
+- **Headbutt is an encounter METHOD, not an area** (owner asked, 2026-10-21).
+  Crystal's trees sit on routes; their creatures (Heracross, Aipom, Pineco,
+  ...) are mixed into the route's own pool at weight 0.2, like Rock Smash.
+  There is no Headbutt area and there should not be one.
 - Crystal alone (Q-A) costs some species Gold/Silver had wild: Mareep's line,
   Houndour, Murkrow, Slugma, Girafarig, plus Remoraid (swarm only) and
   Sudowoodo (static). `verify_wild.py` lists each region's natives no area

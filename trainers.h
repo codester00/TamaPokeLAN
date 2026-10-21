@@ -324,6 +324,8 @@ static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
   // (Mineral) sixth, as TRAINERS_JOHTO has them.
   { "ZEPHYR BADGE", "HIVE BADGE", "PLAIN BADGE", "FOG BADGE",
     "STORM BADGE", "MINERAL BADGE", "GLACIER BADGE", "RISING BADGE" },
+  { "STONE BADGE", "KNUCKLE BADGE", "DYNAMO BADGE", "HEAT BADGE",
+    "BALANCE BADGE", "FEATHER BADGE", "MIND BADGE", "RAIN BADGE" },
 };
 
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the

@@ -34,7 +34,7 @@ import gen_wild as G                       # noqa: E402
 import wild_areas as WA                    # noqa: E402
 from dex_data import DEX, REGIONS          # noqa: E402
 
-DECOMP_SOURCES = {'frlg', 'crystal'}   # sources that ARE the game's own tables
+DECOMP_SOURCES = {'frlg', 'crystal', 'emerald'}   # sources that ARE the game's own tables
 WHEN = {1: 'morning', 2: 'day', 4: 'night'}
 
 

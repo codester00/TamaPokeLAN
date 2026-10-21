@@ -69,6 +69,9 @@ BANDS = (MORN, DAY, NITE)
 
 FRLG = 'https://raw.githubusercontent.com/pret/pokefirered/master/'
 CRYSTAL = 'https://raw.githubusercontent.com/pret/pokecrystal/master/'
+EMERALD = 'https://raw.githubusercontent.com/pret/pokeemerald/master/'
+# The Gen 3 decomps share one JSON shape and one script language.
+GEN3 = {'frlg': FRLG, 'emerald': EMERALD}
 
 SLUG = {slug: n for n, slug, *_ in DEX}
 
@@ -137,30 +140,42 @@ def fetch(url, name, refresh=False):
 # with `rate` the slot's in-game percentage within its method and `when` the
 # time bands it applies to.
 
-def load_frlg(refresh=False):
-    d = json.loads(fetch(FRLG + 'src/data/wild_encounters.json',
-                         'frlg_wild_encounters.json', refresh))
+def load_gen3(src, refresh=False):
+    """FireRed/LeafGreen or Emerald: src/data/wild_encounters.json. FRLG keeps
+    one table per version (the label ends in FireRed or LeafGreen); Emerald is
+    one game. A map listed twice (Emerald's Altering Cave: nine sets, the
+    first being what the game uses until a Mystery Event changes it) keeps
+    its FIRST table, which is what the engine reads by default."""
+    d = json.loads(fetch(GEN3[src] + 'src/data/wild_encounters.json',
+                         '%s_wild_encounters.json' % src, refresh))
     group = d['wild_encounter_groups'][0]
     rates = {f['type']: f['encounter_rates'] for f in group['fields']}
+    fish = next(f for f in group['fields'] if f['type'] == 'fishing_mons')
+    # Only the best rod counts (plan § 4); its slots are read from the
+    # file's own groups where it has them (Emerald), FRLG's being 5-9 too.
+    super_rod = set(fish.get('groups', {}).get('super_rod', range(5, 10)))
     keys = {'land_mons': 'land', 'water_mons': 'water',
             'fishing_mons': 'fishing', 'rock_smash_mons': 'rock_smash'}
-    out = {'FireRed': {}, 'LeafGreen': {}}
+    out = {'FireRed': {}, 'LeafGreen': {}} if src == 'frlg' else {'Emerald': {}}
     for e in group['encounters']:
         ver = next((v for v in out if e['base_label'].endswith(v)), None)
+        if src == 'emerald':
+            ver = 'Emerald'
         if ver is None:
             sys.exit('gen_wild: encounter %s belongs to no version' % e['base_label'])
-        m = out[ver].setdefault(e['map'].replace('MAP_', ''), {})
+        mp = e['map'].replace('MAP_', '')
+        if mp in out[ver]:
+            continue
+        m = out[ver][mp] = {}
         for key, method in keys.items():
             if key not in e:
                 continue
             slots = list(enumerate(e[key]['mons']))
             if method == 'fishing':
-                # Only the best rod counts (plan § 4): FRLG's fishing table is
-                # old rod 0-1, good rod 2-4, super rod 5-9.
-                slots = [(i, s) for i, s in slots if i >= 5]
+                slots = [(i, s) for i, s in slots if i in super_rod]
             m[method] = [(dex_of(s['species']), s['min_level'], rates[key][i], ANY)
                          for i, s in slots]
-    SOURCE_MAPS['frlg'] = set(out['FireRed']) | set(out['LeafGreen'])
+    SOURCE_MAPS[src] = set().union(*(set(v) for v in out.values()))
     return out
 
 
@@ -310,9 +325,19 @@ def load_crystal(refresh=False, needed=()):
 def legend_level(src, leg, refresh=False):
     """The level a legendary is fought at, read from the game's own script."""
     dex = leg['dex']
-    if src == 'frlg':
-        text = fetch(FRLG + 'data/maps/%s/scripts.inc' % leg['script'],
-                     'frlg_%s_scripts.inc' % leg['script'], refresh)
+    if src == 'emerald' and leg.get('roams'):
+        # Latias and Latios roam from src/roamer.c, created at one level.
+        text = fetch(EMERALD + 'src/roamer.c', 'emerald_src_roamer.c', refresh)
+        names = re.findall(r'ROAMER->species = (SPECIES_\w+);', text)
+        lvl = re.search(r'CreateMon\([^,]+, ROAMER->species, (\d+),', text)
+        if lvl and dex in [dex_of(n) for n in names]:
+            return int(lvl.group(1))
+        sys.exit('gen_wild: #%d is not one of roamer.c\'s %s' % (dex, names))
+    if 'script' not in leg and not leg.get('roams'):
+        sys.exit('gen_wild: legend #%d needs the script it is fought in' % dex)
+    if src in GEN3:
+        text = fetch(GEN3[src] + 'data/maps/%s/scripts.inc' % leg['script'],
+                     '%s_%s_scripts.inc' % (src, leg['script']), refresh)
         pat = r'setwildbattle\s+(SPECIES_\w+),\s*(\d+)'
     elif leg.get('roams'):
         # Raikou and Entei start roaming from InitRoamMons at one shared level.
@@ -338,9 +363,9 @@ def super_rod_gate(reg, refresh=False):
     """The ladder position the region's best rod is handed out at, after
     checking that the named script really is where the game gives it."""
     rod = reg['super_rod']
-    if reg['source'] == 'frlg':
-        text = fetch(FRLG + 'data/maps/%s/scripts.inc' % rod['script'],
-                     'frlg_%s_scripts.inc' % rod['script'], refresh)
+    if reg['source'] in GEN3:
+        text = fetch(GEN3[reg['source']] + 'data/maps/%s/scripts.inc' % rod['script'],
+                     '%s_%s_scripts.inc' % (reg['source'], rod['script']), refresh)
         pat = r'(?:give|add)item\s+ITEM_SUPER_ROD\b'
     else:
         text = fetch(CRYSTAL + 'maps/%s.asm' % rod['script'],
@@ -354,8 +379,8 @@ def super_rod_gate(reg, refresh=False):
 
 
 def load_source(reg, refresh=False):
-    if reg['source'] == 'frlg':
-        return load_frlg(refresh)
+    if reg['source'] in GEN3:
+        return load_gen3(reg['source'], refresh)
     if reg['source'] == 'crystal':
         needed = [mp for _n, _g, maps in reg['areas'] for mp in maps]
         return load_crystal(refresh, needed)

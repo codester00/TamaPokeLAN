@@ -417,5 +417,14 @@ meet before the rod in every band (`gen_wild.py` refuses otherwise), so the
 secret never reads as NEEDS PACK. Each later region needs its own
 `super_rod` entry in `tools/wild_areas.py`.
 
-**Next:** Hoenn (Emerald, `pokeemerald`'s JSON is FireRed's shape, so the FRLG
-loader nearly fits), then Sinnoh (Platinum).
+**Hoenn: DONE (2026-10-21, v3.42, on the branch, not on a board).** 43
+areas from Emerald, its eight legendaries (the Regis behind Dive, the Latis
+roaming after the champion, Kyogre, Groudon and Rayquaza after it), Hoenn's
+badge names and the Super Rod at Mossdeep. The legendaries whose rooms have no
+wild table borrow the area their door is in (§ 7.2). A map the source lists
+twice keeps its first table, which fixed Kanto's Altering Cave as a side
+effect (Zubat, not the event-only Smeargle).
+
+**Next:** Sinnoh (Platinum). `pokeplatinum` is a DS decomp laid out unlike
+the Gen 3 JSON, so expect a loader of its own; Platinum's time-of-day grass
+slots should map onto the same three bands Crystal's do (check the data).

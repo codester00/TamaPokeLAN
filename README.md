@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.41-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.42-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -455,13 +455,14 @@ method, the methods weighted walk 1.0 / surf 0.5 / fishing 0.3 / Rock Smash 0.2.
 Super Rod's, so they stay out of an area until the badge the game hands that
 rod out at: Kanto's after the **Rainbow Badge** (FireRed's Super Rod is on
 Route 12, past the Poke Flute), Johto's after the **champion** (Crystal's is
-in Kanto). Until then the area's other creatures share its encounters at their
+in Kanto), Hoenn's after the **Feather Badge** (Emerald's is in Mossdeep). Until then the area's other creatures share its encounters at their
 own relative rates. **Nothing on the screen says so** -- by design, like the
 care window: the row is not greyed, nothing is starred, and an area always has
 something to meet. Easy or hard badges both count. Creatures met only that way
 until then: in Kanto Poliwag, Poliwhirl, Shellder, Krabby, Horsea, Staryu and
 Gyarados; in Johto Shellder, Kingler, Staryu, Dragonair, Chinchou, Lanturn,
-Qwilfish and Corsola. `tools/verify_wild.py` prints that list from the data.
+Qwilfish and Corsola; in Hoenn Magikarp, Carvanha, Sharpedo, Wailmer, Barboach
+and Corphish. `tools/verify_wild.py` prints that list from the data.
 
 **Johto's areas (v3.40).** 35 areas from Crystal's own tables (the
 `pret/pokecrystal` disassembly) -- Crystal alone, which keeps every one of them
@@ -477,6 +478,18 @@ Sudowoodo (a one-off encounter), the starters, the babies and many final forms
 -- eggs and evolution still bring them. `tools/verify_wild.py` lists every Johto
 species no area offers.
 
+**Hoenn's areas (v3.42).** 43 areas from Emerald's own tables (the
+`pret/pokeemerald` disassembly), Emerald alone, the same game as the Hoenn gym
+ladder. Emerald has no times of day and no Headbutt, so Hoenn's areas are
+walking, surfing (including Dive's seabed, as the UNDERWATER area), the best rod
+and Rock Smash. Both games' Altering Cave hold nine encounter sets of which
+only the first (Zubat) is used without a Mystery Event, so that is the one
+taken -- Kanto's had come out as Smeargle until v3.42. Not wild in Emerald, so
+not in Hoenn's areas: the starters, Feebas (Route 119's special fishing tiles),
+Surskit and Meditite (not in Emerald's tables), Zangoose and Lunatone (the
+other versions' exclusives), the fossils, Beldum
+(a gift), Castform and many final forms -- eggs and evolution still bring them.
+
 **An area opens with the badge that opened it in the games**, on either
 difficulty. Kanto: Route 1, 2, 22 and Viridian Forest from the start; Mt. Moon
 after the Boulder Badge; the Safari Zone after the Rainbow Badge; Seafoam Islands
@@ -486,7 +499,16 @@ the Volcano Badge; Victory Road after the Earth Badge; Cerulean Cave and Sevii
 from the start; Ilex Forest after the Hive Badge (Cut); Route 36 after the Plain
 Badge (the SquirtBottle); the sea after the Fog Badge (Surf); the Whirl Islands
 after the Glacier Badge (Whirlpool); Dragon's Den and Victory Road after the
-Rising Badge; Tin Tower and Mt. Silver after the champion. A locked area is
+Rising Badge; Tin Tower and Mt. Silver after the champion. Hoenn: Routes
+101-104, 115 and 116, Petalburg Woods and Rusturf Tunnel from the start;
+Granite Cave after the Stone Badge (Mr. Briney's boat); Routes 110, 117 and 118
+after the Knuckle Badge; New Mauville and the road north after the Dynamo Badge;
+the Route 111 desert after the Heat Badge (the Go-Goggles); the western sea
+after the Balance Badge (Surf); Mt. Pyre, the Safari Zone and the eastern sea
+after the Feather Badge; the seabed, Seafloor Cavern, the Cave of Origin and Sky
+Pillar after the Mind Badge (Dive); Victory Road after the Rain Badge
+(Waterfall); the Safari Zone extension, Desert Underpass, Artisan Cave, Altering
+Cave and Steven's cave after the champion. A locked area is
 listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 
 **Legendaries live somewhere (v3.40).** Each story legendary has a home:
@@ -501,6 +523,11 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Suicune | Burned Tower (Tin Tower's first floor has no wild table) | Glacier Badge | 40 |
 | Lugia | Whirl Islands | the champion | 60 |
 | Ho-Oh | Tin Tower | the champion | 60 |
+| Regirock, Regice, Registeel | Route 111 desert, Routes 105-109, Route 120 (their chambers have no wild tables) | Mind Badge (Dive opens the Sealed Chamber) | 40 |
+| Latias, Latios | Routes 130-134 (off Southern Island), then **roaming Hoenn** | the champion | 40 |
+| Kyogre | Routes 126-129 (where Marine Cave surfaces) | the champion | 70 |
+| Groudon | Routes 113-114 (where Terra Cave opens) | the champion | 70 |
+| Rayquaza | Sky Pillar | the champion | 70 |
 
 | A legendary is waiting |
 |---|

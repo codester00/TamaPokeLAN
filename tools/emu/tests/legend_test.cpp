@@ -125,6 +125,30 @@ int main(){
     gRegionArt=0xFFFF;
   }
 
+  // ---- Hoenn (v3.42): a gate of its own, and roamers after the champion ----
+  {
+    int regice=legendOf(378), latias=legendOf(380), latios=legendOf(381), ray=legendOf(384);
+    int sea=areaIn(2,"ROUTES 105-109"), r101=areaIn(2,"ROUTE 101"), pillar=areaIn(2,"SKY PILLAR");
+    ck(regice>=0 && latias>=0 && latios>=0 && ray>=0 && sea>=0 && r101>=0 && pillar>=0,
+       "Hoenn's legendaries and areas are found");
+    Pet p; badges(p,2,6);   // Surf and more: Regice's sea is open
+    ck(wildAreaUnlocked((uint16_t)sea,p) && count(sea,p,regice)==0,
+       "Regice's sea is open with six badges but Regice waits for Dive");
+    p.winBadge(2,6,false);
+    ck(count(sea,p,regice)==10000, "and comes with the Mind Badge");
+    badges(p,2,8);
+    ck(wildAreaUnlocked((uint16_t)pillar,p) && count(pillar,p,ray)==0,
+       "Rayquaza's Sky Pillar is open before the champion; Rayquaza is not");
+    p.winBadge(2,TRAINER_COUNT-1,false);
+    ck(count(pillar,p,ray)==10000, "after the champion it is");
+    p.setLegendMet(latias); p.setLegendMet(latios);
+    int a=count(r101,p,latias), o=count(r101,p,latios);
+    ck(a>0 && o>0 && a+o==WILD_LEGEND_PCT*100, "met, Latias and Latios roam Hoenn, as far as Route 101");
+    badges(p,0,8);
+    int r1=areaIn(0,"ROUTE 1");
+    ck(count(r1,p,latias)==0 && count(r1,p,latios)==0, "and never leave it");
+  }
+
   // ---- the save --------------------------------------------------------------
   {
     Pet a; a.begin();
@@ -168,12 +192,16 @@ int main(){
     }
     ck(!homed, "no egg hatches a legendary that has a home in Explore");
     ck(mew && celebi, "while Mew and Celebi still hatch -- the legendary tier is not empty");
-    bool hoennLegend=false;
+    // Hoenn's eight have homes since v3.42; Sinnoh's do not yet. Found by
+    // asking wildIsExploreLegend(), not by a typed range of dex numbers.
+    bool hoennHomed=false, sinnohLegend=false;
     for (int i=0;i<600;i++){
-      int16_t k=p.rollInRegion(2,R_LEGENDARIO);
-      if (k>=377 && k<=384) hoennLegend=true;   // Regis, Latis, the weather trio
+      if (wildIsExploreLegend(p.rollInRegion(2,R_LEGENDARIO))) hoennHomed=true;
+      int16_t k=p.rollInRegion(3,R_LEGENDARIO);
+      if (k>=480 && k<=488 && !wildIsExploreLegend(k)) sinnohLegend=true;   // the lake trio .. Cresselia
     }
-    ck(hoennLegend, "and a region whose legendaries have no homes yet still hatches them");
+    ck(!hoennHomed, "Hoenn's homed legendaries left its eggs with their areas");
+    ck(sinnohLegend, "and a region whose legendaries have no homes yet still hatches them");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);

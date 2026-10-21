@@ -241,11 +241,127 @@ JOHTO = {
     ],
 }
 
-REGIONS = [KANTO, JOHTO]
+# ---------------------------------------------------------------------------
+# HOENN -- Emerald alone (owner's call, Q-A), the same game as the Hoenn gym
+# ladder. Emerald has no times of day and no Headbutt. Gates follow Emerald's
+# progression and its HMs: Mr. Briney's boat to Dewford after Roxanne; Mauville
+# after Brawly; Wattson's Basement Key for New Mauville, and the way north to
+# Fallarbor and Mt. Chimney; the Go-Goggles after Flannery for the desert; Surf
+# after Norman; Fortree's Winona opens Lilycove and the eastern sea; Dive after
+# Tate and Liza; Waterfall after Juan. The postgame's Safari Zone extension,
+# Desert Underpass, Artisan Cave, Altering Cave and Steven's cave open after the
+# champion.
+HOENN = {
+    'region': 2,
+    'source': 'emerald',
+    # Emerald's Super Rod is in a Mossdeep house, reached after Winona.
+    'super_rod': {'gate': 6, 'script': 'MossdeepCity_House3'},
+    'areas': [
+        ('ROUTE 101',        0, ['ROUTE101']),
+        ('ROUTE 102',        0, ['ROUTE102']),
+        ('ROUTE 103',        0, ['ROUTE103']),
+        ('ROUTE 104',        0, ['ROUTE104', 'PETALBURG_CITY']),
+        ('PETALBURG WOODS',  0, ['PETALBURG_WOODS']),
+        ('ROUTE 115',        0, ['ROUTE115']),
+        ('ROUTE 116',        0, ['ROUTE116']),
+        ('RUSTURF TUNNEL',   0, ['RUSTURF_TUNNEL']),
+        # Roxanne -- Mr. Briney sails to Dewford
+        ('GRANITE CAVE',     1, ['GRANITE_CAVE_1F', 'GRANITE_CAVE_B1F', 'GRANITE_CAVE_B2F',
+                                 'GRANITE_CAVE_STEVENS_ROOM', 'DEWFORD_TOWN']),
+        # Brawly -- on to Slateport and Mauville
+        ('ROUTE 110',        2, ['ROUTE110', 'SLATEPORT_CITY']),
+        ('ROUTE 117',        2, ['ROUTE117']),
+        ('ROUTE 118',        2, ['ROUTE118']),
+        # Wattson -- the Basement Key, and the road north
+        ('NEW MAUVILLE',     3, ['NEW_MAUVILLE_ENTRANCE', 'NEW_MAUVILLE_INSIDE']),
+        ('ROUTE 112',        3, ['ROUTE112']),
+        ('FIERY PATH',       3, ['FIERY_PATH']),
+        ('ROUTES 113-114',   3, ['ROUTE113', 'ROUTE114']),
+        ('METEOR FALLS',     3, ['METEOR_FALLS_1F_1R']),
+        ('JAGGED PASS',      3, ['JAGGED_PASS']),
+        # Flannery -- the Go-Goggles open the desert
+        ('ROUTE 111 DESERT', 4, ['ROUTE111', 'MIRAGE_TOWER_1F', 'MIRAGE_TOWER_2F',
+                                 'MIRAGE_TOWER_3F', 'MIRAGE_TOWER_4F']),
+        # Norman -- Surf
+        ('ROUTES 105-109',   5, ['ROUTE105', 'ROUTE106', 'ROUTE107', 'ROUTE108', 'ROUTE109']),
+        ('ABANDONED SHIP',   5, ['ABANDONED_SHIP_ROOMS_B1F',
+                                 'ABANDONED_SHIP_HIDDEN_FLOOR_CORRIDORS']),
+        ('ROUTE 119',        5, ['ROUTE119']),
+        ('ROUTE 120',        5, ['ROUTE120']),
+        # Winona -- Lilycove, Mt. Pyre and the eastern sea
+        ('ROUTE 121',        6, ['ROUTE121']),
+        ('SAFARI ZONE',      6, ['SAFARI_ZONE_SOUTH', 'SAFARI_ZONE_SOUTHWEST',
+                                 'SAFARI_ZONE_NORTH', 'SAFARI_ZONE_NORTHWEST']),
+        ('MT. PYRE',         6, ['ROUTE122', 'MT_PYRE_1F', 'MT_PYRE_2F', 'MT_PYRE_3F',
+                                 'MT_PYRE_4F', 'MT_PYRE_5F', 'MT_PYRE_6F',
+                                 'MT_PYRE_EXTERIOR', 'MT_PYRE_SUMMIT']),
+        ('ROUTE 123',        6, ['ROUTE123']),
+        ('MAGMA HIDEOUT',    6, ['MAGMA_HIDEOUT_1F', 'MAGMA_HIDEOUT_2F_1R', 'MAGMA_HIDEOUT_2F_2R',
+                                 'MAGMA_HIDEOUT_2F_3R', 'MAGMA_HIDEOUT_3F_1R',
+                                 'MAGMA_HIDEOUT_3F_2R', 'MAGMA_HIDEOUT_3F_3R',
+                                 'MAGMA_HIDEOUT_4F']),
+        ('ROUTES 124-125',   6, ['ROUTE124', 'ROUTE125', 'LILYCOVE_CITY', 'MOSSDEEP_CITY']),
+        ('SHOAL CAVE',       6, ['SHOAL_CAVE_LOW_TIDE_ENTRANCE_ROOM',
+                                 'SHOAL_CAVE_LOW_TIDE_INNER_ROOM',
+                                 'SHOAL_CAVE_LOW_TIDE_STAIRS_ROOM',
+                                 'SHOAL_CAVE_LOW_TIDE_LOWER_ROOM',
+                                 'SHOAL_CAVE_LOW_TIDE_ICE_ROOM']),
+        # Tate and Liza -- Dive
+        ('UNDERWATER',       7, ['UNDERWATER_ROUTE124', 'UNDERWATER_ROUTE126']),
+        ('ROUTES 126-129',   7, ['ROUTE126', 'ROUTE127', 'ROUTE128', 'ROUTE129']),
+        ('SEAFLOOR CAVERN',  7, ['SEAFLOOR_CAVERN_ENTRANCE'] +
+                                ['SEAFLOOR_CAVERN_ROOM%d' % i for i in range(1, 9)]),
+        ('CAVE OF ORIGIN',   7, ['SOOTOPOLIS_CITY', 'CAVE_OF_ORIGIN_ENTRANCE',
+                                 'CAVE_OF_ORIGIN_1F']),
+        ('ROUTES 130-134',   7, ['ROUTE130', 'ROUTE131', 'ROUTE132', 'ROUTE133',
+                                 'ROUTE134', 'PACIFIDLOG_TOWN']),
+        ('SKY PILLAR',       7, ['SKY_PILLAR_1F', 'SKY_PILLAR_3F', 'SKY_PILLAR_5F']),
+        # Juan -- Waterfall
+        ('METEOR FALLS B1F', 8, ['METEOR_FALLS_1F_2R', 'METEOR_FALLS_B1F_1R',
+                                 'METEOR_FALLS_B1F_2R']),
+        ('VICTORY ROAD',     8, ['VICTORY_ROAD_1F', 'VICTORY_ROAD_B1F', 'VICTORY_ROAD_B2F',
+                                 'EVER_GRANDE_CITY']),
+        # After the champion
+        ('SAFARI EXTENSION', GATE_CHAMPION, ['SAFARI_ZONE_NORTHEAST', 'SAFARI_ZONE_SOUTHEAST']),
+        ('DESERT UNDERPASS', GATE_CHAMPION, ['DESERT_UNDERPASS']),
+        ('ARTISAN CAVE',     GATE_CHAMPION, ['ARTISAN_CAVE_1F', 'ARTISAN_CAVE_B1F']),
+        ('ALTERING CAVE',    GATE_CHAMPION, ['ALTERING_CAVE']),
+        ('STEVENS CAVE',     GATE_CHAMPION, ['METEOR_FALLS_STEVENS_CAVE']),
+    ],
+    'skip': {
+        'CAVE_OF_ORIGIN_UNUSED_RUBY_SAPPHIRE_MAP1': 'left over from Ruby/Sapphire, unreachable in Emerald',
+        'CAVE_OF_ORIGIN_UNUSED_RUBY_SAPPHIRE_MAP2': 'left over from Ruby/Sapphire, unreachable in Emerald',
+        'CAVE_OF_ORIGIN_UNUSED_RUBY_SAPPHIRE_MAP3': 'left over from Ruby/Sapphire, unreachable in Emerald',
+    },
+    'legends': [
+        # The Regis wait behind the Sealed Chamber, which needs Dive (Mind
+        # Badge). Their chambers have no wild tables, so each borrows the area
+        # its door is in (docs/explore-plan.md § 7.2).
+        {'dex': 377, 'area': 'ROUTE 111 DESERT', 'script': 'DesertRuins', 'gate': 7},   # Regirock
+        {'dex': 378, 'area': 'ROUTES 105-109',   'script': 'IslandCave',  'gate': 7},   # Regice
+        {'dex': 379, 'area': 'ROUTE 120',        'script': 'AncientTomb', 'gate': 7},   # Registeel
+        # Latias and Latios roam Hoenn after the champion; Emerald roams one
+        # and offers the other on Southern Island (an event ticket), so both
+        # roam here, first met off Southern Island's sea.
+        {'dex': 380, 'area': 'ROUTES 130-134', 'roams': True, 'gate': GATE_CHAMPION},   # Latias
+        {'dex': 381, 'area': 'ROUTES 130-134', 'roams': True, 'gate': GATE_CHAMPION},   # Latios
+        # Emerald's Marine and Terra Caves surface after the champion on a
+        # handful of routes; each borrows one of them.
+        {'dex': 382, 'area': 'ROUTES 126-129', 'script': 'MarineCave_End',
+         'gate': GATE_CHAMPION},                                                         # Kyogre
+        {'dex': 383, 'area': 'ROUTES 113-114', 'script': 'TerraCave_End',
+         'gate': GATE_CHAMPION},                                                         # Groudon
+        {'dex': 384, 'area': 'SKY PILLAR', 'script': 'SkyPillar_Top',
+         'gate': GATE_CHAMPION},                                                         # Rayquaza
+    ],
+}
+
+REGIONS = [KANTO, JOHTO, HOENN]
 
 # WILD_LEGENDS[] is stored by INDEX in the save (the met/caught bitmasks), so
 # the order legendaries are emitted in is APPEND-ONLY -- the same rule as move
 # indices and avatar picks. gen_wild.py emits them region by region in the
 # order above; a new region's legends must go AFTER every existing one, which
 # gen_wild.py enforces against LEGEND_ORDER.
-LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250]
+LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250,
+                377, 378, 379, 380, 381, 382, 383, 384]

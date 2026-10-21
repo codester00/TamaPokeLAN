@@ -34,7 +34,7 @@ int main(){
   // pack and the clock, not about progress (the best rod's gate has its own
   // section).
   Pet all;
-  for (uint8_t r=0;r<2;r++) for (uint8_t t=0;t<TRAINER_COUNT;t++) all.winBadge(r,t,false);
+  for (uint8_t r=0;r<WILD_REGIONS;r++) for (uint8_t t=0;t<TRAINER_COUNT;t++) all.winBadge(r,t,false);
 
   // ---- the tables ----------------------------------------------------------
   bool sums=true, gates=true, names=true, dexes=true, bands=true, slices=true;
@@ -64,6 +64,16 @@ int main(){
   ck(WILD_AREA_COUNT>0 && wildRegionHasAreas(0), "Kanto has areas");
   ck(sums, "every area's weights add up to WILD_WEIGHT_TOTAL in each time band");
   ck(wildRegionHasAreas(1), "Johto has areas");
+  ck(wildRegionHasAreas(2), "Hoenn has areas");
+  {
+    // A locked row says which badge it needs; a region with areas whose badge
+    // names were never filled in would name a leader instead.
+    bool named=true;
+    for (uint8_t r=0;r<WILD_REGIONS;r++)
+      if (wildRegionHasAreas(r))
+        for (uint8_t g=0;g<TRAINER_GYMS;g++) if (!BADGE_NAMES[r][g]) named=false;
+    ck(named, "every region with areas names all eight of its badges");
+  }
   ck(dexes, "every slot is a real species with a weight");
   ck(gates, "every gate is a badge count or the champion, and a slot's is past its area's");
   ck(names, "every area name is 1-16 printable ASCII characters");
