@@ -42,6 +42,7 @@ uint8_t currentExploreRegion();
 void exploreStepRegion(int8_t step);
 void onRim(int dir);
 #include "wild.h"
+#include "trainers.h"
 
 static int bad = 0;
 static void ck(bool ok, const char *what) {
@@ -153,7 +154,7 @@ int main() {
     uint16_t a = exploreAreaOf(0);
     bool found = false;
     for (uint32_t roll = 0; roll < 10000 && !found; roll += 37)
-      if (wildAreaPick(a, 7, roll) == wildDex) found = true;
+      if (wildAreaPick(a, 7, pet, roll) == wildDex) found = true;
     if (!found) inArea = false;
     uint8_t floor = wildAreaLevel(a, wildDex, 0);   // what roll 0 gives, floor applied
     uint8_t lo = wildAreaLvMin(a) > floor ? wildAreaLvMin(a) : floor;
@@ -213,6 +214,44 @@ int main() {
   ck(everyReal, "the selector reaches every installed region");
   ck(!sawAll, "and never ALL, while it is switched off");
   ck(!startWildBattle(REGION_ALL, false), "nor can an encounter be started in ALL");
+
+  // The best rod's hidden gate, through the real encounter builder (CLAUDE.md
+  // trap 1: test the caller). Route 22's fishing catch waits for the rod's
+  // badge; the species only the rod finds are found by comparing what the
+  // area offers a player with every badge against this one, not named.
+  {
+    uint16_t r22 = (uint16_t)(first + 2);
+    ck(!strcmp(wildAreaName(r22), "ROUTE 22"), "(the third Kanto area is Route 22)");
+    exploreAreaPick[0] = (uint16_t)(r22 + 1);
+    Pet full;
+    for (uint8_t t = 0; t < TRAINER_COUNT; t++) full.winBadge(0, t, false);
+    bool rodOnly[DEX_COUNT + 1] = { false };
+    int nRod = 0;
+    for (uint32_t r = 0; r < 20000; r++) {   // past any area total: every roll comes up
+      int16_t d = wildAreaPick(r22, wildTimeBand(-1), full, r);
+      if (d && !rodOnly[d]) {
+        bool early = false;
+        for (uint32_t q = 0; q < 20000 && !early; q++)
+          if (wildAreaPick(r22, wildTimeBand(-1), pet, q) == d) early = true;
+        if (!early) { rodOnly[d] = true; nRod++; }
+      }
+    }
+    ck(nRod > 0 && !pet.hasBadge(0, 3, false), "with three badges, Route 22 holds some creatures back");
+    bool leaked = false, came = false, live = true;
+    for (int i = 0; i < 300; i++) {
+      battleOpen = false; exploreOpen = true; exploreRegion = 0;
+      if (!startWildBattle(0, i & 1)) { live = false; break; }
+      if (rodOnly[wildDex]) leaked = true;
+    }
+    ck(live, "the area still has encounters before the rod");
+    ck(!leaked, "and Explore never meets a creature only the best rod finds");
+    pet.winBadge(0, 3, false);   // Erika's: FireRed's Super Rod
+    for (int i = 0; i < 600 && !came; i++) {
+      battleOpen = false; exploreOpen = true; exploreRegion = 0;
+      if (startWildBattle(0, i & 1) && rodOnly[wildDex]) came = true;
+    }
+    ck(came, "until the rod's badge is won -- then they come");
+  }
 
   printf("%s\n", bad ? "FAILURES" : "all good");
   return bad ? 1 : 0;

@@ -39,6 +39,12 @@ NAME_MAX = 16
 KANTO = {
     'region': 0,
     'source': 'frlg',
+    # The best rod's catch is held back until the badge the game hands the rod
+    # out at, the same gate rule an area or a legendary has -- and, by the
+    # owner's call, nothing on the panel says so. FireRed's Super Rod is the
+    # fishing guru's brother on Route 12, past the Poke Flute: Erika's gate.
+    # gen_wild.py checks the script really gives the rod.
+    'super_rod': {'gate': 4, 'script': 'Route12_FishingHouse'},
     'areas': [
         # name               gate  maps
         ('ROUTE 1',          0, ['ROUTE1']),
@@ -161,6 +167,9 @@ KANTO = {
 JOHTO = {
     'region': 1,
     'source': 'crystal',
+    # Crystal's Super Rod is handed out on Kanto's Route 12, which a Johto
+    # player only reaches after the champion.
+    'super_rod': {'gate': GATE_CHAMPION, 'script': 'Route12SuperRodHouse'},
     'areas': [
         ('ROUTE 29',         0, ['ROUTE_29', 'NEW_BARK_TOWN']),
         ('ROUTE 30',         0, ['ROUTE_30', 'CHERRYGROVE_CITY']),

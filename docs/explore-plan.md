@@ -21,7 +21,7 @@ to revision 2's five open questions (§ 11). **The plan is confirmed.** Phase 1
 | 1 | Kanto data source | **FireRed**: our Kanto gym ladder already uses FireRed/LeafGreen's teams, so wild areas from the same game keep one world (see § 3) |
 | 2 | Version exclusives | **Combine both versions** in every area |
 | 3 | Levels | **Tied to the gym ladder** (§ 6). Evolved forms follow the games' own tolerance (§ 6.3) |
-| 4 | Water | **Water areas are ordinary areas.** No Surf badge or rod needed |
+| 4 | Water | **Water areas are ordinary areas.** No Surf badge needed. The best rod's catch waits, unseen, for the badge the game hands the Super Rod out at (owner's call, v3.41; § 14) |
 | 5 | Legendaries | **One guaranteed encounter** at a named location, then the area's normal spawns plus a small chance of the legendary again until it is caught (§ 7) |
 | 6 | Side and postgame areas | Included (pros and cons in § 5.4) |
 | 7 | Easy and hard badges | **Both count** toward a gate |
@@ -407,6 +407,15 @@ slots and Headbutt. `legend_test` and `legendui_test` are new.
 One deviation from § 7.1 worth knowing: "met" is recorded as the fight
 STARTS, not as it ends -- one place instead of six, at the cost of a power cut
 mid-fight spending the guarantee (the rare repeat still applies).
+
+**The best rod's gate: DONE (2026-10-21, v3.41, on the branch, not on a
+board).** At the owner's request the game's Super Rod progression is
+simulated with the same gate rule areas and legendaries use: every fishing slot
+carries the ladder position the rod is handed out at (Kanto 4, Johto the
+champion), and nothing on the panel shows it. Every area keeps something to
+meet before the rod in every band (`gen_wild.py` refuses otherwise), so the
+secret never reads as NEEDS PACK. Each later region needs its own
+`super_rod` entry in `tools/wild_areas.py`.
 
 **Next:** Hoenn (Emerald, `pokeemerald`'s JSON is FireRed's shape, so the FRLG
 loader nearly fits), then Sinnoh (Platinum).

@@ -30,6 +30,12 @@ static int areaNamed(const char *n){
 }
 
 int main(){
+  // Every gate open in both regions: the picks below are about the tables, the
+  // pack and the clock, not about progress (the best rod's gate has its own
+  // section).
+  Pet all;
+  for (uint8_t r=0;r<2;r++) for (uint8_t t=0;t<TRAINER_COUNT;t++) all.winBadge(r,t,false);
+
   // ---- the tables ----------------------------------------------------------
   bool sums=true, gates=true, names=true, dexes=true, bands=true, slices=true;
   for (int i=0;i<WILD_AREA_COUNT;i++){
@@ -44,6 +50,8 @@ int main(){
     for (int k=0;k<a.count;k++){
       const WildSlot &s=WILD_SLOTS[a.first+k];
       if (s.dex<1 || s.dex>DEX_COUNT || !s.weight || !s.when || (s.when & ~WILD_WHEN_ANY)) dexes=false;
+      // A slot's own gate (the best rod's) is a real gate, past its area's.
+      if (s.gate && (s.gate<=a.gate || !(s.gate<=TRAINER_GYMS || s.gate==WILD_GATE_CHAMPION))) gates=false;
     }
     if (!(a.gate<=TRAINER_GYMS || a.gate==WILD_GATE_CHAMPION)) gates=false;
     size_t n=strlen(a.name);
@@ -57,7 +65,7 @@ int main(){
   ck(sums, "every area's weights add up to WILD_WEIGHT_TOTAL in each time band");
   ck(wildRegionHasAreas(1), "Johto has areas");
   ck(dexes, "every slot is a real species with a weight");
-  ck(gates, "every gate is a badge count or the champion");
+  ck(gates, "every gate is a badge count or the champion, and a slot's is past its area's");
   ck(names, "every area name is 1-16 printable ASCII characters");
   ck(bands, "every band is a real level range");
   ck(slices, "every area sits inside its own region's slice");
@@ -134,8 +142,8 @@ int main(){
     if (na>=0){
       bool day=false, night=false;
       for (uint32_t r=0;r<WILD_WEIGHT_TOTAL;r++){
-        if (wildAreaPick((uint16_t)na,WILD_WHEN_DAY,r)==nd) day=true;
-        if (wildAreaPick((uint16_t)na,WILD_WHEN_NITE,r)==nd) night=true;
+        if (wildAreaPick((uint16_t)na,WILD_WHEN_DAY,all,r)==nd) day=true;
+        if (wildAreaPick((uint16_t)na,WILD_WHEN_NITE,all,r)==nd) night=true;
       }
       printf("      %s: %s\n", WILD_AREAS[na].name, DEX_TBL[nd].name);
       ck(night && !day, "it is met at night and never by day");
@@ -156,13 +164,21 @@ int main(){
     uint32_t got[64]={0};
     bool inArea=true;
     for (uint32_t roll=0;roll<total;roll++){
-      int16_t d=wildAreaPick((uint16_t)r22,WILD_WHEN_DAY,roll);
+      int16_t d=wildAreaPick((uint16_t)r22,WILD_WHEN_DAY,all,roll);
       int k=0; while(k<a.count && WILD_SLOTS[a.first+k].dex!=d) k++;
       if (k==a.count) { inArea=false; continue; }
       got[k]++;
     }
+    // By species: one may hold an open slot AND a best-rod slot (Psyduck surfs
+    // and bites a line), and a pick names the species, not the slot.
     bool exact=true;
-    for (int k=0;k<a.count;k++) if (got[k]!=WILD_SLOTS[a.first+k].weight) exact=false;
+    for (int k=0;k<a.count;k++){
+      uint32_t want=0, have=0;
+      for (int j=0;j<a.count;j++) if (WILD_SLOTS[a.first+j].dex==WILD_SLOTS[a.first+k].dex){
+        want+=WILD_SLOTS[a.first+j].weight; have+=got[j];
+      }
+      if (have!=want) exact=false;
+    }
     ck(inArea, "a pick only ever returns a species of that area");
     ck(exact, "and each species comes up exactly as often as its weight");
   }
@@ -171,7 +187,7 @@ int main(){
   {
     bool johtoSeen=false;
     for (uint32_t roll=0;roll<WILD_WEIGHT_TOTAL;roll+=7){
-      int16_t d=wildAreaPick((uint16_t)tanoby,WILD_WHEN_DAY,roll);
+      int16_t d=wildAreaPick((uint16_t)tanoby,WILD_WHEN_DAY,all,roll);
       if (d>=REGIONS[1].lo && d<=REGIONS[1].hi) johtoSeen=true;
     }
     ck(johtoSeen, "with every pack, a Kanto area can hold a Johto species (the case below is real)");
@@ -179,22 +195,22 @@ int main(){
     bool leak=false, any=false;
     for (int i=WILD_REGION_AREAS[0][0]; i<WILD_REGION_AREAS[0][0]+WILD_REGION_AREAS[0][1]; i++)
       for (uint32_t roll=0;roll<WILD_WEIGHT_TOTAL;roll+=13){
-        int16_t d=wildAreaPick((uint16_t)i,WILD_WHEN_DAY,roll);
+        int16_t d=wildAreaPick((uint16_t)i,WILD_WHEN_DAY,all,roll);
         if (d) any=true;
         if (d && regionOfDex(d)!=0) leak=true;
       }
     ck(any && !leak, "with only Kanto's pack, no other region's species is ever met");
     gRegionArt=0;
-    ck(!wildAreaHasLive((uint16_t)r1,WILD_WHEN_DAY) && wildAreaPick((uint16_t)r1,WILD_WHEN_DAY,1)==0,
+    ck(!wildAreaHasLive((uint16_t)r1,WILD_WHEN_DAY,all) && wildAreaPick((uint16_t)r1,WILD_WHEN_DAY,all,1)==0,
        "with no pack at all, an area has nothing live and picks nothing");
     gRegionArt=0xFFFF;
-    ck(wildAreaHasLive((uint16_t)r1,WILD_WHEN_DAY), "and comes back with the packs");
+    ck(wildAreaHasLive((uint16_t)r1,WILD_WHEN_DAY,all), "and comes back with the packs");
   }
   {
     bool art=true;
     for (int i=0;i<WILD_AREA_COUNT;i++)
       for (uint32_t roll=0;roll<WILD_WEIGHT_TOTAL;roll+=97){
-        int16_t d=wildAreaPick((uint16_t)i,WILD_WHEN_DAY,roll);
+        int16_t d=wildAreaPick((uint16_t)i,WILD_WHEN_DAY,all,roll);
         if (d && !speciesHasArt(d)) art=false;
       }
     ck(art, "no area ever offers a species with no art");
@@ -241,6 +257,63 @@ int main(){
       }
       ck(ok && top, "rolls below the floor are lifted to it, the rest stay as rolled");
     }
+  }
+
+  // ---- the best rod's hidden gate --------------------------------------------
+  // The game's Super Rod catch waits for the badge the rod is handed out at,
+  // through the same gate rule as an area. Checked in every area that has one,
+  // from a Pet holding exactly the badges BEFORE the rod's gate, then the one
+  // that opens it. Found from the data, not named.
+  {
+    int gatedAreas=0, rodOnly=0;
+    bool neverEarly=true, metAfter=true, exactEarly=true, allLive=true;
+    for (int i=0;i<WILD_AREA_COUNT;i++){
+      const WildArea &a=WILD_AREAS[i];
+      // Every area, opened with exactly its own gate, has something live in
+      // every band: the rod gate is SECRET, so it must never read NEEDS PACK.
+      Pet opened;
+      for (uint8_t t=0;t<(a.gate==WILD_GATE_CHAMPION?TRAINER_COUNT:a.gate);t++) opened.winBadge(a.region,t,false);
+      for (uint8_t b=WILD_WHEN_MORN;b<=WILD_WHEN_NITE;b<<=1)
+        if (!wildAreaHasLive((uint16_t)i,b,opened)) allLive=false;
+      uint8_t rg=0;
+      for (int k=0;k<a.count;k++) if (WILD_SLOTS[a.first+k].gate) rg=WILD_SLOTS[a.first+k].gate;
+      if (!rg) continue;
+      gatedAreas++;
+      Pet before, after;
+      for (uint8_t t=0;t+1<rg;t++){ before.winBadge(a.region,t,false); after.winBadge(a.region,t,false); }
+      after.winBadge(a.region,rg-1,true);   // on hard: either difficulty opens it
+      for (uint8_t b=WILD_WHEN_MORN;b<=WILD_WHEN_NITE;b<<=1){
+        // What each species should come up as before the rod: its open slots'
+        // weights alone, renormalised over the open total.
+        uint32_t open=0;
+        for (int k=0;k<a.count;k++){ const WildSlot &s=WILD_SLOTS[a.first+k]; if ((s.when&b) && !s.gate) open+=s.weight; }
+        for (int k=0;k<a.count;k++){
+          const WildSlot &s=WILD_SLOTS[a.first+k];
+          if (!(s.when&b)) continue;
+          uint32_t want=0; bool onlyRod=true;
+          for (int j=0;j<a.count;j++){
+            const WildSlot &o=WILD_SLOTS[a.first+j];
+            if (o.dex!=s.dex || !(o.when&b)) continue;
+            if (!o.gate){ want+=o.weight; onlyRod=false; }
+          }
+          uint32_t got=0, late=0;
+          for (uint32_t r=0;r<open;r++) if (wildAreaPick((uint16_t)i,b,before,r)==s.dex) got++;
+          if (got!=want) exactEarly=false;
+          if (onlyRod && s.gate){
+            rodOnly++;
+            if (got) neverEarly=false;
+            for (uint32_t r=0;r<WILD_WEIGHT_TOTAL;r++) if (wildAreaPick((uint16_t)i,b,after,r)==s.dex) late++;
+            if (!late) metAfter=false;
+          }
+        }
+      }
+    }
+    printf("      %d areas hold a best-rod catch back, %d rod-only slots\n", gatedAreas, rodOnly);
+    ck(gatedAreas>0 && rodOnly>0, "some areas hold a fishing catch back (Route 22's Gyarados)");
+    ck(neverEarly, "a creature only the best rod finds never appears before the rod's badge");
+    ck(metAfter, "and every one of them appears once that badge is won, on either difficulty");
+    ck(exactEarly, "before the rod, the rest keep the game's rates, renormalised exactly");
+    ck(allLive, "and no area is ever left with nothing live by it (the gate is secret)");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);

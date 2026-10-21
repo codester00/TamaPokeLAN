@@ -334,6 +334,25 @@ def legend_level(src, leg, refresh=False):
     sys.exit('gen_wild: no wild battle for #%d in %s' % (dex, leg['script']))
 
 
+def super_rod_gate(reg, refresh=False):
+    """The ladder position the region's best rod is handed out at, after
+    checking that the named script really is where the game gives it."""
+    rod = reg['super_rod']
+    if reg['source'] == 'frlg':
+        text = fetch(FRLG + 'data/maps/%s/scripts.inc' % rod['script'],
+                     'frlg_%s_scripts.inc' % rod['script'], refresh)
+        pat = r'(?:give|add)item\s+ITEM_SUPER_ROD\b'
+    else:
+        text = fetch(CRYSTAL + 'maps/%s.asm' % rod['script'],
+                     'crystal_maps_%s.asm' % rod['script'], refresh)
+        pat = r'giveitem\s+SUPER_ROD\b'
+    if not re.search(pat, text):
+        sys.exit('gen_wild: %s does not give the Super Rod' % rod['script'])
+    if rod['gate'] not in tuple(range(9)) + (WA.GATE_CHAMPION,):
+        sys.exit('gen_wild: super rod gate %r' % rod['gate'])
+    return rod['gate']
+
+
 def load_source(reg, refresh=False):
     if reg['source'] == 'frlg':
         return load_frlg(refresh)
@@ -359,8 +378,10 @@ def pre_evolutions():
     return pre
 
 
-def mix_band(data, versions, maps, when):
-    """One time band's species distribution over an area (steps 1-3)."""
+def mix_band(data, versions, maps, when, rod_gate=0):
+    """One time band's distribution over an area (steps 1-3), keyed by
+    (species, gate): the best rod's share carries rod_gate, so a species both
+    walked into and fished up splits into an open slot and a gated one."""
     mix = {}
     for v in versions:
         per_method = {}
@@ -385,8 +406,10 @@ def mix_band(data, versions, maps, when):
             continue
         wsum = sum(WA.METHOD_WEIGHT[m] for m in per_method)
         for method, dist in per_method.items():
+            gate = rod_gate if method == 'fishing' else 0
             for dex, p in dist.items():
-                mix[dex] = mix.get(dex, 0) + p * WA.METHOD_WEIGHT[method] / wsum / len(versions)
+                key = (dex, gate)
+                mix[key] = mix.get(key, 0) + p * WA.METHOD_WEIGHT[method] / wsum / len(versions)
     return mix
 
 
@@ -399,6 +422,7 @@ def build(refresh=False):
     areas, legends = [], []
     for reg in WA.REGIONS:
         data = load_source(reg, refresh)
+        rod = super_rod_gate(reg, refresh)
         versions = sorted(data)
         src_min = {}   # the lowest level each species is wild at in this game
         for v in versions:
@@ -418,23 +442,32 @@ def build(refresh=False):
             if name in names:
                 sys.exit('gen_wild: area %r twice' % name)
             names.add(name)
+            # A rod handed out at or before the area opens holds nothing back.
+            rod_gate = rod if rod > gate else 0
             per_band = {}
             for when in BANDS:
-                mix = mix_band(data, versions, maps, when)
+                mix = mix_band(data, versions, maps, when, rod_gate)
                 if not mix:
                     sys.exit('gen_wild: area %r has no encounters at time %d' % (name, when))
+                if not any(g == 0 for _d, g in mix):
+                    # The rod gate is SECRET (owner's call): an area that held
+                    # nothing until it opened would read as empty on the panel.
+                    sys.exit('gen_wild: area %r has only rod encounters at time %d'
+                             % (name, when))
                 per_band[when] = dict(scale(mix))
-            # One slot per (species, weight) with the bands that share it.
+            # One slot per (species, weight, gate) with the bands that share it.
             slots = {}
             for when in BANDS:
-                for dex, w in per_band[when].items():
-                    slots[(dex, w)] = slots.get((dex, w), 0) | when
-            ordered = sorted(slots.items(), key=lambda kv: (-kv[0][1], kv[0][0], kv[1]))
+                for key, w in per_band[when].items():
+                    k = key + (w,)
+                    slots[k] = slots.get(k, 0) | when
+            ordered = sorted(slots.items(),
+                             key=lambda kv: (-kv[0][2], kv[0][0], kv[0][1], kv[1]))
             areas.append({'name': name, 'region': reg['region'], 'gate': gate,
                           'maps': maps, 'band': band(caps[reg['region']], gate),
                           'per_band': per_band,
-                          'slots': [(dex, w, when, floor_of(dex))
-                                    for (dex, w), when in ordered]})
+                          'slots': [(dex, w, when, floor_of(dex), g)
+                                    for (dex, g, w), when in ordered]})
         for leg in reg['legends']:
             if leg['area'] not in names:
                 sys.exit('gen_wild: legend #%d names unknown area %r' % (leg['dex'], leg['area']))
@@ -468,7 +501,7 @@ def scale(mix):
         out[d] += 1
         left -= 1
     while left < 0:   # only possible when many species were lifted to 1
-        d = max(out, key=lambda k: (out[k], -k))
+        d = max(out, key=lambda k: (out[k], tuple(-x for x in k)))
         out[d] -= 1
         left += 1
     return sorted(out.items(), key=lambda kv: (-kv[1], kv[0]))
@@ -499,6 +532,7 @@ def emit(areas, legends):
              '  uint16_t weight;   // share of WILD_WEIGHT_TOTAL in each band it is in\n'
              '  uint8_t when;      // WILD_WHEN_* bits\n'
              '  uint8_t floor;     // lowest level it may appear at, 0 = none\n'
+             '  uint8_t gate;      // ladder position that lets it appear: the best rod, 0 = open\n'
              '};\n'
              'struct WildArea {\n'
              '  const char *name;\n'
@@ -521,9 +555,10 @@ def emit(areas, legends):
     spans = []
     for a in areas:
         o.append('  // %s\n' % a['name'])
-        for dex, w, when, floor in a['slots']:
-            o.append('  { %d, %d, %s, %d },  // %s\n'
-                     % (dex, w, WHEN_NAME[when], floor, DEX[dex - 1][2]))
+        for dex, w, when, floor, gate in a['slots']:
+            o.append('  { %d, %d, %s, %d, %d },  // %s%s\n'
+                     % (dex, w, WHEN_NAME[when], floor, gate, DEX[dex - 1][2],
+                        ', best rod' if gate else ''))
         spans.append((first, len(a['slots'])))
         first += len(a['slots'])
     o.append('};\n#define WILD_SLOT_COUNT %d\n\n' % first)
@@ -565,7 +600,7 @@ def check(areas):
         if a['gate'] not in tuple(range(9)) + (WA.GATE_CHAMPION,):
             sys.exit('gen_wild: area %r has gate %r' % (n, a['gate']))
         for when in BANDS:
-            if sum(w for _d, w, wh, _f in a['slots'] if wh & when) != WEIGHT_TOTAL:
+            if sum(w for _d, w, wh, _f, _g in a['slots'] if wh & when) != WEIGHT_TOTAL:
                 sys.exit('gen_wild: area %r band %d does not sum to %d' % (n, when, WEIGHT_TOTAL))
 
 

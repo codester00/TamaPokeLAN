@@ -174,31 +174,32 @@ uint8_t wildTimeBand(int hour) {
 }
 
 // One answer for "can this slot be met now", so the pick, the NEEDS PACK test
-// and the weight total can never disagree about it.
-static bool slotLive(const WildSlot &s, uint8_t when) {
+// and the weight total can never disagree about it. The slot's gate (the best
+// rod's) goes through gateOpen(), the same rule as areas and legendaries.
+static bool slotLive(const WildArea &a, const WildSlot &s, uint8_t when, const Pet &p) {
   return (s.when & when) && speciesHasArt(s.dex) &&
-         regionAvailable(regionOfDex(s.dex));
+         regionAvailable(regionOfDex(s.dex)) && gateOpen(a.region, s.gate, p);
 }
 
-bool wildAreaHasLive(uint16_t area, uint8_t when) {
+bool wildAreaHasLive(uint16_t area, uint8_t when, const Pet &p) {
   if (area >= WILD_AREA_COUNT) return false;
   const WildArea &a = WILD_AREAS[area];
   for (uint8_t i = 0; i < a.count; i++)
-    if (slotLive(WILD_SLOTS[a.first + i], when)) return true;
+    if (slotLive(a, WILD_SLOTS[a.first + i], when, p)) return true;
   return false;
 }
 
-int16_t wildAreaPick(uint16_t area, uint8_t when, uint32_t roll) {
+int16_t wildAreaPick(uint16_t area, uint8_t when, const Pet &p, uint32_t roll) {
   if (area >= WILD_AREA_COUNT) return 0;
   const WildArea &a = WILD_AREAS[area];
   uint32_t total = 0;
   for (uint8_t i = 0; i < a.count; i++)
-    if (slotLive(WILD_SLOTS[a.first + i], when)) total += WILD_SLOTS[a.first + i].weight;
+    if (slotLive(a, WILD_SLOTS[a.first + i], when, p)) total += WILD_SLOTS[a.first + i].weight;
   if (!total) return 0;
   uint32_t want = roll % total;
   for (uint8_t i = 0; i < a.count; i++) {
     const WildSlot &s = WILD_SLOTS[a.first + i];
-    if (!slotLive(s, when)) continue;
+    if (!slotLive(a, s, when, p)) continue;
     if (want < s.weight) return s.dex;
     want -= s.weight;
   }

@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.40"
+#define FW_VERSION "3.41"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -3263,7 +3263,7 @@ void areaListTap(int16_t x, int16_t y) {
   int a = areaRowAt(x, y);
   if (a < 0) return;
   if (!wildAreaUnlocked((uint16_t)a, pet) ||
-      !wildAreaHasLive((uint16_t)a, wildTimeBand(exploreHour()))) {
+      !wildAreaHasLive((uint16_t)a, wildTimeBand(exploreHour()), pet)) {
     sfxPlay(SFX_DENY);
     return;
   }
@@ -3290,7 +3290,7 @@ void renderAreaList() {
     int rx, ry, rw, rh;
     areaRowRect(i, &rx, &ry, &rw, &rh);
     bool open_ = wildAreaUnlocked(a, pet);
-    bool live = open_ && wildAreaHasLive(a, when);
+    bool live = open_ && wildAreaHasLive(a, when, pet);
     gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
     gfx->drawRoundRect(rx, ry, rw, rh, 12, live ? UI_INK : UI_TRACK);
     if (a == chosen && live) {   // the one EXPLORE will look in
@@ -3344,7 +3344,7 @@ void renderExplore() {
   // without areas yet still draws from its whole pool, and says so.
   uint16_t area = exploreAreaOf(rg);
   uint8_t when = wildTimeBand(exploreHour());
-  bool areaLive = area == WILD_NO_AREA || wildAreaHasLive(area, when);
+  bool areaLive = area == WILD_NO_AREA || wildAreaHasLive(area, when, pet);
   int ax, ay, aw, ah;
   exploreAreaRect(&ax, &ay, &aw, &ah);
   gfx->fillRoundRect(ax, ay, aw, ah, 16, UI_BG_DAY);
@@ -7837,7 +7837,7 @@ bool startWildBattle(uint8_t region, bool hard) {
       dex = wildLegendDex((uint8_t)legend);
       lvl = wildLegendLevel((uint8_t)legend);
     } else {
-      dex = wildAreaPick(area, wildTimeBand(exploreHour()),
+      dex = wildAreaPick(area, wildTimeBand(exploreHour()), pet,
                          (uint32_t)random(65536) * 31u + random(31));
       if (!dex) return false;   // nothing live: the area reads NEEDS PACK
       lvl = wildAreaLevel(area, dex, (uint32_t)random(65536));

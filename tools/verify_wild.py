@@ -91,15 +91,35 @@ def main():
         print('  %-7s %-17s gate %-2s  L%d-%d' % (REGIONS[a['region']][0], a['name'], a['gate'], *a['band']))
     over, seen_over = [], set()
     for i, a in enumerate(areas):
-        for d, _w, _wh, fl in a['slots']:
+        for d, _w, _wh, fl, g in a['slots']:
             if fl > a['band'][1] and (i, d) not in seen_over:
                 seen_over.add((i, d))
-                over.append((a, d, fl))
+                over.append((a, d, fl, g))
     if over:
         print('\nabove the band: they stay in their area and appear at their floor (%d):' % len(over))
-        for a, d, fl in over:
-            print('  %-11s L%d in %s (band L%d-%d)' % (DEX[d - 1][2], fl, a['name'], *a['band']))
-    art = sorted({d for a in areas for d, _w, _wh, _f in a['slots'] if d in noart})
+        for a, d, fl, g in over:
+            print('  %-11s L%d in %s (band L%d-%d)%s' % (DEX[d - 1][2], fl, a['name'], *a['band'],
+                                                          ', best rod: gate %d' % g if g else ''))
+
+    # The best rod's hidden gate (owner's call: nothing on the panel shows it).
+    for reg in WA.REGIONS:
+        rod = reg['super_rod']['gate']
+        held = [(a, d) for a in areas if a['region'] == reg['region']
+                for d, _w, _wh, _f, g in a['slots'] if g]
+        if not held:
+            continue
+        print('\nbest rod: %s holds %d fishing slots back until gate %d (%s); first met only then:'
+              % (REGIONS[reg['region']][0], len(held), rod, reg['super_rod']['script']))
+        early = {}
+        for a in areas:
+            if a['region'] != reg['region']:
+                continue
+            for d, _w, _wh, _f, g in a['slots']:
+                at = max(a['gate'], g)
+                early[d] = min(early.get(d, 99), at)
+        late = sorted({d for _a, d in held if early[d] >= rod})
+        print('  %s' % (', '.join(DEX[d - 1][2] for d in late) or 'none -- each is met earlier anyway'))
+    art = sorted({d for a in areas for d, _w, _wh, _f, _g in a['slots'] if d in noart})
     if art:
         print('\nno art (the firmware skips these): %s' % ', '.join(DEX[d - 1][2] for d in art))
 
@@ -115,7 +135,7 @@ def main():
         verified = regs[0]['source'] in DECOMP_SOURCES
         print('  %-7s %d areas, %s' % (name, n, 'VERIFIED against the %s disassembly' % regs[0]['source']
                                        if verified else 'NOT VERIFIED (no disassembly; %s)' % regs[0]['source']))
-        met = {d for a in areas if a['region'] == r for d, _w, _wh, _f in a['slots']} | legend_dex
+        met = {d for a in areas if a['region'] == r for d, _w, _wh, _f, _g in a['slots']} | legend_dex
         missing = [d for d in range(lo, hi + 1) if d not in met]
         if missing:
             print('          its own species no area or legendary home offers (%d): %s'
@@ -125,13 +145,14 @@ def main():
         for a in areas:
             print('\n%s / %s (gate %d, L%d-%d)' % (REGIONS[a['region']][0], a['name'], a['gate'], *a['band']))
             for b in (1, 2, 4):
-                rows = [(d, w, fl) for d, w, wh, fl in a['slots'] if wh & b]
-                if b > 1 and rows == [(d, w, fl) for d, w, wh, fl in a['slots'] if wh & 1]:
+                rows = [(d, w, fl, g) for d, w, wh, fl, g in a['slots'] if wh & b]
+                if b > 1 and rows == [(d, w, fl, g) for d, w, wh, fl, g in a['slots'] if wh & 1]:
                     continue   # the same as the morning: say it once
-                label = 'all day' if all(wh == 7 for _d, _w, wh, _f in a['slots']) else WHEN[b]
+                label = 'all day' if all(wh == 7 for _d, _w, wh, _f, _g in a['slots']) else WHEN[b]
                 print('  [%s]' % label)
-                for d, w, fl in rows:
-                    print('    %5.2f%%  %-12s%s' % (w / 100, DEX[d - 1][2], '  floor L%d' % fl if fl else ''))
+                for d, w, fl, g in rows:
+                    print('    %5.2f%%  %-12s%s%s' % (w / 100, DEX[d - 1][2], '  floor L%d' % fl if fl else '',
+                                                    '  best rod, gate %d' % g if g else ''))
 
     print('\n%s' % ('FAILED: %d problem(s)' % bad if bad else 'OK'))
     return 1 if bad else 0

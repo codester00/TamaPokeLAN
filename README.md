@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.40-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.41-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -451,6 +451,18 @@ fishing rod and Rock Smash, every creature at the game's own rate within its
 method, the methods weighted walk 1.0 / surf 0.5 / fishing 0.3 / Rock Smash 0.2.
 `tools/verify_wild.py --table` prints every area's exact odds.
 
+**The best rod's catch waits for the rod (v3.41).** The fishing slots are the
+Super Rod's, so they stay out of an area until the badge the game hands that
+rod out at: Kanto's after the **Rainbow Badge** (FireRed's Super Rod is on
+Route 12, past the Poke Flute), Johto's after the **champion** (Crystal's is
+in Kanto). Until then the area's other creatures share its encounters at their
+own relative rates. **Nothing on the screen says so** -- by design, like the
+care window: the row is not greyed, nothing is starred, and an area always has
+something to meet. Easy or hard badges both count. Creatures met only that way
+until then: in Kanto Poliwag, Poliwhirl, Shellder, Krabby, Horsea, Staryu and
+Gyarados; in Johto Shellder, Kingler, Staryu, Dragonair, Chinchou, Lanturn,
+Qwilfish and Corsola. `tools/verify_wild.py` prints that list from the data.
+
 **Johto's areas (v3.40).** 35 areas from Crystal's own tables (the
 `pret/pokecrystal` disassembly) -- Crystal alone, which keeps every one of them
 verifiable against the game. Crystal has **morning (04-10), day (10-18) and
@@ -522,7 +534,8 @@ appears below where it could exist -- its floor is the lower of its evolution
 level and the lowest level the game has it wild (a Metapod can be 4, as in
 Viridian Forest). Where that floor is above the band, the creature stays where
 the game put it and appears at its floor: Route 22's fishing Gyarados is level
-15 though the band stops at 12. The gym ladder's level cap handicaps a strong
+15 though the band stops at 12 (and, being a best-rod catch, only after the
+Rainbow Badge). The gym ladder's level cap handicaps a strong
 early catch the same way it handles an over-raised pet.
 
 **Hard changes how the wild creature fights, not how strong it is**: same band,

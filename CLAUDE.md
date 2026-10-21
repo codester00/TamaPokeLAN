@@ -631,7 +631,8 @@ follow the gym ladder, not the pet; hard = smarter AI, same levels; locked
 rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
-the legendaries and Johto's areas (v3.40)** -- see the two "Done" entries
+the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41)**
+-- see the "Done" entries
 below. Next: Hoenn (Emerald), then Sinnoh (Platinum), the same way. None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
@@ -689,6 +690,32 @@ disconnected for a while, which may explain the week-long figure; the
      measured.
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
+
+### Done: the best rod waits for its badge, secretly (v3.41, not yet on a board)
+
+The fishing slots are the Super Rod's, so each carries its own gate
+(`WildSlot::gate`): the ladder position the game hands the rod out at --
+Kanto 4 (FireRed's Route 12 fishing house, past Erika), Johto the champion
+(Crystal's is in Kanto). `super_rod` in `tools/wild_areas.py`; `gen_wild.py`
+checks the named script really gives `SUPER_ROD`.
+
+- **SECRET, by the owner's call.** No greyed row, no star, no message. Do not
+  add one. `gen_wild.py` refuses an area with nothing ungated in some band,
+  because an area that held nothing before the rod would read NEEDS PACK --
+  which is a UI indication.
+- **One rule:** `slotLive()` asks `gateOpen()`, the same gate rule as areas and
+  legendaries, so either difficulty's badge opens it. `wildAreaPick()` and
+  `wildAreaHasLive()` take the `Pet` for that; the pick renormalises over the
+  live slots, so before the rod the rest keep the game's relative rates.
+- A species both walked into and fished up is TWO slots (open and gated), so
+  tests count picks by species, not by slot. A rod handed out at or before an
+  area's own gate holds nothing back there (gate 0).
+- `wildarea_test` checks every gated area from a Pet holding exactly the badges
+  before the rod, and `explore_test` drives `startWildBattle()` on Route 22
+  (CLAUDE.md trap 1). Negative-checked: the gate dropped from `slotLive()`, the
+  generator emitting no rod gate, and a script that does not give the rod.
+- `verify_wild.py` lists which creatures each region holds back. Notably
+  Johto's Dragonair waits for the champion.
 
 ### Done: legendaries with homes, and Johto's areas (v3.40, not yet on a board)
 

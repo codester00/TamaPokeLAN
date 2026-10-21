@@ -110,14 +110,19 @@ bool wildAreaUnlocked(uint16_t area, const Pet &p);
 uint8_t wildTimeBand(int hour);
 
 // Does the area have anything to meet right now -- a slot for this time band
-// whose species has art and whose region pack is installed? An area with none
-// reads NEEDS PACK and refuses the tap.
-bool wildAreaHasLive(uint16_t area, uint8_t when);
+// whose species has art, whose region pack is installed and whose own gate is
+// open? An area with none reads NEEDS PACK and refuses the tap.
+//
+// A slot's own gate is the best rod's (WildSlot::gate): the game's fishing
+// catch is held back until the badge the Super Rod is handed out at. It is
+// SECRET by the owner's call -- nothing on the panel says it -- so gen_wild.py
+// refuses an area that would have nothing ungated, which would read as empty.
+bool wildAreaHasLive(uint16_t area, uint8_t when, const Pet &p);
 
 // A species from the area, weighted by the game's own encounter rates over the
-// live slots only (renormalised, so a missing pack never strands a roll).
-// 0 if the area has nothing live.
-int16_t wildAreaPick(uint16_t area, uint8_t when, uint32_t roll);
+// live slots only (renormalised, so a missing pack or a rod not yet had never
+// strands a roll). 0 if the area has nothing live.
+int16_t wildAreaPick(uint16_t area, uint8_t when, const Pet &p, uint32_t roll);
 
 // A level for that species in that area: uniform over the area's band, raised
 // to the species' floor when the floor is higher -- an evolved form never
