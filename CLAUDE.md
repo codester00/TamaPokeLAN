@@ -575,10 +575,12 @@ Elite 4 on two difficulties. The old line here ("resolution by ATK/DEF/SPD,
 battle style not yet chosen") described a design that was superseded and is kept
 only in the § "Battle system" note explaining why.
 
-What is left is the 24-48 h soak test on `HEALTH`, and **wild encounters**, which
-were never built: there is no way to meet a creature outside a gym. That is the
-one substantial piece of unimplemented game left, and it now has nowhere obvious
-to live -- every gesture from the main screen is taken (see below).
+Wild encounters are BUILT too: the EXPLORE tile (beside the pet on the tile
+axis) picks a region and difficulty and rolls one region-wide pool by rarity
+tier (`wild.cpp`, `startWildBattle()`), with capture, the bag and drops. What is
+left is the 24-48 h soak test on `HEALTH`, and the **Explore rework** into real
+per-route areas gated by badges -- planned in `docs/explore-plan.md`, item A of
+the action list below.
 
 ## TODO
 
@@ -611,12 +613,17 @@ undone on the reboot), `factoryReset()` reports a failed `clear()` and `WIPE`
 says `WIPE FAILED` instead of `DONE`, the IMPORT path's empty-string false
 alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. (The installer was not rebuilt at the time;
-`web/` has shipped v3.34 since 2026-10-20 -- see HANDOVER.md § 1e.)
+`web/` on `main` has shipped v3.38 since 2026-10-21 -- see HANDOVER.md § 1e.)
 
 ### NEXT SESSION: action list (agreed with the owner 2026-10-20)
 
 v3.38 (avatars + blackout) is MERGED to `main` (2026-10-21) and the installer
-serves it; NOT tagged as a release yet (ask the owner). Work in this order:
+serves it; NOT tagged as a release yet. The owner believes tagging is blocked
+for now because the account's free GitHub Actions minutes are spent for the
+month: pushing a tag needs no compute, but `publish-release.yml` (the
+`check_release.py` run and the publish) does. Retry when the minutes reset; the
+installer already serves v3.38 from `main` either way. Clock work (B) is on hold
+by the owner's call (2026-10-21). Work in this order:
 
 **A. Explore rework** (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers

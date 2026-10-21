@@ -4,7 +4,8 @@ Written 2026-08-20, updated through 2026-08-23, so work could resume after a
 restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 **authoritative wherever the two disagree**.
 
-> **§ 1e is the newest (2026-10-20) and describes the repo as it is now.**
+> **§ 1e is the newest (2026-10-20, table refreshed 2026-10-21) and describes
+> the repo as it is now.**
 > Read it first. § 1d (2026-10-12) is the state before it; everything below
 > that is history, kept for the reasoning.
 >
@@ -38,12 +39,14 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 | | |
 |---|---|
-| Published firmware | **v3.28** is still the last TAG. `main` is at **v3.34** and the installer page (https://codester00.github.io/TamaPokeLAN/web/) serves it as the untagged current build |
+| Published firmware | **v3.28** is still the last TAG. `main` is at **v3.38** and the installer page (https://codester00.github.io/TamaPokeLAN/web/) serves it as the untagged current build |
+| Tagging | Held: the owner believes the free GitHub Actions minutes are spent for the month, and the release workflow needs them (the tag push itself does not). Retry after the reset |
 | Repo version | **3.38** in `TamaPoke.ino`, the README badge and `web/manifest.json` (3.35 and 3.36 = 3.34 + Tilt Maze steering fixes; 3.37 slows Boulder Push and explains zero gains; 3.38 adds the trainer-class avatars and the blackout screen, on `main` since 2026-10-21; notes in `docs/release-notes/`) |
-| Release notes | `docs/release-notes/v3.34.md` is written (everything since v3.28, for players), so tagging v3.34 off `main` would pass `check_release.py` |
+| Release notes | `docs/release-notes/v3.34.md` (everything since v3.28, for players) through `v3.38.md` are written, so tagging v3.34 or v3.38 off `main` would pass `check_release.py` |
+| Next work | The Explore rework, planned in `docs/explore-plan.md` (for review, not started). Clock drift is on hold by the owner's call |
 | Tests | 51 suites, all pass, plus `check_savefile.mjs` |
 | Firmware | esp32 core 3.3.0, GFX Library 1.6.9, **SensorLib 0.4.1**, XPowersLib 0.3.4 |
-| Owner's boards | several; two had **v3.33**, and **trading worked between real boards**. v3.34 has not been on a board yet |
+| Owner's boards | several; two had **v3.33**, and **trading worked between real boards**. Nothing from v3.34 to v3.38 has been on a board yet |
 
 **What landed in v3.34** (all in CLAUDE.md § TODO "Done: training games..."):
 
