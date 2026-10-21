@@ -149,6 +149,25 @@ int main(){
     ck(count(r1,p,latias)==0 && count(r1,p,latios)==0, "and never leave it");
   }
 
+  // ---- Sinnoh (v3.43): the lake trio after Candice, a roamer, Giratina -----
+  {
+    int uxie=legendOf(480), mesprit=legendOf(481), gira=legendOf(487), gigas=legendOf(486);
+    int acuity=areaIn(3,"LAKE ACUITY"), verity=areaIn(3,"LAKE VERITY"), r201=areaIn(3,"ROUTE 201");
+    int turnback=areaIn(3,"TURNBACK CAVE");
+    ck(uxie>=0 && mesprit>=0 && gira>=0 && gigas>=0 && acuity>=0 && verity>=0 && r201>=0 &&
+       turnback>=0, "Sinnoh's legendaries and areas are found");
+    ck(wildLegendLevel(gigas)==1, "Regigigas is Platinum's level 1, read from its script");
+    Pet p; badges(p,3,6);
+    ck(wildAreaUnlocked((uint16_t)verity,p) && count(verity,p,mesprit)==0,
+       "Lake Verity is open from the start; Mesprit waits for Candice's badge");
+    p.winBadge(3,6,false);
+    ck(count(acuity,p,uxie)==10000 && count(verity,p,mesprit)==10000 &&
+       count(turnback,p,gira)==10000, "with it, Uxie, Mesprit and Giratina each meet you once at home");
+    ck(count(r201,p,mesprit)==0, "Mesprit not yet met does not roam");
+    p.setLegendMet(mesprit);
+    ck(count(r201,p,mesprit)==WILD_LEGEND_PCT*100, "once met it roams Sinnoh, as far as Route 201");
+  }
+
   // ---- the save --------------------------------------------------------------
   {
     Pet a; a.begin();
@@ -192,16 +211,17 @@ int main(){
     }
     ck(!homed, "no egg hatches a legendary that has a home in Explore");
     ck(mew && celebi, "while Mew and Celebi still hatch -- the legendary tier is not empty");
-    // Hoenn's eight have homes since v3.42; Sinnoh's do not yet. Found by
-    // asking wildIsExploreLegend(), not by a typed range of dex numbers.
-    bool hoennHomed=false, sinnohLegend=false;
+    // Hoenn's and Sinnoh's have homes (v3.42, v3.43); Unova's do not yet.
+    // Found by asking wildIsExploreLegend(), not by a typed range.
+    bool homed2=false, unovaLegend=false;
     for (int i=0;i<600;i++){
-      if (wildIsExploreLegend(p.rollInRegion(2,R_LEGENDARIO))) hoennHomed=true;
-      int16_t k=p.rollInRegion(3,R_LEGENDARIO);
-      if (k>=480 && k<=488 && !wildIsExploreLegend(k)) sinnohLegend=true;   // the lake trio .. Cresselia
+      if (wildIsExploreLegend(p.rollInRegion(2,R_LEGENDARIO)) ||
+          wildIsExploreLegend(p.rollInRegion(3,R_LEGENDARIO))) homed2=true;
+      int16_t k=p.rollInRegion(4,R_LEGENDARIO);
+      if (k>=638 && k<=646 && !wildIsExploreLegend(k)) unovaLegend=true;   // Cobalion .. Kyurem
     }
-    ck(!hoennHomed, "Hoenn's homed legendaries left its eggs with their areas");
-    ck(sinnohLegend, "and a region whose legendaries have no homes yet still hatches them");
+    ck(!homed2, "Hoenn's and Sinnoh's homed legendaries left their eggs with their areas");
+    ck(unovaLegend, "and a region whose legendaries have no homes yet still hatches them");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);

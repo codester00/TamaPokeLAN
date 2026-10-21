@@ -356,7 +356,157 @@ HOENN = {
     ],
 }
 
-REGIONS = [KANTO, JOHTO, HOENN]
+# ---------------------------------------------------------------------------
+# SINNOH -- Platinum alone (owner's call, Q-A), the same game as the Sinnoh gym
+# ladder. pokeplatinum keeps one table per map in res/field/encounters/, named
+# here without the "encounters_" prefix. Platinum has morning, day and night in
+# its grass. Gates follow Platinum's progression and its HMs: Rock Smash after
+# Roark opens Ravaged Path and the road north; Cut after Gardenia; Fantina's
+# Hearthome opens the south and east; after Maylene, Route 214 and the Great
+# Marsh; Surf from Celestic after Wake, with the SecretPotion clearing Route
+# 210; Canalave's Byron opens Iron Island and the snowy north; after Candice,
+# the lakes' caverns, Mt. Coronet's peak and the Distortion World; after
+# Volkner, Victory Road. The Battle Zone and its routes, Stark Mountain and
+# Snowpoint Temple are after the champion.
+SINNOH = {
+    'region': 3,
+    'source': 'platinum',
+    # Platinum's Super Rod is the Fight Area's fisherman, in the Battle Zone.
+    'super_rod': {'gate': GATE_CHAMPION, 'script': 'fight_area'},
+    'areas': [
+        ('ROUTE 201',        0, ['ROUTE_201']),
+        ('LAKE VERITY',      0, ['LAKE_VERITY', 'LAKE_VERITY_LOW_WATER']),
+        ('ROUTE 202',        0, ['ROUTE_202']),
+        ('ROUTE 203',        0, ['ROUTE_203']),
+        ('OREBURGH GATE',    0, ['OREBURGH_GATE_1F', 'OREBURGH_GATE_B1F']),
+        ('ROUTE 204',        0, ['ROUTE_204_SOUTH']),
+        ('OREBURGH MINE',    0, ['OREBURGH_MINE_B1F', 'OREBURGH_MINE_B2F']),
+        ('ROUTE 207',        0, ['ROUTE_207']),
+        # Roark -- Rock Smash: Ravaged Path and the road to Eterna
+        ('RAVAGED PATH',     1, ['RAVAGED_PATH']),
+        ('ROUTE 204 NORTH',  1, ['ROUTE_204_NORTH']),
+        ('VALLEY WINDWORKS', 1, ['VALLEY_WINDWORKS_OUTSIDE']),
+        ('ROUTE 205',        1, ['ROUTE_205_SOUTH', 'ROUTE_205_NORTH']),
+        ('ETERNA FOREST',    1, ['ETERNA_FOREST']),
+        # Gardenia -- Cut, and the way south through Mt. Coronet
+        ('OLD CHATEAU',      2, ['OLD_CHATEAU', 'OLD_CHATEAU_DINING_AREA',
+                                 'OLD_CHATEAU_SIDE_ROOMS', 'OLD_CHATEAU_CORRIDOR',
+                                 'OLD_CHATEAU_BACK_WEST_ROOM',
+                                 'OLD_CHATEAU_BACK_MIDDLE_WEST_ROOM',
+                                 'OLD_CHATEAU_BACK_MIDDLE_ROOM',
+                                 'OLD_CHATEAU_BACK_MIDDLE_EAST_ROOM',
+                                 'OLD_CHATEAU_BACK_EAST_ROOM']),
+        ('ROUTE 211 WEST',   2, ['ROUTE_211_WEST']),
+        ('MT. CORONET',      2, ['MT_CORONET_1F_SOUTH', 'MT_CORONET_1F_NORTH_ROOM_1']),
+        ('ROUTE 206',        2, ['ROUTE_206']),
+        ('WAYWARD CAVE',     2, ['WAYWARD_CAVE_1F', 'WAYWARD_CAVE_B1F']),
+        ('ROUTE 208',        2, ['ROUTE_208']),
+        # Fantina -- Hearthome's roads south and east
+        ('ROUTE 209',        3, ['ROUTE_209']),
+        ('LOST TOWER',       3, ['ROUTE_209_LOST_TOWER_%dF' % i for i in range(1, 6)]),
+        ('SOLACEON RUINS',   3, ['SOLACEON_RUINS_ROOM_1_NORTHWEST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_1_SOUTHEAST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_2',
+                                 'SOLACEON_RUINS_ROOM_2_NORTHEAST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_2_SOUTHEAST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_3',
+                                 'SOLACEON_RUINS_ROOM_3_NORTHWEST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_3_SOUTHWEST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_4',
+                                 'SOLACEON_RUINS_ROOM_4_SOUTHEAST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_5',
+                                 'SOLACEON_RUINS_ROOM_5_SOUTHEAST_DEADEND',
+                                 'SOLACEON_RUINS_ROOM_5_SOUTHWEST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_6',
+                                 'SOLACEON_RUINS_ROOM_6_NORTHWEST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_6_SOUTHEAST_DEAD_END',
+                                 'SOLACEON_RUINS_ROOM_7']),
+        ('ROUTE 210 SOUTH',  3, ['ROUTE_210_SOUTH']),
+        ('ROUTE 215',        3, ['ROUTE_215']),
+        ('ROUTE 212',        3, ['ROUTE_212_NORTH', 'ROUTE_212_SOUTH']),
+        ('TROPHY GARDEN',    3, ['TROPHY_GARDEN']),
+        # Maylene -- Route 214 and the coast to Pastoria
+        ('ROUTE 214',        4, ['ROUTE_214']),
+        ('RUIN MANIAC CAVE', 4, ['RUIN_MANIAC_CAVE_SHORT', 'RUIN_MANIAC_CAVE_LONG',
+                                 'MANIAC_TUNNEL', 'SOLACEON_RUINS_MANIAC_TUNNEL_ROOM']),
+        ('VALOR LAKEFRONT',  4, ['VALOR_LAKEFRONT']),
+        ('ROUTE 213',        4, ['ROUTE_213']),
+        ('GREAT MARSH',      4, ['GREAT_MARSH_%d' % i for i in range(1, 7)] + ['PASTORIA_CITY']),
+        # Wake -- the SecretPotion clears Route 210, and Celestic gives Surf
+        ('ROUTE 210 NORTH',  5, ['ROUTE_210_NORTH', 'CELESTIC_TOWN']),
+        ('ROUTE 211 EAST',   5, ['ROUTE_211_EAST']),
+        ('ROUTE 218',        5, ['ROUTE_218', 'CANALAVE_CITY']),
+        ('FUEGO IRONWORKS',  5, ['FUEGO_IRONWORKS_OUTSIDE']),
+        ('ETERNA CITY',      5, ['ETERNA_CITY']),
+        ('ROUTES 219-221',   5, ['ROUTE_219', 'ROUTE_220', 'ROUTE_221', 'TWINLEAF_TOWN']),
+        # Byron -- Iron Island, Lake Valor's crater, and the snowy north
+        ('IRON ISLAND',      6, ['IRON_ISLAND', 'IRON_ISLAND_1F', 'IRON_ISLAND_B1F_LEFT_ROOM',
+                                 'IRON_ISLAND_B1F_RIGHT_ROOM', 'IRON_ISLAND_B2F_LEFT_ROOM',
+                                 'IRON_ISLAND_B2F_RIGHT_ROOM', 'IRON_ISLAND_B3F']),
+        ('LAKE VALOR',       6, ['LAKE_VALOR']),
+        ('ROUTES 216-217',   6, ['ROUTE_216', 'ROUTE_217', 'ACUITY_LAKEFRONT']),
+        # Candice -- Lake Acuity, Mt. Coronet's peak, Sendoff Spring
+        ('LAKE ACUITY',      7, ['LAKE_ACUITY']),
+        ('MT. CORONET PEAK', 7, ['MT_CORONET_1F_NORTH_ROOM_2', 'MT_CORONET_1F_TUNNEL_ROOM',
+                                 'MT_CORONET_B1F', 'MT_CORONET_2F', 'MT_CORONET_3F',
+                                 'MT_CORONET_4F_ROOMS_1_AND_2', 'MT_CORONET_4F_ROOM_3',
+                                 'MT_CORONET_5F', 'MT_CORONET_6F',
+                                 'MT_CORONET_OUTSIDE_NORTH', 'MT_CORONET_OUTSIDE_SOUTH']),
+        ('SENDOFF SPRING',   7, ['SENDOFF_SPRING']),
+        # Turnback Cave's rooms. UNKNOWN_533-557 are unnamed in the decomp but
+        # carry Turnback Cave's location number (10) and its species, deeper
+        # in; they are the cave's further rooms.
+        ('TURNBACK CAVE',    7, ['TURNBACK_CAVE_ENTRANCE', 'TURNBACK_CAVE_PILLAR_ROOM',
+                                 'TURNBACK_CAVE_GIRATINA_ROOM'] +
+                                ['TURNBACK_CAVE_PILLAR_%d_ROOM_%d' % (p, r)
+                                 for p in (1, 2, 3) for r in range(1, 7)] +
+                                ['UNKNOWN_%d' % i for i in range(533, 558)]),
+        ('ROUTE 222',        7, ['ROUTE_222', 'SUNYSHORE_CITY']),
+        # Volkner -- Victory Road and the League
+        ('VICTORY ROAD',     8, ['VICTORY_ROAD_1F', 'VICTORY_ROAD_2F', 'VICTORY_ROAD_B1F']),
+        ('ROUTE 223',        8, ['ROUTE_223', 'POKEMON_LEAGUE']),
+        # After the champion -- Victory Road's back rooms, Route 224, the
+        # Battle Zone, Stark Mountain and Snowpoint Temple
+        ('VICTORY RD BACK',  GATE_CHAMPION, ['VICTORY_ROAD_1F_ROOM_1', 'VICTORY_ROAD_1F_ROOM_2',
+                                             'VICTORY_ROAD_1F_ROOM_3']),
+        ('ROUTE 224',        GATE_CHAMPION, ['ROUTE_224']),
+        ('ROUTES 225-226',   GATE_CHAMPION, ['ROUTE_225', 'ROUTE_226']),
+        ('ROUTES 227-228',   GATE_CHAMPION, ['ROUTE_227', 'ROUTE_228']),
+        ('STARK MOUNTAIN',   GATE_CHAMPION, ['STARK_MOUNTAIN_OUTSIDE', 'STARK_MOUNTAIN_ROOM_1',
+                                             'STARK_MOUNTAIN_ROOM_2']),
+        ('ROUTES 229-230',   GATE_CHAMPION, ['ROUTE_229', 'ROUTE_230', 'RESORT_AREA']),
+        ('SNOWPOINT TEMPLE', GATE_CHAMPION, ['SNOWPOINT_TEMPLE_1F', 'SNOWPOINT_TEMPLE_B1F',
+                                             'SNOWPOINT_TEMPLE_B2F', 'SNOWPOINT_TEMPLE_B3F',
+                                             'SNOWPOINT_TEMPLE_B4F', 'SNOWPOINT_TEMPLE_B5F']),
+    ],
+    'skip': {},
+    'legends': [
+        # The lake guardians wait in caverns with no wild tables, so each
+        # borrows its lake (docs/explore-plan.md § 7.2). Platinum opens them
+        # after the Distortion World, which follows Candice's badge; Mesprit
+        # flees and roams Sinnoh once met.
+        {'dex': 480, 'area': 'LAKE ACUITY', 'script': 'acuity_cavern', 'gate': 7},       # Uxie
+        {'dex': 481, 'area': 'LAKE VERITY', 'roams': True, 'gate': 7},                  # Mesprit
+        {'dex': 482, 'area': 'LAKE VALOR',  'script': 'valor_cavern',  'gate': 7},       # Azelf
+        # Dialga and Palkia return to Spear Pillar after the champion, which
+        # has no wild table: it borrows the peak it stands on.
+        {'dex': 483, 'area': 'MT. CORONET PEAK', 'script': 'spear_pillar_dialga',
+         'gate': GATE_CHAMPION},                                                         # Dialga
+        {'dex': 484, 'area': 'MT. CORONET PEAK', 'script': 'spear_pillar_palkia',
+         'gate': GATE_CHAMPION},                                                         # Palkia
+        {'dex': 485, 'area': 'STARK MOUNTAIN', 'script': 'stark_mountain_room_3'},      # Heatran
+        # Platinum's Regigigas really is level 1 (Diamond/Pearl's is 70).
+        {'dex': 486, 'area': 'SNOWPOINT TEMPLE', 'script': 'snowpoint_temple_b5f'},     # Regigigas
+        # Giratina is met in the Distortion World after Candice; it waits in
+        # Turnback Cave if not caught there, so that is its home.
+        {'dex': 487, 'area': 'TURNBACK CAVE', 'script': 'turnback_cave_giratina_room'},  # Giratina
+        # Cresselia flees Fullmoon Island, which has no wild table, and roams;
+        # it borrows Canalave's coast, where the boat leaves from.
+        {'dex': 488, 'area': 'ROUTE 218', 'roams': True, 'gate': GATE_CHAMPION},        # Cresselia
+    ],
+}
+
+REGIONS = [KANTO, JOHTO, HOENN, SINNOH]
 
 # WILD_LEGENDS[] is stored by INDEX in the save (the met/caught bitmasks), so
 # the order legendaries are emitted in is APPEND-ONLY -- the same rule as move
@@ -364,4 +514,5 @@ REGIONS = [KANTO, JOHTO, HOENN]
 # order above; a new region's legends must go AFTER every existing one, which
 # gen_wild.py enforces against LEGEND_ORDER.
 LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250,
-                377, 378, 379, 380, 381, 382, 383, 384]
+                377, 378, 379, 380, 381, 382, 383, 384,
+                480, 481, 482, 483, 484, 485, 486, 487, 488]

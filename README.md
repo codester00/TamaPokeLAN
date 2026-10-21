@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.42-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.43-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -455,14 +455,17 @@ method, the methods weighted walk 1.0 / surf 0.5 / fishing 0.3 / Rock Smash 0.2.
 Super Rod's, so they stay out of an area until the badge the game hands that
 rod out at: Kanto's after the **Rainbow Badge** (FireRed's Super Rod is on
 Route 12, past the Poke Flute), Johto's after the **champion** (Crystal's is
-in Kanto), Hoenn's after the **Feather Badge** (Emerald's is in Mossdeep). Until then the area's other creatures share its encounters at their
+in Kanto), Hoenn's after the **Feather Badge** (Emerald's is in Mossdeep),
+Sinnoh's after the **champion** (Platinum's is in the Battle Zone's Fight
+Area). Until then the area's other creatures share its encounters at their
 own relative rates. **Nothing on the screen says so** -- by design, like the
 care window: the row is not greyed, nothing is starred, and an area always has
 something to meet. Easy or hard badges both count. Creatures met only that way
 until then: in Kanto Poliwag, Poliwhirl, Shellder, Krabby, Horsea, Staryu and
 Gyarados; in Johto Shellder, Kingler, Staryu, Dragonair, Chinchou, Lanturn,
 Qwilfish and Corsola; in Hoenn Magikarp, Carvanha, Sharpedo, Wailmer, Barboach
-and Corphish. `tools/verify_wild.py` prints that list from the data.
+and Corphish; in Sinnoh seventeen, among them Dratini, Lumineon, Whiscash,
+Gyarados and Seaking. `tools/verify_wild.py` prints that list from the data.
 
 **Johto's areas (v3.40).** 35 areas from Crystal's own tables (the
 `pret/pokecrystal` disassembly) -- Crystal alone, which keeps every one of them
@@ -490,6 +493,16 @@ Surskit and Meditite (not in Emerald's tables), Zangoose and Lunatone (the
 other versions' exclusives), the fossils, Beldum
 (a gift), Castform and many final forms -- eggs and evolution still bring them.
 
+**Sinnoh's areas (v3.43).** 54 areas from Platinum's own tables (the
+`pret/pokeplatinum` disassembly), Platinum alone, the same game as the Sinnoh
+gym ladder. Platinum's grass has **morning, day and night** like Crystal's: two
+of its twelve slots change with the clock (Kricketot on Route 201 comes out in
+the morning and at night, never by day). Areas mix walking, surfing and the
+best rod. Left out as special methods: honey trees, swarms, the Poke Radar,
+the GBA-cartridge slots and the Great Marsh's and Trophy Garden's daily
+creatures -- so Combee, Cherubi, Burmy and others come from eggs, as do the
+starters, the fossils and Spiritomb and Rotom (one-off encounters).
+
 **An area opens with the badge that opened it in the games**, on either
 difficulty. Kanto: Route 1, 2, 22 and Viridian Forest from the start; Mt. Moon
 after the Boulder Badge; the Safari Zone after the Rainbow Badge; Seafoam Islands
@@ -508,7 +521,18 @@ after the Balance Badge (Surf); Mt. Pyre, the Safari Zone and the eastern sea
 after the Feather Badge; the seabed, Seafloor Cavern, the Cave of Origin and Sky
 Pillar after the Mind Badge (Dive); Victory Road after the Rain Badge
 (Waterfall); the Safari Zone extension, Desert Underpass, Artisan Cave, Altering
-Cave and Steven's cave after the champion. A locked area is
+Cave and Steven's cave after the champion. Sinnoh: Routes 201-204 and 207,
+Lake Verity, Oreburgh Gate and Oreburgh Mine from the start; Ravaged Path, the
+road north and Eterna Forest after the Coal Badge (Rock Smash); the Old
+Chateau, Mt. Coronet's first floor and the roads to Hearthome after the Forest
+Badge; the Lost Tower, Solaceon Ruins and Routes 209-215 after the Relic Badge;
+Route 214, the Ruin Maniac's cave and the Great Marsh after the Cobble Badge;
+Route 210's north, Canalave's coast and the southern sea after the Fen Badge
+(Surf); Iron Island, Lake Valor and the snowy north after the Mine Badge; Lake
+Acuity, Mt. Coronet's peak, Sendoff Spring, Turnback Cave and Route 222 after
+the Icicle Badge; Victory Road after the Beacon Badge; Victory Road's back
+rooms, the Battle Zone's routes, Stark Mountain and Snowpoint Temple after the
+champion. A locked area is
 listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 
 **Legendaries live somewhere (v3.40).** Each story legendary has a home:
@@ -528,6 +552,13 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Kyogre | Routes 126-129 (where Marine Cave surfaces) | the champion | 70 |
 | Groudon | Routes 113-114 (where Terra Cave opens) | the champion | 70 |
 | Rayquaza | Sky Pillar | the champion | 70 |
+| Uxie, Azelf | Lake Acuity, Lake Valor (their caverns have no wild tables) | Icicle Badge | 50 |
+| Mesprit | Lake Verity, then **roaming Sinnoh** | Icicle Badge | 50 |
+| Giratina | Turnback Cave | Icicle Badge | 47 |
+| Dialga, Palkia | Mt. Coronet's peak (Spear Pillar has no wild table) | the champion | 70 |
+| Heatran | Stark Mountain | the champion | 50 |
+| Regigigas | Snowpoint Temple | the champion | **1** (Platinum's own level) |
+| Cresselia | Route 218 (Fullmoon Island's coast), then **roaming Sinnoh** | the champion | 50 |
 
 | A legendary is waiting |
 |---|

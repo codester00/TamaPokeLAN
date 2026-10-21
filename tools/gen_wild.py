@@ -72,6 +72,7 @@ CRYSTAL = 'https://raw.githubusercontent.com/pret/pokecrystal/master/'
 EMERALD = 'https://raw.githubusercontent.com/pret/pokeemerald/master/'
 # The Gen 3 decomps share one JSON shape and one script language.
 GEN3 = {'frlg': FRLG, 'emerald': EMERALD}
+PLATINUM = 'https://raw.githubusercontent.com/pret/pokeplatinum/master/'
 
 SLUG = {slug: n for n, slug, *_ in DEX}
 
@@ -177,6 +178,59 @@ def load_gen3(src, refresh=False):
                          for i, s in slots]
     SOURCE_MAPS[src] = set().union(*(set(v) for v in out.values()))
     return out
+
+
+# Platinum's slot rates, from src/overlay006/wild_encounters.c: the grass roll
+# (GetLandEncounterSlot's 20/20/10/10/10/10/5/5/4/4/1/1), the surf roll and the
+# SUPER rod's roll (GetRodEncounterSlot: 40/40/15/4/1).
+PLAT_LAND_RATES = [20, 20, 10, 10, 10, 10, 5, 5, 4, 4, 1, 1]
+PLAT_SURF_RATES = [60, 30, 5, 4, 1]
+PLAT_SUPER_ROD_RATES = [40, 40, 15, 4, 1]
+
+
+def load_platinum(refresh=False):
+    """Platinum: one JSON per encounter table under res/field/encounters/,
+    named in encounters.order. Grass slots 2 and 3 hold the MORNING species;
+    WildEncounters_ReplaceTimedEncounters swaps in the `day` pair by day and
+    at twilight, the `night` pair at night -- our three bands exactly. Every
+    other replacement is a special method the plan leaves out (§ 4): swarms
+    (slots 0-1), the Trophy Garden's and the Great Marsh's daily slots, the
+    GBA-cartridge dual slots (8-9) and the Poke Radar (4, 5, 10, 11) -- the
+    base table under them is what a player meets without any of those.
+    A map is the table's file name: ROUTE_201, IRON_ISLAND_B3F."""
+    base = PLATINUM + 'res/field/encounters/'
+    order = [ln.strip() for ln in
+             fetch(base + 'encounters.order', 'platinum_encounters.order', refresh).splitlines()
+             if ln.strip()]
+    out = {}
+    for name in order:
+        d = json.loads(fetch(base + name + '.json', 'platinum_%s.json' % name, refresh))
+        mp = name.replace('encounters_', '').upper()
+        m = {}
+        if d['land_rate']:
+            land = d['land_encounters']
+            if len(land) != len(PLAT_LAND_RATES):
+                sys.exit('gen_wild: %s has %d grass slots' % (name, len(land)))
+            slots = []
+            for i, e in enumerate(land):
+                if i in (2, 3):
+                    k = i - 2
+                    for when, sp in ((MORN, e['species']), (DAY, d['day'][k]),
+                                     (NITE, d['night'][k])):
+                        slots.append((dex_of(sp), e['level'], PLAT_LAND_RATES[i], when))
+                else:
+                    slots.append((dex_of(e['species']), e['level'], PLAT_LAND_RATES[i], ANY))
+            m['land'] = slots
+        for key, rate_key, method, rates in (
+                ('surf_encounters', 'surf_rate', 'water', PLAT_SURF_RATES),
+                ('super_rod_encounters', 'super_rod_rate', 'fishing', PLAT_SUPER_ROD_RATES)):
+            if d[rate_key]:
+                m[method] = [(dex_of(e['species']), e['level_min'], rates[i], ANY)
+                             for i, e in enumerate(d[key]) if e['species'] != 'SPECIES_NONE']
+        if m:
+            out[mp] = m
+    SOURCE_MAPS['platinum'] = set(out)
+    return {'Platinum': out}
 
 
 def camel_to_const(name):
@@ -333,6 +387,23 @@ def legend_level(src, leg, refresh=False):
         if lvl and dex in [dex_of(n) for n in names]:
             return int(lvl.group(1))
         sys.exit('gen_wild: #%d is not one of roamer.c\'s %s' % (dex, names))
+    if src == 'platinum':
+        if leg.get('roams'):
+            # Mesprit and Cresselia roam from src/roaming_pokemon.c, which sets
+            # each roamer's species and level side by side.
+            text = fetch(PLATINUM + 'src/roaming_pokemon.c',
+                         'platinum_src_roaming_pokemon.c', refresh)
+            pairs = re.findall(r'species = (SPECIES_\w+);\s*level = (\d+);', text)
+        else:
+            text = fetch(PLATINUM + 'res/field/scripts/scripts_%s.s' % leg['script'],
+                         'platinum_scripts_%s.s' % leg['script'], refresh)
+            # Giratina's Distortion World fight has its own command; Turnback
+            # Cave's, and every other legendary's, is StartLegendaryBattle.
+            pairs = re.findall(r'Start(?:Legendary|GiratinaOrigin)Battle\s+(SPECIES_\w+),\s*(\d+)', text)
+        for const, lvl in pairs:
+            if dex_of(const) == dex:
+                return int(lvl)
+        sys.exit('gen_wild: no wild battle for #%d in %s' % (dex, leg.get('script', 'roaming_pokemon.c')))
     if 'script' not in leg and not leg.get('roams'):
         sys.exit('gen_wild: legend #%d needs the script it is fought in' % dex)
     if src in GEN3:
@@ -367,6 +438,10 @@ def super_rod_gate(reg, refresh=False):
         text = fetch(GEN3[reg['source']] + 'data/maps/%s/scripts.inc' % rod['script'],
                      '%s_%s_scripts.inc' % (reg['source'], rod['script']), refresh)
         pat = r'(?:give|add)item\s+ITEM_SUPER_ROD\b'
+    elif reg['source'] == 'platinum':
+        text = fetch(PLATINUM + 'res/field/scripts/scripts_%s.s' % rod['script'],
+                     'platinum_scripts_%s.s' % rod['script'], refresh)
+        pat = r'SetVar VAR_0x8004, ITEM_SUPER_ROD\s*\n\s*SetVar VAR_0x8005, \d+\s*\n\s*Common_GiveItem'
     else:
         text = fetch(CRYSTAL + 'maps/%s.asm' % rod['script'],
                      'crystal_maps_%s.asm' % rod['script'], refresh)
@@ -381,6 +456,8 @@ def super_rod_gate(reg, refresh=False):
 def load_source(reg, refresh=False):
     if reg['source'] in GEN3:
         return load_gen3(reg['source'], refresh)
+    if reg['source'] == 'platinum':
+        return load_platinum(refresh)
     if reg['source'] == 'crystal':
         needed = [mp for _n, _g, maps in reg['areas'] for mp in maps]
         return load_crystal(refresh, needed)

@@ -632,8 +632,8 @@ rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
 the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
-Hoenn's areas and legendaries (v3.42)** -- see the "Done" entries
-below. Next: Sinnoh (Platinum), the same way. None of it
+Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43)** -- see the "Done" entries
+below. Next: Unova (no decomp -- item 3 below: PokeAPI first, NOT VERIFIED). None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
@@ -690,6 +690,40 @@ disconnected for a while, which may explain the week-long figure; the
      measured.
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
+
+### Done: Sinnoh's areas and legendaries (v3.43, not yet on a board)
+
+54 areas from Platinum, 9 legendaries appended (26 now), `BADGE_NAMES` row 4,
+the Super Rod at the Fight Area (champion). The last region a pret decomp
+covers: Unova onward has none (item 3 above).
+
+- **`load_platinum()` reads `res/field/encounters/<map>.json`**, listed by
+  `encounters.order` (183 tables, cached as `platinum_*` in `tools/wild_cache/`).
+  A "map" is the file name without its `encounters_` prefix. Rates are the
+  engine's own (`src/overlay006/wild_encounters.c`): grass
+  20/20/10/10/10/10/5/5/4/4/1/1, surf 60/30/5/4/1, SUPER rod 40/40/15/4/1.
+- **Time of day is two slots.** Grass slots 2-3 hold the MORNING species;
+  `WildEncounters_ReplaceTimedEncounters` swaps in `day` (day and twilight)
+  and `night` (night, late night). Every other replacement is a special
+  method left out: swarms (0-1), radar (4, 5, 10, 11), the dual GBA slots
+  (8-9), the Great Marsh's and Trophy Garden's dailies. `wildarea_test` finds a
+  Sinnoh creature never met by day (Kricketot, Route 201) -- negative-checked
+  by making the loader ignore the bands.
+- **`UNKNOWN_533`-`557` are Turnback Cave.** Unnamed in the decomp, but they
+  carry its location number (10), its species, and deeper levels.
+- **Legend levels** come from `StartLegendaryBattle` in the map scripts and,
+  for Mesprit and Cresselia, from `src/roaming_pokemon.c`'s species/level
+  pairs. **Regigigas is level 1** -- Platinum's real value (D/P had 70). It is
+  faithful and deliberate; do not "fix" it without the owner.
+- Borrowed homes (§ 7.2): Uxie/Azelf their lakes, Dialga/Palkia Mt. Coronet's
+  peak (Spear Pillar), Cresselia Route 218 (Fullmoon Island's ferry coast).
+  Giratina's home is Turnback Cave at gate 7, where Platinum leaves it if the
+  Distortion World fight ends uncaught.
+- `legend_test`'s "no homes yet" egg check moved to Unova. Negative-checked:
+  the loader's time bands, Mesprit's own gate, the badge row.
+- The GitHub API refuses scripted requests in some containers; a blobless
+  shallow clone (`git clone --depth 1 --filter=blob:none --no-checkout`) lists
+  the tree, and raw.githubusercontent.com serves the files.
 
 ### Done: Hoenn's areas and legendaries (v3.42, not yet on a board)
 

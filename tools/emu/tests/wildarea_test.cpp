@@ -65,6 +65,7 @@ int main(){
   ck(sums, "every area's weights add up to WILD_WEIGHT_TOTAL in each time band");
   ck(wildRegionHasAreas(1), "Johto has areas");
   ck(wildRegionHasAreas(2), "Hoenn has areas");
+  ck(wildRegionHasAreas(3), "Sinnoh has areas");
   {
     // A locked row says which badge it needs; a region with areas whose badge
     // names were never filled in would name a leader instead.
@@ -157,6 +158,35 @@ int main(){
       }
       printf("      %s: %s\n", WILD_AREAS[na].name, DEX_TBL[nd].name);
       ck(night && !day, "it is met at night and never by day");
+    }
+  }
+  {
+    // Platinum's grass swaps two slots by time of day too (v3.43): a Sinnoh
+    // creature met in the morning or at night but never by day, found from
+    // the data, so the Platinum loader is checked on its own and not by
+    // Crystal's tables standing in for it.
+    int sa=-1; int16_t sd=0;
+    for (int i=WILD_REGION_AREAS[3][0]; i<WILD_REGION_AREAS[3][0]+WILD_REGION_AREAS[3][1] && sa<0; i++){
+      const WildArea &a=WILD_AREAS[i];
+      for (int k=0;k<a.count && sa<0;k++){
+        const WildSlot &s=WILD_SLOTS[a.first+k];
+        if (s.gate || (s.when & WILD_WHEN_DAY)) continue;
+        bool byDay=false;
+        for (int j=0;j<a.count;j++)
+          if (WILD_SLOTS[a.first+j].dex==s.dex && (WILD_SLOTS[a.first+j].when & WILD_WHEN_DAY)) byDay=true;
+        if (!byDay){ sa=i; sd=s.dex; }
+      }
+    }
+    ck(sa>=0, "Sinnoh has a creature never met by day");
+    if (sa>=0){
+      bool day=false, other=false;
+      for (uint32_t r=0;r<WILD_WEIGHT_TOTAL;r++){
+        if (wildAreaPick((uint16_t)sa,WILD_WHEN_DAY,all,r)==sd) day=true;
+        if (wildAreaPick((uint16_t)sa,WILD_WHEN_NITE,all,r)==sd ||
+            wildAreaPick((uint16_t)sa,WILD_WHEN_MORN,all,r)==sd) other=true;
+      }
+      printf("      %s: %s\n", WILD_AREAS[sa].name, DEX_TBL[sd].name);
+      ck(other && !day, "it comes in its own band and never by day");
     }
   }
   ck(wildTimeBand(3)==WILD_WHEN_NITE && wildTimeBand(4)==WILD_WHEN_MORN &&

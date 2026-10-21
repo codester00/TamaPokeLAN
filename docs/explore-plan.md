@@ -425,6 +425,13 @@ wild table borrow the area their door is in (§ 7.2). A map the source lists
 twice keeps its first table, which fixed Kanto's Altering Cave as a side
 effect (Zubat, not the event-only Smeargle).
 
-**Next:** Sinnoh (Platinum). `pokeplatinum` is a DS decomp laid out unlike
-the Gen 3 JSON, so expect a loader of its own; Platinum's time-of-day grass
-slots should map onto the same three bands Crystal's do (check the data).
+**Sinnoh: DONE (2026-10-21, v3.43, on the branch, not on a board).** 54
+areas from Platinum through a loader of its own (`load_platinum()`, one JSON
+per map), with Platinum's morning/day/night grass slots on the same three
+bands as Crystal's; the nine legendaries (the lake trio and Giratina after
+Candice, Mesprit roaming; Dialga, Palkia, Heatran, Regigigas and the roaming
+Cresselia after the champion). Every special encounter method (honey trees,
+swarms, radar, GBA slots, marsh/garden dailies) is left out per § 4.
+
+**Next:** Unova -- the first region with no disassembly (§ 3 and the action
+list's item 3: PokeAPI's location-area encounters, listed NOT VERIFIED).
