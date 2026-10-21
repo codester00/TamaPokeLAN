@@ -106,13 +106,14 @@ int main(){
      "and nothing but the sentinel ever reaches certainty");
 
   // ---- level band ----------------------------------------------------------
-  ck(wildLevelMin(1,false)==1 && wildLevelMax(1,false)==6,
+  // The region-wide pool's band, for regions whose areas have not landed yet.
+  // Difficulty is no longer an argument: hard is the smart AI, not a wider
+  // band (owner's call, v3.39). Areas have their own bands -- wildarea_test.
+  ck(wildLevelMin(1)==1 && wildLevelMax(1)==6,
      "a level 1 player meets 1-6");
-  ck(wildLevelMin(50,false)==45 && wildLevelMax(50,false)==55,
+  ck(wildLevelMin(50)==45 && wildLevelMax(50)==55,
      "and a level 50 player meets 45-55");
-  ck(wildLevelMax(100,false)==MAX_LEVEL, "the band never exceeds the level cap");
-  ck(wildLevelMin(50,true)==1 && wildLevelMax(50,true)==MAX_LEVEL,
-     "hard opens the whole ladder");
+  ck(wildLevelMax(100)==MAX_LEVEL, "the band never exceeds the level cap");
 
   // ---- drops per win -------------------------------------------------------
   ck(wildDropCount(false,29)==2 && wildDropCount(false,30)==1,

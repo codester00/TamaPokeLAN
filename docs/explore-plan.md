@@ -389,4 +389,13 @@ Moltres 50, Mewtwo 70). Negative-checked: a dropped map, a map in two areas, a
 hand-edited header, a reordered legend list, a legendary at the wrong script
 and a ladder edit without a regeneration each fail.
 
-**Next: Phase 2**, the firmware half (§ 13).
+**Phase 2: DONE for Kanto (2026-10-21, v3.39, on the branch, not yet on a
+board).** The area list (`SCR_AREA`), gates through `wildAreaUnlocked()`,
+"REQUIRES <BADGE>" from `BADGE_NAMES`, the generated bands with floors, hard =
+the smart AI at the same levels, ALL switched off, and an `AREA` console
+command. New `wildarea_test`; `explore_test`, `swipe_test`, `flush_test` and
+`wild_test` extended. 13 guards negative-checked. The whole suite and the real
+`arduino-cli` firmware build pass.
+
+**Next:** the owner confirms Kanto on a board, then Phase 3 (legendaries,
+starting with Kanto's), then the other regions.

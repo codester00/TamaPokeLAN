@@ -22,7 +22,7 @@ extern Arduino_Canvas *gfx;
 extern Pet pet;
 extern bool cardOpen, galleryOpen, clockOpen, kbOpen, menuOpen, partyOpen, partyPick;
 extern bool trainOpen, movePickOpen, battleOpen, gymOpen, playerOpen;
-extern bool exploreOpen, trainOpen, catchOpen;
+extern bool exploreOpen, trainOpen, catchOpen, areaListOpen;
 extern uint8_t trainPage;
 void startCatch();
 void startRock(); void startBlock(); void startTilt();
@@ -45,7 +45,7 @@ static int bad = 0;
 static void clearAll(){
   cardOpen=galleryOpen=clockOpen=kbOpen=menuOpen=partyOpen=partyPick=false;
   trainOpen=movePickOpen=battleOpen=gymOpen=playerOpen=false;
-  exploreOpen=false;
+  exploreOpen=false; areaListOpen=false;
   trainOpen=false; trainPage=0; catchOpen=false; miniGame=0;
   boxOpen=releaseConfirm=false;
   bagOpen=false;
@@ -106,6 +106,7 @@ int main(){
   clearAll(); startSeek();       check("hideandseek");
   clearAll(); movePickOpen=true; check("movepick");
   clearAll(); exploreOpen=true;  check("explore");
+  clearAll(); exploreOpen=true; areaListOpen=true; check("area");
   clearAll(); gymOpen=true;      check("gyms");
   clearAll(); playerOpen=true;   check("player");
   clearAll(); menuOpen=true;     check("menu");
@@ -144,6 +145,7 @@ int main(){
   clearAll(); menuOpen=true;        crumbIs("menu");
   clearAll(); partyOpen=true;       crumbIs("party");
   clearAll(); exploreOpen=true;     crumbIs("explore");
+  clearAll(); exploreOpen=true; areaListOpen=true; crumbIs("area");
   clearAll(); gymOpen=true;         crumbIs("gym");
   clearAll(); playerOpen=true;      crumbIs("player");
   clearAll(); movePickOpen=true;    crumbIs("movepick");

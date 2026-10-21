@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.38"
+#define FW_VERSION "3.39"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -276,7 +276,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[SCR_COUNT];   // const is internal linkage in C++
 
@@ -338,7 +338,7 @@ const char *const SCREEN_NAME[SCR_COUNT] = {
   "starter", "region", "gallery", "dexpick", "movepick", "box",
   "party", "keyboard", "card", "player", "clock", "gym", "gympick",
   "explore", "mart", "lan", "pick", "battle", "win", "learn", "train", "menu",
-  "bag", "minigame", "main", "trade", "avatar", "blackout"
+  "bag", "minigame", "main", "trade", "avatar", "blackout", "area"
 };
 
 // Badge art for a region, or nullptr when that region has none yet.
@@ -662,18 +662,38 @@ uint8_t btlFoeAt = 0;
 bool exploreOpen = false;
 bool exploreHard = false;
 uint8_t exploreRegion = 0xFF;
+// The ALL region in Explore is switched off for now (owner's call, 2026-10-21):
+// the code stays and still compiles, and setting this to 1 brings it back.
+#define EXPLORE_ALLOW_ALL 0
+// Explore's areas (wild_areas.h). The area chosen in each region, stored as
+// index + 1 so 0 means "not chosen yet". RAM only, like exploreRegion: an
+// encounter is not saved, so neither is where it was looked for.
+uint16_t exploreAreaPick[REGION_COUNT] = { 0 };
+bool areaListOpen = false;   // SCR_AREA, the paged list of a region's areas
+uint8_t areaPage = 0;
+#define AREA_ROWS 3
+#define AREA_ROW_Y(i) (108 + (i) * 100)
+#define AREA_ROW_H UI_TAP_FINGER
+// Explore's layout, top to bottom: the title, the region selector, the area
+// row, the difficulty pill and the big action. Rows the tests aim at are
+// functions (exploreAreaRect(), exploreBtnRect()), never numbers to re-type.
 #define EXPLORE_REGION_X 78
-#define EXPLORE_REGION_Y 170
+#define EXPLORE_REGION_Y 86
 #define EXPLORE_REGION_W 310
 #define EXPLORE_REGION_H UI_TAP_FINGER
 #define EXPLORE_REGION_ARROW_W UI_TAP_FINGER
-#define EXPLORE_DIF_Y 272
+#define EXPLORE_AREA_Y 184
+#define EXPLORE_AREA_H UI_TAP_FINGER
+#define EXPLORE_DIF_Y 282
 #define EXPLORE_DIF_H UI_TAP_MIN
-#define EXPLORE_BTN_X 78
-#define EXPLORE_BTN_Y 326
-#define EXPLORE_BTN_W 310
+// 72 + 2 x 11 of padding = the 94 px finger floor hit_test holds every primary
+// control to; the padding starts below the difficulty pill, so the two never
+// share a pixel (the pill is checked first and would win it).
+#define EXPLORE_BTN_Y 340
 #define EXPLORE_BTN_H 72
 #define EXPLORE_BTN_PAD 11
+static_assert(EXPLORE_DIF_Y + EXPLORE_DIF_H < EXPLORE_BTN_Y - EXPLORE_BTN_PAD,
+              "the Explore button's hit area would reach into the difficulty pill");
 bool bagOpen = false;
 uint8_t bagPage = 0;
 #define BAG_PER_PAGE 5
@@ -1423,12 +1443,36 @@ void handleSerial() {
     Serial.println("DONE");
   } else if (line == "WILD" || line == "WILD HARD") {
     bool hard = (line == "WILD HARD");
-    if (startWildBattle(currentExploreRegion(), hard))
-      Serial.printf("wild %s Lv.%u%s iv=%u/%u/%u/%u\n", DEX_TBL[wildDex].name,
+    uint8_t rg = currentExploreRegion();
+    uint16_t area = exploreAreaOf(rg);
+    if (startWildBattle(rg, hard))
+      Serial.printf("wild %s Lv.%u%s iv=%u/%u/%u/%u in %s\n", DEX_TBL[wildDex].name,
                     wildLvl, wildShiny ? " *SHINY*" : "",
-                    wildIv[0], wildIv[1], wildIv[2], wildIv[3]);
+                    wildIv[0], wildIv[1], wildIv[2], wildIv[3],
+                    area == WILD_NO_AREA ? REGIONS[rg].name : wildAreaName(area));
     else
-      Serial.println("no encounter (egg, ceremony, or no sprite pack)");
+      Serial.println("no encounter (egg, ceremony, locked area, or no sprite pack)");
+    Serial.println("DONE");
+  } else if (line == "AREA" || line.startsWith("AREA ")) {
+    // AREA lists the Explore region's areas with their gate and band; AREA <n>
+    // picks the n-th, through the same rule the list's tap uses.
+    uint8_t rg = currentExploreRegion(), n = wildAreaCount(rg);
+    uint16_t first = wildAreaFirst(rg);
+    int want = -1;
+    if (line.length() > 5) sscanf(line.c_str() + 5, "%d", &want);
+    if (!n) Serial.printf("%s has no areas yet (whole-region pool)\n", REGIONS[rg].name);
+    if (want >= 0 && want < n) {
+      uint16_t a = (uint16_t)(first + want);
+      if (wildAreaUnlocked(a, pet)) exploreAreaPick[rg] = (uint16_t)(a + 1);
+      else Serial.println("locked");
+    }
+    uint16_t cur = exploreAreaOf(rg);
+    for (uint8_t i = 0; i < n; i++) {
+      uint16_t a = (uint16_t)(first + i);
+      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s\n", a == cur ? '*' : ' ', i,
+                    wildAreaName(a), wildAreaGate(a), wildAreaLvMin(a), wildAreaLvMax(a),
+                    wildAreaUnlocked(a, pet) ? "" : "  locked");
+    }
     Serial.println("DONE");
   } else if (line.startsWith("FOCUS ")) {
     // FOCUS <slot>: swap the creature on the main screen with a party slot,
@@ -1843,7 +1887,11 @@ void onSwipeV(int dir) {
   if (kbOpen || pet.ceremony) return;
   if (clockOpen) { if (back) clockOpen = false; return; }
 
-  if (exploreOpen) { if (back) uiTileGo(TILE_PET); return; }
+  if (exploreOpen) {
+    if (areaListOpen) { if (back) areaListOpen = false; return; }   // back to Explore
+    if (back) uiTileGo(TILE_PET);
+    return;
+  }
   if (martOpen) {
     if (martConfirmItem) { if (back) martConfirmItem = ITEM_NONE; return; }
     if (back) uiTileGo(TILE_PET);
@@ -2268,6 +2316,7 @@ void onSwipe(int dir) {
   // Off the axis are modals -- pickers, sheets, minigames. None of them page
   // any more, so here horizontal simply backs out.
   if (avatarPickOpen) { avatarPickOpen = false; return; }
+  if (areaListOpen) { areaListOpen = false; return; }
   if (pickOpen) { pickOpen = false; return; }
   if (trainOpen) { trainOpen = false; return; }
   if (bagOpen) { bagOpen = false; return; }
@@ -2313,9 +2362,18 @@ void onTap(int16_t x, int16_t y) {
     return;
   }
   if (exploreOpen) {
+    if (areaListOpen) { areaListTap(x, y); return; }
     int8_t regionStep = exploreRegionHit(x, y);
     if (regionStep) {
       exploreStepRegion(regionStep);
+      sfxPlay(SFX_TAP);
+      return;
+    }
+    int ax, ay, aw, ah;
+    exploreAreaRect(&ax, &ay, &aw, &ah);
+    if (x >= ax && x <= ax + aw && y >= ay && y <= ay + ah) {
+      if (!wildRegionHasAreas(currentExploreRegion())) { sfxPlay(SFX_DENY); return; }
+      openAreaList();
       sfxPlay(SFX_TAP);
       return;
     }
@@ -2324,10 +2382,10 @@ void onTap(int16_t x, int16_t y) {
       sfxPlay(SFX_TAP);
       return;
     }
-    if (x >= EXPLORE_BTN_X - EXPLORE_BTN_PAD &&
-      x <= EXPLORE_BTN_X + EXPLORE_BTN_W + EXPLORE_BTN_PAD &&
-      y >= EXPLORE_BTN_Y - EXPLORE_BTN_PAD &&
-      y <= EXPLORE_BTN_Y + EXPLORE_BTN_H + EXPLORE_BTN_PAD) {
+    int bx, by, bw, bh;
+    exploreBtnRect(&bx, &by, &bw, &bh);
+    if (x >= bx - EXPLORE_BTN_PAD && x <= bx + bw + EXPLORE_BTN_PAD &&
+        y >= by - EXPLORE_BTN_PAD && y <= by + bh + EXPLORE_BTN_PAD) {
       if (!startWildBattle(currentExploreRegion(), exploreHard)) { sfxPlay(SFX_DENY); return; }
       exploreOpen = false;
       sfxPlay(SFX_TAP);
@@ -2808,7 +2866,7 @@ uint8_t uiCurrentScreen() {
   if (battleOpen) return SCR_BATTLE;
   if (pickOpen) return SCR_PICK;
   if (lanOpen) return SCR_LAN;
-  if (exploreOpen) return SCR_EXPLORE;
+  if (exploreOpen) return areaListOpen ? SCR_AREA : SCR_EXPLORE;
   if (martOpen) return SCR_MART;
   if (gymOpen) return gymPick ? SCR_GYMPICK : SCR_GYM;
   if (pet.hasLearnOffer()) return SCR_LEARN;
@@ -2867,6 +2925,7 @@ void uiTileGo(int i) {
   if (i >= TILE_COUNT) i = TILE_COUNT - 1;
   exploreOpen = gymOpen = partyOpen = galleryOpen = playerOpen = false;
   avatarPickOpen = false;
+  areaListOpen = false;
   cordPick = false;
   boxOpen = false;
   boxDetail = partyDetail = 0;
@@ -2905,6 +2964,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_GALLERY: p = &galleryPage; n = (uint8_t)GAL_PAGES; break;
     case SCR_PLAYER:  p = &playerPage;  n = PLAYER_PAGES; break;
     case SCR_AVATAR:  p = &avatarPage;  n = avatarPages(); break;
+    case SCR_AREA:    p = &areaPage;    n = areaPages(currentExploreRegion()); break;
     case SCR_BOX:     p = &boxPage;     n = BOX_SLOTS / BOX_PER_PAGE; break;
     case SCR_BAGSCR:  p = &bagPage;     n = bagPages(); break;
     case SCR_MART:    p = &martPage;    n = martPages(); break;
@@ -3038,10 +3098,25 @@ void uiChrome() {
   uiDrawRimBar();
 }
 
+// Explore may rest on a region only if its pack is installed -- and, while
+// EXPLORE_ALLOW_ALL is off, never on ALL. One answer for the selector, the
+// default and startWildBattle(), so none of them can disagree.
+bool exploreRegionAllowed(uint8_t r) {
+  if (r >= REGION_COUNT || !regionAvailable(r)) return false;
+#if !EXPLORE_ALLOW_ALL
+  if (r == REGION_ALL) return false;
+#endif
+  return true;
+}
+
 uint8_t currentExploreRegion() {
-  if (exploreRegion < REGION_COUNT && regionAvailable(exploreRegion)) return exploreRegion;
+  if (exploreRegionAllowed(exploreRegion)) return exploreRegion;
   uint8_t base = pet.region % REGION_COUNT;
-  exploreRegion = regionAvailable(base) ? base : nextAvailableRegion(base);
+  for (uint8_t i = 0; i < REGION_COUNT; i++) {
+    uint8_t r = (uint8_t)((base + i) % REGION_COUNT);
+    if (exploreRegionAllowed(r)) { exploreRegion = r; return r; }
+  }
+  exploreRegion = base;   // nothing installed: the button stays greyed
   return exploreRegion;
 }
 
@@ -3059,11 +3134,168 @@ void exploreStepRegion(int8_t step) {
     region += step < 0 ? -1 : 1;
     if (region < 0) region = REGION_COUNT - 1;
     else if (region >= REGION_COUNT) region = 0;
-    if (regionAvailable((uint8_t)region)) {
+    if (exploreRegionAllowed((uint8_t)region)) {
       exploreRegion = (uint8_t)region;
       return;
     }
   }
+}
+
+// The hour for the encounter tables' morning/day/night slots, or -1 when the
+// clock was never set (wildTimeBand() then counts it as day).
+int exploreHour() {
+  return pet.lastSeenEpoch ? (int)((pet.lastSeenEpoch / 3600) % 24) : -1;
+}
+
+// The area Explore will look in for a region, as a WILD_AREAS index, or
+// WILD_NO_AREA for a region without areas. The player's choice when it is still open;
+// otherwise the first area of the furthest gate they have reached, so a player
+// with three badges does not open on Route 1.
+uint16_t exploreAreaOf(uint8_t region) {
+  uint8_t n = wildAreaCount(region);
+  uint16_t first = wildAreaFirst(region);
+  if (!n) return WILD_NO_AREA;
+  uint16_t pick = region < REGION_COUNT ? exploreAreaPick[region] : 0;
+  if (pick && pick - 1 >= first && pick - 1 < first + n &&
+      wildAreaUnlocked((uint16_t)(pick - 1), pet))
+    return (uint16_t)(pick - 1);
+  uint16_t best = first;
+  uint8_t bestGate = 0;
+  for (uint8_t i = 0; i < n; i++) {
+    uint16_t a = (uint16_t)(first + i);
+    if (wildAreaUnlocked(a, pet) && wildAreaGate(a) > bestGate) {
+      best = a;
+      bestGate = wildAreaGate(a);
+    }
+  }
+  return best;
+}
+
+uint8_t areaPages(uint8_t region) {
+  uint8_t n = wildAreaCount(region);
+  return n ? (uint8_t)((n + AREA_ROWS - 1) / AREA_ROWS) : 1;
+}
+
+// Rows of the area list, each as wide as the glass allows at its own height --
+// the same reason gymRowRect() exists. Drawing and tapping both ask this.
+void areaRowRect(int i, int *x, int *y, int *w, int *h) {
+  int ry = AREA_ROW_Y(i);
+  int half = uiSafeHalfWidthFor(ry, ry + AREA_ROW_H) - GYM_ROW_INSET;
+  if (x) *x = CX - half;
+  if (y) *y = ry;
+  if (w) *w = half * 2;
+  if (h) *h = AREA_ROW_H;
+}
+
+// The WILD_AREAS index under a tap on the list, or -1.
+int areaRowAt(int16_t x, int16_t y) {
+  uint8_t region = currentExploreRegion();
+  for (int i = 0; i < AREA_ROWS; i++) {
+    int rx, ry, rw, rh;
+    areaRowRect(i, &rx, &ry, &rw, &rh);
+    if (x < rx || x > rx + rw || y < ry || y > ry + rh) continue;
+    int k = areaPage * AREA_ROWS + i;
+    if (k >= wildAreaCount(region)) return -1;
+    return wildAreaFirst(region) + k;
+  }
+  return -1;
+}
+
+// The row on Explore's main screen that names the area and opens the list.
+void exploreAreaRect(int *x, int *y, int *w, int *h) {
+  if (x) *x = EXPLORE_REGION_X;
+  if (y) *y = EXPLORE_AREA_Y;
+  if (w) *w = EXPLORE_REGION_W;
+  if (h) *h = EXPLORE_AREA_H;
+}
+
+// The big action, as wide as the glass allows at the bottom of the panel.
+void exploreBtnRect(int *x, int *y, int *w, int *h) {
+  int half = uiSafeHalfWidthFor(EXPLORE_BTN_Y, EXPLORE_BTN_Y + EXPLORE_BTN_H) - 14;
+  if (x) *x = CX - half;
+  if (y) *y = EXPLORE_BTN_Y;
+  if (w) *w = half * 2;
+  if (h) *h = EXPLORE_BTN_H;
+}
+
+// What a locked area asks for: "REQUIRES BOULDER BADGE". The badge comes from
+// BADGE_NAMES; a region whose names are not filled in yet names the leader
+// instead, never a bare number.
+void areaGateText(uint16_t area, char *out, size_t n) {
+  if (wildAreaNeedsChampion(area)) { snprintf(out, n, "%s", T(S_AREA_REQ_CHAMP)); return; }
+  uint8_t rg = wildAreaRegion(area);
+  uint8_t idx = (uint8_t)(wildAreaGate(area) - 1);
+  const char *badge = (rg < GYM_REGIONS && idx < TRAINER_GYMS)
+                          ? BADGE_NAMES[rg][idx] : nullptr;
+  if (!badge && rg < GYM_REGIONS && idx < TRAINER_COUNT) badge = TRAINER_SETS[rg].list[idx].name;
+  snprintf(out, n, T(S_AREA_REQUIRES), badge ? badge : "?");
+}
+
+// Centred text at size 2, dropping to size 1 only when it would not fit.
+static void areaCentred(const char *t, int cx, int y, int maxW) {
+  int size = (int)strlen(t) * 12 <= maxW ? 2 : 1;
+  gfx->setTextSize(size);
+  gfx->setCursor(cx - (int)strlen(t) * 3 * size, y);
+  gfx->print(t);
+}
+
+void openAreaList() {
+  uint8_t region = currentExploreRegion();
+  if (!wildRegionHasAreas(region)) return;
+  uint16_t a = exploreAreaOf(region);
+  areaPage = (uint8_t)((a - wildAreaFirst(region)) / AREA_ROWS);   // open on yours
+  areaListOpen = true;
+}
+
+void areaListTap(int16_t x, int16_t y) {
+  int a = areaRowAt(x, y);
+  if (a < 0) return;
+  if (!wildAreaUnlocked((uint16_t)a, pet) ||
+      !wildAreaHasLive((uint16_t)a, wildTimeBand(exploreHour()))) {
+    sfxPlay(SFX_DENY);
+    return;
+  }
+  exploreAreaPick[wildAreaRegion((uint16_t)a)] = (uint16_t)(a + 1);
+  areaListOpen = false;   // back to Explore, with the area named on its row
+  sfxPlay(SFX_TAP);
+}
+
+void renderAreaList() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  uint8_t region = currentExploreRegion();
+  const char *title = REGIONS[region].name;
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(3);
+  gfx->setCursor(CX - (int)strlen(title) * 9, 52);
+  gfx->print(title);
+  uint8_t when = wildTimeBand(exploreHour());
+  uint16_t chosen = exploreAreaOf(region);
+  for (int i = 0; i < AREA_ROWS; i++) {
+    int k = areaPage * AREA_ROWS + i;
+    if (k >= wildAreaCount(region)) break;
+    uint16_t a = (uint16_t)(wildAreaFirst(region) + k);
+    int rx, ry, rw, rh;
+    areaRowRect(i, &rx, &ry, &rw, &rh);
+    bool open_ = wildAreaUnlocked(a, pet);
+    bool live = open_ && wildAreaHasLive(a, when);
+    gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
+    gfx->drawRoundRect(rx, ry, rw, rh, 12, live ? UI_INK : UI_TRACK);
+    if (a == chosen && live) {   // the one EXPLORE will look in
+      gfx->drawRoundRect(rx + 1, ry + 1, rw - 2, rh - 2, 11, UI_BAR_OK);
+      gfx->drawRoundRect(rx + 2, ry + 2, rw - 4, rh - 4, 10, UI_BAR_OK);
+    }
+    gfx->setTextColor(live ? UI_INK : UI_INK_SOFT);
+    areaCentred(wildAreaName(a), CX, ry + 22, rw - 16);
+    char sub[40];
+    if (!open_) areaGateText(a, sub, sizeof(sub));
+    else if (!live) snprintf(sub, sizeof(sub), "%s", T(S_NEED_PACK));
+    else snprintf(sub, sizeof(sub), T(S_AREA_LV_FMT), wildAreaLvMin(a), wildAreaLvMax(a));
+    gfx->setTextColor(live ? UI_INK : UI_INK_SOFT);
+    areaCentred(sub, CX, ry + 56, rw - 16);
+  }
+  uiChrome();
+  gfx->flush();
 }
 
 void renderExplore() {
@@ -3078,24 +3310,53 @@ void renderExplore() {
   gfx->setCursor(CX - (int)strlen(T(S_EXPLORE)) * 9, 44);
   gfx->print(T(S_EXPLORE));
 
-  drawMap(SPR_ICON_PLAY, 16, CX - 40, 88, 5, false);
-  const char *region = REGIONS[currentExploreRegion()].name;
+  uint8_t rg = currentExploreRegion();
+  const char *region = REGIONS[rg].name;
   gfx->fillRoundRect(EXPLORE_REGION_X, EXPLORE_REGION_Y, EXPLORE_REGION_W,
                      EXPLORE_REGION_H, 16, UI_BG_DAY);
   gfx->drawRoundRect(EXPLORE_REGION_X, EXPLORE_REGION_Y, EXPLORE_REGION_W,
                      EXPLORE_REGION_H, 16, UI_INK);
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(3);
-  gfx->setCursor(EXPLORE_REGION_X + 38, EXPLORE_REGION_Y + 29);
+  gfx->setCursor(EXPLORE_REGION_X + 38, EXPLORE_REGION_Y + 35);
   gfx->print("<");
-  gfx->setCursor(EXPLORE_REGION_X + EXPLORE_REGION_W - 56, EXPLORE_REGION_Y + 29);
+  gfx->setCursor(EXPLORE_REGION_X + EXPLORE_REGION_W - 56, EXPLORE_REGION_Y + 35);
   gfx->print(">");
   gfx->setTextSize(strlen(region) <= 10 ? 3 : 2);
   int regionCharHalf = strlen(region) <= 10 ? 9 : 6;
   gfx->setCursor(CX - (int)strlen(region) * regionCharHalf,
-                 EXPLORE_REGION_Y + (strlen(region) <= 10 ? 29 : 35));
+                 EXPLORE_REGION_Y + (strlen(region) <= 10 ? 35 : 41));
   gfx->print(region);
 
+  // The area row: where EXPLORE will look, and the way into the list. A region
+  // without areas yet still draws from its whole pool, and says so.
+  uint16_t area = exploreAreaOf(rg);
+  uint8_t when = wildTimeBand(exploreHour());
+  bool areaLive = area == WILD_NO_AREA || wildAreaHasLive(area, when);
+  int ax, ay, aw, ah;
+  exploreAreaRect(&ax, &ay, &aw, &ah);
+  gfx->fillRoundRect(ax, ay, aw, ah, 16, UI_BG_DAY);
+  gfx->drawRoundRect(ax, ay, aw, ah, 16, area == WILD_NO_AREA ? UI_TRACK : UI_INK);
+  if (area == WILD_NO_AREA) {
+    gfx->setTextColor(UI_INK_SOFT);
+    areaCentred(T(S_AREA_WHOLE), CX, ay + 39, aw - 24);
+  } else {
+    gfx->setTextColor(UI_INK);
+    areaCentred(wildAreaName(area), CX, ay + 22, aw - 60);
+    char sub[24];
+    if (areaLive) snprintf(sub, sizeof(sub), T(S_AREA_LV_FMT),
+                           wildAreaLvMin(area), wildAreaLvMax(area));
+    else snprintf(sub, sizeof(sub), "%s", T(S_NEED_PACK));
+    gfx->setTextColor(areaLive ? UI_INK : UI_INK_SOFT);
+    areaCentred(sub, CX, ay + 56, aw - 60);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(3);
+    gfx->setCursor(ax + aw - 40, ay + 35);
+    gfx->print(">");
+  }
+
+  // Difficulty changes how the wild creature FIGHTS (the smart AI), not how
+  // strong it is.
   const char *dif = T(exploreHard ? S_HARD : S_EASY);
   int dw = (int)strlen(dif) * 12 + 48;
   if (dw < 140) dw = 140;
@@ -3106,14 +3367,15 @@ void renderExplore() {
   gfx->setCursor(CX - (int)strlen(dif) * 6, EXPLORE_DIF_Y + 14);
   gfx->print(dif);
 
-  bool live = !pet.isEgg() && pet.ceremony == CER_NONE;
-  gfx->fillRoundRect(EXPLORE_BTN_X, EXPLORE_BTN_Y, EXPLORE_BTN_W, EXPLORE_BTN_H,
-                     16, live ? UI_BAR_OK : UI_TRACK);
-  gfx->drawRoundRect(EXPLORE_BTN_X, EXPLORE_BTN_Y, EXPLORE_BTN_W, EXPLORE_BTN_H,
-                     16, live ? UI_INK : UI_INK_SOFT);
+  bool live = !pet.isEgg() && pet.ceremony == CER_NONE && areaLive &&
+              exploreRegionAllowed(rg);
+  int bx, by, bw, bh;
+  exploreBtnRect(&bx, &by, &bw, &bh);
+  gfx->fillRoundRect(bx, by, bw, bh, 16, live ? UI_BAR_OK : UI_TRACK);
+  gfx->drawRoundRect(bx, by, bw, bh, 16, live ? UI_INK : UI_INK_SOFT);
   gfx->setTextColor(live ? UI_WHITE : UI_INK_SOFT);
   gfx->setTextSize(3);
-  gfx->setCursor(CX - (int)strlen(T(S_EXPLORE)) * 9, EXPLORE_BTN_Y + 24);
+  gfx->setCursor(CX - (int)strlen(T(S_EXPLORE)) * 9, by + 22);
   gfx->print(T(S_EXPLORE));
   uiChrome();
   gfx->flush();
@@ -3241,7 +3503,7 @@ void render() {
     return;
   }
   if (exploreOpen) {
-    renderExplore();
+    if (areaListOpen) renderAreaList(); else renderExplore();
     return;
   }
   if (martOpen) {
@@ -7540,19 +7802,34 @@ void martTap(int16_t x, int16_t y) {
 // you caught was not the thing on screen.
 bool startWildBattle(uint8_t region, bool hard) {
   if (pet.isEgg() || pet.ceremony != CER_NONE) return false;
-  if (region >= REGION_COUNT || !regionAvailable(region)) return false;
-  uint8_t tier = wildTierForRoll((uint8_t)random(100));
-  int16_t dex = wildPickSpecies(region, tier, (uint32_t)random(65536) * 31u + random(31));
-  // A tier can be empty when only some packs are installed -- Kanto has no
-  // R_LEGENDARIO gap, but a future region might. Fall back rather than refusing
-  // the encounter, since "nothing happened" reads as a broken button.
-  if (!dex) dex = wildPickSpecies(region, R_COMUN, random(65536));
-  if (!dex) return false;
-
-  uint8_t lo = wildLevelMin(pet.level(), hard);
-  uint8_t hi = wildLevelMax(pet.level(), hard);
+  if (!exploreRegionAllowed(region)) return false;
+  int16_t dex = 0;
+  uint8_t lvl = 1;
+  if (wildRegionHasAreas(region)) {
+    // A region with areas draws from the one the player chose, weighted by the
+    // game's own encounter rates, at the level band its gym ladder sets.
+    // Difficulty does not touch either: hard is the smart AI (btlHard below).
+    uint16_t area = exploreAreaOf(region);
+    if (area == WILD_NO_AREA || !wildAreaUnlocked(area, pet)) return false;
+    dex = wildAreaPick(area, wildTimeBand(exploreHour()),
+                       (uint32_t)random(65536) * 31u + random(31));
+    if (!dex) return false;   // nothing live: the area reads NEEDS PACK
+    lvl = wildAreaLevel(area, dex, (uint32_t)random(65536));
+  } else {
+    // A region whose areas have not landed yet keeps the region-wide pool.
+    uint8_t tier = wildTierForRoll((uint8_t)random(100));
+    dex = wildPickSpecies(region, tier, (uint32_t)random(65536) * 31u + random(31));
+    // A tier can be empty when only some packs are installed -- Kanto has no
+    // R_LEGENDARIO gap, but a future region might. Fall back rather than refusing
+    // the encounter, since "nothing happened" reads as a broken button.
+    if (!dex) dex = wildPickSpecies(region, R_COMUN, random(65536));
+    if (!dex) return false;
+    uint8_t lo = wildLevelMin(pet.level());
+    uint8_t hi = wildLevelMax(pet.level());
+    lvl = (uint8_t)(lo + random(hi - lo + 1));
+  }
   wildDex = dex;
-  wildLvl = (uint8_t)(lo + random(hi - lo + 1));
+  wildLvl = lvl;
   for (int i = 0; i < 4; i++) wildIv[i] = (uint8_t)(8 + random(24));
   // Bonus 0: nothing in this build earns one yet, so every wild shiny is the
   // flat 1/4096. The parameter stays because it is where a farewell reward

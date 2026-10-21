@@ -303,7 +303,7 @@ def emit(areas, legends):
              '// APPEND-ONLY: the save stores a legendary by its index here.\n'
              'struct WildLegend {\n'
              '  int16_t dex;\n'
-             '  uint8_t area;      // into WILD_AREAS\n'
+             '  uint16_t area;     // into WILD_AREAS -- NOT uint8_t: nine regions pass 255\n'
              '  uint8_t level;     // the level the game fights it at\n'
              '};\n\n')
     o.append('static const WildSlot WILD_SLOTS[] = {\n')
@@ -323,10 +323,12 @@ def emit(areas, legends):
             sys.exit('gen_wild: area %r has %d slots, past uint8_t' % (a['name'], c))
         o.append('  { "%s", %d, %d, %d, %d, %d, %d },\n'
                  % (a['name'], a['region'], a['gate'], f, c, a['band'][0], a['band'][1]))
+    if len(areas) >= 0xFFFF:
+        sys.exit('gen_wild: %d areas -- 0xFFFF is the no-area sentinel' % len(areas))
     o.append('};\n#define WILD_AREA_COUNT %d\n\n' % len(areas))
     o.append('// Each region\'s slice of WILD_AREAS (first, count); count 0 = no areas yet,\n'
              '// and that region keeps the old region-wide pool.\n')
-    o.append('static const uint8_t WILD_REGION_AREAS[WILD_REGIONS][2] = {\n')
+    o.append('static const uint16_t WILD_REGION_AREAS[WILD_REGIONS][2] = {\n')
     for r in range(n_regions):
         idx = [i for i, a in enumerate(areas) if a['region'] == r]
         if idx and idx != list(range(idx[0], idx[0] + len(idx))):

@@ -255,6 +255,10 @@ enum StrId : uint16_t {
   S_BLACKOUT_SUB, // why
   S_MOM_1, // Mom, first line
   S_MOM_2, // Mom, second line
+  S_AREA_REQUIRES,  // a locked Explore area: "REQUIRES %s" (a badge name)
+  S_AREA_REQ_CHAMP, // a locked Explore area opened by the champion
+  S_AREA_LV_FMT,    // an Explore area's level band, "Lv.%u-%u"
+  S_AREA_WHOLE,     // Explore in a region that has no areas yet
   STR_COUNT
 };
 

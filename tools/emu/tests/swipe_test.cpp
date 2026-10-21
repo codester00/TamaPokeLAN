@@ -27,7 +27,8 @@ uint8_t uiCurrentScreen(); uint8_t uiRimPages(); uint8_t uiRimPage();
 extern Pet pet;
 extern bool cardOpen, galleryOpen, clockOpen, kbOpen, menuOpen, partyOpen, partyPick;
 extern bool trainOpen, movePickOpen, battleOpen, gymOpen, playerOpen, boxOpen, pickOpen;
-extern bool exploreOpen;
+extern bool exploreOpen, areaListOpen; extern uint8_t areaPage, exploreRegion;
+void exploreBtnRect(int *x, int *y, int *w, int *h);
 extern bool martOpen;
 extern uint8_t trainPage;
 extern bool btlWild;
@@ -59,7 +60,7 @@ static void clearAll(){
   gymPick=galleryPick=false;
   cardOpen=galleryOpen=clockOpen=kbOpen=menuOpen=partyOpen=partyPick=false;
   trainOpen=movePickOpen=battleOpen=gymOpen=playerOpen=boxOpen=pickOpen=false;
-  exploreOpen=false;
+  exploreOpen=false; areaListOpen=false;
   martOpen=false;
   bagOpen=false;
   partyDetail=0; boxSel=boxSwapFrom=0;
@@ -114,6 +115,9 @@ int main(){
   // The training menu lists GAMES (v3.34) and pages once there are more than
   // fit -- four today, three a page.
   clearAll(); trainOpen=true;                     check("training", &trainOpen,    &trainPage);
+  // Explore's area list (v3.39): Kanto alone has 36 areas, three a page.
+  clearAll(); exploreOpen=true; exploreRegion=0; areaListOpen=true;
+                                                  check("areas",    &areaListOpen, &areaPage);
   // The Pokedex pages within ONE region and changes region on a vertical swipe.
   // Every species must be reachable: it was capped at 10 flat pages when the dex
   // was 151 long, which silently hid everything past 160 once it grew to 386.
@@ -230,7 +234,9 @@ int main(){
     onSwipe(-1);                       // the first world-facing stop is Explore
     if (!exploreOpen) { printf("FAIL  explore    is not beside the main screen\n"); bad++; }
     else printf("PASS  %-10s is beside the main screen\n", "explore");
-    onTap(233, 334);                    // the large Explore action
+    int bx, by, bw, bh;
+    exploreBtnRect(&bx, &by, &bw, &bh);  // ask the layout, never re-type it
+    onTap(bx + bw / 2, by + bh / 2);    // the large Explore action
     if (!battleOpen || !btlWild || exploreOpen) {
       printf("FAIL  explore    its primary action does not start a wild battle\n"); bad++;
     } else printf("PASS  %-10s starts a wild battle from its primary action\n", "explore");

@@ -1,6 +1,16 @@
 #include "wild.h"
 #include "pet.h"     // regionAvailable(), regionOfDex()
 #include "noart.h"   // speciesHasArt()
+#include "wild_areas.h"
+
+static_assert(WILD_REGIONS == REGION_COUNT - 1,
+              "wild_areas.h was generated for a different region list -- re-run tools/gen_wild.py");
+// Area indices are uint16_t end to end (CLAUDE.md trap 2): Kanto has 36 areas
+// and nine regions pass 255. These fail the build if any link narrows again.
+static_assert(sizeof(WILD_REGION_AREAS[0][0]) >= 2, "WILD_REGION_AREAS must hold an area index past 255");
+static_assert(sizeof(((WildLegend *)0)->area) >= 2, "WildLegend::area must hold an area index past 255");
+static_assert(sizeof(decltype(wildAreaFirst(0))) >= 2, "wildAreaFirst() must return an area index past 255");
+static_assert(WILD_AREA_COUNT < WILD_NO_AREA, "WILD_NO_AREA is a real area");
 
 static uint8_t shinyBonus(uint8_t bonus) {
   return bonus > WILD_SHINY_BONUS_MAX ? WILD_SHINY_BONUS_MAX : bonus;
@@ -45,14 +55,12 @@ uint8_t wildCaptureChance(uint8_t rarity, uint16_t hp, uint16_t maxHp,
   return chance > 95 ? 95 : (uint8_t)chance;
 }
 
-uint8_t wildLevelMin(uint8_t playerLevel, bool hard) {
-  if (hard) return 1;
+uint8_t wildLevelMin(uint8_t playerLevel) {
   return playerLevel > WILD_LEVEL_SPREAD
              ? (uint8_t)(playerLevel - WILD_LEVEL_SPREAD) : 1;
 }
 
-uint8_t wildLevelMax(uint8_t playerLevel, bool hard) {
-  if (hard) return MAX_LEVEL;
+uint8_t wildLevelMax(uint8_t playerLevel) {
   uint16_t top = (uint16_t)playerLevel + WILD_LEVEL_SPREAD;
   return top > MAX_LEVEL ? MAX_LEVEL : (uint8_t)top;
 }
@@ -118,4 +126,86 @@ int16_t wildPickSpecies(uint8_t region, uint8_t tier, uint32_t roll) {
     want--;
   }
   return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Explore's areas.
+
+uint8_t wildAreaCount(uint8_t region) {
+  return region < WILD_REGIONS ? (uint8_t)WILD_REGION_AREAS[region][1] : 0;
+}
+
+uint16_t wildAreaFirst(uint8_t region) {
+  return region < WILD_REGIONS ? WILD_REGION_AREAS[region][0] : 0;
+}
+
+bool wildRegionHasAreas(uint8_t region) { return wildAreaCount(region) > 0; }
+
+static const WildArea NO_AREA = { "", 0xFF, 0, 0, 0, 1, 1 };
+static const WildArea &areaAt(uint16_t a) { return a < WILD_AREA_COUNT ? WILD_AREAS[a] : NO_AREA; }
+const char *wildAreaName(uint16_t a) { return areaAt(a).name; }
+uint8_t wildAreaRegion(uint16_t a) { return areaAt(a).region; }
+uint8_t wildAreaGate(uint16_t a) { return areaAt(a).gate; }
+bool wildAreaNeedsChampion(uint16_t a) { return areaAt(a).gate >= WILD_GATE_CHAMPION; }
+uint8_t wildAreaLvMin(uint16_t a) { return areaAt(a).lvMin; }
+uint8_t wildAreaLvMax(uint16_t a) { return areaAt(a).lvMax; }
+
+bool wildAreaUnlocked(uint16_t area, const Pet &p) {
+  if (area >= WILD_AREA_COUNT) return false;
+  const WildArea &a = WILD_AREAS[area];
+  if (a.gate == 0) return true;
+  uint8_t bit = (uint8_t)(a.gate - 1);   // the ladder trainer that opens it
+  return p.hasBadge(a.region, bit, false) || p.hasBadge(a.region, bit, true);
+}
+
+uint8_t wildTimeBand(int hour) {
+  if (hour < 0) return WILD_WHEN_DAY;
+  hour %= 24;
+  if (hour >= 4 && hour < 10) return WILD_WHEN_MORN;
+  if (hour >= 10 && hour < 18) return WILD_WHEN_DAY;
+  return WILD_WHEN_NITE;
+}
+
+// One answer for "can this slot be met now", so the pick, the NEEDS PACK test
+// and the weight total can never disagree about it.
+static bool slotLive(const WildSlot &s, uint8_t when) {
+  return (s.when & when) && speciesHasArt(s.dex) &&
+         regionAvailable(regionOfDex(s.dex));
+}
+
+bool wildAreaHasLive(uint16_t area, uint8_t when) {
+  if (area >= WILD_AREA_COUNT) return false;
+  const WildArea &a = WILD_AREAS[area];
+  for (uint8_t i = 0; i < a.count; i++)
+    if (slotLive(WILD_SLOTS[a.first + i], when)) return true;
+  return false;
+}
+
+int16_t wildAreaPick(uint16_t area, uint8_t when, uint32_t roll) {
+  if (area >= WILD_AREA_COUNT) return 0;
+  const WildArea &a = WILD_AREAS[area];
+  uint32_t total = 0;
+  for (uint8_t i = 0; i < a.count; i++)
+    if (slotLive(WILD_SLOTS[a.first + i], when)) total += WILD_SLOTS[a.first + i].weight;
+  if (!total) return 0;
+  uint32_t want = roll % total;
+  for (uint8_t i = 0; i < a.count; i++) {
+    const WildSlot &s = WILD_SLOTS[a.first + i];
+    if (!slotLive(s, when)) continue;
+    if (want < s.weight) return s.dex;
+    want -= s.weight;
+  }
+  return 0;
+}
+
+uint8_t wildAreaLevel(uint16_t area, int16_t dex, uint32_t roll) {
+  if (area >= WILD_AREA_COUNT) return 1;
+  const WildArea &a = WILD_AREAS[area];
+  uint8_t lo = a.lvMin ? a.lvMin : 1, hi = a.lvMax < lo ? lo : a.lvMax;
+  uint8_t lvl = (uint8_t)(lo + roll % (uint32_t)(hi - lo + 1));
+  for (uint8_t i = 0; i < a.count; i++) {
+    const WildSlot &s = WILD_SLOTS[a.first + i];
+    if (s.dex == dex && lvl < s.floor) lvl = s.floor;
+  }
+  return lvl > MAX_LEVEL ? MAX_LEVEL : lvl;
 }

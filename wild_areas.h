@@ -30,7 +30,7 @@ struct WildArea {
 // APPEND-ONLY: the save stores a legendary by its index here.
 struct WildLegend {
   int16_t dex;
-  uint8_t area;      // into WILD_AREAS
+  uint16_t area;     // into WILD_AREAS -- NOT uint8_t: nine regions pass 255
   uint8_t level;     // the level the game fights it at
 };
 
@@ -554,7 +554,7 @@ static const WildArea WILD_AREAS[] = {
 
 // Each region's slice of WILD_AREAS (first, count); count 0 = no areas yet,
 // and that region keeps the old region-wide pool.
-static const uint8_t WILD_REGION_AREAS[WILD_REGIONS][2] = {
+static const uint16_t WILD_REGION_AREAS[WILD_REGIONS][2] = {
   { 0, 36 },  // KANTO
   { 0, 0 },  // JOHTO
   { 0, 0 },  // HOENN

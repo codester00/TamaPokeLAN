@@ -43,10 +43,25 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 | Tagging | Held: the owner believes the free GitHub Actions minutes are spent for the month, and the release workflow needs them (the tag push itself does not). Retry after the reset |
 | Repo version | **3.38** in `TamaPoke.ino`, the README badge and `web/manifest.json` (3.35 and 3.36 = 3.34 + Tilt Maze steering fixes; 3.37 slows Boulder Push and explains zero gains; 3.38 adds the trainer-class avatars and the blackout screen, on `main` since 2026-10-21; notes in `docs/release-notes/`) |
 | Release notes | `docs/release-notes/v3.34.md` (everything since v3.28, for players) through `v3.38.md` are written, so tagging v3.34 or v3.38 off `main` would pass `check_release.py` |
-| Next work | The Explore rework, `docs/explore-plan.md` (confirmed, revision 3). Phase 1 (data pipeline + Kanto, no firmware change) is done; Phase 2 (firmware) is next. Clock drift is on hold by the owner's call |
-| Tests | 51 suites, all pass, plus `check_savefile.mjs` |
+| Next work | The Explore rework, `docs/explore-plan.md` (confirmed, revision 3). Phases 1 and 2 are done for Kanto: **v3.39** on branch `ccr-151c604c-659yz2`, not merged, not on a board, installer not rebuilt (`web/manifest.json` still says 3.38 -- `build_web.sh` moves it at release). The owner tests Kanto on a board before the next region. Clock drift is on hold by the owner's call |
+| Tests | 54 suites (53 pass, `sprite_test` skips without sprites), plus `check_savefile.mjs` |
 | Firmware | esp32 core 3.3.0, GFX Library 1.6.9, **SensorLib 0.4.1**, XPowersLib 0.3.4 |
 | Owner's boards | several; two had **v3.33**, and **trading worked between real boards**. Nothing from v3.34 to v3.38 has been on a board yet |
+
+**Building in a Claude Code cloud container (2026-10-21).** The proxy blocks
+`downloads.arduino.cc` and `espressif.github.io`, so `arduino-cli` cannot fetch
+its indexes the normal way, but GitHub is reachable and that is enough:
+`arduino-cli` 1.1.1 from its GitHub release; the ESP32 index from
+`raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`,
+saved locally with core 3.3.0's `dfu-util`/gdb/openocd dependencies removed
+(upload-only tools) and given as a `file://` additional URL; the three
+libraries cloned at their pinned versions into `~/Arduino/libraries`
+(XPowersLib 0.3.4 is untagged -- commit `fea4fbb`); and Arduino's `ctags`
+built from `github.com/arduino/ctags` (rename its `__unused__`/`__printf__`
+macros to build against modern glibc) with
+`runtime.tools.ctags.path=...` in the core's `platform.local.txt`. SDL2 is
+`apt-get install libsdl2-dev`. Build through a `TamaPoke` symlink. With that,
+`tools/emu/tests/run.sh` runs the real firmware compile first, as intended.
 
 **What landed in v3.34** (all in CLAUDE.md § TODO "Done: training games..."):
 

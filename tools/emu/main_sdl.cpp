@@ -193,6 +193,7 @@ extern uint8_t btlTrainGain, btlTrainWhich;
 extern bool lanWantHost;
 extern bool gShowAllAvatars;
 extern bool avatarPickOpen, blackoutOpen; extern uint8_t avatarPage;
+extern bool areaListOpen; extern uint8_t areaPage; extern uint16_t exploreAreaPick[];
 #define PICK_LAN 0xFF
 uint8_t squadCap(uint8_t, bool);
 #include "link.h"
@@ -380,7 +381,15 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
     btlLungeUntil[0] = millis() + 130; // you mid-lunge
     btlHitUntil[1] = millis() + 300;   // foe flinching
   }
-  else if (!strcmp(screen, "explore")) exploreOpen = true;
+  else if (!strcmp(screen, "explore")) {
+    pet.badges = 0x07;            // Brock, Misty and Surge: Explore opens on a gate-3 area
+    exploreOpen = true;
+  }
+  else if (!strcmp(screen, "area")) {   // the area list: open rows, the chosen one, a locked one
+    pet.badges = 0x07;
+    exploreOpen = true; areaListOpen = true; areaPage = 4;
+    exploreAreaPick[0] = 13;      // ROUTES 9-10 (WILD_AREAS index 12, stored + 1)
+  }
   else if (!strcmp(screen, "mart")) { pet.wallet = 12345; pet.stepsTotal = 87654; martOpen = true; }
   else if (!strcmp(screen, "martconfirm")) {
     pet.wallet = 12345; pet.stepsTotal = 87654; martOpen = true; martConfirmItem = IT_SUPERPOTION;

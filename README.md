@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.38-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.39-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -142,14 +142,18 @@ way. Same reasoning that makes Hoenn Emerald throughout.
 
 ### Exploring
 
-| Choose where to hunt | A wild encounter |
-|---|---|
-| <img src="docs/screens/explore.png" width="240"> | <img src="docs/screens/wild.png" width="240"> |
+| Choose where to hunt | Kanto's areas | A wild encounter |
+|---|---|---|
+| <img src="docs/screens/explore.png" width="240"> | <img src="docs/screens/area.png" width="240"> | <img src="docs/screens/wild.png" width="240"> |
 
 Wild creatures are met by exploring rather than only in gyms. The `< REGION >`
 selector picks where the next encounter comes from, independently of your egg's
 region, so changing hunting grounds never rerolls or moves the egg. Regions whose
-sprite pack is not installed are skipped. Weaken one and throw a ball to keep it;
+sprite pack is not installed are skipped. **Kanto is split into the games' own
+areas** -- Route 1, Viridian Forest, Mt. Moon, the Safari Zone, Cerulean Cave and
+31 more -- each holding the creatures FireRed and LeafGreen put there, and each
+opening with the badge that opened it in the games. Tap the area row to choose
+one; a locked area says which badge it needs. Weaken one and throw a ball to keep it;
 a caught creature goes to the party or the box, and does *not* fill the Pokédex
 until you actually raise it.
 
@@ -433,25 +437,61 @@ training: the set you chose while it was alive is what it fights with forever.
 
 **EXPLORE** is its own stop immediately beside the pet on the horizontal axis.
 Its large `< REGION >` selector moves through every installed sprite pack in
-either direction, independently of the region chosen for the current egg. The
-screen also offers normal/hard difficulty and one large action; wild encounters
-no longer hide at the bottom of the gym ladder.
+either direction, independently of the region chosen for the current egg.
+Below it, the **area row** names where the next encounter comes from; tap it for
+the region's list of areas. Then the normal/hard pill and one large action.
+(The mixed ALL region is switched off in Explore for now.)
 
-The encounter rolls a rarity tier, then a species of that tier that is **in an
-installed region pack and has art** — a caught creature is kept forever, so one
-that could only ever draw as a dex number would be a permanent defect.
+**Kanto's areas (v3.39).** 36 areas built from FireRed and LeafGreen's own
+encounter tables (the `pret/pokefirered` disassembly), both versions combined so
+every creature Kanto offers can be caught on one board -- a version exclusive
+simply comes up half as often. Each area mixes walking, surfing, the best
+fishing rod and Rock Smash, every creature at the game's own rate within its
+method, the methods weighted walk 1.0 / surf 0.5 / fishing 0.3 / Rock Smash 0.2.
+`tools/verify_wild.py --table` prints every area's exact odds.
 
-| Tier | Chance |
+**An area opens with the badge that opened it in the games**, on either
+difficulty: Route 1, 2, 22 and Viridian Forest from the start; Mt. Moon after
+the Boulder Badge; the Safari Zone after the Rainbow Badge; Seafoam Islands and
+the Power Plant after the Soul Badge (that was Surf); Sevii Islands 1-3 after the
+Volcano Badge; Victory Road after the Earth Badge; Cerulean Cave and Sevii 4-7
+after the champion. A locked area is listed, greyed, saying what it needs --
+`REQUIRES BOULDER BADGE`.
+
+**Levels follow the gym ladder, not your pet.** An area's band ends just below
+the level cap of the next gym battle it leads to:
+
+| Areas opened by | Level band |
+|---|---|
+| nothing (the start) | 1 to (first leader's cap - 2): **1-12** in Kanto |
+| g badges | (next battle's cap - 10) to (cap - 2): Mt. Moon **11-19**, Safari Zone **33-41**, Victory Road **44-52** |
+| the champion | champion's cap +-5: **60-70** |
+
+Caps are running maxima, so a band never goes down. An evolved form never
+appears below where it could exist -- its floor is the lower of its evolution
+level and the lowest level the game has it wild (a Metapod can be 4, as in
+Viridian Forest). Where that floor is above the band, the creature stays where
+the game put it and appears at its floor: Route 22's fishing Gyarados is level
+15 though the band stops at 12. The gym ladder's level cap handicaps a strong
+early catch the same way it handles an over-raised pet.
+
+**Hard changes how the wild creature fights, not how strong it is**: same band,
+the smart battle AI, and two item drops instead of one. Regions whose areas have
+not landed yet keep the old region-wide pool:
+
+| Tier (regions without areas) | Chance |
 |---|---|
 | ✨ Legendary | 1 % |
 | 🔵 Rare | 7 % |
 | ⚪ Evolved | 22 % |
 | ⚪ Common | the rest |
 
-- **Level**: within 5 either side of yours on normal; the whole 1–100 ladder on hard.
+- **Level** there: within 5 either side of yours, on either difficulty.
 - **Shiny**: exactly **1/4096** per encounter, flooring every IV at 20 without
   capping one that already rolled higher.
 - Ordinary IVs roll **8–31**, independently.
+- Kanto's legendaries are not in its areas yet; they get fixed homes (Articuno
+  in Seafoam Islands, Mewtwo in Cerulean Cave) in the next step.
 
 **Catching.** Pick a ball from the battle **BAG**. It spends your turn either way,
 so throwing is never free.
@@ -960,7 +1000,8 @@ runaway-ready state) · `WIPE` (factory reset → new game) · `BEEP` (audio tes
 `PARTY` / `PARTY <dex>` / `PARTY CLEAR` (inspect and fill the party) ·
 `FOCUS <slot>` (swap the creature you are raising with a party slot) ·
 `BAG` (list it) · `GIVE <key> [n]` (stock it) · `WILD` / `WILD HARD` (force an
-encounter) ·
+encounter, naming the area) · `AREA` / `AREA <n>` (list the Explore region's
+areas with their gates and bands / pick one) ·
 `TIME <epoch>` / `RTCSET <epoch>` · `HEALTH` (uptime + heap for the soak test) ·
 `LS` / `PUT` (SD files).
 

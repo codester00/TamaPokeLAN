@@ -313,6 +313,15 @@ static const TrainerSet TRAINER_SETS[GYM_REGIONS] = {
   { TRAINERS_PALDEA, "PALDEA" },
 };
 
+// What each gym awards, in ladder order -- the name a locked Explore area asks
+// for ("REQUIRES BOULDER BADGE"). Facts from the games, upper-case ASCII.
+// Filled region by region as that region's areas land (docs/explore-plan.md);
+// a region still nullptr falls back to the leader's name, never to a number.
+static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
+  { "BOULDER BADGE", "CASCADE BADGE", "THUNDER BADGE", "RAINBOW BADGE",
+    "SOUL BADGE", "MARSH BADGE", "VOLCANO BADGE", "EARTH BADGE" },
+};
+
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the
 // teams need no second table -- only the difficulty flag changes.
 #define HARD_IV 31
