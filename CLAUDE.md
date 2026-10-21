@@ -615,8 +615,8 @@ hardware's and hid that alarm. (The installer was not rebuilt at the time;
 
 ### NEXT SESSION: action list (agreed with the owner 2026-10-20)
 
-v3.38 (avatars + blackout) is on the branch, NOT on `main` yet -- ask before
-merging. Then, in this order:
+v3.38 (avatars + blackout) is MERGED to `main` (2026-10-21) and the installer
+serves it; NOT tagged as a release yet (ask the owner). Work in this order:
 
 **A. Explore rework** (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
