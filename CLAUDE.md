@@ -709,12 +709,21 @@ covers: Unova onward has none (item 3 above).
   (8-9), the Great Marsh's and Trophy Garden's dailies. `wildarea_test` finds a
   Sinnoh creature never met by day (Kricketot, Route 201) -- negative-checked
   by making the loader ignore the bands.
-- **`UNKNOWN_533`-`557` are Turnback Cave.** Unnamed in the decomp, but they
-  carry its location number (10), its species, and deeper levels.
+- **`UNKNOWN_533`-`557` are Turnback Cave**, confirmed two ways: the
+  decomp's map headers of the same numbers carry Turnback Cave's place name,
+  and PokeAPI's Platinum data has the identical table (L45-48) as Turnback
+  Cave "after pillar 3". Open question: the decomp's header table links NO
+  encounter table to those headers, nor to the entrance or the pillar room,
+  so either rooms are given tables in code not yet decompiled or that field
+  is not decoded -- PokeAPI says they are met. Bulbapedia, Serebii and the
+  like do not resolve from the cloud container, so that check was not made.
 - **Legend levels** come from `StartLegendaryBattle` in the map scripts and,
   for Mesprit and Cresselia, from `src/roaming_pokemon.c`'s species/level
-  pairs. **Regigigas is level 1** -- Platinum's real value (D/P had 70). It is
-  faithful and deliberate; do not "fix" it without the owner.
+  pairs. **Regigigas is 70 by the owner's override** (2026-10-21): Platinum's
+  script fights it at level 1 (D/P had 70). A legend's `'level'` in
+  `tools/wild_areas.py` overrides the script, but the script is still read, and
+  `verify_wild.py` prints `OVERRIDE: the game fights it at L1` so the game's
+  value is never lost.
 - Borrowed homes (§ 7.2): Uxie/Azelf their lakes, Dialga/Palkia Mt. Coronet's
   peak (Spear Pillar), Cresselia Route 218 (Fullmoon Island's ferry coast).
   Giratina's home is Turnback Cave at gate 7, where Platinum leaves it if the

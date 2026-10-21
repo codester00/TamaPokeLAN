@@ -453,9 +453,12 @@ SINNOH = {
                                  'MT_CORONET_5F', 'MT_CORONET_6F',
                                  'MT_CORONET_OUTSIDE_NORTH', 'MT_CORONET_OUTSIDE_SOUTH']),
         ('SENDOFF SPRING',   7, ['SENDOFF_SPRING']),
-        # Turnback Cave's rooms. UNKNOWN_533-557 are unnamed in the decomp but
-        # carry Turnback Cave's location number (10) and its species, deeper
-        # in; they are the cave's further rooms.
+        # Turnback Cave's rooms. UNKNOWN_533-557 are unnamed in the decomp, but
+        # two sources put them here: the decomp's map headers UNKNOWN_533-557
+        # carry Turnback Cave's place name, and PokeAPI's Platinum data has the
+        # same table (L45-48 Golbat, Haunter, Dusclops, Chimecho, Bronzong) as
+        # Turnback Cave "after pillar 3". (The decomp's headers link no table
+        # to those rooms or to the entrance; PokeAPI says they are met.)
         ('TURNBACK CAVE',    7, ['TURNBACK_CAVE_ENTRANCE', 'TURNBACK_CAVE_PILLAR_ROOM',
                                  'TURNBACK_CAVE_GIRATINA_ROOM'] +
                                 ['TURNBACK_CAVE_PILLAR_%d_ROOM_%d' % (p, r)
@@ -495,8 +498,12 @@ SINNOH = {
         {'dex': 484, 'area': 'MT. CORONET PEAK', 'script': 'spear_pillar_palkia',
          'gate': GATE_CHAMPION},                                                         # Palkia
         {'dex': 485, 'area': 'STARK MOUNTAIN', 'script': 'stark_mountain_room_3'},      # Heatran
-        # Platinum's Regigigas really is level 1 (Diamond/Pearl's is 70).
-        {'dex': 486, 'area': 'SNOWPOINT TEMPLE', 'script': 'snowpoint_temple_b5f'},     # Regigigas
+        # Platinum's script fights Regigigas at level 1 (Diamond/Pearl's is 70).
+        # 'level' overrides the script by the owner's call (2026-10-21): 70,
+        # Diamond/Pearl's level. gen_wild.py still reads the script, so the
+        # game's own value stays on record in verify_wild.py's report.
+        {'dex': 486, 'area': 'SNOWPOINT TEMPLE', 'script': 'snowpoint_temple_b5f',
+         'level': 70},                                                                   # Regigigas
         # Giratina is met in the Distortion World after Candice; it waits in
         # Turnback Cave if not caught there, so that is its home.
         {'dex': 487, 'area': 'TURNBACK CAVE', 'script': 'turnback_cave_giratina_room'},  # Giratina

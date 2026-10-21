@@ -156,7 +156,7 @@ int main(){
     int turnback=areaIn(3,"TURNBACK CAVE");
     ck(uxie>=0 && mesprit>=0 && gira>=0 && gigas>=0 && acuity>=0 && verity>=0 && r201>=0 &&
        turnback>=0, "Sinnoh's legendaries and areas are found");
-    ck(wildLegendLevel(gigas)==1, "Regigigas is Platinum's level 1, read from its script");
+    ck(wildLegendLevel(gigas)==70, "Regigigas is level 70, the owner's override of Platinum's 1");
     Pet p; badges(p,3,6);
     ck(wildAreaUnlocked((uint16_t)verity,p) && count(verity,p,mesprit)==0,
        "Lake Verity is open from the start; Mesprit waits for Candice's badge");

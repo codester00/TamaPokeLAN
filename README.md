@@ -557,7 +557,7 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Giratina | Turnback Cave | Icicle Badge | 47 |
 | Dialga, Palkia | Mt. Coronet's peak (Spear Pillar has no wild table) | the champion | 70 |
 | Heatran | Stark Mountain | the champion | 50 |
-| Regigigas | Snowpoint Temple | the champion | **1** (Platinum's own level) |
+| Regigigas | Snowpoint Temple | the champion | 70 (Platinum's script says 1; raised to Diamond/Pearl's 70) |
 | Cresselia | Route 218 (Fullmoon Island's coast), then **roaming Sinnoh** | the champion | 50 |
 
 | A legendary is waiting |

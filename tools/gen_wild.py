@@ -579,9 +579,13 @@ def build(refresh=False):
             if gate not in tuple(range(9)) + (WA.GATE_CHAMPION,) or gate < areas[idx]['gate']:
                 sys.exit('gen_wild: legend #%d gate %r is not at or after its area\'s'
                          % (leg['dex'], gate))
+            game_level = legend_level(reg['source'], leg, refresh)
             legends.append({'dex': leg['dex'], 'area': idx, 'gate': gate,
                             'roams': bool(leg.get('roams')),
-                            'level': legend_level(reg['source'], leg, refresh)})
+                            # An owner's override still reads the script, so
+                            # the game's own level stays checked and reported.
+                            'level': leg.get('level', game_level),
+                            'game_level': game_level})
     order = [lg['dex'] for lg in legends]
     if order != WA.LEGEND_ORDER:
         sys.exit('gen_wild: legends %s do not follow LEGEND_ORDER %s -- that '
