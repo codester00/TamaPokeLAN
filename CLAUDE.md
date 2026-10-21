@@ -632,9 +632,10 @@ rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
 the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
-Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45), Alola's (v3.46)** -- see the "Done" entries
-below. Next: Galar (Sword's ladder; PokeAPI's Gen 8 encounter data is thin, so check
-what it holds before planning). None of it
+Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45), Alola's (v3.46), Galar's (v3.47)** -- see the "Done" entries
+below. Next: Paldea, the last region -- and PokeAPI has NO Scarlet/Violet encounter
+data, while Bulbapedia and Serebii do not resolve from the cloud container, so
+find a reachable source before planning. None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
@@ -691,6 +692,50 @@ disconnected for a while, which may explain the week-long figure; the
      measured.
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
+
+### Done: Galar's areas and legendaries (v3.47, not yet on a board)
+
+39 areas from **Sword + Shield** (averaged) via PokeAPI, NOT VERIFIED (the
+ladder stays Sword's); Zacian, Zamazenta and Eternatus appended (52 legends);
+`BADGE_NAMES` row 7. PokeAPI's Gen 8 data turned out full (165 maps), not thin.
+
+- **Weather is averaged like seasons** (`t['weathers']`, every
+  `weather-*` condition value, 9): a row in k weathers counts k/9. This
+  REVERSES the plan's "normal-weather tables only" (§ 4): normal alone leaves
+  70 species unmet (Dreepy, Larvitar, the Eeveelutions...). Flagged to the
+  owner, not yet confirmed.
+- **Only the tables before the Hall of Fame** (`ignore_conditions`): the ones
+  after repeat every Wild Area zone at L60, and each species they add is met
+  elsewhere before (checked against the data). Rows tagged
+  `story-progress-hall-of-fame` stay out by the usual "other condition" rule.
+- **PokeAPI mislabels Rolling Fields**: its pre-Hall-of-Fame rows carry
+  `max-den-rarity-special` instead. `map_conditions` accepts that condition on
+  those two maps only; without it the generator refuses the empty area.
+- **Methods**: `overworld`/`overworld-flying` land, `overworld-water` and
+  `wanderer-water` water, `overworld-dirt` and `wanderer` phenomenon (0.2).
+  `bubbling` = `'fishing'` (Galar's are its fishing spots; Alola's per-row rule
+  would call them all phenomena). Max Raid dens, berry trees, gifts, trades and
+  the gym mission (`motostoke/gym`, in `skip`) stay out. The strong wanderers
+  put many evolved forms above their zone's band, at their floors -- the
+  owner's "where the game puts it" rule; `verify_wild.py` lists them.
+- **A second hidden gate: the water mode.** A region's `'water'` gate holds its
+  `water` method back exactly as `super_rod` holds `fishing` (`mix_band()`
+  takes a method -> gate map; `hidden` on each area names which). Galar: gate 6,
+  the Rotom Bike's water mode on Route 9 after Gordie. Galar's rod comes before
+  Milo, so gate 0. SECRET, like the rod. The generator refuses an area with two
+  different hidden gates, since `wildarea_test` and `verify_wild.py` read one an
+  area. The rod's test now skips art-less gated slots (Frillish).
+- **Wild Area gates follow levels**: the game lets you walk almost anywhere but
+  caps catching by badges, so a zone opens at the badge its levels fit. Axew's
+  Eye, Giant's Seat, the Dusty Bowl and the Lake of Outrage sit later than
+  their place on the map.
+- Zacian/Zamazenta live in WEALD DEPTHS (the post-game `slumbering-weald/deep`)
+  with PokeAPI's L70 statics, filed under the Energy Plant; Eternatus borrows
+  Hammerlocke's hills, champion gate (the ladder has no slot before Leon).
+  The expansions' legendaries are not in PokeAPI's tables: egg-only.
+- `legend_test`'s "no homes yet" egg check moved to Paldea. Negative-checked:
+  the water gate (Lapras), the Rolling Fields fix (generator refusal).
+  Earlier regions came out byte-identical.
 
 ### Done: Alola's areas and legendaries (v3.46, not yet on a board)
 

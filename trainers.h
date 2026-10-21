@@ -339,6 +339,9 @@ static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
   // TRAINERS_ALOLA's order (Mina sixth, by level).
   { "NORMALIUM Z", "WATERIUM Z", "FIRIUM Z", "GRASSIUM Z",
     "ELECTRIUM Z", "FAIRIUM Z", "DARKINIUM Z", "GROUNDIUM Z" },
+  // Galar is Sword's ladder: Bea (Fighting) fourth, Gordie (Rock) sixth.
+  { "GRASS BADGE", "WATER BADGE", "FIRE BADGE", "FIGHTING BADGE",
+    "FAIRY BADGE", "ROCK BADGE", "DARK BADGE", "DRAGON BADGE" },
 };
 
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the

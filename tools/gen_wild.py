@@ -263,7 +263,13 @@ POKEAPI_METHODS = {'walk': 'land', 'dark-grass': 'land', 'surf': 'water',
                    # a phenomenon of its own. 'bubbling-spots' is decided per
                    # row in load_pokeapi(); 'sos-from-bubbling-spot' (allies of
                    # a fished creature) is left out.
-                   'sos': 'phenomenon'}
+                   'sos': 'phenomenon',
+                   # Sword/Shield: creatures seen walking about are land (or
+                   # water); the ones that burrow, and the strong wanderers,
+                   # are phenomena. Max Raid dens are left out.
+                   'overworld': 'land', 'overworld-flying': 'land',
+                   'overworld-water': 'water', 'overworld-dirt': 'phenomenon',
+                   'wanderer': 'phenomenon', 'wanderer-water': 'water'}
 POKEAPI_SEASONS = ('season-spring', 'season-summer', 'season-autumn', 'season-winter')
 
 
@@ -286,6 +292,7 @@ def pokeapi_tables(refresh=False):
         for r in t['encounter_condition_value_map']:
             t['cond'].setdefault(r['encounter_id'], set()).add(cv[r['encounter_condition_value_id']])
         t['method'] = {r['id']: r['identifier'] for r in t['encounter_methods']}
+        t['weathers'] = {v for v in cv.values() if v.startswith('weather-')}
         t['slot'] = {r['id']: r for r in t['encounter_slots']}
         loc = {r['id']: r for r in t['locations']}
         # A "map" is the location and its area, as PokeAPI names them:
@@ -326,7 +333,9 @@ def load_pokeapi(reg, refresh=False):
             continue
         conds = t['cond'].get(e['id'], set())
         seasons = conds & set(POKEAPI_SEASONS)
-        if conds - seasons:
+        weathers = conds & t['weathers']
+        ignore = set(reg.get('ignore_conditions', ())) | set(reg.get('map_conditions', {}).get(mp, ()))
+        if conds - seasons - weathers - ignore:
             continue
         dex = t['species'][e['pokemon_id']]
         if dex > len(DEX):
@@ -339,8 +348,15 @@ def load_pokeapi(reg, refresh=False):
         # top is the map's. Such a row is met at the top's spread instead.
         if reg.get('level_spread') and hi - lo > reg['level_spread']:
             lo = hi - reg['level_spread']
-        rate = int(sl['rarity']) * (len(seasons) / len(POKEAPI_SEASONS) if seasons else 1)
+        # Seasons and weathers are averaged alike: a slot that holds in k of
+        # them counts k/n of its rate (Galar's Wild Area lists a table per
+        # weather, and every weather comes round).
+        rate = (int(sl['rarity']) * (len(seasons) / len(POKEAPI_SEASONS) if seasons else 1)
+                * (len(weathers) / len(t['weathers']) if weathers else 1))
         row = (vids[e['version_id']], mp, (dex, lo, rate, ANY))
+        if raw == 'bubbling-spots' and reg.get('bubbling') == 'fishing':
+            out[row[0]].setdefault(mp, {}).setdefault('fishing', []).append(row[2])
+            continue
         if raw == 'bubbling-spots':
             bubbling.append(row)
             continue
@@ -605,6 +621,18 @@ def super_rod_gate(reg, refresh=False):
     return rod['gate']
 
 
+def water_gate(reg):
+    """Where surfing waits for a key item, as the best rod waits for the rod:
+    Galar's lakes need the Rotom Bike's water mode. 0 = no hidden gate (every
+    other region: Surf is not gated, as it never was)."""
+    w = reg.get('water')
+    if not w:
+        return 0
+    if w['gate'] not in tuple(range(9)) + (WA.GATE_CHAMPION,) or not w.get('note'):
+        sys.exit('gen_wild: water gate %r needs a gate and a note saying where it comes from' % w)
+    return w['gate']
+
+
 def load_source(reg, refresh=False):
     if reg['source'] in GEN3:
         return load_gen3(reg['source'], refresh)
@@ -634,10 +662,12 @@ def pre_evolutions():
     return pre
 
 
-def mix_band(data, versions, maps, when, rod_gate=0):
+def mix_band(data, versions, maps, when, gates=None):
     """One time band's distribution over an area (steps 1-3), keyed by
-    (species, gate): the best rod's share carries rod_gate, so a species both
-    walked into and fished up splits into an open slot and a gated one."""
+    (species, gate): a method with a hidden gate (the best rod's 'fishing',
+    Galar's 'water') carries it, so a species both walked into and fished up
+    splits into an open slot and a gated one."""
+    gates = gates or {}
     mix = {}
     for v in versions:
         per_method = {}
@@ -662,7 +692,7 @@ def mix_band(data, versions, maps, when, rod_gate=0):
             continue
         wsum = sum(WA.METHOD_WEIGHT[m] for m in per_method)
         for method, dist in per_method.items():
-            gate = rod_gate if method == 'fishing' else 0
+            gate = gates.get(method, 0)
             for dex, p in dist.items():
                 key = (dex, gate)
                 mix[key] = mix.get(key, 0) + p * WA.METHOD_WEIGHT[method] / wsum / len(versions)
@@ -679,6 +709,7 @@ def build(refresh=False):
     for reg in WA.REGIONS:
         data = load_source(reg, refresh)
         rod = super_rod_gate(reg, refresh)
+        hidden = {'fishing': rod, 'water': water_gate(reg)}
         versions = sorted(data)
         src_min = {}   # the lowest level each species is wild at in this game
         for v in versions:
@@ -698,11 +729,15 @@ def build(refresh=False):
             if name in names:
                 sys.exit('gen_wild: area %r twice' % name)
             names.add(name)
-            # A rod handed out at or before the area opens holds nothing back.
-            rod_gate = rod if rod > gate else 0
+            # A rod (or water mode) handed out at or before the area opens
+            # holds nothing back.
+            gates = {m: g for m, g in hidden.items() if g > gate}
+            if len(set(gates.values())) > 1:
+                # wildarea_test and verify_wild.py read ONE hidden gate an area.
+                sys.exit('gen_wild: area %r has two hidden gates %s' % (name, gates))
             per_band = {}
             for when in BANDS:
-                mix = mix_band(data, versions, maps, when, rod_gate)
+                mix = mix_band(data, versions, maps, when, gates)
                 if not mix:
                     sys.exit('gen_wild: area %r has no encounters at time %d' % (name, when))
                 # An area whose open creatures all lack art, or wait behind
@@ -720,6 +755,7 @@ def build(refresh=False):
                              key=lambda kv: (-kv[0][2], kv[0][0], kv[0][1], kv[1]))
             areas.append({'name': name, 'region': reg['region'], 'gate': gate,
                           'maps': maps, 'band': band(caps[reg['region']], gate),
+                          'hidden': {g: m for m, g in gates.items()},
                           'per_band': per_band,
                           'slots': [(dex, w, when, floor_of(dex), g)
                                     for (dex, g, w), when in ordered]})
@@ -832,7 +868,8 @@ def emit(areas, legends):
         for dex, w, when, floor, gate in a['slots']:
             o.append('  { %d, %d, %s, %d, %d },  // %s%s\n'
                      % (dex, w, WHEN_NAME[when], floor, gate, DEX[dex - 1][2],
-                        ', best rod' if gate else ''))
+                        (', best rod' if a['hidden'][gate] == 'fishing' else ', water mode')
+                        if gate else ''))
         spans.append((first, len(a['slots'])))
         first += len(a['slots'])
     o.append('};\n#define WILD_SLOT_COUNT %d\n\n' % first)

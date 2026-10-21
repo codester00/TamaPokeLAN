@@ -103,27 +103,34 @@ def main():
         print('\nabove the band: they stay in their area and appear at their floor (%d):' % len(over))
         for a, d, fl, g in over:
             print('  %-11s L%d in %s (band L%d-%d)%s' % (DEX[d - 1][2], fl, a['name'], *a['band'],
-                                                          ', best rod: gate %d' % g if g else ''))
+                                                          ', %s: gate %d' % ('best rod' if a['hidden'][g] == 'fishing'
+                                                                            else 'water mode', g)
+                                                          if g else ''))
 
-    # The best rod's hidden gate (owner's call: nothing on the panel shows it).
+    # The hidden gates (owner's call: nothing on the panel shows them): the
+    # best rod's, and Galar's water mode. One report per region and method.
     for reg in WA.REGIONS:
-        rod = reg['super_rod']['gate']
-        held = [(a, d) for a in areas if a['region'] == reg['region']
-                for d, _w, _wh, _f, g in a['slots'] if g]
-        if not held:
-            continue
-        print('\nbest rod: %s holds %d fishing slots back until gate %d (%s); first met only then:'
-              % (REGIONS[reg['region']][0], len(held), rod,
-                 reg['super_rod'].get('script') or reg['super_rod']['note']))
-        early = {}
-        for a in areas:
-            if a['region'] != reg['region']:
+        for method, label, src in (('fishing', 'best rod', reg['super_rod']),
+                                   ('water', 'water mode', reg.get('water'))):
+            if not src:
                 continue
-            for d, _w, _wh, _f, g in a['slots']:
-                at = max(a['gate'], g)
-                early[d] = min(early.get(d, 99), at)
-        late = sorted({d for _a, d in held if early[d] >= rod})
-        print('  %s' % (', '.join(DEX[d - 1][2] for d in late) or 'none -- each is met earlier anyway'))
+            gate = src['gate']
+            held = [(a, d) for a in areas if a['region'] == reg['region']
+                    for d, _w, _wh, _f, g in a['slots'] if g and a['hidden'][g] == method]
+            if not held:
+                continue
+            print('\n%s: %s holds %d %s slots back until gate %d (%s); first met only then:'
+                  % (label, REGIONS[reg['region']][0], len(held), method, gate,
+                     src.get('script') or src['note']))
+            early = {}
+            for a in areas:
+                if a['region'] != reg['region']:
+                    continue
+                for d, _w, _wh, _f, g in a['slots']:
+                    at = max(a['gate'], g)
+                    early[d] = min(early.get(d, 99), at)
+            late = sorted({d for _a, d in held if early[d] >= gate})
+            print('  %s' % (', '.join(DEX[d - 1][2] for d in late) or 'none -- each is met earlier anyway'))
     # Areas the panel greys out as NO VALID SPRITES: in some time band, nothing
     # behind an open gate can be drawn. Built anyway (owner's call): it lights
     # up by itself when the art is ingested or the rod's gate opens.
@@ -132,7 +139,7 @@ def main():
         for b, bname in ((1, 'morning'), (2, 'day'), (4, 'night')):
             drawable = [(d, g) for d, _w, wh, _f, g in a['slots'] if wh & b and d not in noart]
             if not any(g == 0 for _d, g in drawable):
-                until = ('the rod (gate %d)' % min(g for _d, g in drawable)) if drawable \
+                until = ('a hidden gate (%d)' % min(g for _d, g in drawable)) if drawable \
                     else 'its art is ingested'
                 dark.append('  %-7s %-17s %-8s NO VALID SPRITES until %s'
                             % (REGIONS[a['region']][0], a['name'], bname, until))
@@ -174,7 +181,9 @@ def main():
                 print('  [%s]' % label)
                 for d, w, fl, g in rows:
                     print('    %5.2f%%  %-12s%s%s' % (w / 100, DEX[d - 1][2], '  floor L%d' % fl if fl else '',
-                                                    '  best rod, gate %d' % g if g else ''))
+                                                    '  %s, gate %d' % ('best rod' if a['hidden'][g] == 'fishing'
+                                                                       else 'water mode', g)
+                                                    if g else ''))
 
     print('\n%s' % ('FAILED: %d problem(s)' % bad if bad else 'OK'))
     return 1 if bad else 0

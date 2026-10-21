@@ -69,7 +69,11 @@ since it already holds nearly every species the pair had.
   areas of their own, gated like any other.
 - **Time of day**: each slot can be MORN, DAY or NITE where the source says
   so. The bands are 04–10, 10–18 and 18–04, and a board whose clock was never
-  set counts as DAY. Galar uses its normal-weather tables only.
+  set counts as DAY. Galar's weathers are AVERAGED (v3.47), reversing this
+  plan's "normal-weather tables only": normal weather alone would leave 70
+  species unmet in Galar's wild (Dreepy, Larvitar, Gastly, Ralts, Riolu, the
+  Eeveelutions...). Flagged to the owner; revert by keeping 'weather-normal'
+  rows only in `load_pokeapi()`.
 
 ## 5. Badge gates
 
@@ -452,5 +456,10 @@ Gates are trials passed, named by their Z-Crystal. SOS allies and Gen 7's land
 phenomena count at 0.2; Solgaleo, Lunala, the Tapus, the seven Ultra Beasts and
 Necrozma have homes.
 
-**Next:** Galar (Sword). PokeAPI's Gen 8 encounter data is thin; check what it
-holds before choosing between it and the published location pages.
+**Galar: DONE (2026-10-21, v3.47).** 39 areas from Sword/Shield via PokeAPI
+(NOT VERIFIED), which turned out to hold the whole game: weather averaged, only
+the tables before the Hall of Fame, the strong wanderers as a phenomenon, and the
+Rotom Bike's water mode as a second hidden gate. Zacian, Zamazenta, Eternatus.
+
+**Next:** Paldea. PokeAPI has no Scarlet/Violet encounters, and Bulbapedia and
+Serebii do not resolve from the cloud container; a reachable source comes first.

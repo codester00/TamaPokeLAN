@@ -81,6 +81,7 @@ int main(){
   ck(wildRegionHasAreas(4), "Unova has areas");
   ck(wildRegionHasAreas(5), "Kalos has areas");
   ck(wildRegionHasAreas(6), "Alola has areas");
+  ck(wildRegionHasAreas(7), "Galar has areas");
   {
     // A locked row says which badge it needs; a region with areas whose badge
     // names were never filled in would name a leader instead.
@@ -358,7 +359,9 @@ int main(){
           uint32_t got=0, late=0;
           for (uint32_t r=0;r<open;r++) if (wildAreaPick((uint16_t)i,b,before,r)==s.dex) got++;
           if (got!=want) exactEarly=false;
-          if (onlyRod && s.gate){
+          // A gated creature with no art (Galar's Frillish) can never be met:
+          // it counts for neither side.
+          if (onlyRod && s.gate && speciesHasArt(s.dex)){
             rodOnly++;
             if (got) neverEarly=false;
             for (uint32_t r=0;r<WILD_WEIGHT_TOTAL;r++) if (wildAreaPick((uint16_t)i,b,after,r)==s.dex) late++;
@@ -459,6 +462,26 @@ int main(){
     if (gaunt>=0) for (int k=0;k<WILD_AREAS[gaunt].count;k++)
       if (WILD_SLOTS[WILD_AREAS[gaunt].first+k].dex==148) fl=WILD_SLOTS[WILD_AREAS[gaunt].first+k].floor;
     ck(fl==DEX_TBL[147].evolveLevel, "Poni Gauntlet's Dragonair is floored at Dratini's evolution level, not 10");
+  }
+
+
+  // ---- Galar (v3.47, Sword/Shield from PokeAPI) -----------------------------
+  // The Wild Area's lakes wait for the Rotom Bike's water mode (Gordie's
+  // badge), hidden like the best rod. Lapras is only ever met on the water.
+  {
+    int west=areaIn(7,"W. LAKE AXEWELL"), rolling=areaIn(7,"ROLLING FIELDS");
+    ck(west>=0 && rolling>=0, "Galar's West Lake Axewell and Rolling Fields are found");
+    Pet five, six;
+    for (uint8_t t=0;t<5;t++){ five.winBadge(7,t,false); six.winBadge(7,t,false); }
+    six.winBadge(7,5,false);
+    Pet none;
+    ck(wildAreaUnlocked((uint16_t)west,none) && picks(west,five,131)==0,
+       "West Lake Axewell is open from the start; its Lapras waits for the water mode");
+    ck(picks(west,six,131)>0, "and is on the water once Gordie's badge is won");
+    // PokeAPI labels Rolling Fields' ordinary tables with a Max Raid den
+    // condition; read as written, the zone would hold only its post-game set.
+    ck(wildAreaHasLive((uint16_t)rolling,WILD_WHEN_DAY,none) && picks(rolling,none,674)>0,
+       "Rolling Fields holds its ordinary creatures from the start (Pancham)");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);

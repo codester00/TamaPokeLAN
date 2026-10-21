@@ -827,7 +827,107 @@ ALOLA = {
     ],
 }
 
-REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA, KALOS, ALOLA]
+# Galar is SWORD + SHIELD from PokeAPI, NOT VERIFIED (no Gen 8 decomp). The
+# ladder is Sword's (Bea and Gordie); the wild data averages both versions, as
+# X/Y's does -- the versions differ in two gyms, not in where creatures live.
+# The Wild Area lets you walk almost anywhere from the start but caps what you
+# can CATCH by badges, so each zone's gate follows its levels, as the game's
+# cap does. Only the tables before the Hall of Fame are read: the ones after
+# repeat each zone at level 60, and every creature they add is met elsewhere
+# first (checked against the data, 2026-10-21).
+GALAR = {
+    'region': 7,
+    'source': 'pokeapi-swsh',
+    'versions': ['sword', 'shield'],
+    'pokeapi_region': 8,
+    'ignore_conditions': ['story-progress-before-hall-of-fame'],
+    # A PokeAPI labelling error: Rolling Fields' tables before the Hall of
+    # Fame carry 'max-den-rarity-special' (a Max Raid den condition) where
+    # every other zone carries 'before the Hall of Fame'. Its tables after
+    # are labelled correctly, so these are the zone's ordinary ones.
+    'map_conditions': {'rolling-fields/main': ['max-den-rarity-special'],
+                       'rolling-fields/area-2': ['max-den-rarity-special']},
+    # Galar's 'bubbling-spots' are its fishing spots, nothing else.
+    'bubbling': 'fishing',
+    # One rod, from the start (before Milo), so it holds nothing back.
+    'super_rod': {'gate': 0, 'note': 'one rod, before the first gym (Route 2)'},
+    # The Rotom Bike's water mode comes on Route 9 after Gordie's badge
+    # (twinfinite, inverse.com, outsidergaming). Until then the lakes' water
+    # creatures wait, as hidden as the rod (owner's rule for such locks).
+    'water': {'gate': 6, 'note': "the Rotom Bike's water mode, Route 9 after Gordie"},
+    'areas': [
+        # The start, and the Wild Area's southern lakes and fields
+        ('SLUMBERING WEALD', 0, ['slumbering-weald/main']),
+        ('ROUTE 1',          0, ['galar-route-1']),
+        ('ROUTE 2',          0, ['galar-route-2/main']),
+        ('ROLLING FIELDS',   0, ['rolling-fields/main', 'rolling-fields/area-2']),
+        ('DAPPLED GROVE',    0, ['dappled-grove']),
+        ('WATCHTOWER RUINS', 0, ['watchtower-ruins']),
+        ('W. LAKE AXEWELL',  0, ['west-lake-axewell']),
+        ('E. LAKE AXEWELL',  0, ['east-lake-axewell']),
+        ('S. LAKE MILOCH',   0, ['south-lake-miloch/main', 'south-lake-miloch/area-2']),
+        ('N. LAKE MILOCH',   0, ['north-lake-miloch']),
+        ('MOTOSTOKE',        0, ['motostoke/main']),
+        ('ROUTE 3',          0, ['galar-route-3/east', 'galar-route-3/west']),
+        ('GALAR MINE',       0, ['galar-mine']),
+        ('ROUTE 4',          0, ['galar-route-4']),
+        # Milo
+        ('ROUTE 5',          1, ['galar-route-5']),
+        ('HULBURY',          1, ['hulbury']),
+        # Nessa
+        ('GALAR MINE NO. 2', 2, ['galar-mine-no-2']),
+        ('MOTOSTOKE OUTSK.', 2, ['motostoke-outskirts']),
+        # Kabu -- the northern Wild Area on the way to Hammerlocke, Route 6
+        ('MOTOSTOKE RIVBK.', 3, ['motostoke-riverbank']),
+        ('BRIDGE FIELD',     3, ['bridge-field']),
+        ('STONY WILDERNESS', 3, ['stony-wilderness/main', 'stony-wilderness/area-2',
+                                 'stony-wilderness/area-3']),
+        ('GIANTS CAP',       3, ['giants-cap/main', 'giants-cap/area-2', 'giants-cap/area-3']),
+        ('GIANTS MIRROR',    3, ['giants-mirror/main', 'giants-mirror/area-2']),
+        ('HAMMERLOCKE HLS.', 3, ['hammerlocke-hills']),
+        ('ROUTE 6',          3, ['galar-route-6']),
+        # Bea -- Glimwood Tangle, and Giant's Seat by its levels
+        ('GLIMWOOD TANGLE',  4, ['glimwood-tangle']),
+        ('GIANTS SEAT',      4, ['giants-seat']),
+        # Opal -- the road north to Circhester, and Axew's Eye by its levels
+        ('ROUTE 7',          5, ['galar-route-7']),
+        ('ROUTE 8',          5, ['galar-route-8/main']),
+        ('STEAMDRIFT WAY',   5, ['galar-route-8/steamdrift-way']),
+        ('AXEWS EYE',        5, ['axews-eye']),
+        # Gordie -- Route 9, and the water mode: Route 2's far shore, the
+        # Dusty Bowl by its levels
+        ('ROUTE 9',          6, ['galar-route-9/main']),
+        ('CIRCHESTER BAY',   6, ['galar-route-9/circhester-bay']),
+        ('OUTER SPIKEMUTH',  6, ['galar-route-9/outer-spikemuth']),
+        ('ROUTE 2 LAKE',     6, ['galar-route-2/lakeside', 'galar-route-2/lake']),
+        ('DUSTY BOWL',       6, ['dusty-bowl']),
+        # Raihan -- Route 10 to Wyndon; the Lake of Outrage by its levels
+        ('ROUTE 10',         8, ['galar-route-10/main', 'galar-route-10/near-station']),
+        ('LAKE OF OUTRAGE',  8, ['lake-of-outrage']),
+        # The champion -- the Slumbering Weald's depths, after the fog lifts
+        ('WEALD DEPTHS',     GATE_CHAMPION, ['slumbering-weald/deep']),
+    ],
+    'skip': {
+        # Kabu's gym mission: creatures released in the gym, not wild ones.
+        'motostoke/gym': 'the gym mission',
+    },
+    'legends': [
+        # Zacian (Sword) and Zamazenta (Shield) at the Slumbering Weald's altar
+        # after the Hall of Fame. PokeAPI files their level-70 static under the
+        # Energy Plant's summit, where the story's climax shows them.
+        {'dex': 888, 'area': 'WEALD DEPTHS', 'static': 'energy-plant/tower-summit',
+         'gate': GATE_CHAMPION},
+        {'dex': 889, 'area': 'WEALD DEPTHS', 'static': 'energy-plant/tower-summit',
+         'gate': GATE_CHAMPION},
+        # Eternatus, at the Energy Plant's summit in Hammerlocke, fought before
+        # the final with Leon; the ladder has no slot there, so the champion.
+        # The plant has no wild table: it borrows the hills beside the city.
+        {'dex': 890, 'area': 'HAMMERLOCKE HLS.', 'static': 'energy-plant/tower-summit',
+         'gate': GATE_CHAMPION},
+    ],
+}
+
+REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA, KALOS, ALOLA, GALAR]
 
 # WILD_LEGENDS[] is stored by INDEX in the save (the met/caught bitmasks), so
 # the order legendaries are emitted in is APPEND-ONLY -- the same rule as move
@@ -840,4 +940,5 @@ LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250,
                 638, 639, 640, 643, 644, 646,
                 716, 717, 718,
                 791, 792, 785, 786, 787, 788,
-                793, 794, 795, 796, 797, 798, 799, 800]
+                793, 794, 795, 796, 797, 798, 799, 800,
+                888, 889, 890]

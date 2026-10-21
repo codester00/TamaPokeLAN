@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.46-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.47-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -460,7 +460,11 @@ Sinnoh's after the **champion** (Platinum's is in the Battle Zone's Fight
 Area), Unova's after the **champion** (B2W2's only rod is Cedric Juniper's
 gift after the Hall of Fame), Kalos's after the **Fairy Badge** (Route 16's
 Fishing Shack), Alola's after **Lana's trial** (Sun/Moon's only rod is her
-reward, with the Waterium Z). Until then the area's other creatures share its encounters at their
+reward, with the Waterium Z). Galar's rod comes before the first gym, so it
+holds nothing back -- but Galar's **lakes** wait the same way for the **Rotom
+Bike's water mode**, given on Route 9 after the **Rock Badge**: until then the
+Wild Area's water creatures (Lapras, Wailmer, Milotic, Jellicent and others)
+stay out of their zones. Until then the area's other creatures share its encounters at their
 own relative rates. **Nothing on the screen says so** -- by design, like the
 care window: the row is not greyed, nothing is starred, and an area always has
 something to meet. Easy or hard badges both count. Creatures met only that way
@@ -550,6 +554,20 @@ after Nanu's. Three things in PokeAPI's Sun/Moon data are handled on the way in:
 
 Island Scan, berry trees, gifts and trades are left out.
 
+**Galar's areas (v3.47).** 39 areas from Sword and Shield, both versions
+averaged, from PokeAPI (NOT VERIFIED); the ladder stays Sword's. The **Wild
+Area** lists a table per weather: they are averaged, as Unova's seasons are,
+since every weather comes round. Only the tables before the Hall of Fame are
+read -- the ones after repeat each zone at level 60, and every creature they add
+is met elsewhere first. Creatures seen walking about count as grass (or water),
+the ones that burrow and the **strong wanderers** at weight 0.2 like other
+phenomena, so a zone can hold the odd creature well above its band, as the game
+has them. Max Raid dens, berry trees, gifts and trades are left out. The Wild
+Area lets you walk almost anywhere from the start but caps what you can catch by
+badges; here each zone opens at the badge its levels fit, which is what that cap
+amounts to. PokeAPI labels Rolling Fields' ordinary tables with a Max Raid den
+condition; they are read as the ordinary tables they are.
+
 **NO VALID SPRITES (v3.45).** Every area is built from the games' data whether
 or not its creatures can be drawn yet. An open area with nothing to meet that
 can be drawn -- its species have no art yet, or all it holds still waits behind
@@ -612,7 +630,15 @@ Hokulani and Route 11 after Mallow's (Grassium Z); the rest of Ula'ula after
 Sophocles's (Electrium Z); Seafolk Village, Poni Wilds and the Ancient Poni Path
 after Mina's (Fairium Z); Exeggutor Island and Vast Poni Canyon after Nanu's
 grand trial (Darkinium Z); Mount Lanakila after Hapu's (Groundium Z); Poni's far
-side and Resolution Cave after the champion. A locked area is
+side and Resolution Cave after the champion. Galar: the Slumbering Weald, Routes
+1-4, the Galar Mine, Motostoke's water and the Wild Area's southern fields and
+lakes from the start; Route 5 and Hulbury after the Grass Badge; Galar Mine No. 2
+and Motostoke's outskirts after the Water Badge; the northern Wild Area,
+Hammerlocke's hills and Route 6 after the Fire Badge; Glimwood Tangle and Giant's
+Seat after the Fighting Badge; Routes 7-8, Steamdrift Way and Axew's Eye after
+the Fairy Badge; Route 9, Circhester Bay, outer Spikemuth, Route 2's far shore and
+the Dusty Bowl after the Rock Badge; Route 10 and the Lake of Outrage after the
+Dragon Badge; the Slumbering Weald's depths after the champion. A locked area is
 listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 
 **Legendaries live somewhere (v3.40).** Each story legendary has a home:
@@ -650,6 +676,8 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Nihilego, Buzzwole, Pheromosa, Xurkitree | Wela Volcano Park, Melemele Meadow, Verdant Cavern, Lush Jungle | the champion | 55, 65, 60, 65 |
 | Celesteela, Kartana, Guzzlord | Haina Desert, Route 17, Resolution Cave | the champion | 65, 60, 70 |
 | Necrozma | Ten Carat Hill | the champion, **and every Ultra Beast caught** | 75 |
+| Zacian, Zamazenta | the Slumbering Weald's depths (both versions') | the champion | 70 |
+| Eternatus | Hammerlocke's hills (the Energy Plant has no wild table) | the champion | 60 |
 
 Unova's levels are PokeAPI's B2W2 static encounters. Tornadus, Thundurus and
 Landorus are never met in B2W2 (only through the 3DS Dream Radar), so like the
@@ -662,6 +690,11 @@ legendaries and leave the rare egg tier. **Necrozma waits until all seven are
 caught**, as in the game -- met is not enough -- and its home wears no star until
 then. Type: Null and Cosmog are
 gifts, never fought, so they stay in eggs.
+
+Galar's levels are PokeAPI's Sword/Shield statics. Eternatus is fought before the
+final with Leon, a step the ladder has no place for, so it waits for the
+champion. The expansions' legendaries (Kubfu, the Regis of Galar, Calyrex and its
+steeds) are in no table here and stay egg-only.
 
 | A legendary is waiting |
 |---|

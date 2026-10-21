@@ -246,6 +246,21 @@ int main(){
        "the seventh caught, Necrozma meets you once and its home wears the star");
   }
 
+  // ---- Galar (v3.47, from PokeAPI): Zacian and Zamazenta, Eternatus ---------
+  {
+    int zac=legendOf(888), zam=legendOf(889), eter=legendOf(890);
+    int depths=areaIn(7,"WEALD DEPTHS"), hills=areaIn(7,"HAMMERLOCKE HLS.");
+    ck(zac>=0 && zam>=0 && eter>=0 && depths>=0 && hills>=0, "Galar's legendaries and areas are found");
+    Pet p; badges(p,7,8);
+    ck(wildAreaUnlocked((uint16_t)hills,p) && count(hills,p,eter)==0 && !wildAreaUnlocked((uint16_t)depths,p),
+       "with eight badges the hills are open, but Eternatus and the Weald's depths wait for the champion");
+    p.winBadge(7,TRAINER_COUNT-1,false);
+    ck(count(hills,p,eter)==10000 && count(depths,p,zac)==10000, "then Eternatus and Zacian meet you once each");
+    p.setLegendMet(zac);
+    ck(count(depths,p,zam)==10000, "then Zamazenta -- both versions' in one home");
+    ck(wildLegendLevel(zac)==70 && wildLegendLevel(eter)==60, "at PokeAPI's Sword/Shield levels");
+  }
+
   // ---- the save --------------------------------------------------------------
   {
     Pet a; a.begin();
@@ -289,13 +304,15 @@ int main(){
     }
     ck(!homed, "no egg hatches a legendary that has a home in Explore");
     ck(mew && celebi, "while Mew and Celebi still hatch -- the legendary tier is not empty");
-    // Hoenn's through Alola's have homes (v3.42-v3.46); Galar's do not yet.
+    // Hoenn's through Galar's have homes (v3.42-v3.47); Paldea's do not yet.
     // Found by asking wildIsExploreLegend(), not by a typed range.
-    bool homed2=false, galarLegend=false, forces=false, ub=false, gifts=false;
+    bool homed2=false, paldeaLegend=false, forces=false, ub=false, gifts=false, dlc=false;
     for (int i=0;i<900;i++){
-      for (uint8_t r=2;r<=6;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
-      int16_t k=p.rollInRegion(7,R_LEGENDARIO);
-      if (k>=888 && k<=898 && !wildIsExploreLegend(k)) galarLegend=true;   // Zacian .. Calyrex
+      for (uint8_t r=2;r<=7;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
+      int16_t k=p.rollInRegion(8,R_LEGENDARIO);
+      if (k>=1001 && k<=1024 && !wildIsExploreLegend(k)) paldeaLegend=true;   // the treasures .. Terapagos
+      int16_t gl=p.rollInRegion(7,R_LEGENDARIO);
+      if (gl>=891 && gl<=898) dlc=true;   // Kubfu .. Calyrex: the expansions, not in Sword/Shield's data
       int16_t u=p.rollInRegion(4,R_LEGENDARIO);
       if (u==641 || u==642 || u==645) forces=true;
       // The Ultra Beasts were RARE-tier eggs until they got homes.
@@ -303,10 +320,11 @@ int main(){
       int16_t a=p.rollInRegion(6,R_LEGENDARIO);
       if (a==772 || a==789) gifts=true;
     }
-    ck(!homed2, "Hoenn's through Alola's homed legendaries left their eggs with their areas");
+    ck(!homed2, "Hoenn's through Galar's homed legendaries left their eggs with their areas");
     ck(!ub, "and so did the Ultra Beasts, from the rare tier");
     ck(gifts, "while Type: Null and Cosmog, gifts in the game, still hatch");
-    ck(galarLegend, "and a region whose legendaries have no homes yet still hatches them");
+    ck(dlc, "Galar's expansion legendaries, met in no table here, still hatch");
+    ck(paldeaLegend, "and a region whose legendaries have no homes yet still hatches them");
     ck(forces, "Tornadus, Thundurus and Landorus, never met in B2W2, still hatch");
   }
 
