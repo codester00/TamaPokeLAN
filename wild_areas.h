@@ -36,6 +36,7 @@ struct WildLegend {
   uint8_t level;     // the level the game fights it at, read from its script
   uint8_t gate;      // ladder position that lets it appear (at or after its area's)
   uint8_t flags;     // WILD_LEGEND_ROAMS
+  uint8_t needFirst, needCount;  // WILD_LEGEND_NEEDS: all caught first
 };
 
 static const WildSlot WILD_SLOTS[] = {
@@ -3933,55 +3934,60 @@ static const uint16_t WILD_REGION_AREAS[WILD_REGIONS][2] = {
   { 0, 0 },  // PALDEA
 };
 
+// Legendaries that must all be caught before another appears, by index
+// into WILD_LEGENDS (WildLegend::needFirst/needCount).
+static const uint8_t WILD_LEGEND_NEEDS[] = { 41, 42, 43, 44, 45, 46, 47 };
+#define WILD_LEGEND_NEEDS_COUNT 7
+
 static const WildLegend WILD_LEGENDS[] = {
-  { 144, 18, 50, 5, 0 },  // ARTICUNO, SEAFOAM ISLANDS
-  { 145, 19, 50, 5, 0 },  // ZAPDOS, POWER PLANT
-  { 146, 23, 50, 7, 0 },  // MOLTRES, MT. EMBER
-  { 150, 28, 70, 13, 0 },  // MEWTWO, CERULEAN CAVE
-  { 243, 52, 40, 3, WILD_LEGEND_ROAMS },  // RAIKOU, BURNED TOWER, roams
-  { 244, 52, 40, 3, WILD_LEGEND_ROAMS },  // ENTEI, BURNED TOWER, roams
-  { 245, 52, 40, 7, 0 },  // SUICUNE, BURNED TOWER
-  { 249, 64, 60, 13, 0 },  // LUGIA, WHIRL ISLANDS
-  { 250, 69, 60, 13, 0 },  // HO-OH, TIN TOWER
-  { 377, 89, 40, 7, 0 },  // REGIROCK, ROUTE 111 DESERT
-  { 378, 90, 40, 7, 0 },  // REGICE, ROUTES 105-109
-  { 379, 93, 40, 7, 0 },  // REGISTEEL, ROUTE 120
-  { 380, 105, 40, 13, WILD_LEGEND_ROAMS },  // LATIAS, ROUTES 130-134, roams
-  { 381, 105, 40, 13, WILD_LEGEND_ROAMS },  // LATIOS, ROUTES 130-134, roams
-  { 382, 102, 70, 13, 0 },  // KYOGRE, ROUTES 126-129
-  { 383, 86, 70, 13, 0 },  // GROUDON, ROUTES 113-114
-  { 384, 106, 70, 13, 0 },  // RAYQUAZA, SKY PILLAR
-  { 480, 154, 50, 7, 0 },  // UXIE, LAKE ACUITY
-  { 481, 115, 50, 7, WILD_LEGEND_ROAMS },  // MESPRIT, LAKE VERITY, roams
-  { 482, 152, 50, 7, 0 },  // AZELF, LAKE VALOR
-  { 483, 155, 70, 13, 0 },  // DIALGA, MT. CORONET PEAK
-  { 484, 155, 70, 13, 0 },  // PALKIA, MT. CORONET PEAK
-  { 485, 165, 50, 13, 0 },  // HEATRAN, STARK MOUNTAIN
-  { 486, 167, 70, 13, 0 },  // REGIGIGAS, SNOWPOINT TEMPLE
-  { 487, 157, 47, 7, 0 },  // GIRATINA, TURNBACK CAVE
-  { 488, 147, 50, 13, WILD_LEGEND_ROAMS },  // CRESSELIA, ROUTE 218, roams
-  { 638, 189, 45, 6, 0 },  // COBALION, ROUTE 13
-  { 639, 195, 45, 8, 0 },  // TERRAKION, ROUTE 22
-  { 640, 192, 45, 6, 0 },  // VIRIZION, ROUTE 11
-  { 643, 208, 70, 13, 0 },  // RESHIRAM, DRAGONSPIRAL
-  { 644, 208, 70, 13, 0 },  // ZEKROM, DRAGONSPIRAL
-  { 646, 196, 70, 13, 0 },  // KYUREM, GIANT CHASM
-  { 716, 227, 50, 7, 0 },  // XERNEAS, ROUTE 13
-  { 717, 227, 50, 7, 0 },  // YVELTAL, ROUTE 13
-  { 718, 236, 70, 13, 0 },  // ZYGARDE, TERMINUS CAVE
-  { 791, 288, 55, 7, 0 },  // SOLGALEO, VAST PONI CANYON
-  { 792, 288, 55, 7, 0 },  // LUNALA, VAST PONI CANYON
-  { 785, 241, 60, 13, 0 },  // TAPU KOKO, ROUTE 1
-  { 786, 265, 60, 13, 0 },  // TAPU LELE, AKALA OUTSKIRTS
-  { 787, 276, 60, 13, 0 },  // TAPU BULU, HAINA DESERT
-  { 788, 285, 60, 13, 0 },  // TAPU FINI, PONI WILDS
-  { 793, 259, 55, 13, 0 },  // NIHILEGO, WELA VOLCANO
-  { 794, 247, 65, 13, 0 },  // BUZZWOLE, MELEMELE MEADOW
-  { 795, 245, 60, 13, 0 },  // PHEROMOSA, VERDANT CAVERN
-  { 796, 261, 65, 13, 0 },  // XURKITREE, LUSH JUNGLE
-  { 797, 276, 65, 13, 0 },  // CELESTEELA, HAINA DESERT
-  { 798, 283, 60, 13, 0 },  // KARTANA, ROUTE 17
-  { 799, 294, 70, 13, 0 },  // GUZZLORD, RESOLUTION CAVE
-  { 800, 251, 75, 13, 0 },  // NECROZMA, TEN CARAT HILL
+  { 144, 18, 50, 5, 0, 0, 0 },  // ARTICUNO, SEAFOAM ISLANDS
+  { 145, 19, 50, 5, 0, 0, 0 },  // ZAPDOS, POWER PLANT
+  { 146, 23, 50, 7, 0, 0, 0 },  // MOLTRES, MT. EMBER
+  { 150, 28, 70, 13, 0, 0, 0 },  // MEWTWO, CERULEAN CAVE
+  { 243, 52, 40, 3, WILD_LEGEND_ROAMS, 0, 0 },  // RAIKOU, BURNED TOWER, roams
+  { 244, 52, 40, 3, WILD_LEGEND_ROAMS, 0, 0 },  // ENTEI, BURNED TOWER, roams
+  { 245, 52, 40, 7, 0, 0, 0 },  // SUICUNE, BURNED TOWER
+  { 249, 64, 60, 13, 0, 0, 0 },  // LUGIA, WHIRL ISLANDS
+  { 250, 69, 60, 13, 0, 0, 0 },  // HO-OH, TIN TOWER
+  { 377, 89, 40, 7, 0, 0, 0 },  // REGIROCK, ROUTE 111 DESERT
+  { 378, 90, 40, 7, 0, 0, 0 },  // REGICE, ROUTES 105-109
+  { 379, 93, 40, 7, 0, 0, 0 },  // REGISTEEL, ROUTE 120
+  { 380, 105, 40, 13, WILD_LEGEND_ROAMS, 0, 0 },  // LATIAS, ROUTES 130-134, roams
+  { 381, 105, 40, 13, WILD_LEGEND_ROAMS, 0, 0 },  // LATIOS, ROUTES 130-134, roams
+  { 382, 102, 70, 13, 0, 0, 0 },  // KYOGRE, ROUTES 126-129
+  { 383, 86, 70, 13, 0, 0, 0 },  // GROUDON, ROUTES 113-114
+  { 384, 106, 70, 13, 0, 0, 0 },  // RAYQUAZA, SKY PILLAR
+  { 480, 154, 50, 7, 0, 0, 0 },  // UXIE, LAKE ACUITY
+  { 481, 115, 50, 7, WILD_LEGEND_ROAMS, 0, 0 },  // MESPRIT, LAKE VERITY, roams
+  { 482, 152, 50, 7, 0, 0, 0 },  // AZELF, LAKE VALOR
+  { 483, 155, 70, 13, 0, 0, 0 },  // DIALGA, MT. CORONET PEAK
+  { 484, 155, 70, 13, 0, 0, 0 },  // PALKIA, MT. CORONET PEAK
+  { 485, 165, 50, 13, 0, 0, 0 },  // HEATRAN, STARK MOUNTAIN
+  { 486, 167, 70, 13, 0, 0, 0 },  // REGIGIGAS, SNOWPOINT TEMPLE
+  { 487, 157, 47, 7, 0, 0, 0 },  // GIRATINA, TURNBACK CAVE
+  { 488, 147, 50, 13, WILD_LEGEND_ROAMS, 0, 0 },  // CRESSELIA, ROUTE 218, roams
+  { 638, 189, 45, 6, 0, 0, 0 },  // COBALION, ROUTE 13
+  { 639, 195, 45, 8, 0, 0, 0 },  // TERRAKION, ROUTE 22
+  { 640, 192, 45, 6, 0, 0, 0 },  // VIRIZION, ROUTE 11
+  { 643, 208, 70, 13, 0, 0, 0 },  // RESHIRAM, DRAGONSPIRAL
+  { 644, 208, 70, 13, 0, 0, 0 },  // ZEKROM, DRAGONSPIRAL
+  { 646, 196, 70, 13, 0, 0, 0 },  // KYUREM, GIANT CHASM
+  { 716, 227, 50, 7, 0, 0, 0 },  // XERNEAS, ROUTE 13
+  { 717, 227, 50, 7, 0, 0, 0 },  // YVELTAL, ROUTE 13
+  { 718, 236, 70, 13, 0, 0, 0 },  // ZYGARDE, TERMINUS CAVE
+  { 791, 288, 55, 7, 0, 0, 0 },  // SOLGALEO, VAST PONI CANYON
+  { 792, 288, 55, 7, 0, 0, 0 },  // LUNALA, VAST PONI CANYON
+  { 785, 241, 60, 13, 0, 0, 0 },  // TAPU KOKO, ROUTE 1
+  { 786, 265, 60, 13, 0, 0, 0 },  // TAPU LELE, AKALA OUTSKIRTS
+  { 787, 276, 60, 13, 0, 0, 0 },  // TAPU BULU, HAINA DESERT
+  { 788, 285, 60, 13, 0, 0, 0 },  // TAPU FINI, PONI WILDS
+  { 793, 259, 55, 13, 0, 0, 0 },  // NIHILEGO, WELA VOLCANO
+  { 794, 247, 65, 13, 0, 0, 0 },  // BUZZWOLE, MELEMELE MEADOW
+  { 795, 245, 60, 13, 0, 0, 0 },  // PHEROMOSA, VERDANT CAVERN
+  { 796, 261, 65, 13, 0, 0, 0 },  // XURKITREE, LUSH JUNGLE
+  { 797, 276, 65, 13, 0, 0, 0 },  // CELESTEELA, HAINA DESERT
+  { 798, 283, 60, 13, 0, 0, 0 },  // KARTANA, ROUTE 17
+  { 799, 294, 70, 13, 0, 0, 0 },  // GUZZLORD, RESOLUTION CAVE
+  { 800, 251, 75, 13, 0, 0, 7 },  // NECROZMA, TEN CARAT HILL, after 7 caught
 };
 #define WILD_LEGEND_COUNT 49

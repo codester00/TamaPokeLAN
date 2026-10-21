@@ -740,6 +740,19 @@ def build(refresh=False):
                             # the game's own level stays checked and reported.
                             'level': leg.get('level', game_level),
                             'game_level': game_level})
+    # 'needs': legendaries that must all be CAUGHT before this one appears
+    # (Necrozma waits for every Ultra Beast, as in Sun/Moon). Resolved to
+    # indices into WILD_LEGENDS once every region's legends are known.
+    by_dex = {lg['dex']: i for i, lg in enumerate(legends)}
+    for reg in WA.REGIONS:
+        for leg in reg['legends']:
+            need = []
+            for d in leg.get('needs', ()):
+                if d not in by_dex or d == leg['dex']:
+                    sys.exit('gen_wild: legend #%d needs #%d, which has no home'
+                             % (leg['dex'], d))
+                need.append(by_dex[d])
+            legends[by_dex[leg['dex']]]['needs'] = need
     order = [lg['dex'] for lg in legends]
     if order != WA.LEGEND_ORDER:
         sys.exit('gen_wild: legends %s do not follow LEGEND_ORDER %s -- that '
@@ -809,6 +822,7 @@ def emit(areas, legends):
              '  uint8_t level;     // the level the game fights it at, read from its script\n'
              '  uint8_t gate;      // ladder position that lets it appear (at or after its area\'s)\n'
              '  uint8_t flags;     // WILD_LEGEND_ROAMS\n'
+             '  uint8_t needFirst, needCount;  // WILD_LEGEND_NEEDS: all caught first\n'
              '};\n\n')
     o.append('static const WildSlot WILD_SLOTS[] = {\n')
     first = 0
@@ -840,13 +854,25 @@ def emit(areas, legends):
             sys.exit('gen_wild: region %d areas are not contiguous' % r)
         o.append('  { %d, %d },  // %s\n' % (idx[0] if idx else 0, len(idx), DEX_REGIONS[r][0]))
     o.append('};\n\n')
-    o.append('static const WildLegend WILD_LEGENDS[] = {\n')
+    needs, spans = [], []
     for lg in legends:
-        o.append('  { %d, %d, %d, %d, %s },  // %s, %s%s\n'
+        spans.append((len(needs) if lg['needs'] else 0, len(lg['needs'])))
+        needs += lg['needs']
+    if len(needs) > 255:
+        sys.exit('gen_wild: %d legend needs, past uint8_t' % len(needs))
+    o.append('// Legendaries that must all be caught before another appears, by index\n'
+             '// into WILD_LEGENDS (WildLegend::needFirst/needCount).\n')
+    o.append('static const uint8_t WILD_LEGEND_NEEDS[] = {%s };\n'
+             % (','.join(' %d' % i for i in needs) or ' 0'))
+    o.append('#define WILD_LEGEND_NEEDS_COUNT %d\n\n' % len(needs))
+    o.append('static const WildLegend WILD_LEGENDS[] = {\n')
+    for lg, (nf, nc) in zip(legends, spans):
+        o.append('  { %d, %d, %d, %d, %s, %d, %d },  // %s, %s%s%s\n'
                  % (lg['dex'], lg['area'], lg['level'], lg['gate'],
-                    'WILD_LEGEND_ROAMS' if lg['roams'] else '0',
+                    'WILD_LEGEND_ROAMS' if lg['roams'] else '0', nf, nc,
                     DEX[lg['dex'] - 1][2], areas[lg['area']]['name'],
-                    ', roams' if lg['roams'] else ''))
+                    ', roams' if lg['roams'] else '',
+                    ', after %d caught' % nc if nc else ''))
     o.append('};\n#define WILD_LEGEND_COUNT %d\n' % len(legends))
     return ''.join(o)
 

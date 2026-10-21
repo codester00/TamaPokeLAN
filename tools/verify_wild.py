@@ -79,9 +79,11 @@ def main():
 
     # 3. legendaries (gen_wild read every level from the game's own script)
     for lg in legends:
-        print('legend: %-9s L%-3d home %-15s gate %-2d%s%s'
+        print('legend: %-9s L%-3d home %-15s gate %-2d%s%s%s'
               % (DEX[lg['dex'] - 1][2], lg['level'], areas[lg['area']]['name'], lg['gate'],
                  '  roams its region once met' if lg['roams'] else '',
+                 '  after %s caught' % ', '.join(DEX[legends[i]['dex'] - 1][2] for i in lg['needs'])
+                 if lg['needs'] else '',
                  '  (OVERRIDE: the game fights it at L%d)' % lg['game_level']
                  if lg['level'] != lg['game_level'] else ''))
 

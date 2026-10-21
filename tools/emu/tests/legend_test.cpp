@@ -232,6 +232,18 @@ int main(){
        "and after the Hall of Fame they are there");
     ck(wildLegendLevel(sol)==55 && wildLegendLevel(koko)==60 && wildLegendLevel(guzz)==70 &&
        wildLegendLevel(necro)==75, "at PokeAPI's Sun/Moon levels, walk-ins included");
+    // Necrozma waits until every Ultra Beast is CAUGHT (owner's call), and
+    // its home wears no star until then. Six of seven is not enough.
+    int ten=areaIn(6,"TEN CARAT HILL");
+    ck(ten>=0, "Ten Carat Hill is found");
+    for (int16_t d=793; d<=798; d++) p.setLegendCaught(legendOf(d));
+    ck(count(ten,p,necro)==0 && !wildAreaHasLegend((uint16_t)ten,p),
+       "with six Ultra Beasts caught, Necrozma is not there and Ten Carat Hill has no star");
+    p.setLegendMet(guzz);
+    ck(count(ten,p,necro)==0, "meeting the seventh is not catching it");
+    p.setLegendCaught(guzz);
+    ck(count(ten,p,necro)==10000 && wildAreaHasLegend((uint16_t)ten,p),
+       "the seventh caught, Necrozma meets you once and its home wears the star");
   }
 
   // ---- the save --------------------------------------------------------------

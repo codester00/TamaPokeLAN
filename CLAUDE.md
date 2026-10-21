@@ -724,14 +724,20 @@ row 6 names the Z-Crystals (`REQUIRES WATERIUM Z`); the rod after Lana (gate 2).
   rate-100 walk rows out of the pools), met after the champion, as Looker's
   quest has them. They were RARE-tier eggs; as homes they leave the egg pool
   through `eggCanHold()`. A legend's `'method': 'walk'` reads its level from
-  those rows. Necrozma (Ten Carat Hill, L75) needs every UB caught in the game;
-  here the champion. Type: Null and Cosmog are gifts: egg-only.
+  those rows. Type: Null and Cosmog are gifts: egg-only.
+- **Necrozma needs all seven UBs CAUGHT** (owner's call, 2026-10-21; met is
+  not enough), as in Sun/Moon. A legend's `'needs'` (dex list) in
+  `tools/wild_areas.py` becomes `WildLegend::needFirst/needCount` into
+  `WILD_LEGEND_NEEDS[]`, checked in `wildLegendLive()` -- the one answer the
+  fight, the 3% roll and the home's star all ask, so no star until then and no
+  message (like the rod). The caught bits were already saved: no save change.
+  `legend_test` negative-checked (six caught, seventh met-not-caught).
 - Tapus borrow the area beside their ruins: Route 1 (Mahalo Trail), Akala
   Outskirts, Haina Desert, Poni Wilds (which carries the Breaker Coast's
   fishing). Solgaleo/Lunala borrow Vast Poni Canyon.
 - `legend_test`'s "no homes yet" egg check moved to Galar. Negative-checked:
-  the bubbling split, `level_spread`, the UB exclusion, the rod gate, and the
-  UB egg filter. Earlier regions came out byte-identical.
+  the bubbling split, `level_spread`, the UB exclusion, the rod gate, the
+  UB egg filter and Necrozma's needs. Earlier regions came out byte-identical.
 
 ### Done: NO VALID SPRITES, and Kalos's areas (v3.45, not yet on a board)
 

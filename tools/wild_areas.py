@@ -819,9 +819,11 @@ ALOLA = {
         {'dex': 799, 'area': 'RESOLUTION CAVE', 'static': 'resolution-cave',
          'method': 'walk', 'gate': GATE_CHAMPION},                              # Guzzlord
         # Necrozma, in Ten Carat Hill's Farthest Hollow once every Ultra Beast
-        # is caught. That condition has no gate of its own here: the champion.
+        # is CAUGHT, as in Sun/Moon (the owner's call, 2026-10-21). Nothing on
+        # screen says what it waits for: its home wears no star until then.
         {'dex': 800, 'area': 'TEN CARAT HILL', 'static': 'ten-carat-hill/farthest-hollow',
-         'method': 'walk', 'gate': GATE_CHAMPION},
+         'method': 'walk', 'gate': GATE_CHAMPION,
+         'needs': [793, 794, 795, 796, 797, 798, 799]},
     ],
 }
 

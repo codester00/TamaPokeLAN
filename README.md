@@ -649,7 +649,7 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Tapu Koko, Lele, Bulu, Fini | Route 1 (Mahalo Trail), Akala Outskirts, Haina Desert, Poni Wilds -- beside their ruins | the champion | 60 |
 | Nihilego, Buzzwole, Pheromosa, Xurkitree | Wela Volcano Park, Melemele Meadow, Verdant Cavern, Lush Jungle | the champion | 55, 65, 60, 65 |
 | Celesteela, Kartana, Guzzlord | Haina Desert, Route 17, Resolution Cave | the champion | 65, 60, 70 |
-| Necrozma | Ten Carat Hill | the champion | 75 |
+| Necrozma | Ten Carat Hill | the champion, **and every Ultra Beast caught** | 75 |
 
 Unova's levels are PokeAPI's B2W2 static encounters. Tornadus, Thundurus and
 Landorus are never met in B2W2 (only through the 3DS Dream Radar), so like the
@@ -658,8 +658,9 @@ mythicals they stay rare egg spawns.
 Alola's levels are PokeAPI's Sun/Moon encounters. The **Ultra Beasts** are not
 legendaries in the games' own terms, but each is one creature met once at a
 fixed place after the Hall of Fame (Looker's quest), so they get homes like the
-legendaries and leave the rare egg tier. Necrozma needs every Ultra Beast caught
-in the game; here it waits for the champion like them. Type: Null and Cosmog are
+legendaries and leave the rare egg tier. **Necrozma waits until all seven are
+caught**, as in the game -- met is not enough -- and its home wears no star until
+then. Type: Null and Cosmog are
 gifts, never fought, so they stay in eggs.
 
 | A legendary is waiting |
