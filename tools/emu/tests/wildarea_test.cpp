@@ -66,6 +66,7 @@ int main(){
   ck(wildRegionHasAreas(1), "Johto has areas");
   ck(wildRegionHasAreas(2), "Hoenn has areas");
   ck(wildRegionHasAreas(3), "Sinnoh has areas");
+  ck(wildRegionHasAreas(4), "Unova has areas");
   {
     // A locked row says which badge it needs; a region with areas whose badge
     // names were never filled in would name a leader instead.
@@ -324,9 +325,13 @@ int main(){
       after.winBadge(a.region,rg-1,true);   // on hard: either difficulty opens it
       for (uint8_t b=WILD_WHEN_MORN;b<=WILD_WHEN_NITE;b<<=1){
         // What each species should come up as before the rod: its open slots'
-        // weights alone, renormalised over the open total.
+        // weights alone, renormalised over the open total. A species with no
+        // art is never offered (Unova onward has some), so it counts for none.
         uint32_t open=0;
-        for (int k=0;k<a.count;k++){ const WildSlot &s=WILD_SLOTS[a.first+k]; if ((s.when&b) && !s.gate) open+=s.weight; }
+        for (int k=0;k<a.count;k++){
+          const WildSlot &s=WILD_SLOTS[a.first+k];
+          if ((s.when&b) && !s.gate && speciesHasArt(s.dex)) open+=s.weight;
+        }
         for (int k=0;k<a.count;k++){
           const WildSlot &s=WILD_SLOTS[a.first+k];
           if (!(s.when&b)) continue;
@@ -334,7 +339,7 @@ int main(){
           for (int j=0;j<a.count;j++){
             const WildSlot &o=WILD_SLOTS[a.first+j];
             if (o.dex!=s.dex || !(o.when&b)) continue;
-            if (!o.gate){ want+=o.weight; onlyRod=false; }
+            if (!o.gate){ if (speciesHasArt(o.dex)) want+=o.weight; onlyRod=false; }
           }
           uint32_t got=0, late=0;
           for (uint32_t r=0;r<open;r++) if (wildAreaPick((uint16_t)i,b,before,r)==s.dex) got++;

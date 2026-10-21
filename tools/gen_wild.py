@@ -73,8 +73,16 @@ EMERALD = 'https://raw.githubusercontent.com/pret/pokeemerald/master/'
 # The Gen 3 decomps share one JSON shape and one script language.
 GEN3 = {'frlg': FRLG, 'emerald': EMERALD}
 PLATINUM = 'https://raw.githubusercontent.com/pret/pokeplatinum/master/'
+# PokeAPI's data dump: the source for regions no disassembly covers (Unova
+# onward). Fetched from GitHub, not pokeapi.co, which some networks block.
+POKEAPI = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/'
 
 SLUG = {slug: n for n, slug, *_ in DEX}
+
+# Species with no sprite anywhere (noart.h, from check_sprites.py --emit): the
+# firmware never offers one, so they cannot keep an area alive.
+NOART = {int(x) for x in re.findall(
+    r'\d+', open(os.path.join(ROOT, 'noart.h')).read().split('= {')[1].split('}')[0])}
 
 # source -> every map that source has wild encounters on, filled in by the
 # loaders for verify_wild.py's "nothing silently dropped" check.
@@ -231,6 +239,105 @@ def load_platinum(refresh=False):
             out[mp] = m
     SOURCE_MAPS['platinum'] = set(out)
     return {'Platinum': out}
+
+
+# PokeAPI encounter methods that are ordinary encounters, by our method name.
+# Dark grass is grass that may give a double battle -- ordinary grass. Gen 5's
+# field phenomena -- shaking grass, dust clouds, bridge shadows, rippling
+# water -- happen to anyone walking, unlike the Poke Radar or a swarm, and are
+# the only wild home of Audino, Drilbur, Emolga and the elemental monkeys, so
+# they come in as 'phenomenon' at a small weight, like Headbutt; fishing in
+# rippling water is still fishing, behind the rod. Left out as special
+# methods (plan § 4): Hidden Grottos, statics, gifts, trades.
+POKEAPI_METHODS = {'walk': 'land', 'dark-grass': 'land', 'surf': 'water',
+                   'super-rod': 'fishing', 'super-rod-spots': 'fishing',
+                   'grass-spots': 'phenomenon', 'cave-spots': 'phenomenon',
+                   'bridge-spots': 'phenomenon', 'surf-spots': 'phenomenon'}
+POKEAPI_SEASONS = ('season-spring', 'season-summer', 'season-autumn', 'season-winter')
+
+
+def pokeapi_csv(name, refresh=False):
+    import csv
+    import io
+    return list(csv.DictReader(io.StringIO(
+        fetch(POKEAPI + name + '.csv', 'pokeapi_%s.csv' % name, refresh))))
+
+
+def pokeapi_tables(refresh=False):
+    """The PokeAPI tables every PokeAPI region shares, read once."""
+    if not hasattr(pokeapi_tables, 'cache'):
+        t = {n: pokeapi_csv(n, refresh) for n in (
+            'encounters', 'encounter_slots', 'encounter_methods',
+            'encounter_condition_value_map', 'encounter_condition_values',
+            'location_areas', 'locations', 'versions', 'pokemon')}
+        cv = {r['id']: r['identifier'] for r in t['encounter_condition_values']}
+        t['cond'] = {}
+        for r in t['encounter_condition_value_map']:
+            t['cond'].setdefault(r['encounter_id'], set()).add(cv[r['encounter_condition_value_id']])
+        t['method'] = {r['id']: r['identifier'] for r in t['encounter_methods']}
+        t['slot'] = {r['id']: r for r in t['encounter_slots']}
+        loc = {r['id']: r for r in t['locations']}
+        # A "map" is the location and its area, as PokeAPI names them:
+        # unova-route-19, floccesy-ranch/inner.
+        t['area'] = {r['id']: (loc[r['location_id']]['identifier'] +
+                               ('/' + r['identifier'] if r['identifier'] else''),
+                               loc[r['location_id']]['region_id'])
+                     for r in t['location_areas']}
+        t['version'] = {r['identifier']: r['id'] for r in t['versions']}
+        t['species'] = {r['id']: int(r['species_id']) for r in t['pokemon']}
+        pokeapi_tables.cache = t
+    return pokeapi_tables.cache
+
+
+def load_pokeapi(reg, refresh=False):
+    """A region with no disassembly, from PokeAPI's location-area encounters
+    for the region's games (reg['versions'], averaged like FRLG's two). Rates
+    are each slot's own (PokeAPI's `rarity`); a slot's level is its minimum.
+    Gen 5 has seasons, not times of day: a slot that holds in some seasons
+    only counts for that share of the year, so the four seasons are averaged
+    and every slot is ANY. A slot with any other condition (a story flag, an
+    item) is a special encounter and is left out."""
+    t = pokeapi_tables(refresh)
+    vids = {t['version'][v]: v for v in reg['versions']}
+    out = {v: {} for v in reg['versions']}
+    for e in t['encounters']:
+        if e['version_id'] not in vids:
+            continue
+        mp, region = t['area'][e['location_area_id']]
+        if int(region) != reg['pokeapi_region']:
+            continue
+        sl = t['slot'][e['encounter_slot_id']]
+        method = POKEAPI_METHODS.get(t['method'][sl['encounter_method_id']])
+        if not method:
+            continue
+        conds = t['cond'].get(e['id'], set())
+        seasons = conds & set(POKEAPI_SEASONS)
+        if conds - seasons:
+            continue
+        dex = t['species'][e['pokemon_id']]
+        if dex > len(DEX):
+            sys.exit('gen_wild: PokeAPI species %d is past the dex' % dex)
+        rate = int(sl['rarity']) * (len(seasons) / len(POKEAPI_SEASONS) if seasons else 1)
+        out[vids[e['version_id']]].setdefault(mp, {}).setdefault(method, []).append(
+            (dex, int(e['min_level']), rate, ANY))
+    SOURCE_MAPS[reg['source']] = set().union(*(set(v) for v in out.values()))
+    return out
+
+
+def pokeapi_static_level(reg, leg, refresh=False):
+    """A legendary's level from PokeAPI's static encounters at its 'static'
+    location area, in the region's versions. A static that only happens when
+    a previous game's legendary went uncaught is left out."""
+    t = pokeapi_tables(refresh)
+    vids = {t['version'][v] for v in reg['versions']}
+    lv = [int(e['min_level']) for e in t['encounters']
+          if e['version_id'] in vids and t['species'][e['pokemon_id']] == leg['dex']
+          and t['area'][e['location_area_id']][0] == leg['static']
+          and t['method'][t['slot'][e['encounter_slot_id']]['encounter_method_id']] == 'static'
+          and 'special-encounter-couldnt-capture-before' not in t['cond'].get(e['id'], set())]
+    if not lv:
+        sys.exit('gen_wild: PokeAPI has no static #%d at %s' % (leg['dex'], leg['static']))
+    return min(lv)
 
 
 def camel_to_const(name):
@@ -434,6 +541,14 @@ def super_rod_gate(reg, refresh=False):
     """The ladder position the region's best rod is handed out at, after
     checking that the named script really is where the game gives it."""
     rod = reg['super_rod']
+    if rod['gate'] not in tuple(range(9)) + (WA.GATE_CHAMPION,):
+        sys.exit('gen_wild: super rod gate %r' % rod['gate'])
+    if 'versions' in reg:
+        # No script to read: where the rod is handed out is the hand table's
+        # claim, with its sources in 'note' (NOT VERIFIED, like the region).
+        if not rod.get('note'):
+            sys.exit('gen_wild: %s super rod needs a note saying where it comes from' % reg['source'])
+        return rod['gate']
     if reg['source'] in GEN3:
         text = fetch(GEN3[reg['source']] + 'data/maps/%s/scripts.inc' % rod['script'],
                      '%s_%s_scripts.inc' % (reg['source'], rod['script']), refresh)
@@ -458,6 +573,8 @@ def load_source(reg, refresh=False):
         return load_gen3(reg['source'], refresh)
     if reg['source'] == 'platinum':
         return load_platinum(refresh)
+    if 'versions' in reg:
+        return load_pokeapi(reg, refresh)
     if reg['source'] == 'crystal':
         needed = [mp for _n, _g, maps in reg['areas'] for mp in maps]
         return load_crystal(refresh, needed)
@@ -551,11 +668,11 @@ def build(refresh=False):
                 mix = mix_band(data, versions, maps, when, rod_gate)
                 if not mix:
                     sys.exit('gen_wild: area %r has no encounters at time %d' % (name, when))
-                if not any(g == 0 for _d, g in mix):
+                if not any(g == 0 and d not in NOART for d, g in mix):
                     # The rod gate is SECRET (owner's call): an area that held
                     # nothing until it opened would read as empty on the panel.
-                    sys.exit('gen_wild: area %r has only rod encounters at time %d'
-                             % (name, when))
+                    sys.exit('gen_wild: area %r has nothing to meet before the rod at '
+                             'time %d (only rod or art-less encounters)' % (name, when))
                 per_band[when] = dict(scale(mix))
             # One slot per (species, weight, gate) with the bands that share it.
             slots = {}
@@ -579,7 +696,8 @@ def build(refresh=False):
             if gate not in tuple(range(9)) + (WA.GATE_CHAMPION,) or gate < areas[idx]['gate']:
                 sys.exit('gen_wild: legend #%d gate %r is not at or after its area\'s'
                          % (leg['dex'], gate))
-            game_level = legend_level(reg['source'], leg, refresh)
+            game_level = (pokeapi_static_level(reg, leg, refresh) if 'versions' in reg
+                          else legend_level(reg['source'], leg, refresh))
             legends.append({'dex': leg['dex'], 'area': idx, 'gate': gate,
                             'roams': bool(leg.get('roams')),
                             # An owner's override still reads the script, so

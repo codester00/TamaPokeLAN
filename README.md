@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.43-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.44-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -457,7 +457,8 @@ rod out at: Kanto's after the **Rainbow Badge** (FireRed's Super Rod is on
 Route 12, past the Poke Flute), Johto's after the **champion** (Crystal's is
 in Kanto), Hoenn's after the **Feather Badge** (Emerald's is in Mossdeep),
 Sinnoh's after the **champion** (Platinum's is in the Battle Zone's Fight
-Area). Until then the area's other creatures share its encounters at their
+Area), Unova's after the **champion** (B2W2's only rod is Cedric Juniper's
+gift after the Hall of Fame). Until then the area's other creatures share its encounters at their
 own relative rates. **Nothing on the screen says so** -- by design, like the
 care window: the row is not greyed, nothing is starred, and an area always has
 something to meet. Easy or hard badges both count. Creatures met only that way
@@ -503,6 +504,19 @@ the GBA-cartridge slots and the Great Marsh's and Trophy Garden's daily
 creatures -- so Combee, Cherubi, Burmy and others come from eggs, as do the
 starters, the fossils and Spiritomb and Rotom (one-off encounters).
 
+**Unova's areas (v3.44) -- the first region with no disassembly.** 43 areas
+from Black 2 and White 2, both versions averaged, built from **PokeAPI's**
+location-area encounter data, so every number is PokeAPI's and Unova is listed
+NOT VERIFIED (as its gym ladder already is). B2W2 has seasons instead of times
+of day; they are averaged, so every Unova creature comes all day. Areas mix
+walking (dark grass too -- ordinary grass that may give a double battle),
+surfing, the best rod and, at weight 0.2 like Headbutt, Gen 5's **field
+phenomena** -- shaking grass, dust clouds, bridge shadows and rippling water --
+which are the only wild home of Audino, Drilbur, Emolga, Ducklett and the
+elemental monkeys. Hidden Grottos are left out. B2W2's post-game is Black and
+White's old Unova, so Routes 1-3, the Dreamyard and Pinwheel Forest open after
+the champion, at post-game levels.
+
 **An area opens with the badge that opened it in the games**, on either
 difficulty. Kanto: Route 1, 2, 22 and Viridian Forest from the start; Mt. Moon
 after the Boulder Badge; the Safari Zone after the Rainbow Badge; Seafoam Islands
@@ -532,7 +546,15 @@ Route 210's north, Canalave's coast and the southern sea after the Fen Badge
 Acuity, Mt. Coronet's peak, Sendoff Spring, Turnback Cave and Route 222 after
 the Icicle Badge; Victory Road after the Beacon Badge; Victory Road's back
 rooms, the Battle Zone's routes, Stark Mountain and Snowpoint Temple after the
-champion. A locked area is
+champion. Unova: Routes 19-20 and Floccesy Ranch from the start; Virbank
+Complex after the Basic Badge; Castelia after the Toxic Badge; Route 4, the
+Desert Resort, Relic Castle, Route 16 and Lostlorn Forest after the Insect
+Badge; Route 5 after the Bolt Badge; Route 6, the Relic Passage and
+Chargestone Cave after the Quake Badge; Route 7, Celestial Tower, Reversal
+Mountain, Undella and Routes 11-14 after the Jet Badge; Route 9 and Route 21
+after the Legend Badge; Route 22, the Giant Chasm, Seaside Cave, Route 23 and
+Victory Road after the Wave Badge; Black and White's Unova after the champion.
+A locked area is
 listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 
 **Legendaries live somewhere (v3.40).** Each story legendary has a home:
@@ -559,6 +581,14 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Heatran | Stark Mountain | the champion | 50 |
 | Regigigas | Snowpoint Temple | the champion | 70 (Platinum's script says 1; raised to Diamond/Pearl's 70) |
 | Cresselia | Route 218 (Fullmoon Island's coast), then **roaming Sinnoh** | the champion | 50 |
+| Cobalion, Virizion | Route 13, Route 11 | Jet Badge | 45 |
+| Terrakion | Route 22 | Wave Badge | 45 |
+| Reshiram, Zekrom | Dragonspiral Tower (both versions' dragons) | the champion | 70 |
+| Kyurem | Giant Chasm | the champion | 70 |
+
+Unova's levels are PokeAPI's B2W2 static encounters. Tornadus, Thundurus and
+Landorus are never met in B2W2 (only through the 3DS Dream Radar), so like the
+mythicals they stay rare egg spawns.
 
 | A legendary is waiting |
 |---|

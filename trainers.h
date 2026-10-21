@@ -329,6 +329,9 @@ static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
   // Sinnoh is Platinum's order: Fantina (Relic) third, Maylene (Cobble) fourth.
   { "COAL BADGE", "FOREST BADGE", "RELIC BADGE", "COBBLE BADGE",
     "FEN BADGE", "MINE BADGE", "ICICLE BADGE", "BEACON BADGE" },
+  // Unova is Black 2 / White 2's order, as TRAINERS_UNOVA has it.
+  { "BASIC BADGE", "TOXIC BADGE", "INSECT BADGE", "BOLT BADGE",
+    "QUAKE BADGE", "JET BADGE", "LEGEND BADGE", "WAVE BADGE" },
 };
 
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the

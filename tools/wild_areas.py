@@ -26,7 +26,8 @@ GATE_CHAMPION = 13
 # own slot rates stand; between methods these weights apply, renormalised over
 # the methods the area actually has (owner-approved in the plan, § 12).
 METHOD_WEIGHT = {'land': 1.0, 'water': 0.5, 'fishing': 0.3, 'rock_smash': 0.2,
-                 'headbutt': 0.2}   # Crystal's trees: Heracross, Aipom and Pineco live nowhere else
+                 'headbutt': 0.2,   # Crystal's trees: Heracross, Aipom and Pineco live nowhere else
+                 'phenomenon': 0.2}  # Gen 5's shaking grass, dust clouds, ripples: Audino, Drilbur
 
 # The longest area name the area list will be asked to draw.
 NAME_MAX = 16
@@ -513,7 +514,112 @@ SINNOH = {
     ],
 }
 
-REGIONS = [KANTO, JOHTO, HOENN, SINNOH]
+# ---------------------------------------------------------------------------
+# UNOVA -- Black 2 + White 2, averaged (the same games as the Unova gym ladder).
+# The first region with NO disassembly: species, rates and levels come from
+# PokeAPI's location-area encounters (gen_wild.load_pokeapi), and the whole
+# region is NOT VERIFIED -- the gym ladder's own Unova rosters are the same.
+# A "map" is PokeAPI's location/area name. Gen 5 has seasons, not times of
+# day; they are averaged. Gates follow B2W2's progression: Cheren after the
+# Floccesy start; Roxie's Virbank; Burgh's Castelia, then Route 4 and the
+# desert; Elesa's Nimbasa and Route 5; Clay's Driftveil opens Route 6, the
+# Relic Passage and Chargestone; Skyla's Mistralton opens Route 7, Lentimas,
+# Reversal Mountain and Undella; Drayden's Opelucid opens Route 9 and
+# Humilau; Marlon's badge opens Route 22, the Giant Chasm, Seaside Cave and
+# Victory Road. B2W2's post-game is Black/White's old Unova: Routes 1-3, the
+# Dreamyard, Pinwheel Forest, Icirrus, Twist Mountain, Dragonspiral Tower.
+UNOVA = {
+    'region': 4,
+    'source': 'pokeapi-b2w2',
+    'versions': ['black-2', 'white-2'],
+    'pokeapi_region': 5,
+    # B2W2's only rod: Cedric Juniper gives it in Nuvema Town's lab after the
+    # Hall of Fame (dittobase.com and the GameFAQs/PokeBase answers agree;
+    # Black/White's Looker gift does not apply to the sequels).
+    'super_rod': {'gate': GATE_CHAMPION,
+                  'note': 'Cedric Juniper, Nuvema Town, after the Hall of Fame'},
+    'areas': [
+        ('ROUTE 19',         0, ['unova-route-19', 'aspertia-city']),
+        ('ROUTE 20',         0, ['unova-route-20']),
+        ('FLOCCESY RANCH',   0, ['floccesy-ranch/inner', 'floccesy-ranch/outer']),
+        # Cheren -- Virbank
+        ('VIRBANK COMPLEX',  1, ['virbank-complex/inner', 'virbank-complex/outer',
+                                 'virbank-city']),
+        # Roxie -- Castelia
+        ('CASTELIA CITY',    2, ['castelia-city']),
+        ('CASTELIA SEWERS',  2, ['castelia-sewers', 'castelia-sewers/unknown-area-38',
+                                 'relic-passage/castelia-sewers-entrance']),
+        # Burgh -- Route 4, the desert, Nimbasa's side roads
+        ('ROUTE 4',          3, ['unova-route-4']),
+        ('DESERT RESORT',    3, ['desert-resort/entrance', 'desert-resort']),
+        ('RELIC CASTLE',     3, ['relic-castle/a', 'relic-castle/c', 'relic-castle/d']),
+        ('ROUTE 16',         3, ['unova-route-16']),
+        ('LOSTLORN FOREST',  3, ['lostlorn-forest']),
+        # Elesa -- Route 5 to Driftveil
+        ('ROUTE 5',          4, ['unova-route-5', 'driftveil-drawbridge']),
+        # Clay -- Route 6, the Relic Passage, Chargestone Cave
+        ('ROUTE 6',          5, ['unova-route-6']),
+        ('RELIC PASSAGE',    5, ['relic-passage/pwt-entrance', 'relic-passage/relic-castle-entrance']),
+        ('CHARGESTONE CAVE', 5, ['chargestone-cave/1f', 'chargestone-cave/b1f',
+                                 'chargestone-cave/b2f']),
+        # Skyla -- Route 7, Lentimas, Reversal Mountain, Undella and the east
+        ('ROUTE 7',          6, ['unova-route-7']),
+        ('CELESTIAL TOWER',  6, ['celestial-tower/2f', 'celestial-tower/3f',
+                                 'celestial-tower/4f', 'celestial-tower/5f']),
+        ('MISTRALTON CAVE',  6, ['mistralton-cave', 'guidance-chamber']),
+        ('REVERSAL MTN',     6, ['reversal-mountain/unknown-area-%d' % i for i in range(48, 61)]),
+        ('STRANGE HOUSE',    6, ['strange-house/1f', 'strange-house/b1f']),
+        ('UNDELLA BAY',      6, ['undella-town', 'undella-bay']),
+        ('ROUTE 13',         6, ['unova-route-13']),
+        ('ROUTE 14',         6, ['unova-route-14', 'abundant-shrine']),
+        ('ROUTE 12',         6, ['unova-route-12']),
+        ('ROUTE 11',         6, ['unova-route-11', 'village-bridge']),
+        # Drayden -- Route 9 and Humilau
+        ('ROUTE 9',          7, ['unova-route-9']),
+        ('ROUTE 21',         7, ['unova-route-21', 'humilau-city']),
+        # Marlon -- Route 22, the Giant Chasm, Seaside Cave, Victory Road
+        ('ROUTE 22',         8, ['unova-route-22']),
+        ('GIANT CHASM',      8, ['giant-chasm', 'giant-chasm/outside', 'giant-chasm/forest',
+                                 'giant-chasm/forest-cave']),
+        ('SEASIDE CAVE',     8, ['seaside-cave/1f', 'seaside-cave/b1f']),
+        ('ROUTE 23',         8, ['unova-route-23']),
+        ('VICTORY ROAD',     8, ['unova-victory-road/7f'] +
+                                ['unova-victory-road-2/unknown-area-%d' % i for i in range(71, 81)]),
+        # After the champion -- Black and White's Unova
+        ('ROUTES 1-3',       GATE_CHAMPION, ['unova-route-1', 'unova-route-2', 'unova-route-3']),
+        ('DREAMYARD',        GATE_CHAMPION, ['dreamyard', 'dreamyard/b1f', 'striaton-city']),
+        ('PINWHEEL FOREST',  GATE_CHAMPION, ['pinwheel-forest/inside', 'pinwheel-forest/outside']),
+        ('NATURE SANCTUARY', GATE_CHAMPION, ['nature-sanctuary']),
+        ('ROUTES 17-18',     GATE_CHAMPION, ['unova-route-17', 'unova-route-18', 'p2-laboratory']),
+        ('ROUTE 15',         GATE_CHAMPION, ['unova-route-15', 'marvelous-bridge']),
+        ('ICIRRUS CITY',     GATE_CHAMPION, ['icirrus-city', 'moor-of-icirrus', 'unova-route-8']),
+        ('TWIST MOUNTAIN',   GATE_CHAMPION, ['twist-mountain/b1f-3f']),
+        ('DRAGONSPIRAL',     GATE_CHAMPION, ['dragonspiral-tower/outside', 'dragonspiral-tower/entrance',
+                                             'dragonspiral-tower/1f', 'dragonspiral-tower/2f']),
+        ('CLAY TUNNEL',      GATE_CHAMPION, ['clay-tunnel', 'underground-ruins', 'rocky-mountain-room',
+                                             'glacier-room', 'iron-room']),
+        ('WELLSPRING CAVE',  GATE_CHAMPION, ['wellspring-cave']),
+    ],
+    'skip': {},
+    # 'static' names the PokeAPI location area of the legendary's static
+    # encounter; its level is read from there. Tornadus, Thundurus and
+    # Landorus have no encounter in B2W2 (the 3DS Dream Radar only), so they
+    # stay rare egg spawns, like a mythical (plan § 8).
+    'legends': [
+        {'dex': 638, 'area': 'ROUTE 13', 'static': 'unova-route-13'},                    # Cobalion
+        {'dex': 639, 'area': 'ROUTE 22', 'static': 'unova-route-22'},                    # Terrakion
+        {'dex': 640, 'area': 'ROUTE 11', 'static': 'unova-route-11'},                    # Virizion
+        # One per version in B2W2; both live here, after the champion.
+        {'dex': 643, 'area': 'DRAGONSPIRAL', 'static': 'dragonspiral-tower/7f',
+         'gate': GATE_CHAMPION},                                                          # Reshiram
+        {'dex': 644, 'area': 'DRAGONSPIRAL', 'static': 'dragonspiral-tower/7f',
+         'gate': GATE_CHAMPION},                                                          # Zekrom
+        {'dex': 646, 'area': 'GIANT CHASM', 'static': 'giant-chasm/forest-cave',
+         'gate': GATE_CHAMPION},                                                          # Kyurem
+    ],
+}
+
+REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA]
 
 # WILD_LEGENDS[] is stored by INDEX in the save (the met/caught bitmasks), so
 # the order legendaries are emitted in is APPEND-ONLY -- the same rule as move
@@ -522,4 +628,5 @@ REGIONS = [KANTO, JOHTO, HOENN, SINNOH]
 # gen_wild.py enforces against LEGEND_ORDER.
 LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250,
                 377, 378, 379, 380, 381, 382, 383, 384,
-                480, 481, 482, 483, 484, 485, 486, 487, 488]
+                480, 481, 482, 483, 484, 485, 486, 487, 488,
+                638, 639, 640, 643, 644, 646]

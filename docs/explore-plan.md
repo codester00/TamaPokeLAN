@@ -433,5 +433,11 @@ Candice, Mesprit roaming; Dialga, Palkia, Heatran, Regigigas and the roaming
 Cresselia after the champion). Every special encounter method (honey trees,
 swarms, radar, GBA slots, marsh/garden dailies) is left out per § 4.
 
-**Next:** Unova -- the first region with no disassembly (§ 3 and the action
-list's item 3: PokeAPI's location-area encounters, listed NOT VERIFIED).
+**Unova: DONE (2026-10-21, v3.44, on the branch, not on a board)** -- the
+first region from PokeAPI (`load_pokeapi()`), Black 2 + White 2 averaged, 43
+areas, NOT VERIFIED. Seasons averaged; Gen 5's field phenomena included at
+weight 0.2 (Audino, Drilbur, Emolga live nowhere else); the Swords of Justice,
+Reshiram, Zekrom and Kyurem with homes; the Forces of Nature egg-only (never
+met in B2W2). Regigigas (Sinnoh) was raised to 70 by the owner's call.
+
+**Next:** Kalos (X/Y), the same PokeAPI loader.

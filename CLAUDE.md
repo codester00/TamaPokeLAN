@@ -632,8 +632,8 @@ rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
 the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
-Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43)** -- see the "Done" entries
-below. Next: Unova (no decomp -- item 3 below: PokeAPI first, NOT VERIFIED). None of it
+Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44)** -- see the "Done" entries
+below. Next: Kalos (X/Y, PokeAPI like Unova; NOT VERIFIED). None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
@@ -690,6 +690,42 @@ disconnected for a while, which may explain the week-long figure; the
      measured.
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
+
+### Done: Unova's areas and legendaries (v3.44, not yet on a board)
+
+43 areas from Black 2 + White 2 (averaged), 6 legendaries appended (32 now),
+`BADGE_NAMES` row 5, the Super Rod after the champion. **The first region
+from PokeAPI** (item 3 above), so `verify_wild.py` lists it NOT VERIFIED.
+
+- **`load_pokeapi(reg)`** reads PokeAPI's CSV dump from raw.githubusercontent
+  (cached as `pokeapi_*.csv`; pokeapi.co itself may be blocked) for the
+  region's `versions` and `pokeapi_region`. A "map" is PokeAPI's
+  `location/area` identifier. Rates are each slot's `rarity`; a slot's level is
+  its `min_level`; `pokemon_id` goes through `pokemon.csv`'s `species_id`
+  (forms share their species). A slot with any non-season condition (story
+  flag, item, trade) is a special encounter and is left out.
+- **Seasons are averaged**: a slot listed for k of the four seasons counts k/4
+  of its rate. Gen 5 has no time of day, so every slot is ANY.
+- **Methods** (`POKEAPI_METHODS`): walk + dark grass = land; surf; super rod
+  and rippling-water fishing = fishing (behind the rod gate); shaking grass,
+  dust clouds, bridge shadows and rippling-water surfing = `phenomenon` at
+  `METHOD_WEIGHT` 0.2. Including phenomena was a judgment call (2026-10-21):
+  without them Audino, Drilbur, Emolga, Ducklett and the elemental monkeys
+  are unreachable in the wild. Hidden Grottos stay out.
+- **No script to read**, so a PokeAPI region's `super_rod` carries a `note`
+  saying where the rod comes from (B2W2: Cedric Juniper after the Hall of
+  Fame -- dittobase, GameFAQs/PokeBase; Black/White's Looker gift does not
+  apply), and a legend names its `static` location area; its level is the
+  lowest PokeAPI static there, skipping the "couldn't capture before" rows
+  (a Black/White save's carry-over, L65 for the Swords).
+- Tornadus, Thundurus and Landorus have NO B2W2 encounter (Dream Radar only),
+  so they stay egg-only; `legend_test` checks they still hatch.
+- `gen_wild.py` now also counts `noart.h`: an area whose only open creatures
+  are art-less would read NEEDS PACK before the rod, leaking the secret.
+  `wildarea_test`'s exact-rates check skips art-less slots for the same
+  reason -- Unova is the first region with art-less species in its areas.
+- Negative-checked: the generator's art guard, Route 13's gate (Cobalion),
+  the badge row.
 
 ### Done: Sinnoh's areas and legendaries (v3.43, not yet on a board)
 

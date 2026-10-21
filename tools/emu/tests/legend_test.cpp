@@ -168,6 +168,28 @@ int main(){
     ck(count(r201,p,mesprit)==WILD_LEGEND_PCT*100, "once met it roams Sinnoh, as far as Route 201");
   }
 
+  // ---- Unova (v3.44, from PokeAPI): the Swords, the dragons, Kyurem -------
+  {
+    int cob=legendOf(638), resh=legendOf(643), zek=legendOf(644), kyu=legendOf(646);
+    int r13=areaIn(4,"ROUTE 13"), spiral=areaIn(4,"DRAGONSPIRAL"), r19=areaIn(4,"ROUTE 19");
+    ck(cob>=0 && resh>=0 && zek>=0 && kyu>=0 && r13>=0 && spiral>=0 && r19>=0,
+       "Unova's legendaries and areas are found");
+    ck(legendOf(641)<0 && legendOf(642)<0 && legendOf(645)<0,
+       "the Forces of Nature have no home: B2W2 never offers them");
+    Pet p; badges(p,4,5);
+    ck(count(r13,p,cob)==0 && !wildAreaUnlocked((uint16_t)r13,p), "Route 13 waits for the Jet Badge");
+    p.winBadge(4,5,false);
+    ck(count(r13,p,cob)==10000, "and with it Cobalion meets you there once");
+    badges(p,4,8);
+    ck(count(spiral,p,resh)==0 && count(spiral,p,zek)==0, "the dragons wait for the champion");
+    p.winBadge(4,TRAINER_COUNT-1,false);
+    ck(count(spiral,p,resh)==10000, "then Reshiram comes first at Dragonspiral Tower");
+    p.setLegendMet(resh);
+    ck(count(spiral,p,zek)==10000, "and Zekrom next, both versions' dragons in one home");
+    ck(wildLegendLevel(kyu)==70 && wildLegendLevel(cob)==45, "levels are PokeAPI's B2W2 statics");
+    ck(count(r19,p,cob)==0, "the Swords do not roam");
+  }
+
   // ---- the save --------------------------------------------------------------
   {
     Pet a; a.begin();
@@ -211,17 +233,19 @@ int main(){
     }
     ck(!homed, "no egg hatches a legendary that has a home in Explore");
     ck(mew && celebi, "while Mew and Celebi still hatch -- the legendary tier is not empty");
-    // Hoenn's and Sinnoh's have homes (v3.42, v3.43); Unova's do not yet.
-    // Found by asking wildIsExploreLegend(), not by a typed range.
-    bool homed2=false, unovaLegend=false;
-    for (int i=0;i<600;i++){
-      if (wildIsExploreLegend(p.rollInRegion(2,R_LEGENDARIO)) ||
-          wildIsExploreLegend(p.rollInRegion(3,R_LEGENDARIO))) homed2=true;
-      int16_t k=p.rollInRegion(4,R_LEGENDARIO);
-      if (k>=638 && k<=646 && !wildIsExploreLegend(k)) unovaLegend=true;   // Cobalion .. Kyurem
+    // Hoenn's, Sinnoh's and Unova's have homes (v3.42-v3.44); Kalos's do not
+    // yet. Found by asking wildIsExploreLegend(), not by a typed range.
+    bool homed2=false, kalosLegend=false, forces=false;
+    for (int i=0;i<900;i++){
+      for (uint8_t r=2;r<=4;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
+      int16_t k=p.rollInRegion(5,R_LEGENDARIO);
+      if (k>=716 && k<=718 && !wildIsExploreLegend(k)) kalosLegend=true;   // Xerneas, Yveltal, Zygarde
+      int16_t u=p.rollInRegion(4,R_LEGENDARIO);
+      if (u==641 || u==642 || u==645) forces=true;
     }
-    ck(!homed2, "Hoenn's and Sinnoh's homed legendaries left their eggs with their areas");
-    ck(unovaLegend, "and a region whose legendaries have no homes yet still hatches them");
+    ck(!homed2, "Hoenn's, Sinnoh's and Unova's homed legendaries left their eggs with their areas");
+    ck(kalosLegend, "and a region whose legendaries have no homes yet still hatches them");
+    ck(forces, "Tornadus, Thundurus and Landorus, never met in B2W2, still hatch");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);

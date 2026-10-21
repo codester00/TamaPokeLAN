@@ -111,7 +111,8 @@ def main():
         if not held:
             continue
         print('\nbest rod: %s holds %d fishing slots back until gate %d (%s); first met only then:'
-              % (REGIONS[reg['region']][0], len(held), rod, reg['super_rod']['script']))
+              % (REGIONS[reg['region']][0], len(held), rod,
+                 reg['super_rod'].get('script') or reg['super_rod']['note']))
         early = {}
         for a in areas:
             if a['region'] != reg['region']:
