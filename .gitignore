@@ -80,3 +80,4 @@ tools/debugger/serial_logs/
 # FT3168 touch) -- not wired into TamaPoke.ino yet, held back until it is.
 /pin_config_amoled143b.h
 /touch_ft3168.h
+tools/wild_cache/

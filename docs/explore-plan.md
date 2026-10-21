@@ -1,8 +1,9 @@
-# Explore rework: the plan (revision 2, for confirmation, not started)
+# Explore rework: the plan (revision 3, CONFIRMED by the owner 2026-10-21)
 
-Revision 2, 2026-10-21. It folds in the owner's answers to revision 1, and each
-answer is checked against the games' data. Nothing here is built. **Section 11
-lists the four points still open.** Everything else is decided.
+Revision 3, 2026-10-21. Revision 2 folded in the owner's answers to revision
+1, each checked against the games' data; revision 3 records the owner's answers
+to revision 2's five open questions (§ 11). **The plan is confirmed.** Phase 1
+(the data pipeline and Kanto's data, no firmware change) is the first work.
 
 ## 1. What exists today
 
@@ -57,8 +58,8 @@ since it already holds nearly every species the pair had.
 ## 4. Areas
 
 - **Several maps become one area**, through a hand-maintained table
-  (Mt. Moon 1F/B1F/B2F becomes MT. MOON). Target 12–30 areas per region.
-  Names are 12 ASCII characters or fewer.
+  (Mt. Moon 1F/B1F/B2F becomes MT. MOON). Kanto came out at 36. Names are
+  upper-case ASCII, 16 characters or fewer.
 - **All encounter methods go into one area pool**: walking, surfing, the best
   fishing rod and Rock Smash, each weighted by its own in-game rates. (Q-B:
   fishing included. Without it Horsea, Goldeen, Magikarp, Krabby and others
@@ -83,9 +84,17 @@ ask it.
 
 ### 5.2 Display
 
-A locked area shows **the badge it needs, with the actual number filled in**:
-`BADGE 3`. Q-C offers a friendlier alternative using the leader's name:
-`BEAT SURGE`. Either way the row is greyed and never hidden.
+A locked area reads **`REQUIRES BOULDER BADGE`**: the actual badge, by name
+(owner's call, Q-C). The row is greyed and never hidden. This needs a badge-name
+table, which does not exist yet (the names are only comments in `badges.h`):
+`BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS]`, facts from Bulbapedia, ASCII.
+
+- Regions without badges in the games use what the games award instead,
+  e.g. Alola's island trials. If no name exists for a slot, the row falls back
+  to the leader's name (`REQUIRES <LEADER>`), never to a bare number.
+- `GATE_CHAMPION` reads `REQUIRES CHAMPION`.
+- `Requires %s` is one translated string in all six languages; badge names are
+  proper nouns and stay in English, as the trainer names already do.
 
 ### 5.3 Kanto worked example (bands from § 6, using the ladder as it is today)
 
@@ -145,13 +154,15 @@ Example, Kalos: Viola's team in our ladder tops out at **12** (Vivillon L12,
 matching X/Y), not 14. So Kalos's first areas are **1–10**. Once Viola is
 beaten, the next battle is Grant (cap 25), so those areas are **15–23**.
 
-### 6.2 Hard (Q-D)
+### 6.2 Hard: the AI, not the levels (owner's call, Q-D)
 
-Revision 1 used the pet's level +5 to +15, your earlier call, from when normal
-levels followed the pet. Now that normal follows the ladder, the
-recommendation is to anchor hard to the same cap: **the next battle's cap +5
-to +15**. For Kalos's first areas that is 17–27. The alternative is to keep
-it relative to the pet.
+**Easy and hard use the same level band.** Raising the levels would make the
+fight harder, but it would also hand the player stronger creatures than the
+games intended for the next gym, and the games' own balance is the point.
+Hard means the wild creature **fights smart**: it already passes the difficulty
+to the battle AI (`aiChooseMove(btlFoe, btlYou, btlHard)`), so hard needs no
+new mechanism. Hard keeps its existing reward (two item drops instead of one).
+`wildLevelMin()`/`wildLevelMax()`'s 1-100 hard range is removed.
 
 ### 6.3 Evolved forms: do the games allow them below their evolution level?
 
@@ -171,9 +182,16 @@ below the level their pre-evolution evolves at:
 So the rule copies the game rather than inventing a stricter one. **An evolved
 species' floor is the lower of (its evolution level) and (the lowest level the
 source game has it wild).** A Metapod can be L5; a Venusaur, never wild in
-FireRed, can never be below L32. If the floor is above the area's band, the
-level becomes the floor, and `verify_wild.py` lists every case so it can be
-reviewed.
+FireRed, can never be below L32.
+
+**When the floor is above the area's band** (found by Phase 1, see § 14), the
+evolved form is **left out of that area if another area of the region has it
+inside its own band**, and **kept at its floor if not**. FireRed's best rod
+puts a level 15+ Gyarados and a level 20+ Poliwhirl on Route 22, which opens
+before Brock (cap 14): both are left out there and first met on Route 4 and
+Routes 5–6. Dugtrio is only ever in Diglett's Cave, so it stays there at L26
+in a 14–22 band, because a species must never become unobtainable to tidy a
+band. `verify_wild.py` lists both kinds.
 
 Evolve-up (an early-route roll becoming the evolved form) is **dropped**.
 Bands now follow the ladder, so an area's own species list already fits its
@@ -185,8 +203,8 @@ levels.
 
 1. **A named location with one guaranteed encounter.** Once its gate is met,
    the location's row shows a star. The first EXPLORE there is the legendary,
-   at its in-game level (Articuno 50, Mewtwo 70). On hard it is +10, capped at
-   100.
+   at its in-game level (Articuno 50, Mewtwo 70), on both difficulties; hard
+   only changes how it fights.
 2. That guaranteed encounter is **spent once the battle ends, however it ends**
    (caught, fled, fainted or knocked out).
 3. **After that**, the location gives its normal spawns, plus a **small chance
@@ -242,10 +260,16 @@ appear in Explore. The egg bonuses already exist and stay as they are:
 
 That is the "rare and incentivized" path, with no new mechanism.
 
-**Q-E: should story legendaries stay hatchable from eggs too?** Today they
-share the egg legendary tier with the mythicals. If they become Explore-only,
-that egg tier holds only mythicals. The rate is unchanged, but every
-legendary egg would then be a mythical.
+**Story legendaries must be caught, not hatched** (owner's call, Q-E). They
+leave the egg pool, so the egg legendary tier holds only mythicals: the rate
+is unchanged, and every legendary egg is a mythical.
+
+**This is switched per region, in the same phase that region's legendaries go
+live in Explore.** Removing them from eggs everywhere at once would leave, say,
+Unova's legendaries unobtainable until Unova's areas exist. A region whose
+egg tier would be empty (no mythical with art in that region) falls back to
+rare, the same way `startWildBattle()` already falls back when a tier is
+empty.
 
 ## 9. UI
 
@@ -281,20 +305,15 @@ the player record gains **two bitmasks**: `legendMet` and `legendCaught`, each
 
 Nothing else is stored. The chosen area stays RAM only.
 
-## 11. Still open (please confirm or change)
+## 11. Revision 2's open questions: the owner's answers
 
-- **Q-A:** use the third version alone for Johto, Hoenn and Sinnoh (Crystal,
-  Emerald, Platinum)? That keeps them verifiable against the decomps, and
-  they already contain almost every species of the pair before them.
-  *Recommended: yes.*
-- **Q-B:** include the best fishing rod and Rock Smash in each area's pool?
-  *Recommended: yes*; otherwise some species can't be caught at all.
-- **Q-C:** locked rows read `BADGE 3`, or `BEAT SURGE`? *Recommended: BEAT
-  <leader>*, since it says exactly what to do.
-- **Q-D:** hard levels at the next battle's cap +5 to +15, or the pet's level
-  +5 to +15? *Recommended: the cap.*
-- **Q-E:** should story legendaries still hatch from eggs, or only be found in
-  Explore? *Recommended: Explore only*, which makes a legendary egg a mythical.
+- **Q-A:** Johto, Hoenn and Sinnoh use Crystal, Emerald and Platinum alone, so
+  they stay verifiable against the decomps. *As recommended.*
+- **Q-B:** fishing (the best rod) and Rock Smash go into each area's pool.
+  *As recommended.* How the methods share an area is in § 12.
+- **Q-C:** locked rows read `REQUIRES BOULDER BADGE` (§ 5.2).
+- **Q-D:** easy and hard share the level band; hard is the smarter AI (§ 6.2).
+- **Q-E:** story legendaries are caught, not hatched (§ 8).
 
 ## 12. Data pipeline and tests
 
@@ -306,10 +325,23 @@ tools/verify_wild.py   diff against the decomps; NOT VERIFIED list; floor oversh
                        legendary locations with no table and no parent = failure
 ```
 
-`wild_areas.h` holds `WildSlot { int16_t dex; uint8_t weight, when, floor; }`,
-`WildArea { name, region, gate, first, count, parent }` and
-`WildLegend { int16_t dex; uint8_t area, level, flags /* ROAMER */ }`.
-Flash use is roughly 25 KB.
+**How encounter methods share one area.** Each method's own slot rates are kept
+inside it; between methods, walking counts 1.0, surfing 0.5, fishing 0.3 and
+Rock Smash 0.2, renormalised over the methods the area has. So a route with
+grass and water is mostly grass, and a sea route is mostly surfing with some
+fishing. FireRed and LeafGreen are averaged, so a version exclusive comes in
+at half the weight. The weights live in `tools/wild_areas.py`, beside the
+area table, and `verify_wild.py` prints each area's final percentages.
+
+`wild_areas.h` holds `WildSlot { int16_t dex; uint16_t weight; uint8_t when, floor; }`
+(weights in parts of 10000, so a 1 % fishing slot is never rounded away),
+`WildArea { name, region, gate, first, count, lvMin, lvMax }` and
+`WildLegend { int16_t dex; uint8_t area, level }`. **The band is computed by
+the generator from `trainers.h` and emitted per area**, so the firmware reads
+one number instead of re-deriving a formula; `verify_wild.py` fails if the
+ladder changes and the header is not regenerated, and Phase 2's firmware test
+checks the emitted bands against `TRAINER_SETS` itself. Kanto is 435 slots,
+about 3.5 KB. Roamer flags arrive with Phase 3.
 
 **Tests** (each guard negative-checked):
 
@@ -336,11 +368,26 @@ Flash use is roughly 25 KB.
 | Phase | Content | Version |
 |---|---|---|
 | 1 | Pipeline + Kanto data, no firmware change | — |
-| 2 | Firmware: areas, `SCR_AREA`, gates, ladder bands, floors, ALL switched off; Kanto live, other regions keep the old pool | 3.39 |
-| 3 | Legendaries (save bitmasks, guaranteed encounter, roamers) and the mythical egg rule, Kanto first | 3.40 |
+| 2 | Firmware: areas, `SCR_AREA`, gates, ladder bands, floors, badge names, hard = AI only, ALL switched off; Kanto live, other regions keep the old pool | 3.39 |
+| 3 | Legendaries (save bitmasks, guaranteed encounter, roamers); Kanto's legendaries leave the egg pool | 3.40 |
 | 4 | Johto, Hoenn, Sinnoh | 3.41 |
 | 5 | Unova, Kalos, Alola, Galar | 3.42 |
 | 6 | Paldea; the 70/22/7/1 tier roll is removed once every region has areas | 3.43 |
 
 Every firmware phase updates the README's wild encounters section,
 `FW_VERSION`, the README badge and the player release notes.
+
+## 14. Progress
+
+**Phase 1: DONE (2026-10-21).** `tools/wild_areas.py` (the hand table: 36
+Kanto areas, gates, 4 legendaries), `tools/gen_wild.py` (fetch, merge, weigh,
+floors, bands; deterministic) and `tools/verify_wild.py`. `wild_areas.h` is
+generated and committed but **not yet included by the firmware**, so nothing
+on a board changes. Verify: every one of FireRed/LeafGreen's 132 maps with
+encounters is in exactly one area; the header matches a fresh build; the four
+legendary levels are read from the games' own scripts (Articuno, Zapdos,
+Moltres 50, Mewtwo 70). Negative-checked: a dropped map, a map in two areas, a
+hand-edited header, a reordered legend list, a legendary at the wrong script
+and a ladder edit without a regeneration each fail.
+
+**Next: Phase 2**, the firmware half (§ 13).
