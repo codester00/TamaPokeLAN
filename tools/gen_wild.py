@@ -79,10 +79,6 @@ POKEAPI = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/
 
 SLUG = {slug: n for n, slug, *_ in DEX}
 
-# Species with no sprite anywhere (noart.h, from check_sprites.py --emit): the
-# firmware never offers one, so they cannot keep an area alive.
-NOART = {int(x) for x in re.findall(
-    r'\d+', open(os.path.join(ROOT, 'noart.h')).read().split('= {')[1].split('}')[0])}
 
 # source -> every map that source has wild encounters on, filled in by the
 # loaders for verify_wild.py's "nothing silently dropped" check.
@@ -249,10 +245,20 @@ def load_platinum(refresh=False):
 # they come in as 'phenomenon' at a small weight, like Headbutt; fishing in
 # rippling water is still fishing, behind the rod. Left out as special
 # methods (plan § 4): Hidden Grottos, statics, gifts, trades.
+#
+# X/Y (Gen 6): flower beds and rough terrain are grass of their own colour --
+# ordinary walking. Hordes (five at once in the grass) are an ordinary random
+# event, weighted like a phenomenon. Rock Smash is Rock Smash. The ambushes --
+# ceiling, trash can, rustling bush, ground, sky -- are scripted one-offs, and
+# berry trees and the Friend Safari special, so they stay out. Only the best
+# rod is fishing, as in every other region.
 POKEAPI_METHODS = {'walk': 'land', 'dark-grass': 'land', 'surf': 'water',
                    'super-rod': 'fishing', 'super-rod-spots': 'fishing',
                    'grass-spots': 'phenomenon', 'cave-spots': 'phenomenon',
-                   'bridge-spots': 'phenomenon', 'surf-spots': 'phenomenon'}
+                   'bridge-spots': 'phenomenon', 'surf-spots': 'phenomenon',
+                   'yellow-flowers': 'land', 'red-flowers': 'land',
+                   'purple-flowers': 'land', 'rough-terrain': 'land',
+                   'horde': 'phenomenon', 'rock-smash': 'rock_smash'}
 POKEAPI_SEASONS = ('season-spring', 'season-summer', 'season-autumn', 'season-winter')
 
 
@@ -668,11 +674,10 @@ def build(refresh=False):
                 mix = mix_band(data, versions, maps, when, rod_gate)
                 if not mix:
                     sys.exit('gen_wild: area %r has no encounters at time %d' % (name, when))
-                if not any(g == 0 and d not in NOART for d, g in mix):
-                    # The rod gate is SECRET (owner's call): an area that held
-                    # nothing until it opened would read as empty on the panel.
-                    sys.exit('gen_wild: area %r has nothing to meet before the rod at '
-                             'time %d (only rod or art-less encounters)' % (name, when))
+                # An area whose open creatures all lack art, or wait behind
+                # the rod, is still built (owner's call, 2026-10-21): the
+                # firmware greys it out as NO VALID SPRITES until the art is
+                # ingested or the gate opens. verify_wild.py lists them.
                 per_band[when] = dict(scale(mix))
             # One slot per (species, weight, gate) with the bands that share it.
             slots = {}

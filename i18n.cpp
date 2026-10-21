@@ -73,7 +73,7 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "ROMPE ROCAS", "BLOQUEA!", "LABERINTO", "TOCA CUANDO EL ARO LLEGUE", "TOCA EL LADO DEL ATAQUE", "INCLINA PARA RODAR", "PERFECTO", "BIEN", "FALLO", "+%u %s  +%u %s", "BLOQUEADOS: %u", "GOLPES: %u", "METAS: %u", "Sin sensor de movimiento",
     "EMPUJA ROCA", "MEMORIA", "ESCONDITE", "TOCA EN LO VERDE!", "MIRA...", "TU TURNO!", "MIRA DONDE SE ESCONDE!", "DONDE ESTA?", "EMPUJE: %u", "SERIE: %u", "ENCONTRADO: %u/%u", "AQUI ESTA!", "AQUI NO!",
     "+%u %s", "MAX HOY",
-    "ELIGE TU ASPECTO", "%s se desmayo!", "No queda nadie que luche...", "MAMA: Descansa un poco!", "Tu equipo ya esta mejor.", "REQUIERE %s", "REQUIERE CAMPEON", "Nv.%u-%u", "TODA LA REGION", },
+    "ELIGE TU ASPECTO", "%s se desmayo!", "No queda nadie que luche...", "MAMA: Descansa un poco!", "Tu equipo ya esta mejor.", "REQUIERE %s", "REQUIERE CAMPEON", "Nv.%u-%u", "TODA LA REGION", "SIN SPRITES VALIDOS", },
   // ---------------- EN ----------------
   {
     "Evolving!", "Yum yum!", "It likes it!", "It's hungry!", "Needs a bath!",
@@ -137,7 +137,7 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "ROCK SMASH", "BLOCK!", "TILT MAZE", "TAP AS THE RING HITS!", "TAP THE SIDE IT COMES FROM!", "TILT TO ROLL THE BALL!", "PERFECT", "GOOD", "MISS", "+%u %s  +%u %s", "BLOCKED: %u", "SMASHES: %u", "GOALS: %u", "No motion sensor",
     "BOULDER PUSH", "MEMORY", "HIDE AND SEEK", "TAP IN THE GREEN!", "WATCH...", "YOUR TURN!", "WATCH WHERE IT HIDES!", "WHERE IS IT?", "PUSHED: %u", "LONGEST: %u", "FOUND: %u/%u", "FOUND IT!", "NOT HERE!",
     "+%u %s", "MAX TODAY",
-    "CHOOSE YOUR LOOK", "%s blacked out!", "No one left who can fight...", "MOM: Rest up, dear!", "Your team is all better.", "REQUIRES %s", "REQUIRES CHAMPION", "Lv.%u-%u", "WHOLE REGION", },
+    "CHOOSE YOUR LOOK", "%s blacked out!", "No one left who can fight...", "MOM: Rest up, dear!", "Your team is all better.", "REQUIRES %s", "REQUIRES CHAMPION", "Lv.%u-%u", "WHOLE REGION", "NO VALID SPRITES", },
   // ---------------- FR ----------------
   {
     "Il evolue!", "Miam miam!", "Il aime ca!", "Il a faim!", "Besoin d'un bain!",
@@ -200,7 +200,7 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "CASSE-ROC", "BLOQUE!", "LABYRINTHE", "TOUCHE QUAND L'ANNEAU TOUCHE", "TOUCHE LE COTE DE L'ATTAQUE", "INCLINE POUR ROULER", "PARFAIT", "BIEN", "RATE", "+%u %s  +%u %s", "BLOQUES: %u", "COUPS: %u", "BUTS: %u", "Pas de capteur de mouvement",
     "POUSSE ROCHER", "MEMOIRE", "CACHE-CACHE", "TOUCHE DANS LE VERT!", "REGARDE...", "A TOI!", "OU SE CACHE-T-IL?", "OU EST-IL?", "POUSSE: %u", "SERIE: %u", "TROUVE: %u/%u", "TROUVE!", "PAS ICI!",
     "+%u %s", "MAX AUJ.",
-    "CHOISIS TON STYLE", "%s est hors-jeu!", "Plus personne pour combattre...", "MAMAN: Repose-toi un peu!", "Ton equipe va mieux.", "REQUIERT %s", "REQUIERT CHAMPION", "Niv.%u-%u", "TOUTE LA REGION", },
+    "CHOISIS TON STYLE", "%s est hors-jeu!", "Plus personne pour combattre...", "MAMAN: Repose-toi un peu!", "Ton equipe va mieux.", "REQUIERT %s", "REQUIERT CHAMPION", "Niv.%u-%u", "TOUTE LA REGION", "AUCUN SPRITE VALIDE", },
   // ---------------- DE ----------------
   {
     "Entwickelt sich!", "Mampf mampf!", "Gefaellt ihm!", "Hat Hunger!", "Braucht ein Bad!",
@@ -263,7 +263,7 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "FELSBRECHER", "BLOCKEN!", "KIPPLABYRINTH", "TIPPE, WENN DER RING TRIFFT", "TIPPE AUF DIE ANGRIFFSSEITE", "KIPPEN ZUM ROLLEN", "PERFEKT", "GUT", "DANEBEN", "+%u %s  +%u %s", "GEBLOCKT: %u", "TREFFER: %u", "ZIELE: %u", "Kein Bewegungssensor",
     "FELS SCHIEBEN", "GEDACHTNIS", "VERSTECKEN", "TIPPE IM GRUNEN!", "SCHAU...", "DU BIST DRAN!", "WO VERSTECKT ES SICH?", "WO IST ES?", "GESCHOBEN: %u", "REIHE: %u", "GEFUNDEN: %u/%u", "GEFUNDEN!", "NICHT HIER!",
     "+%u %s", "MAX HEUTE",
-    "WAEHLE DEIN AUSSEHEN", "%s fiel in Ohnmacht!", "Niemand kann mehr kaempfen...", "MAMA: Ruh dich aus!", "Dein Team ist wieder fit.", "BRAUCHT %s", "BRAUCHT CHAMPION", "Lv.%u-%u", "GANZE REGION", },
+    "WAEHLE DEIN AUSSEHEN", "%s fiel in Ohnmacht!", "Niemand kann mehr kaempfen...", "MAMA: Ruh dich aus!", "Dein Team ist wieder fit.", "BRAUCHT %s", "BRAUCHT CHAMPION", "Lv.%u-%u", "GANZE REGION", "KEINE GUELTIGEN SPRITES", },
   // ---------------- IT ----------------
   {
     "Si evolve!", "Gnam gnam!", "Gli piace!", "Ha fame!", "Vuole un bagno!",
@@ -326,7 +326,7 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "SPACCAROCCE", "PARA!", "LABIRINTO", "TOCCA QUANDO L'ANELLO TOCCA", "TOCCA IL LATO DELL'ATTACCO", "INCLINA PER ROTOLARE", "PERFETTO", "BENE", "MANCATO", "+%u %s  +%u %s", "PARATI: %u", "COLPI: %u", "TRAGUARDI: %u", "Nessun sensore di movimento",
     "SPINGI MASSO", "MEMORIA", "NASCONDINO", "TOCCA NEL VERDE!", "GUARDA...", "TOCCA A TE!", "GUARDA DOVE SI NASCONDE!", "DOVE E?", "SPINTA: %u", "SERIE: %u", "TROVATO: %u/%u", "TROVATO!", "NON QUI!",
     "+%u %s", "MAX OGGI",
-    "SCEGLI IL TUO STILE", "%s ha perso i sensi!", "Nessuno puo piu lottare...", "MAMMA: Riposati un po!", "La tua squadra sta meglio.", "RICHIEDE %s", "RICHIEDE CAMPIONE", "Lv.%u-%u", "TUTTA LA REGIONE", },
+    "SCEGLI IL TUO STILE", "%s ha perso i sensi!", "Nessuno puo piu lottare...", "MAMMA: Riposati un po!", "La tua squadra sta meglio.", "RICHIEDE %s", "RICHIEDE CAMPIONE", "Lv.%u-%u", "TUTTA LA REGIONE", "NESSUNO SPRITE VALIDO", },
   // ---------------- PT ----------------
   {
     "Evoluindo!", "Nham nham!", "Ele gosta!", "Esta com fome!", "Precisa de banho!",
@@ -388,7 +388,7 @@ static const char *const STRINGS[LANG_COUNT][STR_COUNT] = {
     "PARTE-ROCHAS", "BLOQUEIA!", "LABIRINTO", "TOCA QUANDO O ANEL BATER", "TOCA O LADO DO ATAQUE", "INCLINA PARA ROLAR", "PERFEITO", "BOM", "FALHOU", "+%u %s  +%u %s", "BLOQUEADOS: %u", "GOLPES: %u", "METAS: %u", "Sem sensor de movimento",
     "EMPURRA PEDRA", "MEMORIA", "ESCONDE", "TOQUE NO VERDE!", "OLHA...", "SUA VEZ!", "VEJA ONDE SE ESCONDE!", "ONDE ESTA?", "EMPURRAO: %u", "SERIE: %u", "ACHOU: %u/%u", "ACHOU!", "AQUI NAO!",
     "+%u %s", "MAX HOJE",
-    "ESCOLHE O VISUAL", "%s desmaiou!", "Ja ninguem pode lutar...", "MAE: Descansa um pouco!", "A tua equipa ja melhorou.", "REQUER %s", "REQUER CAMPEAO", "Niv.%u-%u", "TODA A REGIAO", },
+    "ESCOLHE O VISUAL", "%s desmaiou!", "Ja ninguem pode lutar...", "MAE: Descansa um pouco!", "A tua equipa ja melhorou.", "REQUER %s", "REQUER CAMPEAO", "Niv.%u-%u", "TODA A REGIAO", "SEM SPRITES VALIDOS", },
 };
 
 // Nombres de medalla en sus tres longitudes [idioma][medalla].

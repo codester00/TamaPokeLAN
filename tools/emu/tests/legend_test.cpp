@@ -190,6 +190,25 @@ int main(){
     ck(count(r19,p,cob)==0, "the Swords do not roam");
   }
 
+  // ---- Kalos (v3.45, from PokeAPI): Xerneas and Yveltal, Zygarde ----------
+  {
+    int xer=legendOf(716), yve=legendOf(717), zyg=legendOf(718);
+    int r13=areaIn(5,"ROUTE 13"), term=areaIn(5,"TERMINUS CAVE");
+    ck(xer>=0 && yve>=0 && zyg>=0 && r13>=0 && term>=0, "Kalos's legendaries and areas are found");
+    Pet p; badges(p,5,6);
+    ck(wildAreaUnlocked((uint16_t)r13,p) && count(r13,p,xer)==0 && count(r13,p,yve)==0,
+       "the Lumiose Badlands are open; Xerneas and Yveltal wait for Olympia's badge");
+    p.winBadge(5,6,false);
+    ck(count(r13,p,xer)==10000, "then Xerneas meets you once");
+    p.setLegendMet(xer);
+    ck(count(r13,p,yve)==10000, "then Yveltal -- both versions' in one home");
+    ck(wildLegendLevel(xer)==50 && wildLegendLevel(zyg)==70, "at PokeAPI's X/Y levels");
+    badges(p,5,8);
+    ck(wildAreaUnlocked((uint16_t)term,p) && count(term,p,zyg)==0, "Zygarde waits for the champion");
+    p.winBadge(5,TRAINER_COUNT-1,false);
+    ck(count(term,p,zyg)==10000, "and is there after");
+  }
+
   // ---- the save --------------------------------------------------------------
   {
     Pet a; a.begin();
@@ -233,18 +252,18 @@ int main(){
     }
     ck(!homed, "no egg hatches a legendary that has a home in Explore");
     ck(mew && celebi, "while Mew and Celebi still hatch -- the legendary tier is not empty");
-    // Hoenn's, Sinnoh's and Unova's have homes (v3.42-v3.44); Kalos's do not
-    // yet. Found by asking wildIsExploreLegend(), not by a typed range.
-    bool homed2=false, kalosLegend=false, forces=false;
+    // Hoenn's through Kalos's have homes (v3.42-v3.45); Alola's do not yet.
+    // Found by asking wildIsExploreLegend(), not by a typed range.
+    bool homed2=false, alolaLegend=false, forces=false;
     for (int i=0;i<900;i++){
-      for (uint8_t r=2;r<=4;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
-      int16_t k=p.rollInRegion(5,R_LEGENDARIO);
-      if (k>=716 && k<=718 && !wildIsExploreLegend(k)) kalosLegend=true;   // Xerneas, Yveltal, Zygarde
+      for (uint8_t r=2;r<=5;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
+      int16_t k=p.rollInRegion(6,R_LEGENDARIO);
+      if (k>=785 && k<=800 && !wildIsExploreLegend(k)) alolaLegend=true;   // the Tapus .. Necrozma
       int16_t u=p.rollInRegion(4,R_LEGENDARIO);
       if (u==641 || u==642 || u==645) forces=true;
     }
-    ck(!homed2, "Hoenn's, Sinnoh's and Unova's homed legendaries left their eggs with their areas");
-    ck(kalosLegend, "and a region whose legendaries have no homes yet still hatches them");
+    ck(!homed2, "Hoenn's through Kalos's homed legendaries left their eggs with their areas");
+    ck(alolaLegend, "and a region whose legendaries have no homes yet still hatches them");
     ck(forces, "Tornadus, Thundurus and Landorus, never met in B2W2, still hatch");
   }
 

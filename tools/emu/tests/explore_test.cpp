@@ -38,13 +38,20 @@ void areaRowRect(int i, int *x, int *y, int *w, int *h);
 void exploreAreaRect(int *x, int *y, int *w, int *h);
 void exploreBtnRect(int *x, int *y, int *w, int *h);
 uint16_t exploreAreaOf(uint8_t region);
+void areaStatusText(uint16_t a, char *buf, size_t n);
+int exploreHour();
 uint8_t currentExploreRegion();
 void exploreStepRegion(int8_t step);
 void onRim(int dir);
 #include "wild.h"
 #include "trainers.h"
+#include "i18n.h"
+#include "noart.h"
 
 static int bad = 0;
+// Art kept for a chosen few species, standing in for art not yet ingested.
+static bool gKeepArt[DEX_COUNT + 1];
+static bool keptArt(int16_t d) { return d > 0 && d <= DEX_COUNT && gKeepArt[d] && speciesHasArt(d); }
 static void ck(bool ok, const char *what) {
   printf("%s  %s\n", ok ? "PASS" : "FAIL", what);
   if (!ok) bad++;
@@ -251,6 +258,51 @@ int main() {
       if (startWildBattle(0, i & 1) && rodOnly[wildDex]) came = true;
     }
     ck(came, "until the rod's badge is won -- then they come");
+  }
+
+  // NO VALID SPRITES through the screen (v3.45): an open area whose creatures
+  // cannot be drawn says so on its row, refuses the tap, starts no fight, and
+  // is not where Explore opens -- then comes back the moment the art does.
+  {
+    static uint16_t dead; dead = (uint16_t)(first + 3);    // Viridian Forest
+    wildHasArt = [](int16_t d) { return regionOfDex(d) != 0 && speciesHasArt(d); };  // Kanto's art gone
+    char sub[40];
+    areaStatusText(dead, sub, sizeof(sub));
+    ck(!strcmp(sub, T(S_AREA_NO_SPRITES)), "an area with nothing drawable reads NO VALID SPRITES");
+    areaListOpen = false; battleOpen = false; exploreOpen = true; exploreRegion = 0;
+    for (int r = 0; r < REGION_COUNT; r++) exploreAreaPick[r] = 0;
+    tapRect(exploreAreaRect);
+    areaPage = 1;
+    tapRow(0);                                   // Viridian Forest's row
+    ck(areaListOpen && exploreAreaOf(0) != dead, "its row refuses the tap");
+    areaListOpen = false;
+    exploreAreaPick[0] = (uint16_t)(dead + 1);
+    battleOpen = false; exploreOpen = true;
+    ck(!startWildBattle(0, false), "and Explore starts no fight there");
+    wildHasArt = speciesHasArt;                  // the art is ingested
+    areaStatusText(dead, sub, sizeof(sub));
+    ck(strcmp(sub, T(S_AREA_NO_SPRITES)) != 0, "with the art back the row shows its levels again");
+    battleOpen = false; exploreOpen = true;
+    ck(startWildBattle(0, false), "and the fight starts");
+    // A greyed area is never Explore's default while a live one is open: keep
+    // art only for Viridian Forest's creatures (found by sampling it), so the
+    // further areas this player has opened go dark.
+    for (int d = 0; d <= DEX_COUNT; d++) gKeepArt[d] = false;
+    for (uint32_t r = 0; r < 20000; r++) gKeepArt[wildAreaPick(dead, wildTimeBand(-1), pet, r)] = true;
+    wildHasArt = keptArt;
+    exploreAreaPick[0] = 0;
+    uint16_t def = exploreAreaOf(0);
+    bool furtherDead = false;
+    for (uint8_t k = 0; k < wildAreaCount(0); k++) {
+      uint16_t a = (uint16_t)(first + k);
+      if (wildAreaUnlocked(a, pet) && wildAreaGate(a) > wildAreaGate(def) &&
+          !wildAreaHasLive(a, wildTimeBand(exploreHour()), pet)) furtherDead = true;
+    }
+    printf("      default %s (gate %u, live %d); a further open area is grey: %d\n", wildAreaName(def),
+           wildAreaGate(def), wildAreaHasLive(def, wildTimeBand(exploreHour()), pet), furtherDead);
+    ck(wildAreaHasLive(def, wildTimeBand(exploreHour()), pet) && furtherDead,
+       "Explore opens on a live area, passing over further ones that are grey");
+    wildHasArt = speciesHasArt;
   }
 
   printf("%s\n", bad ? "FAILURES" : "all good");

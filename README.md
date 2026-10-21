@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.44-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.45-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -458,7 +458,8 @@ Route 12, past the Poke Flute), Johto's after the **champion** (Crystal's is
 in Kanto), Hoenn's after the **Feather Badge** (Emerald's is in Mossdeep),
 Sinnoh's after the **champion** (Platinum's is in the Battle Zone's Fight
 Area), Unova's after the **champion** (B2W2's only rod is Cedric Juniper's
-gift after the Hall of Fame). Until then the area's other creatures share its encounters at their
+gift after the Hall of Fame), Kalos's after the **Fairy Badge** (Route 16's
+Fishing Shack). Until then the area's other creatures share its encounters at their
 own relative rates. **Nothing on the screen says so** -- by design, like the
 care window: the row is not greyed, nothing is starred, and an area always has
 something to meet. Easy or hard badges both count. Creatures met only that way
@@ -517,6 +518,23 @@ elemental monkeys. Hidden Grottos are left out. B2W2's post-game is Black and
 White's old Unova, so Routes 1-3, the Dreamyard and Pinwheel Forest open after
 the champion, at post-game levels.
 
+**Kalos's areas (v3.45).** 30 areas from X and Y, both versions averaged, from
+PokeAPI like Unova (NOT VERIFIED). X/Y has no times of day or seasons in its
+encounters. Grass includes the flower beds and rough terrain; **hordes** (five
+at once in the grass) come in at weight 0.2 like Unova's phenomena; Rock Smash
+counts; the scripted ambushes (ceiling, trash can, bush, ground, sky), berry
+trees and the Friend Safari are left out.
+
+**NO VALID SPRITES (v3.45).** Every area is built from the games' data whether
+or not its creatures can be drawn yet. An open area with nothing to meet that
+can be drawn -- its species have no art yet, or all it holds still waits behind
+a gate such as the best rod's -- stays **grey and reads NO VALID SPRITES**,
+refuses the tap and starts no fight, and Explore never opens on it while a live
+area is open. It lights up by itself when the art is ingested (re-run
+`tools/check_sprites.py --emit` and rebuild) or the gate opens. A missing
+region pack still reads NEEDS PACK. `tools/verify_wild.py` lists every area
+that reads NO VALID SPRITES and until when; today there are none.
+
 **An area opens with the badge that opened it in the games**, on either
 difficulty. Kanto: Route 1, 2, 22 and Viridian Forest from the start; Mt. Moon
 after the Boulder Badge; the Safari Zone after the Rainbow Badge; Seafoam Islands
@@ -554,7 +572,13 @@ Chargestone Cave after the Quake Badge; Route 7, Celestial Tower, Reversal
 Mountain, Undella and Routes 11-14 after the Jet Badge; Route 9 and Route 21
 after the Legend Badge; Route 22, the Giant Chasm, Seaside Cave, Route 23 and
 Victory Road after the Wave Badge; Black and White's Unova after the champion.
-A locked area is
+Kalos: Santalune Forest and Routes 2, 3 and 22 from the start; the road
+through Camphrier to Cyllage after the Bug Badge; Routes 10-11 and Reflection
+Cave after the Cliff Badge; Route 12 after the Rumble Badge; the Lumiose
+Badlands and Azure Bay after the Plant Badge; Route 14 after the Voltage Badge;
+Routes 15-17, the Lost Hotel and Frost Cavern after the Fairy Badge; Routes
+18-20, Terminus Cave and the Pokemon Village after the Psychic Badge; Route 21
+and Victory Road after the Iceberg Badge. A locked area is
 listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 
 **Legendaries live somewhere (v3.40).** Each story legendary has a home:
@@ -585,6 +609,8 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Terrakion | Route 22 | Wave Badge | 45 |
 | Reshiram, Zekrom | Dragonspiral Tower (both versions' dragons) | the champion | 70 |
 | Kyurem | Giant Chasm | the champion | 70 |
+| Xerneas, Yveltal | Route 13 (Team Flare's HQ under Lumiose has no wild table) | Psychic Badge | 50 |
+| Zygarde | Terminus Cave | the champion | 70 |
 
 Unova's levels are PokeAPI's B2W2 static encounters. Tornadus, Thundurus and
 Landorus are never met in B2W2 (only through the 3DS Dream Radar), so like the

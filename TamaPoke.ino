@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.44"
+#define FW_VERSION "3.45"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -3161,16 +3161,22 @@ uint16_t exploreAreaOf(uint8_t region) {
   if (pick && pick - 1 >= first && pick - 1 < first + n &&
       wildAreaUnlocked((uint16_t)(pick - 1), pet))
     return (uint16_t)(pick - 1);
-  uint16_t best = first;
-  uint8_t bestGate = 0;
+  // The furthest open area that has something to meet now; failing that, the
+  // furthest open one (it will say why it is grey, never hide it).
+  uint8_t when = wildTimeBand(exploreHour());
+  uint16_t best = first, bestLive = WILD_NO_AREA;
+  uint8_t bestGate = 0, bestLiveGate = 0;
   for (uint8_t i = 0; i < n; i++) {
     uint16_t a = (uint16_t)(first + i);
-    if (wildAreaUnlocked(a, pet) && wildAreaGate(a) > bestGate) {
-      best = a;
-      bestGate = wildAreaGate(a);
+    if (!wildAreaUnlocked(a, pet)) continue;
+    if (wildAreaGate(a) > bestGate) { best = a; bestGate = wildAreaGate(a); }
+    if (wildAreaHasLive(a, when, pet) &&
+        (bestLive == WILD_NO_AREA || wildAreaGate(a) > bestLiveGate)) {
+      bestLive = a;
+      bestLiveGate = wildAreaGate(a);
     }
   }
-  return best;
+  return bestLive != WILD_NO_AREA ? bestLive : best;
 }
 
 uint8_t areaPages(uint8_t region) {
@@ -3259,11 +3265,25 @@ void openAreaList() {
   areaListOpen = true;
 }
 
+// The second line of an area's row: its band when it can be explored, else
+// why not -- the badge it needs, a missing pack, or no valid sprites (the
+// catch-all, wildAreaState()). One answer for the list and the Explore row.
+void areaStatusText(uint16_t a, char *buf, size_t n) {
+  if (!wildAreaUnlocked(a, pet)) { areaGateText(a, buf, n); return; }
+  switch (wildAreaState(a, wildTimeBand(exploreHour()), pet)) {
+    case WILD_AREA_LIVE:
+      snprintf(buf, n, T(S_AREA_LV_FMT), wildAreaLvMin(a), wildAreaLvMax(a));
+      break;
+    case WILD_AREA_NEEDS_PACK: snprintf(buf, n, "%s", T(S_NEED_PACK)); break;
+    default:                   snprintf(buf, n, "%s", T(S_AREA_NO_SPRITES)); break;
+  }
+}
+
 void areaListTap(int16_t x, int16_t y) {
   int a = areaRowAt(x, y);
   if (a < 0) return;
   if (!wildAreaUnlocked((uint16_t)a, pet) ||
-      !wildAreaHasLive((uint16_t)a, wildTimeBand(exploreHour()), pet)) {
+      wildAreaState((uint16_t)a, wildTimeBand(exploreHour()), pet) != WILD_AREA_LIVE) {
     sfxPlay(SFX_DENY);
     return;
   }
@@ -3290,7 +3310,7 @@ void renderAreaList() {
     int rx, ry, rw, rh;
     areaRowRect(i, &rx, &ry, &rw, &rh);
     bool open_ = wildAreaUnlocked(a, pet);
-    bool live = open_ && wildAreaHasLive(a, when, pet);
+    bool live = open_ && wildAreaState(a, when, pet) == WILD_AREA_LIVE;
     gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
     gfx->drawRoundRect(rx, ry, rw, rh, 12, live ? UI_INK : UI_TRACK);
     if (a == chosen && live) {   // the one EXPLORE will look in
@@ -3300,9 +3320,7 @@ void renderAreaList() {
     gfx->setTextColor(live ? UI_INK : UI_INK_SOFT);
     areaCentredName(a, open_, CX, ry + 22, rw - 16);
     char sub[40];
-    if (!open_) areaGateText(a, sub, sizeof(sub));
-    else if (!live) snprintf(sub, sizeof(sub), "%s", T(S_NEED_PACK));
-    else snprintf(sub, sizeof(sub), T(S_AREA_LV_FMT), wildAreaLvMin(a), wildAreaLvMax(a));
+    areaStatusText(a, sub, sizeof(sub));
     gfx->setTextColor(live ? UI_INK : UI_INK_SOFT);
     areaCentred(sub, CX, ry + 56, rw - 16);
   }
@@ -3344,7 +3362,7 @@ void renderExplore() {
   // without areas yet still draws from its whole pool, and says so.
   uint16_t area = exploreAreaOf(rg);
   uint8_t when = wildTimeBand(exploreHour());
-  bool areaLive = area == WILD_NO_AREA || wildAreaHasLive(area, when, pet);
+  bool areaLive = area == WILD_NO_AREA || wildAreaState(area, when, pet) == WILD_AREA_LIVE;
   int ax, ay, aw, ah;
   exploreAreaRect(&ax, &ay, &aw, &ah);
   gfx->fillRoundRect(ax, ay, aw, ah, 16, UI_BG_DAY);
@@ -3355,10 +3373,8 @@ void renderExplore() {
   } else {
     gfx->setTextColor(UI_INK);
     areaCentredName(area, true, CX, ay + 22, aw - 60);
-    char sub[24];
-    if (areaLive) snprintf(sub, sizeof(sub), T(S_AREA_LV_FMT),
-                           wildAreaLvMin(area), wildAreaLvMax(area));
-    else snprintf(sub, sizeof(sub), "%s", T(S_NEED_PACK));
+    char sub[40];
+    areaStatusText(area, sub, sizeof(sub));
     gfx->setTextColor(areaLive ? UI_INK : UI_INK_SOFT);
     areaCentred(sub, CX, ay + 56, aw - 60);
     gfx->setTextColor(UI_INK);

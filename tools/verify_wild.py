@@ -122,6 +122,23 @@ def main():
                 early[d] = min(early.get(d, 99), at)
         late = sorted({d for _a, d in held if early[d] >= rod})
         print('  %s' % (', '.join(DEX[d - 1][2] for d in late) or 'none -- each is met earlier anyway'))
+    # Areas the panel greys out as NO VALID SPRITES: in some time band, nothing
+    # behind an open gate can be drawn. Built anyway (owner's call): it lights
+    # up by itself when the art is ingested or the rod's gate opens.
+    dark = []
+    for a in areas:
+        for b, bname in ((1, 'morning'), (2, 'day'), (4, 'night')):
+            drawable = [(d, g) for d, _w, wh, _f, g in a['slots'] if wh & b and d not in noart]
+            if not any(g == 0 for _d, g in drawable):
+                until = ('the rod (gate %d)' % min(g for _d, g in drawable)) if drawable \
+                    else 'its art is ingested'
+                dark.append('  %-7s %-17s %-8s NO VALID SPRITES until %s'
+                            % (REGIONS[a['region']][0], a['name'], bname, until))
+    print('\nareas greyed as NO VALID SPRITES (%d):' % len(dark))
+    for line in dark:
+        print(line)
+    if not dark:
+        print('  none')
     art = sorted({d for a in areas for d, _w, _wh, _f, _g in a['slots'] if d in noart})
     if art:
         print('\nno art (the firmware skips these): %s' % ', '.join(DEX[d - 1][2] for d in art))

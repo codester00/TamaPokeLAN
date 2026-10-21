@@ -119,6 +119,24 @@ uint8_t wildTimeBand(int hour);
 // refuses an area that would have nothing ungated, which would read as empty.
 bool wildAreaHasLive(uint16_t area, uint8_t when, const Pet &p);
 
+// WHY an area has nothing to meet, for the row that says so. The ONE answer
+// the area list, the Explore screen and their taps ask; LIVE exactly when
+// wildAreaHasLive() is true.
+//   WILD_AREA_NEEDS_PACK  something could be met, but its region's sprite pack
+//                         is not on the card;
+//   WILD_AREA_NO_SPRITES  the catch-all: nothing in this time band, behind open
+//                         gates, can be drawn -- its species have no art yet,
+//                         or all it holds is still behind a gate. The data is
+//                         all there: the area lights up by itself when the art
+//                         is ingested (check_sprites.py --emit, rebuild) or the
+//                         gate opens.
+enum : uint8_t { WILD_AREA_LIVE, WILD_AREA_NEEDS_PACK, WILD_AREA_NO_SPRITES };
+uint8_t wildAreaState(uint16_t area, uint8_t when, const Pet &p);
+
+// "Can this species be drawn?" -- speciesHasArt() (noart.h) unless a test
+// swaps it to stand in for art that has not been ingested yet.
+extern bool (*wildHasArt)(int16_t dex);
+
 // A species from the area, weighted by the game's own encounter rates over the
 // live slots only (renormalised, so a missing pack or a rod not yet had never
 // strands a roll). 0 if the area has nothing live.

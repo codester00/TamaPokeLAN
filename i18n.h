@@ -259,6 +259,7 @@ enum StrId : uint16_t {
   S_AREA_REQ_CHAMP, // a locked Explore area opened by the champion
   S_AREA_LV_FMT,    // an Explore area's level band, "Lv.%u-%u"
   S_AREA_WHOLE,     // Explore in a region that has no areas yet
+  S_AREA_NO_SPRITES, // an open Explore area with nothing that can be drawn to meet (yet)
   STR_COUNT
 };
 

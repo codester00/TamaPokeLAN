@@ -440,4 +440,12 @@ weight 0.2 (Audino, Drilbur, Emolga live nowhere else); the Swords of Justice,
 Reshiram, Zekrom and Kyurem with homes; the Forces of Nature egg-only (never
 met in B2W2). Regigigas (Sinnoh) was raised to 70 by the owner's call.
 
-**Next:** Kalos (X/Y), the same PokeAPI loader.
+**Kalos and the NO VALID SPRITES catch-all: DONE (2026-10-21, v3.45).** 30
+areas from X/Y via PokeAPI (NOT VERIFIED), Xerneas, Yveltal and Zygarde. Every
+area is built whether or not its creatures have art; an open area with nothing
+drawable greys out reading NO VALID SPRITES and lights up when the art lands
+or its gate opens (the owner's call, replacing the generator's refusal).
+
+**Next:** Alola (Ultra Sun/Ultra Moon), the same PokeAPI loader. Alola has
+islands and trials rather than gyms; its ladder in `trainers.h` decides the
+gates, as everywhere.

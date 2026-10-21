@@ -632,8 +632,8 @@ rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
 the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
-Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44)** -- see the "Done" entries
-below. Next: Kalos (X/Y, PokeAPI like Unova; NOT VERIFIED). None of it
+Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45)** -- see the "Done" entries
+below. Next: Alola (USUM, PokeAPI; NOT VERIFIED -- the first region with many art-less species in its areas). None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
@@ -690,6 +690,46 @@ disconnected for a while, which may explain the week-long figure; the
      measured.
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
+
+### Done: NO VALID SPRITES, and Kalos's areas (v3.45, not yet on a board)
+
+**The catch-all (owner's call, 2026-10-21).** Every area is BUILT from the
+games' data whether or not its creatures have art. An open area with nothing
+drawable to meet in the current band -- art missing, or everything behind a
+gate such as the rod's -- greys out reading NO VALID SPRITES, and lights up by
+itself when art is ingested (`check_sprites.py --emit`, rebuild) or the gate
+opens. This REPLACES v3.41's generator refusal of such areas; the owner chose
+the grey row over protecting the rod's secret in that edge case.
+
+- **One answer: `wildAreaState()`** (`WILD_AREA_LIVE` / `NEEDS_PACK` /
+  `NO_SPRITES`), built on the same `slotLive()`. `wildAreaHasLive()` is now
+  just `state == LIVE`, so the two cannot disagree (`wildarea_test` checks
+  every area and band). NEEDS PACK wins only when an open, in-band slot's pack
+  is missing; everything else that is not live is the catch-all.
+- **One status line: `areaStatusText()`** -- the badge it needs, the band, NEEDS
+  PACK or NO VALID SPRITES -- for both the area list and Explore's area row;
+  `areaListTap()` refuses anything not LIVE. `S_AREA_NO_SPRITES` in all six
+  languages, ASCII.
+- **`exploreAreaOf()` prefers a live area**: the furthest open live one, and
+  only if none is live the furthest open one (which then says why it is grey).
+- **`wildHasArt`** is a function pointer defaulting to `speciesHasArt`, the
+  ONE art check `slotLive()` uses. Art is compiled in (`noart.h`), so the tests
+  swap it to stand in for art not yet ingested. Do not call `speciesHasArt()`
+  directly in wild.cpp.
+- `verify_wild.py` lists every area that reads NO VALID SPRITES, per band, and
+  until when (the rod's gate, or its art). None today.
+- Negative-checked: the live preference in `exploreAreaOf()`, the status text,
+  the NEEDS PACK / NO SPRITES split.
+
+**Kalos**: 30 areas from X + Y (averaged) via PokeAPI, NOT VERIFIED; Xerneas
+and Yveltal (L50, Team Flare HQ, borrowing Route 13, after the Psychic Badge),
+Zygarde (L70, Terminus Cave, champion); the Super Rod at Route 16's Fishing
+Shack (gate 6, after Valerie -- serebii, thonky, PokeBase). `POKEAPI_METHODS`
+grew X/Y's: flower beds and rough terrain are land, hordes are `phenomenon`,
+Rock Smash is `rock_smash`; ambushes, berry trees and the Friend Safari stay
+out. Kanto-Unova came out byte-identical. Laverre City and Parfum Palace hold
+only fishing, so they ride with Route 14 and Route 6 rather than standing alone
+grey. Negative-checked: Xerneas's gate, the badge row.
 
 ### Done: Unova's areas and legendaries (v3.44, not yet on a board)
 

@@ -67,6 +67,7 @@ int main(){
   ck(wildRegionHasAreas(2), "Hoenn has areas");
   ck(wildRegionHasAreas(3), "Sinnoh has areas");
   ck(wildRegionHasAreas(4), "Unova has areas");
+  ck(wildRegionHasAreas(5), "Kalos has areas");
   {
     // A locked row says which badge it needs; a region with areas whose badge
     // names were never filled in would name a leader instead.
@@ -359,6 +360,60 @@ int main(){
     ck(metAfter, "and every one of them appears once that badge is won, on either difficulty");
     ck(exactEarly, "before the rod, the rest keep the game's rates, renormalised exactly");
     ck(allLive, "and no area is ever left with nothing live by it (the gate is secret)");
+  }
+
+  // ---- NO VALID SPRITES, the catch-all (v3.45) -------------------------------
+  // An area whose open creatures cannot be drawn greys out and says so, and
+  // lights up by itself when the art arrives or a gate opens. The art check is
+  // swapped through wildHasArt to stand in for art not ingested yet. Found from
+  // the data: an area whose rod holds a creature its open slots do not.
+  {
+    int da=-1; uint8_t rg=0;
+    for (int i=0;i<WILD_AREA_COUNT && da<0;i++){
+      const WildArea &a=WILD_AREAS[i];
+      for (int k=0;k<a.count && da<0;k++){
+        const WildSlot &s=WILD_SLOTS[a.first+k];
+        if (!s.gate || !speciesHasArt(s.dex) || !(s.when & WILD_WHEN_DAY)) continue;
+        bool open=false;
+        for (int j=0;j<a.count;j++) if (WILD_SLOTS[a.first+j].dex==s.dex && !WILD_SLOTS[a.first+j].gate) open=true;
+        if (!open){ da=i; rg=s.gate; }
+      }
+    }
+    ck(da>=0, "some area's rod holds a creature its open slots do not");
+    if (da>=0){
+      static int16_t openDex[64]; static int nOpen; nOpen=0;
+      const WildArea &a=WILD_AREAS[da];
+      for (int k=0;k<a.count;k++) if (!WILD_SLOTS[a.first+k].gate && nOpen<64) openDex[nOpen++]=WILD_SLOTS[a.first+k].dex;
+      wildHasArt=[](int16_t d){ for(int i=0;i<nOpen;i++) if(openDex[i]==d) return false; return speciesHasArt(d); };
+      Pet before, after;
+      for (uint8_t t=0;t+1<rg;t++){ before.winBadge(a.region,t,false); after.winBadge(a.region,t,false); }
+      after.winBadge(a.region,rg-1,false);
+      printf("      %s: its open creatures' art withheld\n", a.name);
+      ck(wildAreaState((uint16_t)da,WILD_WHEN_DAY,before)==WILD_AREA_NO_SPRITES &&
+         !wildAreaHasLive((uint16_t)da,WILD_WHEN_DAY,before) &&
+         wildAreaPick((uint16_t)da,WILD_WHEN_DAY,before,1)==0,
+         "with no drawable creature behind open gates it reads NO VALID SPRITES and offers nothing");
+      bool rodOnly=true;
+      for (uint32_t r=0;r<WILD_WEIGHT_TOTAL;r++){
+        int16_t d=wildAreaPick((uint16_t)da,WILD_WHEN_DAY,after,r);
+        for (int i=0;i<nOpen;i++) if (openDex[i]==d) rodOnly=false;
+        if (!d) rodOnly=false;
+      }
+      ck(wildAreaState((uint16_t)da,WILD_WHEN_DAY,after)==WILD_AREA_LIVE && rodOnly,
+         "the rod's badge colours it up, offering only what can be drawn");
+      gRegionArt=0;
+      ck(wildAreaState((uint16_t)da,WILD_WHEN_DAY,after)==WILD_AREA_NEEDS_PACK,
+         "and a missing pack still reads NEEDS PACK, not NO VALID SPRITES");
+      gRegionArt=0xFFFF;
+      wildHasArt=speciesHasArt;
+      ck(wildAreaState((uint16_t)da,WILD_WHEN_DAY,before)==WILD_AREA_LIVE,
+         "when the art arrives it is live again with nothing else changed");
+    }
+    bool same=true;
+    for (int i=0;i<WILD_AREA_COUNT;i++)
+      for (uint8_t b=WILD_WHEN_MORN;b<=WILD_WHEN_NITE;b<<=1)
+        if (wildAreaHasLive((uint16_t)i,b,all)!=(wildAreaState((uint16_t)i,b,all)==WILD_AREA_LIVE)) same=false;
+    ck(same, "wildAreaHasLive() and wildAreaState() never disagree");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);

@@ -619,7 +619,81 @@ UNOVA = {
     ],
 }
 
-REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA]
+# ---------------------------------------------------------------------------
+# KALOS -- X + Y, averaged (the same games as the Kalos gym ladder), from
+# PokeAPI like Unova, so NOT VERIFIED. X/Y has no times of day or seasons in
+# its encounters. Gates follow X/Y's progression: Santalune's Viola opens the
+# road through Lumiose to Camphrier, the Poke Flute's Route 7, Connecting Cave
+# and the coast to Cyllage; Grant opens Route 10 and Shalour; Korrina Route
+# 12; Ramos the Lumiose Badlands and Azure Bay; Clemont Route 14 to Laverre;
+# Valerie the north-east (Routes 15-17, the Lost Hotel, Frost Cavern);
+# Olympia the far north and the way to Snowbelle; Wulfric Route 21 and
+# Victory Road. Terminus Cave opens with Olympia, Zygarde after the champion.
+KALOS = {
+    'region': 5,
+    'source': 'pokeapi-xy',
+    'versions': ['x', 'y'],
+    'pokeapi_region': 6,
+    # A fisherman in Route 16's Fishing Shack (Melancolie Path), reached after
+    # Valerie (serebii, thonky, PokeBase agree).
+    'super_rod': {'gate': 6, 'note': "Route 16's Fishing Shack, after Valerie"},
+    'areas': [
+        ('SANTALUNE FOREST', 0, ['santalune-forest']),
+        ('ROUTE 2',          0, ['kalos-route-2']),
+        ('ROUTE 3',          0, ['kalos-route-3']),
+        ('ROUTE 22',         0, ['kalos-route-22']),
+        # Viola -- Lumiose, Camphrier, the Poke Flute, the coast to Cyllage
+        ('ROUTE 4',          1, ['kalos-route-4']),
+        ('ROUTE 5',          1, ['kalos-route-5']),
+        ('ROUTE 6',          1, ['kalos-route-6', 'parfum-palace']),
+        ('ROUTE 7',          1, ['kalos-route-7']),
+        ('CONNECTING CAVE',  1, ['connecting-cave']),
+        ('ROUTE 8',          1, ['kalos-route-8', 'ambrette-town', 'cyllage-city']),
+        ('ROUTE 9',          1, ['kalos-route-9']),
+        ('GLITTERING CAVE',  1, ['glittering-cave/unknown-area-303', 'glittering-cave/unknown-area-304']),
+        # Grant -- Route 10, Route 11, Reflection Cave, Shalour
+        ('ROUTE 10',         2, ['kalos-route-10']),
+        ('ROUTE 11',         2, ['kalos-route-11', 'shalour-city']),
+        ('REFLECTION CAVE',  2, ['reflection-cave/unknown-area-%d' % i for i in range(305, 309)]),
+        # Korrina -- Route 12
+        ('ROUTE 12',         3, ['kalos-route-12']),
+        # Ramos -- the Lumiose Badlands and Azure Bay
+        ('ROUTE 13',         4, ['kalos-route-13']),
+        ('AZURE BAY',        4, ['azure-bay']),
+        # Clemont -- Route 14 to Laverre
+        ('ROUTE 14',         5, ['kalos-route-14', 'laverre-city']),
+        # Valerie -- the north-east
+        ('ROUTE 15',         6, ['kalos-route-15']),
+        ('LOST HOTEL',       6, ['lost-hotel']),
+        ('ROUTE 16',         6, ['kalos-route-16']),
+        ('ROUTE 17',         6, ['kalos-route-17']),
+        ('FROST CAVERN',     6, ['frost-cavern/unknown-area-%d' % i for i in range(313, 318)]),
+        # Olympia -- the far north, Terminus Cave, the way to Snowbelle
+        ('ROUTE 18',         7, ['kalos-route-18', 'couriway-town']),
+        ('TERMINUS CAVE',    7, ['terminus-cave/1f', 'terminus-cave/b1f-left',
+                                 'terminus-cave/b1f-right', 'terminus-cave/b2f',
+                                 'terminus-cave/zygardes-chamber']),
+        ('ROUTE 19',         7, ['kalos-route-19']),
+        ('ROUTE 20',         7, ['kalos-route-20', 'pokemon-village']),
+        # Wulfric -- Route 21 and Victory Road
+        ('ROUTE 21',         8, ['kalos-route-21']),
+        ('VICTORY ROAD',     8, ['kalos-victory-road/outside'] +
+                                ['kalos-victory-road/unknown-area-%d' % i for i in (322, 324, 326, 328)]),
+    ],
+    'skip': {},
+    'legends': [
+        # Xerneas (X) and Yveltal (Y) wait in Team Flare's secret HQ under
+        # Lumiose after Olympia, at level 50. The HQ has no wild table, so they
+        # borrow the Lumiose Badlands beside the city (§ 7.2).
+        {'dex': 716, 'area': 'ROUTE 13', 'static': 'team-flare-secret-hq', 'gate': 7},  # Xerneas
+        {'dex': 717, 'area': 'ROUTE 13', 'static': 'team-flare-secret-hq', 'gate': 7},  # Yveltal
+        # Zygarde, in Terminus Cave's deepest chamber after the Hall of Fame.
+        {'dex': 718, 'area': 'TERMINUS CAVE', 'static': 'terminus-cave/zygardes-chamber',
+         'gate': GATE_CHAMPION},                                                         # Zygarde
+    ],
+}
+
+REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA, KALOS]
 
 # WILD_LEGENDS[] is stored by INDEX in the save (the met/caught bitmasks), so
 # the order legendaries are emitted in is APPEND-ONLY -- the same rule as move
@@ -629,4 +703,5 @@ REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA]
 LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250,
                 377, 378, 379, 380, 381, 382, 383, 384,
                 480, 481, 482, 483, 484, 485, 486, 487, 488,
-                638, 639, 640, 643, 644, 646]
+                638, 639, 640, 643, 644, 646,
+                716, 717, 718]

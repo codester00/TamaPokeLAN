@@ -176,17 +176,29 @@ uint8_t wildTimeBand(int hour) {
 // One answer for "can this slot be met now", so the pick, the NEEDS PACK test
 // and the weight total can never disagree about it. The slot's gate (the best
 // rod's) goes through gateOpen(), the same rule as areas and legendaries.
+bool (*wildHasArt)(int16_t dex) = speciesHasArt;
+
 static bool slotLive(const WildArea &a, const WildSlot &s, uint8_t when, const Pet &p) {
-  return (s.when & when) && speciesHasArt(s.dex) &&
+  return (s.when & when) && wildHasArt(s.dex) &&
          regionAvailable(regionOfDex(s.dex)) && gateOpen(a.region, s.gate, p);
 }
 
-bool wildAreaHasLive(uint16_t area, uint8_t when, const Pet &p) {
-  if (area >= WILD_AREA_COUNT) return false;
+uint8_t wildAreaState(uint16_t area, uint8_t when, const Pet &p) {
+  if (area >= WILD_AREA_COUNT) return WILD_AREA_NO_SPRITES;
   const WildArea &a = WILD_AREAS[area];
-  for (uint8_t i = 0; i < a.count; i++)
-    if (slotLive(a, WILD_SLOTS[a.first + i], when, p)) return true;
-  return false;
+  bool packMissing = false;
+  for (uint8_t i = 0; i < a.count; i++) {
+    const WildSlot &s = WILD_SLOTS[a.first + i];
+    if (slotLive(a, s, when, p)) return WILD_AREA_LIVE;
+    if ((s.when & when) && gateOpen(a.region, s.gate, p) &&
+        !regionAvailable(regionOfDex(s.dex)))
+      packMissing = true;
+  }
+  return packMissing ? WILD_AREA_NEEDS_PACK : WILD_AREA_NO_SPRITES;
+}
+
+bool wildAreaHasLive(uint16_t area, uint8_t when, const Pet &p) {
+  return wildAreaState(area, when, p) == WILD_AREA_LIVE;
 }
 
 int16_t wildAreaPick(uint16_t area, uint8_t when, const Pet &p, uint32_t roll) {

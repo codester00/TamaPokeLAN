@@ -332,6 +332,9 @@ static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
   // Unova is Black 2 / White 2's order, as TRAINERS_UNOVA has it.
   { "BASIC BADGE", "TOXIC BADGE", "INSECT BADGE", "BOLT BADGE",
     "QUAKE BADGE", "JET BADGE", "LEGEND BADGE", "WAVE BADGE" },
+  // Kalos is X / Y's order, as TRAINERS_KALOS has it.
+  { "BUG BADGE", "CLIFF BADGE", "RUMBLE BADGE", "PLANT BADGE",
+    "VOLTAGE BADGE", "FAIRY BADGE", "PSYCHIC BADGE", "ICEBERG BADGE" },
 };
 
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the
