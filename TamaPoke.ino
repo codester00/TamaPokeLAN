@@ -393,6 +393,23 @@ bool spdNewHi = false;
 bool gymOpen = false;
 bool gymHard = false;   // which ladder the list is showing
 
+// The list's difficulty survives a restart. It used to start EASY every boot,
+// so a player whose badges were all on HARD opened the list after an update
+// and read it as "my badges are gone". A setting, saved beside lang and vol.
+void gymHardLoad() {
+  Preferences p;
+  p.begin("tamapoke", true);
+  gymHard = p.getBool("ghard", false);
+  p.end();
+}
+void gymHardSet(bool hard) {
+  gymHard = hard;
+  Preferences p;
+  p.begin("tamapoke", false);
+  if (!p.putBool("ghard", hard)) logKeyFailure("gym", "ghard");
+  p.end();
+}
+
 // LAN battle. `lanOpen` is the pairing screen; once both squads are known the
 // normal battle screen takes over with btlLink set.
 bool lanOpen = false;
@@ -1055,6 +1072,7 @@ void setup() {
   Serial.printf("TamaPoke fw v%s\n", FW_VERSION);
   bootReport();   // why the last run ended, and what it was doing
   loadLang();  // idioma guardado (ES por defecto)
+  gymHardLoad();
   Wire.begin(IIC_SDA, IIC_SCL);
   // CST9217 (tactil), AXP2101 (PMU) y PCF85063 (RTC) comparten este bus I2C.
   // Red de seguridad para PMU/RTC (SensorLib NO respeta este timeout en el
@@ -2450,7 +2468,7 @@ void onTap(int16_t x, int16_t y) {
   }
   if (gymOpen) {
     if (y >= GYMDIF_Y && y <= GYMDIF_Y + GYMDIF_H) {   // the difficulty pill
-      gymHard = !gymHard;
+      gymHardSet(!gymHard);
       sfxPlay(SFX_TAP);
       return;
     }

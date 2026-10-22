@@ -49,6 +49,7 @@ const SaveField SAVE_FIELDS[] = {
   { "trade", SK_BYTES },
   // settings, so a restored device plays the way it did
   { "lang", SK_U8 },    { "snd", SK_BOOL },   { "vol", SK_U8 },
+  { "ghard", SK_BOOL },   // the gym list's last difficulty
 };
 const uint16_t SAVE_FIELD_COUNT = sizeof(SAVE_FIELDS) / sizeof(SAVE_FIELDS[0]);
 
