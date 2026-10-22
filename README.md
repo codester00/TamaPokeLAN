@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.52-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.53-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -470,6 +470,32 @@ after turn for as long as it was a little hurt.
 
 Moves **freeze when a pet is banked** into the party, alongside its level and
 training: the set you chose while it was alive is what it fights with forever.
+
+### The Game Corners
+
+Since v3.53 two Explore areas are not wild areas at all: **CELADON GAME CORNER**
+sits at the top of Kanto's area list and opens after **Lt. Surge**, and
+**GOLDENROD GAME CORNER** at the top of Johto's after **Bugsy**. Tapping one
+opens the hall, never a fight. Swipe down to back out, one level at a time.
+
+- **Coins** are bought at the games' price, **50 for $1,000** of step money, up
+  to **9,999**, and saved with the player.
+- **Slots** (both halls): Red's reels at Celadon, Crystal's at Goldenrod — the
+  games' own reel strips and payouts (Red: 7s 300, BARs 100, cherries 8, the
+  creatures 15; Crystal: 7s 300, Poké Balls 50, Staryu 15, Squirtle 10, Pikachu
+  8, cherries 6). Bet 1-3 coins: 1 plays the middle line, 2 adds the top and
+  bottom, 3 the diagonals. SPIN, then STOP each reel; a win is paid when the
+  last one stops (backing out mid-spin pays it too). Like the real machines they
+  are rigged: on average a coin brings back **0.88 coins** at every bet.
+- **Card flip** (Goldenrod): bet 3 coins on a creature (pays 12), a number
+  (18) or both (72) — Crystal's odds, which are exactly fair. The deck of 24
+  runs down before it is shuffled again.
+- **Prizes**: Celadon (FireRed's counter) ABRA Lv.9 180, CLEFAIRY Lv.8 500,
+  DRATINI Lv.18 2,800, SCYTHER Lv.25 5,500, PORYGON Lv.26 9,999, and TMs: SURF
+  4,000, ICE BEAM 4,000, IRON TAIL 3,500, THUNDERBOLT 4,000, SHADOW BALL 4,500,
+  FLAMETHROWER 4,000. Goldenrod (Gold's) ABRA Lv.5 200, EKANS Lv.5 700, DRATINI
+  Lv.10 2,100, and THUNDER, BLIZZARD and FIRE BLAST at 5,500. A prize creature
+  joins the party or the box like a catch; a TM you own is not sold twice.
 
 ### Wild encounters, catching and the bag
 

@@ -164,6 +164,9 @@ static bool gateOpen(uint8_t region, uint8_t gate, const Pet &p) {
   return p.hasBadge(region, bit, false) || p.hasBadge(region, bit, true);
 }
 
+bool wildGateOpen(uint8_t region, uint8_t gate, const Pet &p) { return gateOpen(region, gate, p); }
+static_assert(WILD_GATE_CHAMPION == 13, "wild.h restates the champion's gate for the sketch");
+
 bool wildAreaUnlocked(uint16_t area, const Pet &p) {
   if (area >= WILD_AREA_COUNT) return false;
   return gateOpen(WILD_AREAS[area].region, WILD_AREAS[area].gate, p);

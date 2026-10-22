@@ -35,6 +35,7 @@ extern uint8_t areaPage; extern uint16_t exploreAreaPick[];
 extern const char *const SCREEN_NAME[];
 uint8_t uiCurrentScreen();
 void areaRowRect(int i, int *x, int *y, int *w, int *h);
+void areaListPos(uint16_t area, uint8_t *page, uint8_t *row);
 void exploreAreaRect(int *x, int *y, int *w, int *h);
 void exploreBtnRect(int *x, int *y, int *w, int *h);
 uint16_t exploreAreaOf(uint8_t region);
@@ -133,8 +134,10 @@ int main() {
   auto tapRect = [](void (*rect)(int *, int *, int *, int *)) {
     int x, y, w, h; rect(&x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
   };
-  auto tapRow = [](int i) {
-    int x, y, w, h; areaRowRect(i, &x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
+  // the firmware says which row an area is on (the Game Corners come first)
+  auto tapArea = [](uint16_t a) {
+    uint8_t pg, row; areaListPos(a, &pg, &row); areaPage = pg;
+    int x, y, w, h; areaRowRect(row, &x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
   };
   uint16_t first = wildAreaFirst(0);
 
@@ -143,19 +146,18 @@ int main() {
   ck(on("explore"), "the test starts on Explore");
   tapRect(exploreAreaRect);
   ck(on("area") && areaListOpen, "tapping the area row opens the area list");
-  ck(areaPage == (exploreAreaOf(0) - first) / 3, "and the list opens on the page of the current area");
+  uint8_t wantPage; areaListPos(exploreAreaOf(0), &wantPage, nullptr);
+  ck(areaPage == wantPage, "and the list opens on the page of the current area");
 
-  // Row 1 of page 1 is area 4 (Route 3, gate 1): locked with no badges.
-  areaPage = 1;
+  // Area 4 (Route 3, gate 1) is locked with no badges.
   uint16_t before = exploreAreaOf(0);
-  tapRow(1);
+  tapArea(first + 4);
   ck(areaListOpen && exploreAreaOf(0) == before,
      "a locked row refuses the tap: the list stays and the choice is unchanged");
   ck(!wildAreaUnlocked((uint16_t)(first + 4), pet), "(that row really was locked)");
 
   // An open row is chosen, and the list closes back onto Explore.
-  areaPage = 1;
-  tapRow(0);                                   // area 3, VIRIDIAN FOREST, gate 0
+  tapArea(first + 3);                          // area 3, VIRIDIAN FOREST, gate 0
   ck(!areaListOpen && on("explore"), "an open row closes the list");
   ck(exploreAreaOf(0) == first + 3, "and becomes the area Explore looks in");
 
@@ -188,8 +190,7 @@ int main() {
   areaPage = 1;
   battleOpen = false; exploreOpen = true;
   tapRect(exploreAreaRect);
-  areaPage = 1;
-  tapRow(1);                                   // Route 3 again: open now
+  tapArea(first + 4);                          // Route 3 again: open now
   ck(!areaListOpen && exploreAreaOf(0) == first + 4, "and the row that was locked can be chosen");
 
   // The list pages on the rim, and swipes back out to Explore.
@@ -278,8 +279,7 @@ int main() {
     areaListOpen = false; battleOpen = false; exploreOpen = true; exploreRegion = 0;
     for (int r = 0; r < REGION_COUNT; r++) exploreAreaPick[r] = 0;
     tapRect(exploreAreaRect);
-    areaPage = 1;
-    tapRow(0);                                   // Viridian Forest's row
+    tapArea(first + 3);                          // Viridian Forest's row
     ck(areaListOpen && exploreAreaOf(0) != dead, "its row refuses the tap");
     areaListOpen = false;
     exploreAreaPick[0] = (uint16_t)(dead + 1);

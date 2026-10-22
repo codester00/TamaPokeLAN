@@ -28,6 +28,7 @@ extern Pet pet;
 extern bool cardOpen, galleryOpen, clockOpen, kbOpen, menuOpen, partyOpen, partyPick;
 extern bool trainOpen, movePickOpen, battleOpen, gymOpen, playerOpen, boxOpen, pickOpen;
 extern bool exploreOpen, areaListOpen; extern uint8_t areaPage, exploreRegion;
+extern uint8_t hallOpen, hallMode, hallPage;
 void exploreBtnRect(int *x, int *y, int *w, int *h);
 extern bool martOpen;
 extern uint8_t trainPage;
@@ -60,7 +61,7 @@ static void clearAll(){
   gymPick=galleryPick=false;
   cardOpen=galleryOpen=clockOpen=kbOpen=menuOpen=partyOpen=partyPick=false;
   trainOpen=movePickOpen=battleOpen=gymOpen=playerOpen=boxOpen=pickOpen=false;
-  exploreOpen=false; areaListOpen=false;
+  exploreOpen=false; areaListOpen=false; hallOpen=0;
   martOpen=false;
   bagOpen=false;
   partyDetail=0; boxSel=boxSwapFrom=0;
@@ -118,6 +119,20 @@ int main(){
   // Explore's area list (v3.39): Kanto alone has 36 areas, three a page.
   clearAll(); exploreOpen=true; exploreRegion=0; areaListOpen=true;
                                                   check("areas",    &areaListOpen, &areaPage);
+  // A Game Corner's prize counter (v3.53): Celadon has 11 prizes, three a
+  // page. hallOpen is the hall + 1, so the check watches a bool mirror of it.
+  {
+    clearAll(); exploreOpen=true; exploreRegion=0; areaListOpen=true;
+    hallOpen=1; hallMode=3; hallPage=0;            // HALL_CELADON, HM_PRIZES
+    onRim(1);
+    bool ok = hallOpen == 1 && hallMode == 3 && hallPage == 1;
+    uint8_t n = uiRimPages();
+    for (int i = 0; i < n + 3; i++) onRim(1);
+    ok = ok && hallOpen == 1 && hallMode == 3 && n > 1 && hallPage == n - 1;
+    printf("%s  prizes     pages on the rim and clamps at both ends\n", ok ? "PASS" : "FAIL");
+    if (!ok) bad++;
+    hallOpen = 0;
+  }
   // The Pokedex pages within ONE region and changes region on a vertical swipe.
   // Every species must be reachable: it was capped at 10 flat pages when the dex
   // was 151 long, which silently hid everything past 160 once it grew to 386.

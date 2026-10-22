@@ -25,6 +25,7 @@ void onTap(int16_t x, int16_t y);
 bool startWildBattle(uint8_t region, bool hard);
 int btlCellIndexAt(int16_t x, int16_t y);
 void areaRowRect(int i, int *x, int *y, int *w, int *h);
+void areaListPos(uint16_t area, uint8_t *page, uint8_t *row);
 void exploreAreaRect(int *x, int *y, int *w, int *h);
 void exploreBtnRect(int *x, int *y, int *w, int *h);
 uint16_t exploreAreaOf(uint8_t region);
@@ -56,9 +57,10 @@ static int legendOf(int16_t dex) {
 static void chooseArea(uint16_t area) {
   battleOpen = false; exploreOpen = true; exploreRegion = 0;
   tapRect(exploreAreaRect);
-  uint16_t k = area - wildAreaFirst(0);
-  areaPage = (uint8_t)(k / 3);
-  int x, y, w, h; areaRowRect(k % 3, &x, &y, &w, &h);
+  uint8_t pg, row;
+  areaListPos(area, &pg, &row);      // the firmware's answer: the halls come first
+  areaPage = pg;
+  int x, y, w, h; areaRowRect(row, &x, &y, &w, &h);
   onTap(x + w / 2, y + h / 2);
 }
 

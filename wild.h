@@ -103,6 +103,14 @@ uint8_t wildAreaLvMax(uint16_t area);
 // EITHER difficulty (gate 0 is always open; WILD_GATE_CHAMPION is the
 // champion). The ladder is sequential, so that is the same as holding g badges.
 bool wildAreaUnlocked(uint16_t area, const Pet &p);
+// THE gate rule, for anything else on the ladder's schedule (the Game Corners):
+// gate g is open once ladder trainer g-1 is beaten on either difficulty.
+bool wildGateOpen(uint8_t region, uint8_t gate, const Pet &p);
+// The champion's ladder position, for code that cannot include wild_areas.h
+// (only wild.cpp may: its tables are static). wild.cpp asserts they agree.
+#ifndef WILD_GATE_CHAMPION
+#define WILD_GATE_CHAMPION 13
+#endif
 
 // The morning / day / night band for an hour of the day (WILD_WHEN_* bits).
 // A negative hour means the clock was never set: that counts as DAY, failing

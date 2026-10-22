@@ -34,6 +34,8 @@
 #include "items.h"
 #include "tms.h"
 #include "pp.h"
+#include "gamecorner.h"
+#include "gamecorner_art.h"
 #include "inventory.h"
 #include "wild.h"
 #include "sdmon.h"
@@ -49,7 +51,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.52"
+#define FW_VERSION "3.53"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -278,7 +280,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[SCR_COUNT];   // const is internal linkage in C++
 
@@ -326,6 +328,12 @@ static void drawArt(const AvatarArt &a, int x, int y, int s);   // static: no ge
 // and the emulator's generated proto.h would hide that -- see the note above.
 void renderBag();
 void bagTap(int16_t x, int16_t y);
+void renderHall();
+void hallTap(int16_t x, int16_t y);
+void hallBack();
+void openHall(uint8_t h);
+uint8_t hallPrizePages();
+bool storeNewCreature(const PartyMon &m);
 void cordFromBag();
 void cordPickTap(int16_t x, int16_t y);
 uint8_t bagPages();
@@ -343,7 +351,7 @@ const char *const SCREEN_NAME[SCR_COUNT] = {
   "starter", "region", "gallery", "dexpick", "movepick", "box",
   "party", "keyboard", "card", "player", "clock", "gym", "gympick",
   "explore", "mart", "lan", "pick", "battle", "win", "learn", "train", "menu",
-  "bag", "minigame", "main", "trade", "avatar", "blackout", "area"
+  "bag", "minigame", "main", "trade", "avatar", "blackout", "area", "hall"
 };
 
 // Badge art for a region, or nullptr when that region has none yet.
@@ -692,6 +700,21 @@ uint8_t exploreRegion = 0xFF;
 // encounter is not saved, so neither is where it was looked for.
 uint16_t exploreAreaPick[REGION_COUNT] = { 0 };
 bool areaListOpen = false;   // SCR_AREA, the paged list of a region's areas
+// SCR_HALL: a Game Corner, opened from the top of its region's area list.
+// hallOpen is the hall + 1 (0 = none); the rest is that screen's state.
+enum : uint8_t { HM_MENU, HM_SLOTS, HM_CARDS, HM_PRIZES };
+uint8_t hallOpen = 0;
+uint8_t hallMode = HM_MENU;
+uint8_t hallPage = 0;          // the prize list's page
+uint8_t hallConfirm = 0;       // a prize being exchanged, index + 1; 0 = none
+bool hallBuyConfirm = false;   // "Buy 50 coins?" is up
+char hallMsg[40] = "";         // the last result line
+uint8_t slotBet = 1;
+SlotResult slotRes;
+uint8_t slotShown = SLOT_REELS;   // reels revealed of slotRes; SLOT_REELS = idle
+int8_t cardGuessC = CARD_ANY, cardGuessN = CARD_ANY;
+int8_t cardShown = -1;         // the card just turned over, -1 = none
+CardDeck cardDeck;
 uint8_t areaPage = 0;
 #define AREA_ROWS 3
 #define AREA_ROW_Y(i) (108 + (i) * 100)
@@ -1945,6 +1968,7 @@ void onSwipeV(int dir) {
   if (clockOpen) { if (back) clockOpen = false; return; }
 
   if (exploreOpen) {
+    if (hallOpen) { if (back) hallBack(); return; }                  // a level up in the hall
     if (areaListOpen) { if (back) areaListOpen = false; return; }   // back to Explore
     if (back) uiTileGo(TILE_PET);
     return;
@@ -2375,6 +2399,7 @@ void onSwipe(int dir) {
   // Off the axis are modals -- pickers, sheets, minigames. None of them page
   // any more, so here horizontal simply backs out.
   if (avatarPickOpen) { avatarPickOpen = false; return; }
+  if (hallOpen) { hallBack(); return; }
   if (areaListOpen) { areaListOpen = false; return; }
   if (pickOpen) { pickOpen = false; return; }
   if (trainOpen) { trainOpen = false; return; }
@@ -2421,6 +2446,7 @@ void onTap(int16_t x, int16_t y) {
     return;
   }
   if (exploreOpen) {
+    if (hallOpen) { hallTap(x, y); return; }
     if (areaListOpen) { areaListTap(x, y); return; }
     int8_t regionStep = exploreRegionHit(x, y);
     if (regionStep) {
@@ -2925,7 +2951,7 @@ uint8_t uiCurrentScreen() {
   if (battleOpen) return SCR_BATTLE;
   if (pickOpen) return SCR_PICK;
   if (lanOpen) return SCR_LAN;
-  if (exploreOpen) return areaListOpen ? SCR_AREA : SCR_EXPLORE;
+  if (exploreOpen) return hallOpen ? SCR_HALL : areaListOpen ? SCR_AREA : SCR_EXPLORE;
   if (martOpen) return SCR_MART;
   if (gymOpen) return gymPick ? SCR_GYMPICK : SCR_GYM;
   if (pet.hasLearnOffer()) return SCR_LEARN;
@@ -2985,6 +3011,7 @@ void uiTileGo(int i) {
   exploreOpen = gymOpen = partyOpen = galleryOpen = playerOpen = false;
   avatarPickOpen = false;
   areaListOpen = false;
+  hallOpen = 0;
   cordPick = false;
   boxOpen = false;
   boxDetail = partyDetail = 0;
@@ -3025,6 +3052,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_PLAYER:  p = &playerPage;  n = PLAYER_PAGES; break;
     case SCR_AVATAR:  p = &avatarPage;  n = avatarPages(); break;
     case SCR_AREA:    p = &areaPage;    n = areaPages(currentExploreRegion()); break;
+    case SCR_HALL:    if (hallMode == HM_PRIZES) { p = &hallPage; n = hallPrizePages(); } break;
     case SCR_BOX:     p = &boxPage;     n = BOX_SLOTS / BOX_PER_PAGE; break;
     case SCR_BAGSCR:  p = &bagPage;     n = bagPages(); break;
     case SCR_MART:    p = &martPage;    n = martPages(); break;
@@ -3237,8 +3265,21 @@ uint16_t exploreAreaOf(uint8_t region) {
   return bestLive != WILD_NO_AREA ? bestLive : best;
 }
 
+// The Game Corners sit at the TOP of their region's list, ahead of the wild
+// areas: a hall is not a wild area, so wildAreaCount(), exploreAreaOf() and
+// wildAreaState() never see one, and list row k is a hall for k < the region's
+// hall count and wild area k - that count after it.
+uint8_t areaHallCount(uint8_t region) {
+  uint8_t h[HALL_COUNT];
+  return hallsIn(region, h);
+}
+
+uint8_t areaListRows(uint8_t region) {
+  return (uint8_t)(areaHallCount(region) + wildAreaCount(region));
+}
+
 uint8_t areaPages(uint8_t region) {
-  uint8_t n = wildAreaCount(region);
+  uint8_t n = areaListRows(region);
   return n ? (uint8_t)((n + AREA_ROWS - 1) / AREA_ROWS) : 1;
 }
 
@@ -3253,18 +3294,45 @@ void areaRowRect(int i, int *x, int *y, int *w, int *h) {
   if (h) *h = AREA_ROW_H;
 }
 
-// The WILD_AREAS index under a tap on the list, or -1.
-int areaRowAt(int16_t x, int16_t y) {
+// Where a wild area sits in its region's list: the page and the row on it. The
+// halls come first, so this is the one answer to "which row is area a" -- a
+// test that works it out for itself is a second copy of the layout.
+void areaListPos(uint16_t area, uint8_t *page, uint8_t *row) {
+  uint8_t region = wildAreaRegion(area);
+  int k = areaHallCount(region) + (area - wildAreaFirst(region));
+  if (page) *page = (uint8_t)(k / AREA_ROWS);
+  if (row) *row = (uint8_t)(k % AREA_ROWS);
+}
+
+// The list row (hall or area, see areaHallCount) under a tap, or -1.
+static int areaListRowAt(int16_t x, int16_t y) {
   uint8_t region = currentExploreRegion();
   for (int i = 0; i < AREA_ROWS; i++) {
     int rx, ry, rw, rh;
     areaRowRect(i, &rx, &ry, &rw, &rh);
     if (x < rx || x > rx + rw || y < ry || y > ry + rh) continue;
     int k = areaPage * AREA_ROWS + i;
-    if (k >= wildAreaCount(region)) return -1;
-    return wildAreaFirst(region) + k;
+    return k < areaListRows(region) ? k : -1;
   }
   return -1;
+}
+
+// The WILD_AREAS index under a tap on the list, or -1 (a hall, or nothing).
+int areaRowAt(int16_t x, int16_t y) {
+  uint8_t region = currentExploreRegion();
+  int k = areaListRowAt(x, y);
+  int nh = areaHallCount(region);
+  if (k < nh) return -1;
+  return wildAreaFirst(region) + (k - nh);
+}
+
+// The hall under a tap on the list, or -1.
+int areaHallAt(int16_t x, int16_t y) {
+  uint8_t region = currentExploreRegion();
+  int k = areaListRowAt(x, y);
+  uint8_t h[HALL_COUNT];
+  uint8_t nh = hallsIn(region, h);
+  return (k >= 0 && k < nh) ? h[k] : -1;
 }
 
 // The row on Explore's main screen that names the area and opens the list.
@@ -3284,17 +3352,20 @@ void exploreBtnRect(int *x, int *y, int *w, int *h) {
   if (h) *h = EXPLORE_BTN_H;
 }
 
-// What a locked area asks for: "REQUIRES BOULDER BADGE". The badge comes from
-// BADGE_NAMES; a region whose names are not filled in yet names the leader
-// instead, never a bare number.
-void areaGateText(uint16_t area, char *out, size_t n) {
-  if (wildAreaNeedsChampion(area)) { snprintf(out, n, "%s", T(S_AREA_REQ_CHAMP)); return; }
-  uint8_t rg = wildAreaRegion(area);
-  uint8_t idx = (uint8_t)(wildAreaGate(area) - 1);
+// What a locked area or hall asks for: "REQUIRES BOULDER BADGE". The badge
+// comes from BADGE_NAMES; a region whose names are not filled in yet names the
+// leader instead, never a bare number. One answer for areas and halls.
+void gateText(uint8_t rg, uint8_t gate, char *out, size_t n) {
+  if (gate >= WILD_GATE_CHAMPION) { snprintf(out, n, "%s", T(S_AREA_REQ_CHAMP)); return; }
+  uint8_t idx = (uint8_t)(gate - 1);
   const char *badge = (rg < GYM_REGIONS && idx < TRAINER_GYMS)
                           ? BADGE_NAMES[rg][idx] : nullptr;
   if (!badge && rg < GYM_REGIONS && idx < TRAINER_COUNT) badge = TRAINER_SETS[rg].list[idx].name;
   snprintf(out, n, T(S_AREA_REQUIRES), badge ? badge : "?");
+}
+
+void areaGateText(uint16_t area, char *out, size_t n) {
+  gateText(wildAreaRegion(area), wildAreaGate(area), out, n);
 }
 
 // Centred text at size 2, dropping to size 1 only when it would not fit.
@@ -3319,7 +3390,7 @@ void openAreaList() {
   uint8_t region = currentExploreRegion();
   if (!wildRegionHasAreas(region)) return;
   uint16_t a = exploreAreaOf(region);
-  areaPage = (uint8_t)((a - wildAreaFirst(region)) / AREA_ROWS);   // open on yours
+  areaPage = (uint8_t)((a - wildAreaFirst(region) + areaHallCount(region)) / AREA_ROWS);   // open on yours
   areaListOpen = true;
 }
 
@@ -3343,6 +3414,13 @@ void areaStatusText(uint16_t a, char *buf, size_t n) {
 }
 
 void areaListTap(int16_t x, int16_t y) {
+  int h = areaHallAt(x, y);
+  if (h >= 0) {
+    if (!hallUnlocked((uint8_t)h, pet)) { sfxPlay(SFX_DENY); return; }
+    openHall((uint8_t)h);
+    sfxPlay(SFX_TAP);
+    return;
+  }
   int a = areaRowAt(x, y);
   if (a < 0) return;
   if (!wildAreaUnlocked((uint16_t)a, pet) ||
@@ -3366,12 +3444,27 @@ void renderAreaList() {
   gfx->print(title);
   uint8_t when = wildTimeBand(exploreHour());
   uint16_t chosen = exploreAreaOf(region);
+  uint8_t halls[HALL_COUNT];
+  uint8_t nh = hallsIn(region, halls);
   for (int i = 0; i < AREA_ROWS; i++) {
     int k = areaPage * AREA_ROWS + i;
-    if (k >= wildAreaCount(region)) break;
-    uint16_t a = (uint16_t)(wildAreaFirst(region) + k);
+    if (k >= areaListRows(region)) break;
     int rx, ry, rw, rh;
     areaRowRect(i, &rx, &ry, &rw, &rh);
+    if (k < nh) {          // a Game Corner: its name, then the coins or its gate
+      uint8_t hl = halls[k];
+      bool open_ = hallUnlocked(hl, pet);
+      gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
+      gfx->drawRoundRect(rx, ry, rw, rh, 12, open_ ? UI_INK : UI_TRACK);
+      gfx->setTextColor(open_ ? UI_INK : UI_INK_SOFT);
+      areaCentred(hallName(hl), CX, ry + 22, rw - 16);
+      char sub[40];
+      if (open_) snprintf(sub, sizeof(sub), T(S_GC_COINS_FMT), pet.coins);
+      else gateText(hallRegion(hl), hallGate(hl), sub, sizeof(sub));
+      areaCentred(sub, CX, ry + 56, rw - 16);
+      continue;
+    }
+    uint16_t a = (uint16_t)(wildAreaFirst(region) + (k - nh));
     bool open_ = wildAreaUnlocked(a, pet);
     bool live = open_ && wildAreaState(a, when, pet) == WILD_AREA_LIVE;
     gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
@@ -3386,6 +3479,510 @@ void renderAreaList() {
     areaStatusText(a, sub, sizeof(sub));
     gfx->setTextColor(live ? UI_INK : UI_INK_SOFT);
     areaCentred(sub, CX, ry + 56, rw - 16);
+  }
+  uiChrome();
+  gfx->flush();
+}
+
+// ---------- the Game Corners (v3.53) ----------
+// The rules are gamecorner.cpp's; this is the screen. A hall is opened from the
+// top of its region's area list and backs out to it.
+
+void openHall(uint8_t h) {
+  hallOpen = (uint8_t)(h + 1);
+  hallMode = HM_MENU;
+  hallPage = 0;
+  hallConfirm = 0;
+  hallBuyConfirm = false;
+  hallMsg[0] = 0;
+  slotShown = SLOT_REELS;
+  cardShown = -1;
+}
+
+// Down (or across) is one level up: a question first, then a game back to
+// the hall's menu, then the hall back to the area list. A spin under way is
+// settled first, so leaving can never lose a win.
+void hallBack() {
+  if (hallConfirm || hallBuyConfirm) { hallConfirm = 0; hallBuyConfirm = false; return; }
+  if (hallMode == HM_SLOTS && slotShown < SLOT_REELS) {
+    slotShown = SLOT_REELS;
+    if (slotRes.win) pet.addCoins(slotRes.win);
+  }
+  if (hallMode != HM_MENU) { hallMode = HM_MENU; hallMsg[0] = 0; return; }
+  hallOpen = 0;
+}
+
+// The menu's buttons: SLOTS, CARD FLIP (Goldenrod only), PRIZES, BUY 50.
+enum : uint8_t { HB_SLOTS, HB_CARDS, HB_PRIZES, HB_BUY, HB_COUNT };
+static uint8_t hallButtons(uint8_t h, uint8_t *out) {   // out: HB_COUNT entries
+  uint8_t n = 0;
+  out[n++] = HB_SLOTS;
+  if (hallHasCards(h)) out[n++] = HB_CARDS;
+  out[n++] = HB_PRIZES;
+  out[n++] = HB_BUY;
+  return n;
+}
+
+// Four finger-sized cells in a 2x2 grid, inside the glass at every corner.
+#define HALL_BTN_W 150
+#define HALL_BTN_H UI_TAP_FINGER
+void hallBtnRect(int i, int *x, int *y, int *w, int *h) {
+  if (x) *x = (i & 1) ? CX + 6 : CX - 6 - HALL_BTN_W;
+  if (y) *y = 176 + (i >> 1) * (HALL_BTN_H + 8);
+  if (w) *w = HALL_BTN_W;
+  if (h) *h = HALL_BTN_H;
+}
+static_assert(176 + 2 * (HALL_BTN_H + 8) - 8 <= 400, "hall buttons must stay above the tile dots");
+
+static bool hallIn(int16_t x, int16_t y, int rx, int ry, int rw, int rh) {
+  return x >= rx && x <= rx + rw && y >= ry && y <= ry + rh;
+}
+
+// One big action button at the bottom (SPIN/STOP, FLIP), and a bet/selector
+// row above it -- the slots and the cards share the layout.
+void hallActionRect(int *x, int *y, int *w, int *h) {
+  if (x) *x = CX - 110;
+  if (y) *y = 330;
+  if (w) *w = 220;
+  if (h) *h = 76;
+}
+void hallSelRect(int i, int *x, int *y, int *w, int *h) {   // 0 left, 1 right
+  if (x) *x = i ? CX + 6 : CX - 6 - 150;
+  if (y) *y = 232;
+  if (w) *w = 150;
+  if (h) *h = UI_TAP_FINGER;
+}
+
+// Prize rows reuse the area list's geometry: three finger-height rows a page.
+uint8_t hallPrizePages() {
+  uint8_t n = hallOpen ? hallPrizeCount((uint8_t)(hallOpen - 1)) : 0;
+  return n ? (uint8_t)((n + AREA_ROWS - 1) / AREA_ROWS) : 1;
+}
+
+// Whether a prize can be had right now, and if not why: the ONE answer the
+// list's colours, its tap and the YES button all ask.
+enum : uint8_t { PZ_OK, PZ_DEAR, PZ_OWNED, PZ_NO_ROOM, PZ_NO_PACK };
+uint8_t hallPrizeState(uint8_t h, uint8_t i) {
+  const Prize &pz = hallPrize(h, i);
+  if (pz.kind == PRIZE_TM) {
+    if (pet.hasTm((uint8_t)pz.what)) return PZ_OWNED;
+  } else {
+    // a creature whose pack is missing would draw as a number forever
+    if (!regionAvailable(regionOfDex((int16_t)pz.what)) || !speciesHasArt((int16_t)pz.what))
+      return PZ_NO_PACK;
+    if (party.firstFree() < 0 && party.boxFirstFree() < 0) return PZ_NO_ROOM;
+  }
+  return pet.coins >= pz.price ? PZ_OK : PZ_DEAR;
+}
+
+static void prizeLabel(const Prize &pz, char *buf, size_t n) {
+  if (pz.kind == PRIZE_TM) snprintf(buf, n, "TM %s", moveName((uint8_t)pz.what));
+  else snprintf(buf, n, "%s Lv.%u", DEX_TBL[pz.what].name, pz.level);
+}
+
+static void hallTitle(const char *t) {
+  gfx->fillRoundRect(58, 28, 350, 50, 14, UI_BG_DAY);
+  gfx->drawRoundRect(58, 28, 350, 50, 14, UI_INK);
+  gfx->setTextColor(UI_INK);
+  int size = (int)strlen(t) * 12 <= 330 ? 2 : 1;
+  gfx->setTextSize(size);
+  gfx->setCursor(CX - (int)strlen(t) * 3 * size, 46);
+  gfx->print(t);
+}
+
+static void hallButton(int x, int y, int w, int h, const char *t, bool live) {
+  gfx->fillRoundRect(x, y, w, h, 14, live ? UI_BAR_OK : UI_TRACK);
+  gfx->drawRoundRect(x, y, w, h, 14, UI_INK);
+  gfx->setTextColor(live ? UI_BG_DAY : 0x8410);
+  int size = (int)strlen(t) * 12 <= w - 12 ? 2 : 1;
+  gfx->setTextSize(size);
+  gfx->setCursor(x + w / 2 - (int)strlen(t) * 3 * size, y + h / 2 - 4 * size);
+  gfx->print(t);
+}
+
+static void drawGcArt(const uint8_t *idx, const uint16_t *pal, int px, int x, int y, int sc) {
+  for (int r = 0; r < px; r++)
+    for (int c = 0; c < px; c++) {
+      uint8_t v = idx[r * px + c];
+      if (v == 0xFF) continue;
+      gfx->fillRect(x + c * sc, y + r * sc, sc, sc, pal[v & 3]);
+    }
+}
+
+static void hallCoinsLine(int y) {
+  char t[48];
+  snprintf(t, sizeof(t), T(S_GC_COINS_FMT), pet.coins);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(3);
+  gfx->setCursor(CX - (int)strlen(t) * 9, y);
+  gfx->print(t);
+}
+
+static void hallMsgLine(int y) {
+  if (!hallMsg[0]) return;
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(hallMsg) * 6, y);
+  gfx->print(hallMsg);
+}
+
+// A reel's symbol, with the hall's own art and palette.
+static void drawReelSymbol(uint8_t h, uint8_t sym, int x, int y) {
+  if (h == HALL_CELADON) drawGcArt(GC_RED_REEL[sym % 6], GC_RED_PAL, GC_REEL_PX, x, y, 3);
+  else drawGcArt(GC_GS_REEL[sym % 6], GC_GS_PAL, GC_REEL_PX, x, y, 3);
+}
+
+#define REEL_X(i) (CX - 82 + (i) * 58)   // 48 px symbols, 10 px apart
+#define REEL_Y 88
+
+// The machine's two buttons side by side under the reels, finger-sized:
+// BET on the left, SPIN/STOP on the right.
+void slotBtnRect(int i, int *x, int *y, int *w, int *h) {
+  if (x) *x = i ? CX + 6 : CX - 6 - 150;
+  if (y) *y = 262;
+  if (w) *w = 150;
+  if (h) *h = UI_TAP_FINGER;
+}
+
+static void renderHallSlots(uint8_t h) {
+  const SlotMachine &m = slotMachine(h);
+  uint32_t now = millis();
+  for (int r = 0; r < SLOT_REELS; r++) {
+    int x = REEL_X(r) - 4;
+    gfx->fillRoundRect(x, REEL_Y - 4, 56, 3 * 48 + 8, 8, UI_WHITE);
+    gfx->drawRoundRect(x, REEL_Y - 4, 56, 3 * 48 + 8, 8, UI_INK);
+    // revealed reels show their stop; the rest roll
+    uint8_t stop = (slotShown == SLOT_REELS || r < slotShown)
+                       ? slotRes.stop[r]
+                       : (uint8_t)((now / 90 + r * 5) % m.len);
+    for (int row = -1; row <= 1; row++)
+      drawReelSymbol(h, slotSymbol(m, (uint8_t)r, stop, (int8_t)row), REEL_X(r), REEL_Y + (row + 1) * 48);
+  }
+  // the middle line, and the outer lines a bigger bet adds
+  gfx->drawFastHLine(REEL_X(0) - 10, REEL_Y + 72, 3 * 58 + 12, UI_BAR_BAD);
+  if (slotBet >= 2) {
+    gfx->drawFastHLine(REEL_X(0) - 10, REEL_Y + 24, 3 * 58 + 12, UI_BAR_WARN);
+    gfx->drawFastHLine(REEL_X(0) - 10, REEL_Y + 120, 3 * 58 + 12, UI_BAR_WARN);
+  }
+  hallMsgLine(REEL_Y + 3 * 48 + 14);
+  int x, y, w, hh;
+  slotBtnRect(0, &x, &y, &w, &hh);
+  char bt[24];
+  snprintf(bt, sizeof(bt), T(S_GC_BET_FMT), slotBet);
+  hallButton(x, y, w, hh, bt, slotShown == SLOT_REELS);
+  slotBtnRect(1, &x, &y, &w, &hh);
+  bool spinning = slotShown < SLOT_REELS;
+  hallButton(x, y, w, hh, T(spinning ? S_GC_STOP : S_GC_SPIN), spinning || pet.coins >= slotBet);
+}
+
+static void slotsTap(uint8_t h, int16_t tx, int16_t ty) {
+  int x, y, w, hh;
+  slotBtnRect(1, &x, &y, &w, &hh);
+  if (hallIn(tx, ty, x, y, w, hh)) {
+    if (slotShown < SLOT_REELS) {          // STOP the next reel
+      slotShown++;
+      sfxPlay(SFX_TAP);
+      if (slotShown == SLOT_REELS) {
+        if (slotRes.win) {
+          pet.addCoins(slotRes.win);
+          snprintf(hallMsg, sizeof(hallMsg), T(S_GC_WIN_FMT), slotRes.win);
+          sfxPlay(SFX_MEDAL);
+        } else {
+          snprintf(hallMsg, sizeof(hallMsg), "%s", T(S_GC_NOLUCK));
+        }
+      }
+      return;
+    }
+    if (!pet.spendCoins(slotBet)) {         // SPIN
+      sfxPlay(SFX_DENY);
+      snprintf(hallMsg, sizeof(hallMsg), "%s", T(S_GC_NEED_COINS));
+      return;
+    }
+    slotRes = slotSpin(h, slotBet);
+    slotShown = 0;
+    hallMsg[0] = 0;
+    sfxPlay(SFX_TAP);
+    return;
+  }
+  slotBtnRect(0, &x, &y, &w, &hh);
+  if (hallIn(tx, ty, x, y, w, hh) && slotShown == SLOT_REELS) {
+    slotBet = (uint8_t)(slotBet % SLOT_MAX_BET + 1);
+    sfxPlay(SFX_TAP);
+  }
+}
+
+static void renderHallCards() {
+  // the card just turned over, or the back of the deck
+  int cx = CX - 54, cy = 88;
+  gfx->fillRoundRect(cx, cy, 108, 132, 12, cardShown >= 0 ? UI_WHITE : UI_BAR_BAD);
+  gfx->drawRoundRect(cx, cy, 108, 132, 12, UI_INK);
+  if (cardShown >= 0) {
+    drawGcArt(GC_CARD[cardCreature((uint8_t)cardShown)], GC_CARD_PAL, GC_CARD_PX, cx + 18, cy + 30, 3);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(3);
+    gfx->setCursor(cx + 8, cy + 6);
+    char num[4];   // a string, not print(int): the emulator's print() takes chars
+    snprintf(num, sizeof(num), "%u", cardNumber((uint8_t)cardShown));
+    gfx->print(num);
+  }
+  char left[32];
+  snprintf(left, sizeof(left), T(S_GC_LEFT_FMT), cardDeck.left ? cardDeck.left : CARD_DECK);
+  gfx->setTextColor(UI_INK_SOFT);
+  gfx->setTextSize(1);
+  gfx->setCursor(CX - (int)strlen(left) * 3, cy + 138);
+  gfx->print(left);
+  hallMsgLine(cy + 150 - 4 + 12);
+
+  int x, y, w, hh;
+  // the creature guess: ANY or a picture; the number guess: ANY or 1-6
+  hallSelRect(0, &x, &y, &w, &hh);
+  gfx->fillRoundRect(x, y, w, hh, 14, UI_BG_DAY);
+  gfx->drawRoundRect(x, y, w, hh, 14, UI_INK);
+  if (cardGuessC == CARD_ANY) {
+    gfx->setTextColor(UI_INK); gfx->setTextSize(2);
+    gfx->setCursor(x + w / 2 - (int)strlen(T(S_GC_ANY)) * 6, y + hh / 2 - 8);
+    gfx->print(T(S_GC_ANY));
+  } else {
+    drawGcArt(GC_CARD[cardGuessC], GC_CARD_PAL, GC_CARD_PX, x + w / 2 - 36, y + hh / 2 - 36, 3);
+  }
+  hallSelRect(1, &x, &y, &w, &hh);
+  gfx->fillRoundRect(x, y, w, hh, 14, UI_BG_DAY);
+  gfx->drawRoundRect(x, y, w, hh, 14, UI_INK);
+  gfx->setTextColor(UI_INK);
+  if (cardGuessN == CARD_ANY) {
+    gfx->setTextSize(2);
+    gfx->setCursor(x + w / 2 - (int)strlen(T(S_GC_ANY)) * 6, y + hh / 2 - 8);
+    gfx->print(T(S_GC_ANY));
+  } else {
+    gfx->setTextSize(5);
+    gfx->setCursor(x + w / 2 - 15, y + hh / 2 - 20);
+    char num[4];
+    snprintf(num, sizeof(num), "%d", cardGuessN);
+    gfx->print(num);
+  }
+  // what the guess pays, on the button that makes it
+  bool guess = cardGuessC != CARD_ANY || cardGuessN != CARD_ANY;
+  char act[32];
+  if (guess) {
+    uint16_t pays = cardGuessC != CARD_ANY && cardGuessN != CARD_ANY ? 72 : cardGuessC != CARD_ANY ? 12 : 18;
+    snprintf(act, sizeof(act), "%s  ", T(S_GC_FLIP));
+    snprintf(act + strlen(act), sizeof(act) - strlen(act), T(S_GC_PAYS_FMT), pays);
+  } else {
+    snprintf(act, sizeof(act), "%s", T(S_GC_GUESS));
+  }
+  hallActionRect(&x, &y, &w, &hh);
+  hallButton(x, y, w, hh, act, guess && pet.coins >= CARD_BET);
+}
+
+static void cardsTap(int16_t tx, int16_t ty) {
+  int x, y, w, hh;
+  hallSelRect(0, &x, &y, &w, &hh);
+  if (hallIn(tx, ty, x, y, w, hh)) {        // ANY, then each creature in turn
+    cardGuessC = cardGuessC >= 3 ? CARD_ANY : (int8_t)(cardGuessC + 1);
+    sfxPlay(SFX_TAP);
+    return;
+  }
+  hallSelRect(1, &x, &y, &w, &hh);
+  if (hallIn(tx, ty, x, y, w, hh)) {        // ANY, then 1-6
+    cardGuessN = cardGuessN == CARD_ANY ? 1 : cardGuessN >= 6 ? CARD_ANY : (int8_t)(cardGuessN + 1);
+    sfxPlay(SFX_TAP);
+    return;
+  }
+  hallActionRect(&x, &y, &w, &hh);
+  if (!hallIn(tx, ty, x, y, w, hh)) return;
+  if (cardGuessC == CARD_ANY && cardGuessN == CARD_ANY) { sfxPlay(SFX_DENY); return; }
+  if (!pet.spendCoins(CARD_BET)) {
+    sfxPlay(SFX_DENY);
+    snprintf(hallMsg, sizeof(hallMsg), "%s", T(S_GC_NEED_COINS));
+    return;
+  }
+  uint8_t c = cardDeck.draw();
+  cardShown = (int8_t)c;
+  uint16_t win = cardPayout(cardGuessC, cardGuessN, c);
+  if (win) {
+    pet.addCoins(win);
+    snprintf(hallMsg, sizeof(hallMsg), T(S_GC_WIN_FMT), win);
+    sfxPlay(SFX_MEDAL);
+  } else {
+    snprintf(hallMsg, sizeof(hallMsg), "%s", T(S_GC_NOLUCK));
+    sfxPlay(SFX_TAP);
+  }
+}
+
+static void renderHallPrizes(uint8_t h) {
+  uint8_t n = hallPrizeCount(h);
+  if (hallPage >= hallPrizePages()) hallPage = 0;
+  for (int i = 0; i < AREA_ROWS; i++) {
+    int k = hallPage * AREA_ROWS + i;
+    if (k >= n) break;
+    const Prize &pz = hallPrize(h, (uint8_t)k);
+    uint8_t st = hallPrizeState(h, (uint8_t)k);
+    int rx, ry, rw, rh;
+    areaRowRect(i, &rx, &ry, &rw, &rh);
+    gfx->fillRoundRect(rx, ry, rw, rh, 12, st == PZ_OK ? UI_BAR_OK : UI_BG_DAY);
+    gfx->drawRoundRect(rx, ry, rw, rh, 12, st == PZ_OK ? UI_INK : UI_TRACK);
+    gfx->setTextColor(st == PZ_OK ? UI_BG_DAY : UI_INK_SOFT);
+    char t[40];
+    prizeLabel(pz, t, sizeof(t));
+    areaCentred(t, CX, ry + 22, rw - 16);
+    switch (st) {
+      case PZ_OWNED:   snprintf(t, sizeof(t), "%s", T(S_GC_OWNED)); break;
+      case PZ_NO_ROOM: snprintf(t, sizeof(t), "%s", T(S_GC_NO_ROOM)); break;
+      case PZ_NO_PACK: snprintf(t, sizeof(t), "%s", T(S_NEED_PACK)); break;
+      default:         snprintf(t, sizeof(t), T(S_GC_PRICE_FMT), pz.price); break;
+    }
+    areaCentred(t, CX, ry + 56, rw - 16);
+  }
+}
+
+static void prizesTap(uint8_t h, int16_t tx, int16_t ty) {
+  for (int i = 0; i < AREA_ROWS; i++) {
+    int rx, ry, rw, rh;
+    areaRowRect(i, &rx, &ry, &rw, &rh);
+    if (!hallIn(tx, ty, rx, ry, rw, rh)) continue;
+    int k = hallPage * AREA_ROWS + i;
+    if (k >= hallPrizeCount(h)) return;
+    if (hallPrizeState(h, (uint8_t)k) != PZ_OK) { sfxPlay(SFX_DENY); return; }
+    hallConfirm = (uint8_t)(k + 1);
+    sfxPlay(SFX_TAP);
+    return;
+  }
+}
+
+// YES on a prize: asks hallPrizeState() again, since anything may have moved
+// between the tap and the answer.
+static void hallTakePrize(uint8_t h, uint8_t k) {
+  if (hallPrizeState(h, k) != PZ_OK) { sfxPlay(SFX_DENY); return; }
+  const Prize &pz = hallPrize(h, k);
+  char t[40];
+  prizeLabel(pz, t, sizeof(t));
+  if (pz.kind == PRIZE_TM) {
+    if (!pet.spendCoins(pz.price)) { sfxPlay(SFX_DENY); return; }
+    pet.giveTm((uint8_t)pz.what);
+  } else {
+    PartyMon m = prizeToPartyMon(pz, pet);
+    if (!storeNewCreature(m)) { sfxPlay(SFX_DENY); return; }
+    pet.spendCoins(pz.price);
+    snprintf(t, sizeof(t), "%s", DEX_TBL[pz.what].name);
+  }
+  snprintf(hallMsg, sizeof(hallMsg), T(S_GC_GOT_FMT), t);
+  sfxPlay(SFX_MEDAL);
+}
+
+void hallTap(int16_t x, int16_t y) {
+  uint8_t h = (uint8_t)(hallOpen - 1);
+  if (hallConfirm || hallBuyConfirm) {
+    int b1Top, b1Bot, b2Top, b2Bot;
+    uiConfirmRects(&b1Top, &b1Bot, &b2Top, &b2Bot);
+    bool inX = (x >= CONFIRM_BTN_X && x <= CONFIRM_BTN_X + CONFIRM_BTN_W);
+    if (inX && y >= b1Top && y <= b1Bot) {           // YES
+      if (hallBuyConfirm) {
+        if (pet.coins + COINS_PER_BUY > COINS_CAP) {
+          sfxPlay(SFX_DENY);
+          snprintf(hallMsg, sizeof(hallMsg), "%s", T(S_GC_COIN_CAP));
+        } else if (pet.spendWallet(COINS_BUY_PRICE)) {
+          pet.addCoins(COINS_PER_BUY);
+          sfxPlay(SFX_TAP);
+          hallMsg[0] = 0;
+        } else {
+          sfxPlay(SFX_DENY);
+        }
+      } else {
+        hallTakePrize(h, (uint8_t)(hallConfirm - 1));
+      }
+      hallConfirm = 0;
+      hallBuyConfirm = false;
+    } else if (inX && y >= b2Top && y <= b2Bot) {     // NO
+      hallConfirm = 0;
+      hallBuyConfirm = false;
+    }
+    return;
+  }
+  switch (hallMode) {
+    case HM_SLOTS:  slotsTap(h, x, y); return;
+    case HM_CARDS:  cardsTap(x, y); return;
+    case HM_PRIZES: prizesTap(h, x, y); return;
+    default: break;
+  }
+  uint8_t btn[HB_COUNT];
+  uint8_t n = hallButtons(h, btn);
+  for (uint8_t i = 0; i < n; i++) {
+    int bx, by, bw, bh;
+    hallBtnRect(i, &bx, &by, &bw, &bh);
+    if (!hallIn(x, y, bx, by, bw, bh)) continue;
+    sfxPlay(SFX_TAP);
+    hallMsg[0] = 0;
+    switch (btn[i]) {
+      case HB_SLOTS:  hallMode = HM_SLOTS; slotShown = SLOT_REELS; break;
+      case HB_CARDS:  hallMode = HM_CARDS; cardShown = -1; break;
+      case HB_PRIZES: hallMode = HM_PRIZES; hallPage = 0; break;
+      case HB_BUY:
+        if (pet.wallet < COINS_BUY_PRICE) {
+          sfxPlay(SFX_DENY);
+          snprintf(hallMsg, sizeof(hallMsg), T(S_WALLET_FMT), (unsigned long)pet.wallet);
+        } else {
+          hallBuyConfirm = true;
+        }
+        break;
+    }
+    return;
+  }
+}
+
+void renderHall() {
+  uint8_t h = (uint8_t)(hallOpen - 1);
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  // the games are titled with the coins: they are what the player watches
+  char coinTitle[24];
+  snprintf(coinTitle, sizeof(coinTitle), T(S_GC_COINS_FMT), pet.coins);
+  if (hallMode == HM_SLOTS) {
+    hallTitle(coinTitle);
+    renderHallSlots(h);
+  } else if (hallMode == HM_CARDS) {
+    hallTitle(coinTitle);
+    renderHallCards();
+  } else if (hallMode == HM_PRIZES) {
+    hallTitle(T(S_GC_PRIZES));
+    char t[24];
+    snprintf(t, sizeof(t), T(S_GC_COINS_FMT), pet.coins);
+    gfx->setTextColor(UI_INK); gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(t) * 6, 86);
+    gfx->print(t);
+    renderHallPrizes(h);
+  } else {
+    hallTitle(hallName(h));
+    hallCoinsLine(96);
+    char wl[24];
+    snprintf(wl, sizeof(wl), T(S_WALLET_FMT), (unsigned long)pet.wallet);
+    gfx->setTextColor(UI_INK_SOFT); gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(wl) * 6, 132);
+    gfx->print(wl);
+    hallMsgLine(154);
+    uint8_t btn[HB_COUNT];
+    uint8_t n = hallButtons(h, btn);
+    static const StrId LABEL[HB_COUNT] = { S_GC_SLOTS, S_GC_CARDS, S_GC_PRIZES, S_GC_BUY };
+    for (uint8_t i = 0; i < n; i++) {
+      int x, y, w, hh;
+      hallBtnRect(i, &x, &y, &w, &hh);
+      bool live = btn[i] != HB_BUY || pet.wallet >= COINS_BUY_PRICE;
+      hallButton(x, y, w, hh, T(LABEL[btn[i]]), live);
+    }
+  }
+  if (hallMsg[0] && hallMode == HM_PRIZES) hallMsgLine(410);
+  if (hallBuyConfirm) {
+    char cost[24];
+    snprintf(cost, sizeof(cost), T(S_WALLET_FMT), (unsigned long)COINS_BUY_PRICE);
+    drawConfirmPanel(T(S_GC_BUY_Q), cost, nullptr, UI_INK_SOFT,
+                     T(S_YES), UI_BAR_OK, UI_WHITE, T(S_NO), UI_TRACK, UI_INK);
+  } else if (hallConfirm) {
+    const Prize &pz = hallPrize(h, (uint8_t)(hallConfirm - 1));
+    char lab[32], q[48], cost[24];
+    prizeLabel(pz, lab, sizeof(lab));
+    snprintf(q, sizeof(q), T(S_GC_PRIZE_Q), lab);
+    snprintf(cost, sizeof(cost), T(S_GC_PRICE_FMT), pz.price);
+    drawConfirmPanel(q, cost, nullptr, UI_INK_SOFT,
+                     T(S_YES), UI_BAR_OK, UI_WHITE, T(S_NO), UI_TRACK, UI_INK);
   }
   uiChrome();
   gfx->flush();
@@ -3594,7 +4191,9 @@ void render() {
     return;
   }
   if (exploreOpen) {
-    if (areaListOpen) renderAreaList(); else renderExplore();
+    if (hallOpen) renderHall();
+    else if (areaListOpen) renderAreaList();
+    else renderExplore();
     return;
   }
   if (martOpen) {
@@ -5022,12 +5621,18 @@ void wildGrantDrops() {   // not static: tm_test drives it
 // uses -- party, then box, then ask -- rather than growing a second copy of it.
 // CLAUDE.md's most repeated bug is a rule enforced in one path but not its
 // twin, and "which slot does a creature take" is exactly that shape.
-static void wildStoreCaught() {
-  PartyMon m = wildToPartyMon();
+// A new creature into the party, else the box. False when both are full. The
+// Game Corner's prize creatures come in this way too.
+bool storeNewCreature(const PartyMon &m) {
   // NOT registered in the Pokedex here. Registration means "you raised this",
   // and switchTo() does it when the creature actually becomes the one you are
   // raising -- so catching one and leaving it in the box does not fill the dex.
-  if (party.add(m) || party.boxAdd(m)) return;
+  return party.add(m) || party.boxAdd(m);
+}
+
+static void wildStoreCaught() {
+  PartyMon m = wildToPartyMon();
+  if (storeNewCreature(m)) return;
   // Both full: hand it to the chooser the endings already own. endedKind is
   // only ever tested against CER_NONE by that flow, so this is the intended
   // handover and not a borrowed meaning. Through setEnded() so it is written to
