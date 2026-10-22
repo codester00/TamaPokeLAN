@@ -621,8 +621,9 @@ hardware's and hid that alarm. (The installer was not rebuilt at the time;
 ### NEXT SESSION: action list (agreed with the owner 2026-10-20)
 
 v3.49 (the whole Explore rework, on top of v3.38's avatars + blackout) is
-MERGED to `main` (2026-10-22) and the installer serves it; NOT tagged as a
-release yet. Before the merge every suite ran clean under AddressSanitizer +
+MERGED to `main` (2026-10-22), and so is **v3.50-v3.55** (later the same day,
+fast-forward, installer rebuilt: it serves v3.55); NOT tagged as a release
+yet. Before the merge every suite ran clean under AddressSanitizer +
 UBSan, the firmware built clean with all warnings on, and a maxed-out save
 measured ~215 of 504 usable NVS entries. The owner believes tagging is blocked
 for now because the account's free GitHub Actions minutes are spent for the
@@ -787,8 +788,8 @@ Pikachu). Build in its order.
 ### Done: the next build phase, v3.50-v3.54 (2026-10-22, overnight, not yet on a board)
 
 Everything in `docs/next-phase-plan.md`, built in its order on
-`ccr-151c604c-659yz2` while the owner slept, one version per step. NOT merged
-to `main` and NOT tagged -- the owner decides. Every suite passes; every new
+`ccr-151c604c-659yz2` while the owner slept, one version per step. Merged to
+`main` with v3.55 (2026-10-22, owner's call); NOT tagged. Every suite passes; every new
 guard was negative-checked.
 
 - **v3.50 -- 150 moves (239 now, MOVE_COUNT 240) and stat changes on damaging
@@ -837,7 +838,11 @@ guard was negative-checked.
 
 ### Done: v3.55 follow-ups (2026-10-22, not yet on a board)
 
-The owner's list after reading v3.50-v3.54. Same branch, not merged.
+The owner's list after reading v3.50-v3.54. Same branch; merged to `main`
+with the rest (2026-10-22), installer rebuilt. **Found by the encounter
+atlas, not fixed:** ESCAVALIER, ACCELGOR and TOUCANNON have art but no route --
+each needs an art-less creature (SHELMET as partner or source, TRUMBEAK as
+source), so they light up only when that art is ingested.
 
 - **Wild movesets are random**: `Pet::rollWildMoves()` (called by
   `startWildBattle()` in place of `relearnFromLevel()`) picks four distinct
