@@ -472,29 +472,63 @@ weathers a day from the clock and Explore shows it beside the levels.
 The last region, and the first open world. Everything below is a proposal for
 the owner; the open questions are at the end.
 
-### 15.1 Data: PKHeX, from the game files
+### 15.1 Data: two game-derived sources, and the rates are in one of them
 
 PokeAPI has no Scarlet/Violet encounters. Serebii is refused by this
 environment's network policy and Bulbapedia answers every scripted request,
-real headless browser included, with a Cloudflare challenge -- so neither can
-be read from a cloud session as things stand. What CAN be read is **PKHeX**
-(`kwsch/PKHeX`, through the blobless-clone route): its legality data is
-extracted from the game files, and `encounter_wild_paldea.pkl` holds, per
-named location, every wild slot's species, form, level range, time-of-day
-mask and weather mask (format: `EncounterArea9.cs`; names:
-`text_sv_00000_en.txt`). Its story encounters (the Treasures of Ruin,
-Koraidon/Miraidon) are in `Encounters9.cs`.
+real headless browser included, with a Cloudflare challenge. Two sources CAN
+be read, both extracted from the game files and both reachable through
+GitHub's blobless-clone route:
 
-**What PKHeX does not have: encounter rates.** A legality checker needs to
-know a creature CAN appear somewhere, not how often. Scarlet/Violet spawn by
-biome with per-species weights, and neither PKHeX nor PokeAPI carries those.
+1. **PKHeX** (`kwsch/PKHeX`): `encounter_wild_paldea.pkl` holds, per NAMED
+   location, every wild slot's species, form, level range, time-of-day mask
+   and weather mask (format: `EncounterArea9.cs`; names:
+   `text_sv_00000_en.txt`). Its story encounters (the Treasures of Ruin,
+   Koraidon/Miraidon) are in `Encounters9.cs`. It has **no rates**: a
+   legality checker needs to know a creature CAN appear, not how often.
+2. **The game's own spawn table, `pokedata_array`**, as JSON in
+   `XLuma/SV-Randomizer` (`Randomizer/WildEncounters/pokedata_array_clean.json`,
+   449 entries for Paldea). Each entry: species (internal code name -> index in
+   `pokemon_to_id.txt` -> National Dex through PKHeX's
+   `SpeciesConverter.GetNational9`, spot-checked: Pikachu 25, Sprigatito 906,
+   Kingambit 983), level range, the areas it spawns in (numbered), up to four
+   **biomes each with its spawn weight ("lot value")**, a time-of-day table,
+   Scarlet/Violet flags, and a story flag on 13 entries (12 wait for the Hall
+   of Fame, `FSYS_SCENARIO_GAME_CLEAR`). **These weights are the rates** -- the
+   "probability weight" Bulbapedia's Scarlet/Violet tables print is this same
+   field.
 
-Proposal: build from PKHeX now with **every species in a zone equally likely**
-(time and weather still respected), listed NOT VERIFIED like Unova onward; and
-when Bulbapedia or Serebii can be read, cross-check species and levels
-against them and replace the even weights with theirs if they publish rates.
-PKHeX being game-derived puts it closer to a decomp than any wiki, so the
-species lists should hold; only the weights are a stand-in.
+**Area numbers map to PKHeX's named locations by a rule: area n is location
+2n + 4** -- area 1 South Province (Area One), 3 the Pokemon League, 4 South
+Province (Area Two), 5 Area Four, 6 Area Six, 7 Area Five, 8 Area Three, 9 West
+Province (Area One), 10 Asado Desert, 11-12 West (Areas Two, Three), 13
+Tagtree Thicket, 14-16 East (Three, One, Two), 17 and 19 Glaseado Mountain, 18
+Casseroya Lake, 20-22 North (Three, One, Two). Each was confirmed by species
+overlap: the rule's location is the best match for every area but one (area
+22, North Province Area Two, edges out by one species to Area One -- they
+share a border). **Areas 23-27 do not follow it**: they are the seas and Area
+Zero's gate, and need matching by hand (§ 15.7). The caves (Dalizapa,
+Alfornada) and Socarrat Trail have no area number of their own; PKHeX shows
+their creatures, which come from the CAVE / UNDERGROUND biome entries of the
+areas around them.
+
+**How the rates combine.** The game picks a creature at a spawn POINT: the
+point has a biome, and every species listing that area and that biome is a
+candidate with that biome's weight. So within a biome the odds are the game's
+exactly. What neither source holds is how much of a zone each biome covers
+(the spawn points themselves). The proposal: **each biome present in a zone
+counts equally**, the zone's odds being the average of its biomes' -- and a
+species only counts in a zone where PKHeX says it really spawns (the area list
+in `pokedata_array` names every species ALLOWED in an area; one whose biomes
+the area lacks never appears, which is why the lists match PKHeX's at 57-92 %
+rather than 100 %). Which biomes a zone has is read from the species PKHeX
+puts there. Listed NOT VERIFIED, like Unova onward; Bulbapedia, once
+readable, would let the biome shares be checked.
+
+One version caveat: the randomizer's table may be the launch version's, while
+PKHeX tracks the current one; any species PKHeX puts in a zone that the table
+does not weight gets the zone's median weight and is listed by
+`verify_wild.py`.
 
 ### 15.2 The zones
 
@@ -508,9 +542,9 @@ home zone only (PKHeX's `CrossFrom`). Towns with only wanderers (Levincia,
 Medali, Cascarrafa ...) and the Great Crater's rim add nothing of their own.
 Names shorten to 16 characters (`SOUTH PROV. 1`, `GLASEADO MTN`).
 
-**Kitakami and Blueberry Academy are out**: they are the expansions' regions,
-with their own story and no place on this ladder. Their creatures and
-legendaries stay in eggs. They could become a later "expansion areas" option.
+**Kitakami and Blueberry Academy are out -- decided (owner, 2026-10-22):
+egg-only.** They are the expansions' regions, with their own story and no
+place on this ladder; their creatures and legendaries come from eggs.
 
 ### 15.3 Gates in an open world
 
@@ -535,10 +569,8 @@ spawn level**. From PKHeX:
 It follows Paldea's own south-to-north climb, which is how the game steers
 an open world.
 
-An **alternative** would gate by geography: each zone opens with the gym of the
-city in or beside it (Cortondo's surroundings with Katy, and so on). It reads
-more like a map but puts some high-level zones early. The level rule is the
-recommendation.
+**Decided (owner, 2026-10-22): the level rule.** (The alternative, each zone
+opening with the gym of the city beside it, was declined.)
 
 **Hidden ride gates**, the way the best rod and Galar's water mode work:
 Koraidon/Miraidon learns to SWIM from the second Titan (Bombirdier, around
@@ -565,8 +597,15 @@ carries over unchanged, with Paldea's mist read as fog, and Explore shows it.
 | Chi-Yu | North Prov. 2 | the champion | 60 |
 | Koraidon, Miraidon | Area Zero (the Zero Lab rematch) | the champion | 72 |
 
-The Treasures need eight stakes each, pulled across Paldea -- no badge in the
-game; post-game by level, so the champion. Koraidon and Miraidon queue in one
+**The Treasures at the champion -- decided (the owner left it to this plan,
+2026-10-22).** In the game each shrine's seal opens after you pull eight
+coloured stakes scattered across Paldea; no badge is involved, and they can in
+principle be done early. They are level 60, though, a full ten levels above
+anything the gyms ask for, and the stakes are hunted all over the map, which
+is post-game play in practice. The champion's gate keeps them a reward at the
+right strength. Their homes are PKHeX's static locations; Wo-Chien's (South
+Province, Area One) is the one to confirm against the sites, as its shrine is
+remembered further east. Koraidon and Miraidon queue in one
 home like every version pair. The Paradox creatures are ordinary Area Zero
 spawns, both versions'. The expansions' legendaries (the Loyal Three,
 Ogerpon, Terapagos) and Pecharunt stay in eggs.
@@ -582,15 +621,29 @@ Ogerpon, Terapagos) and Pecharunt stay in eggs.
   indices widen with it (CLAUDE.md trap 2) behind a `static_assert`.
 - Flash: Paldea's 32 zones with time and weather masks, ~3,000 more slots
   (~30 KB) on the current pattern -- to measure, not to guess.
-- `verify_wild.py` lists Paldea NOT VERIFIED (source: PKHeX), and prints the
-  even-weights caveat until real rates replace them.
+- `load_paldea()`: PKHeX's file and the randomizer's JSON, both pinned to a
+  commit and cached in `tools/wild_cache/`. Paldea is the only region with
+  biomes, so the biome-averaging lives in that loader; everything after it
+  is the shared pipeline.
+- **The 12 post-game spawns** (`FSYS_SCENARIO_GAME_CLEAR`) become slots gated
+  at the champion, hidden like the best rod. With Swim on the seas, an area
+  can then hold two hidden gates -- `wildarea_test` and `verify_wild.py`
+  assume one, so they generalise first.
+- `verify_wild.py` lists Paldea NOT VERIFIED (sources: PKHeX and the game's
+  `pokedata_array`), the equal-biome-share caveat, and any species given a
+  median weight.
 - Art: Paldea is ~85% drawn; the NO VALID SPRITES catch-all covers the rest.
 
-### 15.7 Open questions for the owner
+### 15.7 Answered, and what is left
 
-1. Even weights inside a zone until real rates can be read -- acceptable?
-2. Level-fit gates (recommended) or gates by the nearest gym's city?
-3. Kitakami and Blueberry left out (creatures egg-only) -- or plan them as a
-   later expansion-areas step?
-4. The Treasures of Ruin at the champion, or earlier at the badge their
-   shrine's zone opens with?
+1. Rates -- **found**: the game's own spawn weights (§ 15.1). Only the share
+   of a zone each biome covers is approximated (equally).
+2. Gates -- **the level rule** (owner).
+3. Kitakami and Blueberry -- **egg-only** (owner).
+4. The Treasures of Ruin -- **at the champion** (this plan, by the owner's
+   leave).
+
+Left to settle while building, not decisions for the owner: the seas' and Area
+Zero's area numbers (23-27), Wo-Chien's home, and the biome makeup of the caves
+and Socarrat Trail. If Bulbapedia or Serebii becomes readable, check the
+biome weights and a sample of zones against them.
