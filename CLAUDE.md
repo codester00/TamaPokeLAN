@@ -695,7 +695,11 @@ disconnected for a while, which may explain the week-long figure; the
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
 
-**C. Next build phase (owner, 2026-10-22).**
+**C. Next build phase (owner, 2026-10-22). THE PLAN IS `docs/next-phase-plan.md`**
+-- it supersedes the notes below wherever they differ (TMs as items, the
+bigger move list with stat changes on damaging moves, PP that refills when the
+live pet's energy refills, the AI heal-loop fix, the two Game Corners, Surfing
+Pikachu). Build in its order.
 1. **The gym list remembers its difficulty.** `gymHard` is RAM-only and starts
    EASY on every boot, so a player whose badges are all on HARD opened the list
    after the v3.49 update and read it as "my badges are gone" (they were not --
