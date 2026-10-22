@@ -759,6 +759,22 @@ disconnected for a while, which may explain the week-long figure; the
    - **A test fails if any species has no attacking level-up move**, except the
      real Gen 1 exceptions (Magikarp, Metapod, Kakuna, Abra) -- the owner's
      rule: no new cases beyond what the games had.
+   - **The report is `docs/move-expansion-report.md`** (`tools/move_report.py`
+     over PokeAPI's CSVs). Owner's rules for it (2026-10-22): first the moves
+     that fix creatures whose first attack is missing or late, then the most
+     widely learned; DISCARD any effect the engine cannot reproduce and any
+     name too long in any language (EN 12, others 23). Then, decided on the
+     report: **add stat changes on damaging moves** (a chance, a stage mask,
+     one delta, user or target -- Bubble Beam, Metal Claw, Close Combat,
+     Struggle Bug; 42 more moves, 19 -> 13 attackless) and **apply them to the
+     ~12 existing moves that ignore theirs today** (Psychic, Crunch, Acid,
+     Shadow Ball, ...); **accept the games' pre-Gen-6 spellings** where the
+     modern name is too long (DRAGONBREATH, FEATHERDANCE); **NO accuracy or
+     evasion stages** (stalling, with no PP); **keep ~15 of the 165 free
+     slots** unless filling them buys something major. The real Gen 1-style
+     no-attack cases left are Metapod, Kakuna, Abra, Ditto, Smeargle, Spewpa,
+     Cosmog, Cosmoem; Unown, Wobbuffet, Wynaut, Pyukumuku and Applin attack in
+     the games only with one-off effects (Hidden Power, Counter, Astonish).
 
 ### Done: Paldea's areas and legendaries (v3.49, not yet on a board)
 
