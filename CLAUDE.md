@@ -613,16 +613,19 @@ undone on the reboot), `factoryReset()` reports a failed `clear()` and `WIPE`
 says `WIPE FAILED` instead of `DONE`, the IMPORT path's empty-string false
 alarm, and the emulator's `putString()` return value, which differed from the
 hardware's and hid that alarm. (The installer was not rebuilt at the time;
-`web/` on `main` has shipped v3.38 since 2026-10-21 -- see HANDOVER.md § 1e.)
+`web/` on `main` has shipped v3.49 since 2026-10-22 -- see HANDOVER.md § 1e.)
 
 ### NEXT SESSION: action list (agreed with the owner 2026-10-20)
 
-v3.38 (avatars + blackout) is MERGED to `main` (2026-10-21) and the installer
-serves it; NOT tagged as a release yet. The owner believes tagging is blocked
+v3.49 (the whole Explore rework, on top of v3.38's avatars + blackout) is
+MERGED to `main` (2026-10-22) and the installer serves it; NOT tagged as a
+release yet. Before the merge every suite ran clean under AddressSanitizer +
+UBSan, the firmware built clean with all warnings on, and a maxed-out save
+measured ~215 of 504 usable NVS entries. The owner believes tagging is blocked
 for now because the account's free GitHub Actions minutes are spent for the
 month: pushing a tag needs no compute, but `publish-release.yml` (the
 `check_release.py` run and the publish) does. Retry when the minutes reset; the
-installer already serves v3.38 from `main` either way. Clock work (B) is on hold
+installer already serves v3.49 from `main` either way. Clock work (B) is on hold
 by the owner's call (2026-10-21). Work in this order:
 
 **A. Explore rework -- CONFIRMED PLAN in `docs/explore-plan.md` (revision 3),
