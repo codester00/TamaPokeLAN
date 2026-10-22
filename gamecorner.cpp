@@ -33,13 +33,13 @@ static const uint16_t GS_PAY[CS_COUNT] = { 300, 50, 6, 8, 10, 15 };
 // What the BIAS lines up, small prizes far more often than big ones.
 static const uint8_t GS_BIAS[CS_COUNT] = { 2, 6, 40, 25, 15, 12 };
 
-static const SlotMachine MACHINES[HALL_COUNT] = {
+static const SlotMachine MACHINES[HALL_CORNERS] = {
   { { RED_W1, RED_W2, RED_W3 }, 18, RS_COUNT, RED_PAY, nullptr, 0 },
   { { GS_W1, GS_W2, GS_W3 }, 15, CS_COUNT, GS_PAY, GS_BIAS, 25 },
 };
 
 const SlotMachine &slotMachine(uint8_t hall) {
-  return MACHINES[hall < HALL_COUNT ? hall : 0];
+  return MACHINES[hall < HALL_CORNERS ? hall : 0];
 }
 
 uint8_t slotSymbol(const SlotMachine &m, uint8_t reel, uint8_t stop, int8_t row) {
@@ -84,9 +84,9 @@ static uint8_t stopsOf(const SlotMachine &m, uint8_t reel, uint8_t sym, uint8_t 
 }
 
 uint32_t slotExpected(uint8_t hall, uint8_t bet) {
-  static uint32_t cache[HALL_COUNT][SLOT_MAX_BET + 1];
+  static uint32_t cache[HALL_CORNERS][SLOT_MAX_BET + 1];
   const SlotMachine &m = slotMachine(hall);
-  if (hall >= HALL_COUNT) hall = 0;
+  if (hall >= HALL_CORNERS) hall = 0;
   bet = clampBet(bet);
   if (cache[hall][bet]) return cache[hall][bet];
   // the bare strips: every stop equally likely
@@ -217,15 +217,15 @@ static const PrizeSrc GOLDENROD_SRC[] = {
   { PRIZE_TM, 0, "FIRE BLAST", 0, 5500 },
 };
 #define SRC_N(a) (uint8_t)(sizeof(a) / sizeof(a[0]))
-static Prize gPrizes[HALL_COUNT][12];
-static uint8_t gPrizeN[HALL_COUNT];
+static Prize gPrizes[HALL_CORNERS][12];
+static uint8_t gPrizeN[HALL_CORNERS];
 static bool gPrizesBuilt = false;
 
 static void buildPrizes() {
   if (gPrizesBuilt) return;
-  const PrizeSrc *src[HALL_COUNT] = { CELADON_SRC, GOLDENROD_SRC };
-  uint8_t n[HALL_COUNT] = { SRC_N(CELADON_SRC), SRC_N(GOLDENROD_SRC) };
-  for (uint8_t h = 0; h < HALL_COUNT; h++) {
+  const PrizeSrc *src[HALL_CORNERS] = { CELADON_SRC, GOLDENROD_SRC };
+  uint8_t n[HALL_CORNERS] = { SRC_N(CELADON_SRC), SRC_N(GOLDENROD_SRC) };
+  for (uint8_t h = 0; h < HALL_CORNERS; h++) {
     gPrizeN[h] = 0;
     for (uint8_t i = 0; i < n[h]; i++) {
       Prize p;
@@ -242,38 +242,60 @@ static void buildPrizes() {
 
 uint8_t hallPrizeCount(uint8_t hall) {
   buildPrizes();
-  return hall < HALL_COUNT ? gPrizeN[hall] : 0;
+  return hall < HALL_CORNERS ? gPrizeN[hall] : 0;
 }
 
 const Prize &hallPrize(uint8_t hall, uint8_t i) {
   buildPrizes();
-  if (hall >= HALL_COUNT) hall = 0;
+  if (hall >= HALL_CORNERS) hall = 0;
   if (i >= gPrizeN[hall]) i = 0;
   return gPrizes[hall][i];
 }
 
 // ---------------------------------------------------------------- the halls
-struct HallDef { const char *name; uint8_t region; uint8_t gate; bool cards; };
+struct HallDef { const char *name; uint8_t region; uint8_t gate; bool cards; bool beach; };
 // Gates are the wild areas' (gate g opens once ladder trainer g-1 is beaten):
 // Celadon after Lt. Surge (Kanto's third), Goldenrod after Bugsy (Johto's
 // second) -- the owner's call, 2026-10-22.
 static const HallDef HALLS[HALL_COUNT] = {
-  { "CELADON GAME CORNER", 0, 3, false },     // region 0: Kanto
-  { "GOLDENROD GAME CORNER", 1, 2, true },    // region 1: Johto
+  { "CELADON GAME CORNER", 0, 3, false, false },     // region 0: Kanto
+  { "GOLDENROD GAME CORNER", 1, 2, true, false },    // region 1: Johto
+  // Yellow's Summer Beach House is on Route 19. Its gate is the sea routes'
+  // own (surfSecretOpen() asks the area), so this one is never read.
+  { "SUMMER BEACH HOUSE", 0, 0, false, true },
 };
 
 const char *hallName(uint8_t h) { return HALLS[h < HALL_COUNT ? h : 0].name; }
 uint8_t hallRegion(uint8_t h) { return HALLS[h < HALL_COUNT ? h : 0].region; }
 uint8_t hallGate(uint8_t h) { return HALLS[h < HALL_COUNT ? h : 0].gate; }
 bool hallHasCards(uint8_t h) { return HALLS[h < HALL_COUNT ? h : 0].cards; }
+bool hallIsBeach(uint8_t h) { return h < HALL_COUNT && HALLS[h].beach; }
+
 bool hallUnlocked(uint8_t h, const Pet &p) {
-  return h < HALL_COUNT && wildGateOpen(HALLS[h].region, HALLS[h].gate, p);
+  if (h >= HALL_COUNT) return false;
+  if (HALLS[h].beach) return surfSecretOpen(p);
+  return wildGateOpen(HALLS[h].region, HALLS[h].gate, p);
 }
 
-uint8_t hallsIn(uint8_t region, uint8_t out[HALL_COUNT]) {
+uint8_t hallsIn(uint8_t region, const Pet &p, uint8_t out[HALL_COUNT]) {
   uint8_t n = 0;
-  for (uint8_t h = 0; h < HALL_COUNT; h++) if (HALLS[h].region == region) out[n++] = h;
+  for (uint8_t h = 0; h < HALL_COUNT; h++) {
+    if (HALLS[h].region != region) continue;
+    if (HALLS[h].beach && !surfSecretOpen(p)) continue;   // secret until it opens
+    out[n++] = h;
+  }
   return n;
+}
+
+bool surfSecretOpen(const Pet &p) {
+  if (p.isEgg() || p.speciesId != 25) return false;        // PIKACHU
+  static uint8_t surf = 0;
+  if (!surf) surf = mvByName("SURF");
+  bool knows = false;
+  for (int i = 0; i < MOVE_SLOTS; i++) if (surf && p.moves[i] == surf) knows = true;
+  if (!knows) return false;
+  uint16_t a = wildAreaByName(0, SURF_AREA_NAME);
+  return a != WILD_NO_AREA && wildAreaUnlocked(a, p) && wildAreaAllRegistered(a, p);
 }
 
 PartyMon prizeToPartyMon(const Prize &pz, Pet &live) {

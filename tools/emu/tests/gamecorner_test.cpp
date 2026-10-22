@@ -55,7 +55,7 @@ int main() {
   }
 
   // --- 2. what is shown is what is paid, and the house keeps a little
-  for (uint8_t h = 0; h < HALL_COUNT; h++) {
+  for (uint8_t h = 0; h < HALL_CORNERS; h++) {
     for (uint8_t bet = 1; bet <= SLOT_MAX_BET; bet++) {
       bool shown = true;
       double ev = played(h, bet, 400000, &shown), nat = natural(h, bet);
@@ -122,7 +122,7 @@ int main() {
        "every prize is there (a renamed TM would drop out)");
     ck(surf, "Celadon has the SURF TM");
     bool tmsAreTms = true;
-    for (uint8_t h = 0; h < HALL_COUNT; h++)
+    for (uint8_t h = 0; h < HALL_CORNERS; h++)
       for (uint8_t i = 0; i < hallPrizeCount(h); i++) {
         const Prize &p = hallPrize(h, i);
         if (p.kind != PRIZE_TM) continue;
@@ -152,7 +152,7 @@ int main() {
     p.winBadge(1, 1, false);
     ck(hallUnlocked(HALL_GOLDENROD, p), "and opens after him");
     uint8_t hs[HALL_COUNT];
-    ck(hallsIn(0, hs) == 1 && hs[0] == HALL_CELADON && hallsIn(1, hs) == 1 && hallsIn(2, hs) == 0,
+    ck(hallsIn(0, p, hs) == 1 && hs[0] == HALL_CELADON && hallsIn(1, p, hs) == 1 && hallsIn(2, p, hs) == 0,
        "one hall in Kanto, one in Johto, none in Hoenn");
     ck(!hallHasCards(HALL_CELADON) && hallHasCards(HALL_GOLDENROD), "card flip only at Goldenrod");
   }

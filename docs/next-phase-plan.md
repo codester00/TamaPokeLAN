@@ -1,7 +1,9 @@
 # Next phase: moves, TMs, PP, the AI, the Game Corners, Surfing Pikachu
 
-Agreed with the owner, 2026-10-22. Nothing here is built yet. Build in the
-order of the sections: each one depends on the one before it.
+Agreed with the owner, 2026-10-22. **Built the same night as v3.50-v3.54**
+(section 0-1 v3.50, 2 v3.51, 3-4 v3.52, 5 v3.53, 6 v3.54); where the build
+departs from this plan, CLAUDE.md § "Done: the next build phase" says how and
+why. Kept as the record of what was agreed.
 
 ## 0. Small fix that rides along: the gym list remembers its difficulty
 

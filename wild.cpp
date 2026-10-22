@@ -244,6 +244,24 @@ uint8_t wildAreaState(uint16_t area, uint8_t when, const Pet &p) {
   return packMissing ? WILD_AREA_NEEDS_PACK : WILD_AREA_NO_SPRITES;
 }
 
+bool wildAreaAllRegistered(uint16_t area, const Pet &p) {
+  const WildArea &a = areaAt(area);
+  if (!a.count) return false;
+  for (uint16_t i = 0; i < a.count; i++) {
+    int16_t d = WILD_SLOTS[a.first + i].dex;
+    if (wildHasArt(d) && !p.isRegistered(d)) return false;
+  }
+  return true;
+}
+
+uint16_t wildAreaByName(uint8_t region, const char *name) {
+  for (uint16_t i = 0; i < wildAreaCount(region); i++) {
+    uint16_t a = (uint16_t)(wildAreaFirst(region) + i);
+    if (!strcmp(WILD_AREAS[a].name, name)) return a;
+  }
+  return WILD_NO_AREA;
+}
+
 bool wildAreaHasLive(uint16_t area, uint8_t when, const Pet &p) {
   return wildAreaState(area, when, p) == WILD_AREA_LIVE;
 }

@@ -36,6 +36,7 @@
 #include "pp.h"
 #include "gamecorner.h"
 #include "gamecorner_art.h"
+#include "surf.h"
 #include "inventory.h"
 #include "wild.h"
 #include "sdmon.h"
@@ -51,7 +52,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.53"
+#define FW_VERSION "3.54"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -332,6 +333,10 @@ void renderHall();
 void hallTap(int16_t x, int16_t y);
 void hallBack();
 void openHall(uint8_t h);
+void surfStart();
+void surfPay();
+void surfFrame(uint32_t now);
+void surfTap(int16_t x, int16_t y);
 uint8_t hallPrizePages();
 bool storeNewCreature(const PartyMon &m);
 void cordFromBag();
@@ -702,7 +707,7 @@ uint16_t exploreAreaPick[REGION_COUNT] = { 0 };
 bool areaListOpen = false;   // SCR_AREA, the paged list of a region's areas
 // SCR_HALL: a Game Corner, opened from the top of its region's area list.
 // hallOpen is the hall + 1 (0 = none); the rest is that screen's state.
-enum : uint8_t { HM_MENU, HM_SLOTS, HM_CARDS, HM_PRIZES };
+enum : uint8_t { HM_MENU, HM_SLOTS, HM_CARDS, HM_PRIZES, HM_SURF };
 uint8_t hallOpen = 0;
 uint8_t hallMode = HM_MENU;
 uint8_t hallPage = 0;          // the prize list's page
@@ -715,6 +720,17 @@ uint8_t slotShown = SLOT_REELS;   // reels revealed of slotRes; SLOT_REELS = idl
 int8_t cardGuessC = CARD_ANY, cardGuessN = CARD_ANY;
 int8_t cardShown = -1;         // the card just turned over, -1 = none
 CardDeck cardDeck;
+// Surfing Pikachu (v3.54): the run, the clock it is stepped by, the level
+// tilt read at the start (like Tilt Maze), and what the run paid.
+SurfGame surfRun;
+uint32_t surfLast = 0;
+float surfTilt0x = 0, surfTilt0y = 0;
+bool surfSensor = false;
+float surfTouch = 0;            // the no-sensor fallback: a tap leans the board
+uint32_t surfTouchUntil = 0;
+bool surfPaid = false;
+bool surfNewBest = false;
+uint16_t surfCoinsWon = 0;
 uint8_t areaPage = 0;
 #define AREA_ROWS 3
 #define AREA_ROW_Y(i) (108 + (i) * 100)
@@ -3271,7 +3287,7 @@ uint16_t exploreAreaOf(uint8_t region) {
 // hall count and wild area k - that count after it.
 uint8_t areaHallCount(uint8_t region) {
   uint8_t h[HALL_COUNT];
-  return hallsIn(region, h);
+  return hallsIn(region, pet, h);
 }
 
 uint8_t areaListRows(uint8_t region) {
@@ -3331,7 +3347,7 @@ int areaHallAt(int16_t x, int16_t y) {
   uint8_t region = currentExploreRegion();
   int k = areaListRowAt(x, y);
   uint8_t h[HALL_COUNT];
-  uint8_t nh = hallsIn(region, h);
+  uint8_t nh = hallsIn(region, pet, h);
   return (k >= 0 && k < nh) ? h[k] : -1;
 }
 
@@ -3445,7 +3461,7 @@ void renderAreaList() {
   uint8_t when = wildTimeBand(exploreHour());
   uint16_t chosen = exploreAreaOf(region);
   uint8_t halls[HALL_COUNT];
-  uint8_t nh = hallsIn(region, halls);
+  uint8_t nh = hallsIn(region, pet, halls);
   for (int i = 0; i < AREA_ROWS; i++) {
     int k = areaPage * AREA_ROWS + i;
     if (k >= areaListRows(region)) break;
@@ -3459,7 +3475,8 @@ void renderAreaList() {
       gfx->setTextColor(open_ ? UI_INK : UI_INK_SOFT);
       areaCentred(hallName(hl), CX, ry + 22, rw - 16);
       char sub[40];
-      if (open_) snprintf(sub, sizeof(sub), T(S_GC_COINS_FMT), pet.coins);
+      if (hallIsBeach(hl)) snprintf(sub, sizeof(sub), T(S_SURF_BEST_FMT), pet.surfHi);
+      else if (open_) snprintf(sub, sizeof(sub), T(S_GC_COINS_FMT), pet.coins);
       else gateText(hallRegion(hl), hallGate(hl), sub, sizeof(sub));
       areaCentred(sub, CX, ry + 56, rw - 16);
       continue;
@@ -3497,12 +3514,14 @@ void openHall(uint8_t h) {
   hallMsg[0] = 0;
   slotShown = SLOT_REELS;
   cardShown = -1;
+  if (hallIsBeach(h)) surfStart();
 }
 
 // Down (or across) is one level up: a question first, then a game back to
 // the hall's menu, then the hall back to the area list. A spin under way is
 // settled first, so leaving can never lose a win.
 void hallBack() {
+  if (hallMode == HM_SURF) { surfPay(); hallOpen = 0; return; }   // leaving keeps what was earned
   if (hallConfirm || hallBuyConfirm) { hallConfirm = 0; hallBuyConfirm = false; return; }
   if (hallMode == HM_SLOTS && slotShown < SLOT_REELS) {
     slotShown = SLOT_REELS;
@@ -3899,6 +3918,7 @@ void hallTap(int16_t x, int16_t y) {
     return;
   }
   switch (hallMode) {
+    case HM_SURF:   surfTap(x, y); return;
     case HM_SLOTS:  slotsTap(h, x, y); return;
     case HM_CARDS:  cardsTap(x, y); return;
     case HM_PRIZES: prizesTap(h, x, y); return;
@@ -3929,8 +3949,132 @@ void hallTap(int16_t x, int16_t y) {
   }
 }
 
+// ---------- Surfing Pikachu (v3.54) ----------
+// The rules are surf.cpp's. The board is steered by tilt -- the same sensor,
+// calibration and axis mapping (tiltToScreen) as Tilt Maze; without a sensor a
+// tap on the left or right half leans the board for a moment instead.
+
+void surfStart() {
+  hallMode = HM_SURF;
+  surfRun.start();
+  surfLast = millis();
+  surfPaid = surfNewBest = false;
+  surfCoinsWon = 0;
+  surfTouch = 0;
+  surfTouchUntil = 0;
+  surfSensor = pedoTilt(&surfTilt0x, &surfTilt0y);   // whatever angle it is held at is level
+}
+
+// The board's input, -1..1, positive = nose up. Tilting the panel to the right
+// (the way Pikachu travels) puts the nose down.
+float surfInput(uint32_t now) {
+  if (surfSensor) {
+    float tx, ty;
+    if (pedoTilt(&tx, &ty)) {
+      float ax, ay;
+      tiltToScreen(tx - surfTilt0x, ty - surfTilt0y, &ax, &ay);
+      float v = -ax * 2.0f;
+      return v > 1 ? 1 : v < -1 ? -1 : v;
+    }
+  }
+  return now < surfTouchUntil ? surfTouch : 0;
+}
+
+// What the run earned, paid ONCE: at the Goal, or on leaving early (the
+// training games' rule -- nothing earned is ever thrown away).
+void surfPay() {
+  if (surfPaid) return;
+  surfPaid = true;
+  uint32_t sc = surfRun.score;
+  surfCoinsWon = surfCoins(sc);
+  pet.addCoins(surfCoinsWon);
+  if (sc > pet.surfHi) {
+    pet.surfHi = (uint16_t)(sc > 0xFFFF ? 0xFFFF : sc);
+    surfNewBest = sc > 0;
+  }
+  // joy and bond; it saves, and the coins and the best score ride in the same
+  // player checkpoint (addCoins() has already marked it)
+  pet.playJoyGame(surfJoyScore(sc));
+}
+
+// One frame of the ride, stepped by the real frame time.
+void surfFrame(uint32_t now) {
+  if (surfRun.over()) { surfPay(); return; }
+  uint32_t dt = now - surfLast;
+  surfLast = now;
+  surfRun.step(dt, surfInput(now));
+  if (surfRun.over()) { surfPay(); sfxPlay(SFX_MEDAL); }
+}
+
+void surfTap(int16_t x, int16_t) {
+  if (surfRun.over()) { hallOpen = 0; return; }   // the result screen: back to the list
+  surfTouch = x < CX ? 1.0f : -1.0f;               // left: nose up, right: nose down
+  surfTouchUntil = millis() + 400;
+}
+
+static void renderSurf() {
+  uint32_t now = millis();
+  surfFrame(now);
+  // sky, then the sea column by column from its surface down
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, 0x9EDF);
+  for (int x = 0; x < 466; x += 2) {
+    int sy = (int)(SURF_SEA_Y - surfHeight(surfRun.worldX + x));
+    if (sy < 0) sy = 0;
+    gfx->fillRect(x, sy, 2, 466 - sy, 0x2B5F);
+    gfx->fillRect(x, sy, 2, 3, UI_WHITE);           // the foam on the crest
+  }
+  // Pikachu: the frame by the board's angle, nose up (0) to nose down (4)
+  int fr = 2 - (int)lroundf(surfRun.angle / 0.45f);
+  if (fr < 0) fr = 0;
+  if (fr > GC_SURF_FRAMES - 1) fr = GC_SURF_FRAMES - 1;
+  int px = SURF_PIKA_X - 36, py = (int)surfRun.y - 60;
+  drawGcArt(GC_SURF[fr], GC_SURF_PAL, GC_SURF_PX, px, py, 3);
+  // the score and the clock in the title pill
+  char t[40];
+  uint32_t left = surfRun.elapsed >= SURF_RUN_MS ? 0 : (SURF_RUN_MS - surfRun.elapsed + 999) / 1000;
+  snprintf(t, sizeof(t), T(S_SURF_SCORE_FMT), (unsigned)surfRun.score);
+  hallTitle(t);
+  char tm[24];
+  snprintf(tm, sizeof(tm), T(S_SURF_TIME_FMT), (unsigned)left);
+  gfx->setTextColor(UI_INK); gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(tm) * 6, 88);
+  gfx->print(tm);
+  const char *line = nullptr;
+  if (surfRun.wipeUntil && surfRun.elapsed < surfRun.wipeUntil) line = T(S_SURF_OHNO);
+  else if (surfRun.elapsed < 2500) line = T(S_SURF_TILT);
+  if (line) {
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(line) * 6, 116);
+    gfx->print(line);
+  }
+  if (surfRun.over()) {   // the Goal: what it paid
+    gfx->fillRoundRect(CX - 140, 150, 280, 120, 16, UI_BG_DAY);
+    gfx->drawRoundRect(CX - 140, 150, 280, 120, 16, UI_INK);
+    gfx->setTextColor(UI_INK);
+    const char *g = T(surfNewBest ? S_SURF_NEWBEST : S_SURF_GOAL);
+    gfx->setTextSize(3);
+    gfx->setCursor(CX - (int)strlen(g) * 9, 164);
+    gfx->print(g);
+    char b[32];
+    snprintf(b, sizeof(b), T(S_SURF_BEST_FMT), pet.surfHi);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(b) * 6, 204);
+    gfx->print(b);
+    snprintf(b, sizeof(b), T(S_GC_WIN_FMT), surfCoinsWon);
+    gfx->setCursor(CX - (int)strlen(b) * 6, 232);
+    gfx->print(b);
+  }
+}
+
 void renderHall() {
   uint8_t h = (uint8_t)(hallOpen - 1);
+  if (hallMode == HM_SURF) {
+    renderSurf();
+    uiChrome();
+    gfx->flush();
+    return;
+  }
   gfx->fillScreen(RGB565_BLACK);
   gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
   // the games are titled with the coins: they are what the player watches

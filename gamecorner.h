@@ -24,7 +24,10 @@
 #define CARD_BET 3              // Crystal's card flip always bets 3
 #define CARD_DECK 24            // 4 creatures x numbers 1-6
 
-enum HallId : uint8_t { HALL_CELADON, HALL_GOLDENROD, HALL_COUNT };
+// The two Game Corners have machines and prize counters; the third "hall" is
+// the Summer Beach House, Surfing Pikachu's secret (v3.54), which has neither.
+enum HallId : uint8_t { HALL_CELADON, HALL_GOLDENROD, HALL_BEACH, HALL_COUNT };
+#define HALL_CORNERS 2           // the halls with machines and prizes: 0..1
 
 struct SlotMachine {
   const uint8_t *reel[SLOT_REELS];   // symbol per stop
@@ -87,9 +90,22 @@ const char *hallName(uint8_t hall);
 uint8_t hallRegion(uint8_t hall);
 uint8_t hallGate(uint8_t hall);       // the same ladder gate as a wild area
 bool hallHasCards(uint8_t hall);
+bool hallIsBeach(uint8_t hall);
+// Open: a Game Corner on the ladder's gate; the beach house only while its
+// secret holds (surfSecretOpen()).
 bool hallUnlocked(uint8_t hall, const Pet &p);
-// The halls in a region, in order; how many.
-uint8_t hallsIn(uint8_t region, uint8_t out[HALL_COUNT]);
+// The halls a player can SEE in a region, in order; how many. A Game Corner is
+// always listed (greyed while locked); the beach house only while it is open --
+// nothing hints at it before then, by the owner's call.
+uint8_t hallsIn(uint8_t region, const Pet &p, uint8_t out[HALL_COUNT]);
+
+// Surfing Pikachu's secret, the ONE answer the area list and the tap ask:
+// the live pet is a PIKACHU that knows SURF, SEA ROUTES 19-21 is unlocked, and
+// every species that area offers is registered in the Pokedex, caught or raised
+// anywhere (the owner: "all pokemon are the same regardless of where or how
+// they're acquired"). Nothing new is saved for it.
+#define SURF_AREA_NAME "SEA ROUTES 19-21"
+bool surfSecretOpen(const Pet &p);
 
 // A prize creature as a storable record, minted from the live pet's counter
 // like a catch.

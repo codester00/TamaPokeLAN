@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.53-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.54-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -496,6 +496,30 @@ opens the hall, never a fight. Swipe down to back out, one level at a time.
   FLAMETHROWER 4,000. Goldenrod (Gold's) ABRA Lv.5 200, EKANS Lv.5 700, DRATINI
   Lv.10 2,100, and THUNDER, BLIZZARD and FIRE BLAST at 5,500. A prize creature
   joins the party or the box like a catch; a TM you own is not sold twice.
+
+### Surfing Pikachu (a secret)
+
+**Kept out of the release notes and the installer page on purpose** — like the
+best rod, it is a secret for players to find. A **SUMMER BEACH HOUSE** row
+appears in Kanto's area list, under the Celadon Game Corner, only while **all
+four** hold, and nothing hints at it before:
+
+1. the live pet is a **PIKACHU**,
+2. it **knows SURF** (Celadon sells the TM),
+3. **SEA ROUTES 19-21** is unlocked (gate 5, as for the wild area), and
+4. **every species that area offers** is registered in the Pokédex — raised
+   from any source; species with no art are not counted.
+
+Tapping it starts a **60-second ride**. Tilt the board (the Tilt Maze sensor; a
+tap on the left or right half leans it when there is no sensor) to match the
+waves: riding a face builds speed, fighting it loses speed. Fast over a crest
+Pikachu jumps; every swing of the board from side to side in the air is a
+**trick**. Land at the slope of the sea to bank the jump — 10 + 1 per 50 ms in
+the air + 50 per trick — or wipe out and lose it and most of the speed.
+
+It pays **coins** (a tenth of the score, at most 500), **joy and bond** (as a
+joy game scoring score/25, at most 40) and keeps your **best score**, shown on
+the row. Backing out mid-ride pays what was earned so far.
 
 ### Wild encounters, catching and the bag
 

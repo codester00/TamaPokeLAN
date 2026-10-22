@@ -68,16 +68,16 @@ fi
 
 # arrays, not a string: the sprite dir has to reach the compiler still quoted,
 # and passing these through eval silently strips them
-CORE=("$ROOT/gbsynth.cpp" "$ROOT/pet.cpp" "$ROOT/i18n.cpp" "$ROOT/party.cpp" "$ROOT/battle.cpp" "$ROOT/link.cpp" "$ROOT/trade.cpp" "$ROOT/save.cpp" "$ROOT/inventory.cpp" "$ROOT/wild.cpp" "$ROOT/pp.cpp" "$ROOT/gamecorner.cpp" "$EMU/nvsinfo_stub.cpp")
+CORE=("$ROOT/gbsynth.cpp" "$ROOT/pet.cpp" "$ROOT/i18n.cpp" "$ROOT/party.cpp" "$ROOT/battle.cpp" "$ROOT/link.cpp" "$ROOT/trade.cpp" "$ROOT/save.cpp" "$ROOT/inventory.cpp" "$ROOT/wild.cpp" "$ROOT/pp.cpp" "$ROOT/gamecorner.cpp" "$ROOT/surf.cpp" "$EMU/nvsinfo_stub.cpp")
 FLAGS=(-std=c++17 -O1 -w -I"$EMU" -I"$ROOT" -DSPRITE_DIR="\"$SPRITE_DIR\"")
 
 # these drive setup()/loop()/render(), so they need the sketch itself
-needs_sketch() { case "$1" in touch_test|lantap_test|flush_test|joy_test|anim_test|swipe_test|lan_test|console_test|hit_test|starter_test|release_test|focus_test|explore_test|uid_test|tradeevo_test|cord_test|trade_ui_test|catch_test|minigame_test|avatar_test|blackout_test|legendui_test|gymdiff_test|tm_test|pp_test|gamecorner_ui_test) return 0;; *) return 1;; esac; }
+needs_sketch() { case "$1" in touch_test|lantap_test|flush_test|joy_test|anim_test|swipe_test|lan_test|console_test|hit_test|starter_test|release_test|focus_test|explore_test|uid_test|tradeevo_test|cord_test|trade_ui_test|catch_test|minigame_test|avatar_test|blackout_test|legendui_test|gymdiff_test|tm_test|pp_test|gamecorner_ui_test|surfui_test) return 0;; *) return 1;; esac; }
 
 # and these are standalone: gbsynth.cpp has no Arduino dependency at all, which
 # is the point of it -- linking the game core in would only demand stubs for
 # symbols the test never calls.
-standalone() { case "$1" in synth_test|palette_test) return 0;; *) return 1;; esac; }
+standalone() { case "$1" in synth_test|palette_test|surf_test) return 0;; *) return 1;; esac; }
 
 # sprite_test drives PmdMon straight off the sprite directory, so it needs the
 # host's SD stubs but none of the sketch
@@ -96,7 +96,7 @@ for src in "$HERE"/*_test.cpp; do
   needs_sketch "$name" && extra=("$EMU/sketch.cpp" "$EMU/host_impl.cpp" "$EMU/font.cpp" "$EMU/clock.cpp")
   needs_host "$name" && extra=("$EMU/host_impl.cpp" "$EMU/font.cpp")
   srcs=("${CORE[@]}")
-  standalone "$name" && srcs=("$ROOT/gbsynth.cpp")
+  standalone "$name" && srcs=("$ROOT/gbsynth.cpp" "$ROOT/surf.cpp")
   # every test starts from a clean NVS so one cannot leak state into the next
   rm -f "$OUT/tamapoke.nvs"
   if ! g++ "${FLAGS[@]}" -o "$OUT/$name" "$src" "${srcs[@]}" "${extra[@]}" 2>"$OUT/$name.log"; then

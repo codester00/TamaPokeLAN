@@ -106,6 +106,12 @@ bool wildAreaUnlocked(uint16_t area, const Pet &p);
 // THE gate rule, for anything else on the ladder's schedule (the Game Corners):
 // gate g is open once ladder trainer g-1 is beaten on either difficulty.
 bool wildGateOpen(uint8_t region, uint8_t gate, const Pet &p);
+// Every species the area offers -- any band, any gate, any method -- is in the
+// player's Pokedex, however it got there. Species with no art are left out:
+// they can never be registered. (Surfing Pikachu's secret, v3.54.)
+bool wildAreaAllRegistered(uint16_t area, const Pet &p);
+// An area by its exact name within a region, or WILD_NO_AREA.
+uint16_t wildAreaByName(uint8_t region, const char *name);
 // The champion's ladder position, for code that cannot include wild_areas.h
 // (only wild.cpp may: its tables are static). wild.cpp asserts they agree.
 #ifndef WILD_GATE_CHAMPION
