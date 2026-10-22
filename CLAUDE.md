@@ -695,6 +695,15 @@ disconnected for a while, which may explain the week-long figure; the
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
 
+**C. Next build phase (owner, 2026-10-22).**
+1. **The gym list remembers its difficulty.** `gymHard` is RAM-only and starts
+   EASY on every boot, so a player whose badges are all on HARD opened the list
+   after the v3.49 update and read it as "my badges are gone" (they were not --
+   each difficulty keeps its own). Persist the last choice; it is one new
+   setting, so it needs a `SAVE_FIELDS` entry like `lang`/`vol`.
+2. **A side game or two** -- being planned with the owner; see the next entry
+   once chosen.
+
 ### Done: Paldea's areas and legendaries (v3.49, not yet on a board)
 
 The last region and the first open world: 32 zones, NOT VERIFIED, built as
