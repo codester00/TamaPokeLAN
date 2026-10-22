@@ -271,6 +271,9 @@ enum StrId : uint16_t {
   // with a 12-character name, the battle message buffer.
   S_BTL_STAT_UP, S_BTL_STAT_UP2, S_BTL_STAT_DOWN, S_BTL_STAT_DOWN2,
   S_ST_ATTACK, S_ST_DEFENSE, S_ST_SPATK, S_ST_SPDEF, S_ST_SPEED, S_ST_STATS,
+  // PP (v3.52): the label (German says AP), a move with none left, and a
+  // creature with no moves left at all, which then STRUGGLEs.
+  S_PP, S_BTL_NO_PP, S_BTL_STRUGGLE,
   STR_COUNT
 };
 

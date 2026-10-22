@@ -28,9 +28,22 @@ struct Combatant {
   uint8_t charging = 0;      // EF_CHARGE move already wound up
   bool shiny = false;        // which sprite variant to stream
   char name[12] = "";
+  // PP (v3.52). ppOn is false for a LAN fight's combatants (linkMonTo builds
+  // a bare Combatant): a link battle is fought without PP, so the wire format
+  // and the saved counts are both left alone.
+  uint8_t pp[MOVE_SLOTS] = { 0, 0, 0, 0 };
+  bool ppOn = false;
+  CreatureUid uid;           // whose PP book entry; invalid for an opponent
+  uint8_t healRun = 0;       // heals in a row, so the AI stops looping on them
+  uint8_t healCount = 0;     // heals this fight, likewise
 
   bool fainted() const { return hp == 0; }
 };
+
+// PP: can slot i be chosen? (a real move with PP left, or PP not counted)
+bool battleSlotReady(const Combatant &c, int slot);
+// Every move is out of PP, so the only thing left is STRUGGLE.
+bool battleMustStruggle(const Combatant &c);
 
 void combatantFromPet(Combatant &c, const Pet &p);
 void combatantFromParty(Combatant &c, const PartyMon &m);

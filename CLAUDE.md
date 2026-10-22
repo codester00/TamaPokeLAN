@@ -2634,7 +2634,7 @@ Settled:
   carry a secondary status. Add `ailment` + `ailChance` fields, then author them
   onto `dex_moves.py` (hand-written, not fetched — PokeAPI ailment data was
   never pulled).
-- **No PP.** No field in `MoveEntry`, and it stays that way.
+- **PP: reversed in v3.52** (owner, 2026-10-22). `MoveEntry::pp` is the games' value; the player's counts live in the PP book (`pp.h`), refilled by a full rest -- see § TODO "Done: PP".
 - **Rewards are badges/rank, not XP.** `level() = 1 + ageMinutes/MINUTES_PER_LEVEL`
   — level is age. Granting XP would break real-time ageing. Learnsets are
   level-keyed, so moves unlock as the pet ages.

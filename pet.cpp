@@ -1,4 +1,5 @@
 #include "pet.h"
+#include "pp.h"
 #include "avatars.h"
 #include "dex.h"
 #include "moves.h"
@@ -662,6 +663,10 @@ void Pet::drainMinute(bool offline) {
   const uint8_t wFloor = offline ? WEIGHT_OFFLINE_FLOOR : WEIGHT_MIN;
   if (sleeping) {   // rest: energy comes back, the rest falls slowly to its floors
     energy = clamp100(energy + 6);
+    // A full night's (or nap's) rest gives the whole team its PP back -- the
+    // owner's rule, on the one line where energy rises. Nothing to do and no
+    // write when nobody has used any.
+    if (energy >= 100) ppRefillAll();
     if (sleepAuto == SLEEP_NAP && energy >= 100) { napWake(); return; }
     if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1, wFloor);
     if (ageMinutes % SLEEP_DRAIN_MIN == 0) {

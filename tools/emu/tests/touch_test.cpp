@@ -7,6 +7,7 @@
 #include "Arduino_GFX_Library.h"
 #include "Preferences.h"
 #include "pet.h"
+#include "pp.h"
 #include "party.h"
 #include "moves.h"
 #include "battle.h"
@@ -375,6 +376,13 @@ int main(int argc, char **argv) {
   pet.relearnFromLevel();
   while (pet.hasLearnOffer()) pet.declineLearn();
   bool hadBadge = pet.hasBadge(0, 0, false);
+  // A sure win, because this section is about the squad chaining and the
+  // badge, not about a close fight: capped to Brock's level, the L100 set's
+  // INFERNO (50% accurate) won it only by luck, which PP (v3.52) ended. SURF
+  // is 4x against both of Brock's rock/ground creatures.
+  for (uint16_t i = 1; i < MOVE_COUNT; i++)
+    if (!strcmp(MOVE_TBL[i].name, "SURF")) { pet.moves[0] = (uint8_t)i; break; }
+  ppRefillAll();
   startTrainerBattle(0, false);
   if (!battleOpen) { printf("FAIL: trainer battle did not start\n"); return 1; }
   printf("PASS: gym battle starts (squad of %u vs BROCK)\n", btlSquadN);

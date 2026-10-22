@@ -1,4 +1,5 @@
 #include "battle.h"
+#include "pp.h"
 #include "dex.h"
 #include "types.h"
 
@@ -22,6 +23,11 @@ void combatantFromPet(Combatant &c, const Pet &p) {
   c.shiny = p.shiny;
   const char *nm = p.nick[0] ? p.nick : DEX_TBL[p.speciesId].name;
   snprintf(c.name, sizeof(c.name), "%s", nm);
+  // PP starts full; the player's side then reads what is left from the PP
+  // book (buildSquad), opponents keep it full.
+  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMax(c.moves[i]);
+  c.ppOn = true;
+  c.uid = p.uid;
 }
 
 void combatantFromParty(Combatant &c, const PartyMon &m) {
@@ -31,6 +37,11 @@ void combatantFromParty(Combatant &c, const PartyMon &m) {
   c.shiny = m.shiny != 0;
   const char *nm = m.nick[0] ? m.nick : DEX_TBL[m.dex].name;
   snprintf(c.name, sizeof(c.name), "%s", nm);
+  // PP starts full; the player's side then reads what is left from the PP
+  // book (buildSquad), opponents keep it full.
+  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMax(c.moves[i]);
+  c.ppOn = true;
+  c.uid = m.uid;
 }
 
 // ---------- stat stages ----------
@@ -142,6 +153,40 @@ static void heal(Combatant &c, uint16_t amount) {
   c.hp = v > c.maxHp ? c.maxHp : (uint16_t)v;
 }
 
+// ---------- PP ----------
+
+bool battleSlotReady(const Combatant &c, int slot) {
+  if (slot < 0 || slot >= MOVE_SLOTS) return false;
+  uint8_t mv = c.moves[slot];
+  if (!mv || mv >= MOVE_COUNT) return false;
+  return !c.ppOn || c.pp[slot] > 0;
+}
+
+bool battleMustStruggle(const Combatant &c) {
+  bool any = false;
+  for (int i = 0; i < MOVE_SLOTS; i++) {
+    if (!c.moves[i] || c.moves[i] >= MOVE_COUNT) continue;
+    any = true;
+    if (battleSlotReady(c, i)) return false;
+  }
+  return any && c.ppOn;
+}
+
+// The ONE place PP is spent, and the one place a move with none left is
+// refused: whatever chose it (the screen, the AI, a test), a move at 0 PP
+// becomes STRUGGLE here. A move the creature does not know (STRUGGLE itself)
+// costs nothing.
+static uint8_t spendPp(Combatant &c, uint8_t mv) {
+  if (!c.ppOn || !mv) return mv;
+  for (int i = 0; i < MOVE_SLOTS; i++) {
+    if (c.moves[i] != mv) continue;
+    if (!c.pp[i]) return MV_STRUGGLE;
+    c.pp[i]--;
+    return mv;
+  }
+  return mv;
+}
+
 void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   log = TurnLog();
   log.move = mv;
@@ -171,17 +216,28 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
     }
   }
 
-  // a wound-up EF_CHARGE move fires this turn instead of whatever was picked
+  // a wound-up EF_CHARGE move fires this turn instead of whatever was picked,
+  // and costs nothing more: its PP went when it was wound up
   if (atk.charging) { mv = atk.charging; atk.charging = 0; }
-  else if (mv && mv < MOVE_COUNT && MOVE_TBL[mv].effect == EF_CHARGE) {
-    atk.charging = mv;
-    log.charged = true;
-    return;
+  else {
+    mv = spendPp(atk, mv);
+    if (mv && mv < MOVE_COUNT && MOVE_TBL[mv].effect == EF_CHARGE) {
+      atk.charging = mv;
+      log.move = mv;
+      log.charged = true;
+      return;
+    }
   }
 
   if (!mv || mv >= MOVE_COUNT) { log.skipped = true; return; }
   const MoveEntry &m = MOVE_TBL[mv];
   log.move = mv;
+  if (m.cat == MC_STATUS && m.effect == EF_HEAL) {
+    if (atk.healRun < 255) atk.healRun++;
+    if (atk.healCount < 255) atk.healCount++;
+  } else {
+    atk.healRun = 0;
+  }
 
   // --- accuracy. acc 0 means it cannot miss (SWIFT, and every status move)
   if (m.acc && m.effect != EF_NEVER_MISS && random(100) >= m.acc) {
@@ -292,8 +348,8 @@ void battleEndTurn(Combatant &c, TurnLog &log) {
 uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
   uint8_t legal[MOVE_SLOTS], n = 0;
   for (int i = 0; i < MOVE_SLOTS; i++)
-    if (self.moves[i] && self.moves[i] < MOVE_COUNT) legal[n++] = self.moves[i];
-  if (!n) return 0;
+    if (battleSlotReady(self, i)) legal[n++] = self.moves[i];
+  if (!n) return battleMustStruggle(self) ? MV_STRUGGLE : 0;
   if (!smart) return legal[random(n)];
 
   // 32-bit on purpose: a kill bonus on top of real damage passes 32767, and an
@@ -311,8 +367,27 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
       // damage would. Healing is worth it only when actually hurt; a boost is
       // worth it early and worthless once the stage is already stacked.
       if (m.effect == EF_HEAL) {
-        int32_t missing = (int32_t)self.maxHp - self.hp;
-        sc = (missing * 100 / (self.maxHp ? self.maxHp : 1)) - 30;
+        // Healing is worth it only when actually hurt -- and only when it
+        // gains on the foe. A gym leader once healed for 25 turns running
+        // against a creature that could not out-damage the heal, and lost
+        // nothing by it but the player's patience. So: a heal that restores
+        // no more than the foe takes back in a turn is pointless, each heal
+        // in a row is worth 25 less than the last (three at most), and every
+        // heal this fight 10 less again -- a heal that out-gains the foe still
+        // stalls forever without that, two heals to every attack.
+        int32_t mx = self.maxHp ? self.maxHp : 1;
+        int32_t missing = mx - self.hp;
+        int32_t gain = mx * (m.param > 0 ? m.param : 50) / 100;
+        if (gain > missing) gain = missing;
+        int32_t incoming = 0;
+        for (int k = 0; k < MOVE_SLOTS; k++) {
+          if (!battleSlotReady(foe, k)) continue;
+          int32_t d = battleDamage(foe, self, foe.moves[k], false, 236);
+          if (d > incoming) incoming = d;
+        }
+        if (gain <= incoming) sc = -50;
+        else sc = (missing * 100 / mx) - 30 - 25 * (int32_t)self.healRun -
+                  10 * (int32_t)self.healCount;
       } else if (m.effect == EF_STAGE) {
         static const uint8_t BIT[SI_COUNT] = { ST_ATK, ST_DEF, ST_SPA, ST_SPD, ST_SPE };
         int stacked = 0, hit = 0;

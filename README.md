@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.51-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.52-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -448,6 +448,25 @@ theirs. Accuracy and evasion stages are deliberately left out. Every species can
 attack by level-up except the ones that cannot in the games either (METAPOD,
 KAKUNA, ABRA, DITTO, SMEARGLE...) and five whose only real attacks need effects
 this game does not have (UNOWN, WOBBUFFET, WYNAUT, PYUKUMUKU, APPLIN).
+
+**PP** (since v3.52). Every move has the games' own PP — TACKLE 35, SURF 15,
+RECOVER 5 — shown on each move button in a fight and on the creature's move
+pages. A move costs 1 PP each time it is used (a two-turn move such as SOLAR
+BEAM costs it once, when it winds up; a turn lost to sleep or paralysis costs
+nothing). A move at 0 PP cannot be chosen; when every move is empty, any move you
+tap becomes **STRUGGLE** (50 power, the user takes a quarter of the damage back).
+**Your creatures' PP carries over** from fight to fight and across restarts, per
+creature, and comes back for the **whole team** when the live pet's energy fills
+up while it sleeps — a night's sleep or a nap. A newly learned move starts full.
+Opponents always start full. A LAN battle counts no PP at all and leaves your
+saved PP alone.
+
+**The battle AI and healing.** The smart AI (hard, and every wild fight on hard)
+heals only when the heal gains on the foe — a RECOVER that restores less than
+the foe's best hit takes back is never chosen — and each heal is worth less than
+the last: 25 less for each heal in a row (so three in a row at most) and 10 less
+for every heal already used that fight. Before v3.52 a leader could heal turn
+after turn for as long as it was a little hurt.
 
 Moves **freeze when a pet is banked** into the party, alongside its level and
 training: the set you chose while it was alive is what it fights with forever.

@@ -33,6 +33,7 @@
 #include "pet.h"
 #include "items.h"
 #include "tms.h"
+#include "pp.h"
 #include "inventory.h"
 #include "wild.h"
 #include "sdmon.h"
@@ -48,7 +49,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.51"
+#define FW_VERSION "3.52"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -1062,6 +1063,7 @@ bool saveInhibited = false;
 // creature's life.
 void flushBeforePowerLoss(const char *why) {
   if (saveInhibited) return;
+  ppFlush();
   if (!pet.savePending()) return;
   Serial.printf("save: flushing (%s)\n", why);
   pet.flushSave();
@@ -1113,6 +1115,7 @@ void setup() {
 
   party.begin();
   bag.begin();
+  ppLoad();          // before anything can run the clock: a rest refills it
   pet.begin();
   backfillUids();
   sdBegin();
@@ -1180,6 +1183,8 @@ void loop() {
     lan.tick(now);
   }
   tradePoll(now);   // the same, for a trade: resends, timeouts, the countdown
+  // PP spent in a fight is written once it is over, not every turn.
+  if (!battleOpen && !saveInhibited && ppDirty()) ppFlush();
 
   // avisa con un sonido cuando el bicho pasa a estar listo para evolucionar
   // (incluye el caso de cumplir al despertar). canEvolveNow es false durmiendo.
@@ -2028,8 +2033,10 @@ void renderMonSheet(const PartyMon &m, bool fromBox) {
   gfx->setCursor(CX - (int)strlen(ty) * 3, 64);
   gfx->print(ty);
 
-  for (int i = 0; i < MOVE_SLOTS; i++)
+  for (int i = 0; i < MOVE_SLOTS; i++) {
     drawMoveRow(78 + i * 52, m.moves[i], false, m.dex);
+    drawMovePp(78 + i * 52, m.uid, m.moves[i]);
+  }
 
   char st[40];
   snprintf(st, sizeof(st), "ATK %u  DEF %u  SPD %u  HP %u",
@@ -4486,13 +4493,29 @@ void drawMoveRow(int y, uint8_t mv, bool highlight, int16_t dex) {
   gfx->print(pw);
 }
 
+// PP left on one of a creature's moves, top right of its drawMoveRow() row.
+// Red at zero. Read from the PP book, so it is what the next fight starts with.
+void drawMovePp(int y, const CreatureUid &uid, uint8_t mv) {
+  if (!mv || mv >= MOVE_COUNT) return;
+  uint8_t left = ppLeft(uid, mv);
+  char pp[12];
+  snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), left, ppMax(mv));
+  gfx->setTextSize(1);
+  gfx->setTextColor(left ? UI_INK : UI_BAR_BAD);
+  gfx->setCursor(384 - (int)strlen(pp) * 6, y + 12);
+  gfx->print(pp);
+}
+
 // card page 4: the four known moves. Tapping a slot opens the picker.
 void renderCardMoves() {
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(3);
   gfx->setCursor(CX - strlen(T(S_MOVES)) * 9, 44);
   gfx->print(T(S_MOVES));
-  for (int i = 0; i < MOVE_SLOTS; i++) drawMoveRow(MOVE_ROW_Y(i), pet.moves[i], false, pet.speciesId);
+  for (int i = 0; i < MOVE_SLOTS; i++) {
+    drawMoveRow(MOVE_ROW_Y(i), pet.moves[i], false, pet.speciesId);
+    drawMovePp(MOVE_ROW_Y(i), pet.uid, pet.moves[i]);
+  }
   gfx->setTextColor(UI_INK_SOFT);
   gfx->setTextSize(1);
   gfx->setCursor(CX - (int)strlen(T(S_MOVE_TAP)) * 3, 340);
@@ -4695,6 +4718,19 @@ static void foeFromSpecies(Combatant &c, int16_t dex, uint8_t lvl, uint8_t iv) {
   combatantFromPet(c, foe);
 }
 
+// Your creatures carry their PP from fight to fight (pp.h); an opponent's
+// stays full.
+static void btlLoadPp(Combatant &c) {
+  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppLeft(c.uid, c.moves[i]);
+}
+
+// What the fight has left of your active creature's PP, into the book. Every
+// turn, so no way a fight ends can lose it; RAM only until loop() flushes.
+static void btlRecordPp() {
+  if (btlLink || !btlYou.ppOn) return;
+  ppRecord(btlYou.uid, btlYou.moves, btlYou.pp);
+}
+
 // Your side: the live pet first, then the banked party.
 //
 // Both ladders cap your LEVEL to the leader's best, so a gym is always fought
@@ -4712,14 +4748,16 @@ static void buildSquad(uint8_t maxLvl, uint8_t maxCount, uint16_t mask) {
     Pet tmp = pet;                       // a copy: the real pet is untouched
     if (maxLvl && tmp.level() > maxLvl)
       tmp.ageMinutes = (uint32_t)(maxLvl - 1) * MINUTES_PER_LEVEL;
-    combatantFromPet(btlSquad[btlSquadN++], tmp);
+    combatantFromPet(btlSquad[btlSquadN], tmp);
+    btlLoadPp(btlSquad[btlSquadN++]);
     btlPetIn = true;      // the training reward goes to whoever fought for it
   }
   for (int i = 0; i < PARTY_SLOTS && btlSquadN < maxCount; i++) {
     if (party.slots[i].empty() || !(mask & (1 << (i + 1)))) continue;
     PartyMon m = party.slots[i];
     if (maxLvl && m.level > maxLvl) m.level = maxLvl;
-    combatantFromParty(btlSquad[btlSquadN++], m);
+    combatantFromParty(btlSquad[btlSquadN], m);
+    btlLoadPp(btlSquad[btlSquadN++]);
   }
   if (btlSquadN) btlYou = btlSquad[0];
 }
@@ -5122,6 +5160,7 @@ static void btlResolve(uint8_t yourMove) {
   if (btlYou.hp < hp0You) btlHitUntil[0] = now + BTL_HIT_MS;
   if (btlFoe.hp < hp0Foe) btlHitUntil[1] = now + BTL_HIT_MS;
   if (btlLink && btlLinkHost) btlShipResult(yourMove, foeMove, hp0You, hp0Foe);
+  btlRecordPp();
   if (!btlYou.fainted() && !btlFoe.fainted()) {
     battleEndTurn(btlYou, lg);
     if (lg.damage) btlNarrate(btlYou, btlYou, lg);
@@ -5551,6 +5590,16 @@ void renderBattle() {
         gfx->setCursor(x + 10 + cw + 4, y + 38);
         gfx->print("+");
       }
+      // PP left, right-aligned beside the chip; red at zero, where tapping
+      // the move is refused (battleTap asks the same battleSlotReady()).
+      if (btlYou.ppOn) {
+        char pp[12];
+        snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), btlYou.pp[i], ppMax(mv));
+        gfx->setTextSize(1);
+        gfx->setTextColor(battleSlotReady(btlYou, i) ? UI_INK : UI_BAR_BAD);
+        gfx->setCursor(x + BTL_CELL_W - 8 - (int)strlen(pp) * 6, y + 38);
+        gfx->print(pp);
+      }
     }
   }
   gfx->flush();
@@ -5813,6 +5862,20 @@ void battleTap(int16_t x, int16_t y) {
   for (int i = 0; i < MOVE_SLOTS; i++) {
     if (!btlYou.moves[i]) continue;
     if (!btlCellHit(i, x, y)) continue;
+    if (!battleSlotReady(btlYou, i)) {
+      if (!battleMustStruggle(btlYou)) {    // another move still has PP
+        sfxPlay(SFX_DENY);
+        btlSay("%s", T(S_BTL_NO_PP));
+        return;
+      }
+      // nothing left anywhere: any move tapped is STRUGGLE, as in the games.
+      // Never in a link fight (ppOn is off there), so no wire message needed.
+      sfxPlay(SFX_TAP);
+      btlMenu = 0;
+      btlSay(T(S_BTL_STRUGGLE), btlYou.name);
+      btlResolve(MV_STRUGGLE);
+      return;
+    }
     sfxPlay(SFX_TAP);
     btlMenu = 0;
     if (btlLink && !btlLinkHost) {
