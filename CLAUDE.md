@@ -633,9 +633,10 @@ rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
 the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
 Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45), Alola's (v3.46), Galar's (v3.47) and its daily weather (v3.48)** -- see the "Done" entries
-below. Next: Paldea, the last region -- and PokeAPI has NO Scarlet/Violet encounter
-data, while Bulbapedia and Serebii do not resolve from the cloud container, so
-find a reachable source before planning. None of it
+below. Next: Paldea, the last region -- PLANNED in `docs/explore-plan.md` § 15
+(2026-10-22), from PKHeX's game-derived encounter data; four open questions
+for the owner at its end. Serebii is refused by the cloud network policy and
+Bulbapedia's Cloudflare challenge blocks scripted reads, even headless Chromium. None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers

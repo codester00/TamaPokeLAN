@@ -462,5 +462,135 @@ Necrozma have homes.
 the tables before the Hall of Fame, the strong wanderers as a phenomenon, and the
 Rotom Bike's water mode as a second hidden gate. Zacian, Zamazenta, Eternatus.
 
-**Next:** Paldea. PokeAPI has no Scarlet/Violet encounters, and Bulbapedia and
-Serebii do not resolve from the cloud container; a reachable source comes first.
+**Galar's daily weather: DONE (v3.48).** Each Wild Area zone draws one of its
+weathers a day from the clock and Explore shows it beside the levels.
+
+**Next:** Paldea -- planned in § 15, not built.
+
+## 15. Paldea (planned 2026-10-22, not built)
+
+The last region, and the first open world. Everything below is a proposal for
+the owner; the open questions are at the end.
+
+### 15.1 Data: PKHeX, from the game files
+
+PokeAPI has no Scarlet/Violet encounters. Serebii is refused by this
+environment's network policy and Bulbapedia answers every scripted request,
+real headless browser included, with a Cloudflare challenge -- so neither can
+be read from a cloud session as things stand. What CAN be read is **PKHeX**
+(`kwsch/PKHeX`, through the blobless-clone route): its legality data is
+extracted from the game files, and `encounter_wild_paldea.pkl` holds, per
+named location, every wild slot's species, form, level range, time-of-day
+mask and weather mask (format: `EncounterArea9.cs`; names:
+`text_sv_00000_en.txt`). Its story encounters (the Treasures of Ruin,
+Koraidon/Miraidon) are in `Encounters9.cs`.
+
+**What PKHeX does not have: encounter rates.** A legality checker needs to
+know a creature CAN appear somewhere, not how often. Scarlet/Violet spawn by
+biome with per-species weights, and neither PKHeX nor PokeAPI carries those.
+
+Proposal: build from PKHeX now with **every species in a zone equally likely**
+(time and weather still respected), listed NOT VERIFIED like Unova onward; and
+when Bulbapedia or Serebii can be read, cross-check species and levels
+against them and replace the even weights with theirs if they publish rates.
+PKHeX being game-derived puts it closer to a decomp than any wiki, so the
+species lists should hold; only the weights are a stand-in.
+
+### 15.2 The zones
+
+Paldea's own named zones, no invented ones: the six South Province areas, the
+three West and three East areas, the three North areas, Asado Desert, Tagtree
+Thicket, Glaseado Mountain, Casseroya Lake, Dalizapa Passage, Alfornada
+Cavern, Socarrat Trail, the four Paldean seas, Poco Path, Inlet Grotto,
+Mesagoza, Montenevera, the Pokemon League's grounds and Area Zero -- 32 with
+native spawns. A creature that wanders over a zone border is counted in its
+home zone only (PKHeX's `CrossFrom`). Towns with only wanderers (Levincia,
+Medali, Cascarrafa ...) and the Great Crater's rim add nothing of their own.
+Names shorten to 16 characters (`SOUTH PROV. 1`, `GLASEADO MTN`).
+
+**Kitakami and Blueberry Academy are out**: they are the expansions' regions,
+with their own story and no place on this ladder. Their creatures and
+legendaries stay in eggs. They could become a later "expansion areas" option.
+
+### 15.3 Gates in an open world
+
+Scarlet/Violet let you walk almost anywhere from the start; what holds you
+back is the zones' levels, and the gyms can be done in any order. The ladder
+here is fixed (Katy, Brassius, Iono, Kofu, Larry, Ryme, Tulip, Grusha, then the
+Elite Four and Geeta), so the proposal is the rule Galar's Wild Area already
+uses: **a zone opens at the badge whose level band fits its typical (median)
+spawn level**. From PKHeX:
+
+| Opens with | Zones (median spawn level) |
+|---|---|
+| the start | Poco Path 3, Inlet Grotto 4, South Prov. 1 6.5, Mesagoza 7.5, South Prov. 2 11, Pokemon League 11 |
+| Brassius's badge | South Prov. 3 15.5, West Prov. 1 18, South Prov. 4 and 5 19.5, East Prov. 1 20.5, South Paldean Sea 22 |
+| Iono's | East Prov. 2 22.5, Asado Desert 23, East Prov. 3 and East Sea 25.5, West Prov. 2 28 |
+| Kofu's | Tagtree Thicket 29, West Sea 30, West Prov. 3 32.5 |
+| Larry's | Dalizapa Passage 35.5, Montenevera 37, Glaseado Mtn 38, Alfornada Cavern 40 |
+| Ryme's | South Prov. 6 40.5 |
+| Grusha's | North Prov. 1, 2 and 3, North Sea, Casseroya Lake, Socarrat Trail (46-54) |
+| the champion | Area Zero (the story's end) |
+
+It follows Paldea's own south-to-north climb, which is how the game steers
+an open world.
+
+An **alternative** would gate by geography: each zone opens with the gym of the
+city in or beside it (Cortondo's surroundings with Katy, and so on). It reads
+more like a map but puts some high-level zones early. The level rule is the
+recommendation.
+
+**Hidden ride gates**, the way the best rod and Galar's water mode work:
+Koraidon/Miraidon learns to SWIM from the second Titan (Bombirdier, around
+level 20) -- before that the seas cannot be reached. Path of Legends is not on
+the ladder, so the proposal ties the sea zones to the gym at the same level
+(Brassius's badge), which the table above already gives. Nothing else needs a
+ride gate.
+
+### 15.4 Time and weather
+
+Scarlet/Violet's four time bands (dawn, midday, dusk, night) fold onto ours:
+dawn = morning, midday = day, dusk and night = night. Its weather is per slot
+("can spawn in these weathers": the four ordinary ones, plus snow on Glaseado
+and the north, sand in Asado and the west); Galar's daily weather draw
+carries over unchanged, with Paldea's mist read as fog, and Explore shows it.
+
+### 15.5 Legendaries
+
+| Legendary | Home | Gate | Level |
+|---|---|---|---|
+| Wo-Chien | South Prov. 1 (its shrine) | the champion | 60 |
+| Chien-Pao | West Prov. 1 | the champion | 60 |
+| Ting-Lu | Socarrat Trail | the champion | 60 |
+| Chi-Yu | North Prov. 2 | the champion | 60 |
+| Koraidon, Miraidon | Area Zero (the Zero Lab rematch) | the champion | 72 |
+
+The Treasures need eight stakes each, pulled across Paldea -- no badge in the
+game; post-game by level, so the champion. Koraidon and Miraidon queue in one
+home like every version pair. The Paradox creatures are ordinary Area Zero
+spawns, both versions'. The expansions' legendaries (the Loyal Three,
+Ogerpon, Terapagos) and Pecharunt stay in eggs.
+
+### 15.6 Engineering
+
+- `load_pkhex_sv()` in gen_wild.py: the two `.pkl`/`.cs` sources pinned to a
+  PKHeX commit and cached in `tools/wild_cache/`, the BinLinker container
+  parsed as `BinLinkerAccessor.cs` reads it.
+- **`WildArea::count` from `uint8_t` to `uint16_t`**: Glaseado Mountain alone
+  has 313 source slots, past 255 once time and weather split them. The
+  generator already refuses an area past the limit; the firmware loops'
+  indices widen with it (CLAUDE.md trap 2) behind a `static_assert`.
+- Flash: Paldea's 32 zones with time and weather masks, ~3,000 more slots
+  (~30 KB) on the current pattern -- to measure, not to guess.
+- `verify_wild.py` lists Paldea NOT VERIFIED (source: PKHeX), and prints the
+  even-weights caveat until real rates replace them.
+- Art: Paldea is ~85% drawn; the NO VALID SPRITES catch-all covers the rest.
+
+### 15.7 Open questions for the owner
+
+1. Even weights inside a zone until real rates can be read -- acceptable?
+2. Level-fit gates (recommended) or gates by the nearest gym's city?
+3. Kitakami and Blueberry left out (creatures egg-only) -- or plan them as a
+   later expansion-areas step?
+4. The Treasures of Ruin at the champion, or earlier at the badge their
+   shrine's zone opens with?
