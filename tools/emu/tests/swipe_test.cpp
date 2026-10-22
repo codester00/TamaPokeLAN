@@ -377,20 +377,26 @@ int main(){
   // PICKER has to actually ask it. It once kept its own copy of the check,
   // which IS the bug, so this drives the screen's own list, not the rule.
   {
-    uint8_t l[64];
-    uint8_t n = learnableFor(5, 22, l, sizeof(l));    // a Charmeleon at 22
-    bool blast = false, ember = false;
-    for (uint8_t i = 0; i < n; i++) {
-      if (!strcmp(MOVE_TBL[l[i]].name, "FIRE BLAST")) blast = true;
-      if (!strcmp(MOVE_TBL[l[i]].name, "EMBER")) ember = true;
-    }
-    if (blast) { printf("FAIL  picker     offers a level 22 Charmeleon FIRE BLAST\n"); bad++; }
+    uint8_t l[192];
+    uint8_t blastId = 0;
+    for (uint16_t i = 1; i < MOVE_COUNT; i++) if (!strcmp(MOVE_TBL[i].name, "FIRE BLAST")) blastId = (uint8_t)i;
+    auto offers = [&](uint8_t lvl, const char *name) {
+      uint8_t n = learnableFor(5, lvl, l, sizeof(l));      // a Charmeleon
+      for (uint8_t i = 0; i < n; i++) if (!strcmp(MOVE_TBL[l[i]].name, name)) return true;
+      return false;
+    };
+    memset(pet.tmOwned, 0, sizeof(pet.tmOwned));
+    if (offers(22, "FIRE BLAST")) { printf("FAIL  picker     offers a level 22 Charmeleon FIRE BLAST\n"); bad++; }
     else printf("PASS  picker     no FIRE BLAST for a level 22 Charmeleon\n");
-    if (!ember) { printf("FAIL  picker     lost the moves it really knows\n"); bad++; }
+    if (!offers(22, "EMBER")) { printf("FAIL  picker     lost the moves it really knows\n"); bad++; }
     else printf("PASS  picker     still offers what it really knows\n");
-    if (learnableFor(5, 40, l, sizeof(l)) <= n) {
-      printf("FAIL  picker     TMs never arrive at all\n"); bad++;
-    } else printf("PASS  picker     and the TMs arrive once it is built\n");
+    // v3.51: a TM is the player's only once owned -- not at level 40 any more
+    if (offers(60, "FIRE BLAST")) { printf("FAIL  picker     a TM came free with levels\n"); bad++; }
+    else printf("PASS  picker     no TM without owning it, even at 60\n");
+    pet.giveTm(blastId);
+    if (!offers(22, "FIRE BLAST")) { printf("FAIL  picker     owning the TM did not unlock it\n"); bad++; }
+    else printf("PASS  picker     owning the TM unlocks it at any level\n");
+    memset(pet.tmOwned, 0, sizeof(pet.tmOwned));
   }
 
   printf("%s\n", bad?"FAILURES":"every paged screen pages");

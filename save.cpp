@@ -40,6 +40,9 @@ const SaveField SAVE_FIELDS[] = {
   // the Poke Mart: 1 pedometer step = $1
   { "wlt", SK_U32 },    { "stps", SK_U32 },
   { "lgnd", SK_BYTES },   // Explore's legendaries: met bits, then caught bits
+  { "tms", SK_BYTES },    // owned TMs, one bit per move index (v3.51)
+  { "coins", SK_U16 },    // the Game Corner's coin case
+  { "surfhi", SK_U16 },   // Surfing Pikachu's best score
   // the banked creatures, and what you are carrying
   { "party", SK_BYTES }, { "box", SK_BYTES }, { "bag", SK_BYTES },
   // remembered LAN opponents -- its own key, same reasoning as the box

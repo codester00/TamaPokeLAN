@@ -320,7 +320,10 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // v4 appended Explore's legendaries: a byte giving the length of each bitmask,
 // then the met bits, then the caught bits -- the length travels with them, as
 // the arrays' dimensions do in the header, so LEGEND_BYTES can grow.
-static constexpr uint16_t PLAYER_VERSION = 4;
+// v5 appended the TMs (a length byte, then the bits by move index), the Game
+// Corner's coins and Surfing Pikachu's best score. Absent reads as none owned,
+// no coins, no score -- what a save from before them truly had.
+static constexpr uint16_t PLAYER_VERSION = 5;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -330,7 +333,8 @@ static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
 static constexpr size_t PLAYER_MAX =
     PLAYER_FIXED + 2 * PLAYER_DEX_BYTES + 4 * (GYM_REGIONS - 1) +
     2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
-    4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ + CKPT_CRC;
+    4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ +
+    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -420,6 +424,11 @@ bool Pet::savePlayerSnapshot() {
   cur.put(&legendBytes, 1);
   cur.put(legendMetBits, sizeof(legendMetBits));
   cur.put(legendCaughtBits, sizeof(legendCaughtBits));
+  const uint8_t tmBytes = TM_BYTES;          // v5
+  cur.put(&tmBytes, 1);
+  cur.put(tmOwned, sizeof(tmOwned));
+  cur.put(&coins, sizeof(coins));
+  cur.put(&surfHi, sizeof(surfHi));
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -518,6 +527,19 @@ bool Pet::loadPlayerSnapshot() {
       CkptCursor lc{ buf, need + 13, body };
       lc.take(legendMetBits, sizeof(legendMetBits), lb);
       lc.take(legendCaughtBits, sizeof(legendCaughtBits), lb);
+      // v5 tail, right after the legendaries: the TMs (their own length byte,
+      // so TM_BYTES can grow), then coins and the surfing score.
+      size_t at = need + 13 + 2 * lb;
+      if (body >= at + 1) {
+        size_t tb = buf[at];
+        if (body >= at + 1 + tb + 4) {
+          CkptCursor tc{ buf, at + 1, body };
+          tc.take(tmOwned, sizeof(tmOwned), tb);
+          memcpy(&coins, buf + at + 1 + tb, 2);
+          memcpy(&surfHi, buf + at + 3 + tb, 2);
+          if (coins > COINS_CAP) coins = COINS_CAP;
+        }
+      }
     }
   }
 
@@ -557,6 +579,9 @@ void Pet::begin() {
   memset(dexReg, 0, sizeof(dexReg));
   memset(dexShinyReg, 0, sizeof(dexShinyReg));
   for (int i = 0; i < REGION_COUNT; i++) eggByRegion[i] = 0;
+  memset(tmOwned, 0, sizeof(tmOwned));
+  coins = 0;
+  surfHi = 0;
   if (!prefs.getBool("init", false)) {
     if (!prefs.putBool("init", true)) logKeyFailure("pet", "init");
     newEgg();
@@ -1389,6 +1414,27 @@ uint8_t moveUnlockLevel(int16_t dex, uint8_t idx) {
   uint8_t mv = learnMove(dex, idx);
   if (!mv || mv >= MOVE_COUNT) return 255;
   return tmLevelFor(MOVE_TBL[mv]);       // a TM: no natural level, so the gate
+}
+
+uint8_t moveUnlockLevelFor(const Pet &owner, int16_t dex, uint8_t idx) {
+  uint8_t at = learnLevel(dex, idx);
+  if (at > 0) return at;                 // a real level-up move: its own gate
+  uint8_t mv = learnMove(dex, idx);
+  if (!mv || mv >= MOVE_COUNT) return 255;
+  return owner.hasTm(mv) ? 1 : 255;      // a TM: owned, or not at all
+}
+
+bool Pet::giveTm(uint8_t move) {
+  if (!move || move >= MOVE_COUNT || hasTm(move)) return false;
+  tmOwned[move >> 3] |= (uint8_t)(1 << (move & 7));
+  pendingSave = true;
+  return true;
+}
+
+uint16_t Pet::tmOwnedCount() const {
+  uint16_t n = 0;
+  for (uint16_t i = 0; i < TM_COUNT; i++) if (hasTm(TM_MOVES[i])) n++;
+  return n;
 }
 
 void Pet::relearnFromLevel() {
@@ -2410,6 +2456,9 @@ bool Pet::save() {
     memcpy(lg + LEGEND_BYTES, legendCaughtBits, LEGEND_BYTES);
     SAVE_KEY(prefs.putBytes("lgnd", lg, sizeof(lg)), "lgnd");
   }
+  SAVE_KEY(prefs.putBytes("tms", tmOwned, sizeof(tmOwned)), "tms");   // v3.51
+  SAVE_KEY(prefs.putUShort("coins", coins), "coins");                // v3.53
+  SAVE_KEY(prefs.putUShort("surfhi", surfHi), "surfhi");             // v3.54
   SAVE_STR_KEY(prefs.putString("nick", nick), "nick", nick);
 #undef SAVE_KEY
 #undef SAVE_STR_KEY
@@ -2489,6 +2538,10 @@ void Pet::load() {
     memcpy(legendMetBits, lg, LEGEND_BYTES);
     memcpy(legendCaughtBits, lg + LEGEND_BYTES, LEGEND_BYTES);
   }
+  loadBlob(prefs, "tms", tmOwned, sizeof(tmOwned));
+  coins = prefs.getUShort("coins", 0);
+  if (coins > COINS_CAP) coins = COINS_CAP;
+  surfHi = prefs.getUShort("surfhi", 0);
   prefs.getString("nick", nick, sizeof(nick));
   // Moves load last: relearnFromLevel() needs speciesId and ageMinutes, both of
   // which are read above. A save from before moves existed has no "mvs" key and

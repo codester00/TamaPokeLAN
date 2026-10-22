@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dex_moves import (MOVES, MC_PHYS, MC_SPEC, MC_STATUS, EF_STAGE,
                        ST_ATK, ST_DEF, ST_SPA, ST_SPD, ST_SPE, TG_SELF, TG_FOE,
                        AIL_NONE, AIL_PARA, AIL_BURN, AIL_POISON, AIL_SLEEP,
-                       AIL_FREEZE, AIL_CONFUSE, HIT_STATS)
+                       AIL_FREEZE, AIL_CONFUSE, HIT_STATS, MOVE_PP)
 from dex_move_names import MOVE_NAME_LANGS, MOVE_NAMES
 
 # The ailment pair is optional in MOVES: only the ~17 moves that inflict one
@@ -152,6 +152,7 @@ def main():
              '  int8_t  hitStages; // +/- stages\n'
              '  uint8_t hitTarget; // TG_SELF (the user) or TG_FOE\n'
              '  uint8_t hitChance; // percent\n'
+             '  uint8_t pp;        // real PP (MOVE_PP); 0 only for STRUGGLE, which is never spent\n'
              '};\n\n')
 
     o.append('enum MoveId : uint8_t {\n  MV_NONE = 0,\n')
@@ -175,7 +176,7 @@ def main():
            9: 'EF_HEAL', 10: 'EF_RECHARGE', 11: 'EF_CHARGE'}
 
     o.append('static const MoveEntry MOVE_TBL[MOVE_COUNT] = {\n')
-    o.append('  { "-", T_NORMAL, MC_STATUS, 0, 0, EF_NONE, 0, 0, 0, TG_SELF, AIL_NONE, 0, 0, 0, TG_FOE, 0 },  // 0: sin usar\n')
+    o.append('  { "-", T_NORMAL, MC_STATUS, 0, 0, EF_NONE, 0, 0, 0, TG_SELF, AIL_NONE, 0, 0, 0, TG_FOE, 0, 0 },  // 0: sin usar\n')
     AILN = {AIL_NONE: 'AIL_NONE', AIL_PARA: 'AIL_PARA', AIL_BURN: 'AIL_BURN',
             AIL_POISON: 'AIL_POISON', AIL_SLEEP: 'AIL_SLEEP',
             AIL_FREEZE: 'AIL_FREEZE', AIL_CONFUSE: 'AIL_CONFUSE'}
@@ -183,11 +184,13 @@ def main():
         (name, slug, typ, cat, power, acc, eff, param, mask, stages, tgt,
          ail, ach) = unpack(m)
         hm, hs, ht, hc = HIT_STATS.get(slug, (0, 0, TG_FOE, 0))
-        o.append('  { "%s", T_%s, %s, %d, %d, %s, %d, %s, %d, %s, %s, %d, %s, %d, %s, %d },  // %d\n'
+        if slug and not MOVE_PP.get(slug):
+            sys.exit('%s: no PP in MOVE_PP' % name)
+        o.append('  { "%s", T_%s, %s, %d, %d, %s, %d, %s, %d, %s, %s, %d, %s, %d, %s, %d, %d },  // %d\n'
                  % (name, typ.upper(), cname(cat), power, acc, EFN[eff], param,
                     maskname(mask), stages, 'TG_SELF' if tgt == TG_SELF else 'TG_FOE',
                     AILN[ail], ach, maskname(hm), hs,
-                    'TG_SELF' if ht == TG_SELF else 'TG_FOE', hc, i + 1))
+                    'TG_SELF' if ht == TG_SELF else 'TG_FOE', hc, MOVE_PP.get(slug, 0), i + 1))
     o.append('};\n\n')
 
     # --- learnsets, CSR ---------------------------------------------------
@@ -229,6 +232,19 @@ def main():
     o.append('static const uint16_t LEARN_OFS[DEX_COUNT + 2] = {\n')
     for i in range(0, len(ofs), 12):
         o.append('  ' + ' '.join('%5d,' % v for v in ofs[i:i + 12]) + '\n')
+    o.append('};\n\n')
+
+    # The TM moves: every move SOME species learns by machine (a level-0 row).
+    # Since v3.51 the player owns TMs as items (Pet::tmOwned, one bit per move
+    # index), and TM_MOVES is the catalogue the Mart, the drops and the prize
+    # counters draw from. Its order is display only -- ownership is keyed by
+    # move index, so regenerating this can never change what a save owns.
+    tm_ids = sorted({mid for mid, lv, _nm in flat if lv == 0})
+    o.append('// TM moves (a level-0 learnset row for some species), by move index.\n')
+    o.append('#define TM_COUNT %d\n' % len(tm_ids))
+    o.append('static const uint8_t TM_MOVES[TM_COUNT] = {\n')
+    for i in range(0, len(tm_ids), 16):
+        o.append('  ' + ' '.join('%3d,' % v for v in tm_ids[i:i + 16]) + '\n')
     o.append('};\n\n')
 
     o.append('// Cuantos movimientos puede usar la especie, y cual es el i-esimo.\n'

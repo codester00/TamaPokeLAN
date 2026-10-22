@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.50-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.51-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -427,11 +427,15 @@ see `docs/move-expansion-report.md`). Two kinds:
   Evolving keeps the moves it already has, and the new form's gates take over —
   moves it would have learned *below* your current level are not backfilled,
   same as the real games.
-- **TMs** have no level gate and are chosen on demand, from the **MOVES** page of
-  the stats card (swipe across, then tap a slot). A move that is *also* a TM
-  keeps its level gate — otherwise every gated move would come free, since most
-  of them were sold as TMs at some point. Levels come from FireRed/LeafGreen,
-  the Kanto games that still gate properly.
+- **TMs are items** (since v3.51). A move your species learns only by TM is
+  learnable once you **own that TM**, at any level, and chosen on demand from
+  the **MOVES** page of the stats card (swipe across, then tap a slot). A TM is
+  **reusable**, as from Gen 5 on: owned once, it teaches every creature that can
+  learn it. A move that is *also* a TM keeps its level gate. Levels come from
+  FireRed/LeafGreen, the Kanto games that still gate properly. Moves a creature
+  already knew before v3.51 are kept. **Opponents are unchanged**: gym leaders
+  and wild creatures still get their TM moves at level 40, as NPCs had TM
+  moves in the games.
 
 **Stat changes.** Stages run from −6 to +6 on ATTACK, DEFENSE, SP. ATK, SP. DEF
 and SPEED, reset on switching out, and the battle text says when one moves
@@ -877,13 +881,13 @@ out: a friendly match is just a result.
 
 ### Gym battles and badges
 
-**TMs unlock at level 40**, all at once, and nothing before — so the early game
-runs on level-up moves and cheap early attacks (SCRATCH, PECK, POISON STING,
-BUBBLE, ABSORB, SPARK, FURY ATTACK and the rest), never a borrowed TM.
+**Your TMs are the ones you own** (see Evolution and moves), so the early game
+runs on level-up moves — SCRATCH, PECK, POISON STING, BUBBLE, ABSORB, SPARK,
+FURY ATTACK and the rest — plus whatever TMs you have bought or found. A
+leader's own TM moves open at level 40.
 
 The first five gym leaders sit at levels **14–43**, so you fight the early
-ladder on what your species actually learns; TMs arrive as you enter the back
-half. A creature retires at 73 and caps at 100. See "Nine gym ladders" above
+ladder on what your species actually learns. A creature retires at 73 and caps at 100. See "Nine gym ladders" above
 for which regions have ladders and how they're verified.
 
 **Gym wins train too**, which is what makes the ladder worth replaying rather than
@@ -1019,6 +1023,13 @@ every game:
 The **Linking Cord** is the one item that is *not* a real Poké Mart price: it
 comes from *Legends: Arceus*, and its price was set to match the vitamins —
 about a day's walking per evolution. See [trade evolution](#evolution-and-moves).
+
+**TMs.** Below the items the Mart sells **five TMs a day**, a different five
+each day (the same all day; with no clock set, always the same five). A TM you
+own is never offered again, and one you buy leaves the day's list without
+anything taking its place. A status TM costs **$2,000**; an attack **40 × its
+power**, between **$1,500** and **$5,000**. A won wild battle also drops a TM
+you do not own **5%** of the time on easy and **8%** on hard.
 
 ### Battle stats & IVs
 

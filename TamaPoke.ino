@@ -32,6 +32,7 @@
 #include "save.h"
 #include "pet.h"
 #include "items.h"
+#include "tms.h"
 #include "inventory.h"
 #include "wild.h"
 #include "sdmon.h"
@@ -47,7 +48,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.50"
+#define FW_VERSION "3.51"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -728,6 +729,7 @@ uint8_t martPage = 0;
 // value rather than a bool, like partyDetail/galleryDetail, since the dialog
 // needs to remember WHICH row was tapped.
 ItemKey martConfirmItem = ITEM_NONE;
+uint8_t martConfirmTm = 0;   // a TM row being bought (a move index), 0 = none
 #define MART_PER_PAGE 3
 // Rows start well below the wallet block -- it is bold/size-4 and, per
 // uiSafeHalfWidth(), needs to sit lower on the round panel than a plain title
@@ -1463,6 +1465,31 @@ void handleSerial() {
       Serial.println("bad item");
     }
     Serial.println("DONE");
+  } else if (line == "TMS") {
+    // TMS: what the player owns, and today's TMs at the Mart
+    Serial.printf("TMs owned %u/%u:", pet.tmOwnedCount(), (unsigned)TM_COUNT);
+    for (uint16_t i = 0; i < TM_COUNT; i++)
+      if (pet.hasTm(TM_MOVES[i])) Serial.printf(" %s", MOVE_TBL[TM_MOVES[i]].name);
+    uint8_t today[MART_TM_PER_DAY];
+    uint8_t k = martTmToday(pet, pet.today(), today);
+    Serial.print("\nMart today:");
+    for (uint8_t i = 0; i < k; i++) Serial.printf(" %s $%u", MOVE_TBL[today[i]].name, tmPrice(today[i]));
+    Serial.println();
+    Serial.println("DONE");
+  } else if (line.startsWith("TM ")) {
+    // TM <move index> | TM ALL: hand the player TMs, so teaching can be tried
+    // without walking for them
+    if (line == "TM ALL") {
+      for (uint16_t i = 0; i < TM_COUNT; i++) pet.giveTm(TM_MOVES[i]);
+    } else {
+      int mv = atoi(line.c_str() + 3);
+      bool isTm = false;
+      for (uint16_t i = 0; i < TM_COUNT; i++) if (TM_MOVES[i] == mv) isTm = true;
+      if (!isTm) Serial.println("not a TM move");
+      else pet.giveTm((uint8_t)mv);
+    }
+    Serial.printf("TMs owned %u/%u\n", pet.tmOwnedCount(), (unsigned)TM_COUNT);
+    Serial.println("DONE");
   } else if (line == "WILD" || line == "WILD HARD") {
     bool hard = (line == "WILD HARD");
     uint8_t rg = currentExploreRegion();
@@ -1918,7 +1945,7 @@ void onSwipeV(int dir) {
     return;
   }
   if (martOpen) {
-    if (martConfirmItem) { if (back) martConfirmItem = ITEM_NONE; return; }
+    if (martConfirmItem || martConfirmTm) { if (back) { martConfirmItem = ITEM_NONE; martConfirmTm = 0; } return; }
     if (back) uiTileGo(TILE_PET);
     return;
   }
@@ -2329,7 +2356,7 @@ void onSwipe(int dir) {
     if (galleryDetail) { galleryDetail = 0; galleryPmd.unload(); galleryDirty = true; return; }
     if (partyDetail) { partyDetail = 0; return; }
     if (partyPick) { partyPick = false; pet.clearEnded(); }
-    if (pet.ceremony || confirmUntil || martConfirmItem) return;
+    if (pet.ceremony || confirmUntil || martConfirmItem || martConfirmTm) return;
     int n = t - dir;   // the content follows the finger
     // IT BUMPS. This is the whole point of the axis: a horizontal swipe can no
     // longer close anything, so it cannot be confused with paging.
@@ -2957,6 +2984,7 @@ void uiTileGo(int i) {
   galleryDetail = 0;
   martOpen = false;
   martConfirmItem = ITEM_NONE;
+  martConfirmTm = 0;
   switch (TILE[i].scr) {
     // The two multi-region screens land on their CHOOSER, never on whichever
     // region was last set. Opening straight into it is how Johto and Hoenn came
@@ -4481,7 +4509,9 @@ uint8_t learnableFor(int16_t dex, uint8_t lvl, uint8_t *out, uint8_t max) {
     // otherwise clear this check at level 1. That is how a level 22 Charmeleon
     // came to be offered FIRE BLAST -- the same class of bug as the level 1
     // Squirtle with SURF, in the one path that fix did not reach.
-    if (moveUnlockLevel(dex, i) > lvl) continue;
+    // ...and moveUnlockLevelFor(), not the opponents' rule: since v3.51 a TM
+    // move is the player's only once they own that TM (and then at any level).
+    if (moveUnlockLevelFor(pet, dex, i) > lvl) continue;
     uint8_t mv = learnMove(dex, i);
     if (!mv || mv >= MOVE_COUNT) continue;
     bool dup = false;
@@ -4926,7 +4956,7 @@ static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
 // so a settlement can never list the same item twice -- which would read as a
 // bug rather than as luck, the same reasoning that stops rewardTraining()
 // picking a stat with no headroom.
-static void wildGrantDrops() {
+void wildGrantDrops() {   // not static: tm_test drives it
   wildDropN = 0;
   uint8_t n = wildDropCount(btlHard, (uint8_t)random(100));
   for (uint8_t i = 0; i < n && i < 4; i++) {
@@ -4937,6 +4967,16 @@ static void wildGrantDrops() {
     bag.add(k);
     wildDrops[wildDropN++] = k;
     btlSay(T(S_FOUND_ITEM), itemEntry(k).name);
+  }
+  // And now and then a TM the player does not own yet (v3.51). TMs are
+  // reusable, so one already owned is never dropped twice.
+  if ((uint32_t)random(100) < (btlHard ? TM_DROP_PCT_HARD : TM_DROP_PCT_EASY)) {
+    uint8_t mv = tmRandomUnowned(pet, (uint32_t)random(0x7FFFFFFF));
+    if (mv && pet.giveTm(mv)) {
+      char tl[32];
+      snprintf(tl, sizeof(tl), "TM %s", moveName(mv));
+      btlSay(T(S_FOUND_ITEM), tl);
+    }
   }
 }
 
@@ -7748,8 +7788,21 @@ void bagTap(int16_t x, int16_t y) {
 // rather than a second list kept here -- the same reasoning as the bag's
 // weighted drop table, so a future item only needs a price to appear.
 
+// The Mart's rows: every item with a price, then today's TMs (tms.h). One
+// count, one row lookup, so drawing and tapping cannot disagree.
+static uint8_t martTmRow[MART_TM_PER_DAY];
+static uint8_t martRowCount() {
+  return (uint8_t)(martSellableCount() + martTmToday(pet, pet.today(), martTmRow));
+}
+// The row's TM (a move index) if it is a TM row, else 0.
+static uint8_t martRowTm(uint8_t idx) {
+  uint8_t items = martSellableCount();
+  uint8_t k = martTmToday(pet, pet.today(), martTmRow);
+  return (idx >= items && idx < items + k) ? martTmRow[idx - items] : 0;
+}
+
 uint8_t martPages() {
-  uint8_t n = martSellableCount();
+  uint8_t n = martRowCount();
   return n ? (uint8_t)((n + MART_PER_PAGE - 1) / MART_PER_PAGE) : 1;
 }
 
@@ -7786,14 +7839,15 @@ void renderMart() {
   gfx->setCursor(CX - (int)strlen(sv) * 6, 176);
   gfx->print(sv);
 
-  uint8_t n = martSellableCount();
+  uint8_t n = martRowCount();
   uint8_t pages = martPages();
   if (martPage >= pages) martPage = 0;
   for (uint8_t i = 0; i < MART_PER_PAGE; i++) {
     uint8_t idx = (uint8_t)(martPage * MART_PER_PAGE + i);
     if (idx >= n) break;
-    ItemKey k = martKeyAt(idx);
-    uint16_t price = itemEntry(k).price;
+    uint8_t tm = martRowTm(idx);
+    ItemKey k = tm ? ITEM_NONE : martKeyAt(idx);
+    uint16_t price = tm ? tmPrice(tm) : itemEntry(k).price;
     bool afford = pet.wallet >= price;
     int y = MART_ROW_Y(i);
     // Green when affordable, matching Settings' SND ON pill (UI_BAR_OK /
@@ -7802,8 +7856,21 @@ void renderMart() {
     gfx->drawRoundRect(76, y, 314, 50, 10, UI_INK);
     gfx->setTextColor(afford ? UI_BG_DAY : 0x8410);
     gfx->setTextSize(2);
-    gfx->setCursor(92, y + 17);
-    gfx->print(itemEntry(k).name);
+    if (tm) {
+      // "TM" small, then the move's name; a long localized name drops a size
+      // so it never runs into the price
+      gfx->setTextSize(1);
+      gfx->setCursor(90, y + 21);
+      gfx->print("TM");
+      const char *nm = moveName(tm);
+      gfx->setTextSize(strlen(nm) > 12 ? 1 : 2);
+      gfx->setCursor(106, strlen(nm) > 12 ? y + 21 : y + 17);
+      gfx->print(nm);
+      gfx->setTextSize(2);
+    } else {
+      gfx->setCursor(92, y + 17);
+      gfx->print(itemEntry(k).name);
+    }
     char pr[10];
     snprintf(pr, sizeof(pr), "$%u", price);
     gfx->setCursor(374 - (int)strlen(pr) * 12, y + 17);
@@ -7824,12 +7891,14 @@ void renderMart() {
 
   // Asked before it happens -- what the choice costs is on screen before the
   // tap, same rule as the release/retire dialogs.
-  if (martConfirmItem) {
-    char q[40];
-    snprintf(q, sizeof(q), T(S_MART_BUY_Q), itemEntry(martConfirmItem).name);
+  if (martConfirmItem || martConfirmTm) {
+    char nm[32], q[48];
+    if (martConfirmTm) snprintf(nm, sizeof(nm), "TM %s", moveName(martConfirmTm));
+    else snprintf(nm, sizeof(nm), "%s", itemEntry(martConfirmItem).name);
+    snprintf(q, sizeof(q), T(S_MART_BUY_Q), nm);
     char cost[24];
     snprintf(cost, sizeof(cost), T(S_MART_PRICE_FMT),
-             (unsigned long)itemEntry(martConfirmItem).price);
+             (unsigned long)(martConfirmTm ? tmPrice(martConfirmTm) : itemEntry(martConfirmItem).price));
     drawConfirmPanel(q, cost, nullptr, UI_INK_SOFT,
                      T(S_YES), UI_BAR_OK, UI_WHITE, T(S_NO), UI_TRACK, UI_INK);
   }
@@ -7838,32 +7907,41 @@ void renderMart() {
 }
 
 void martTap(int16_t x, int16_t y) {
-  if (martConfirmItem) {
+  if (martConfirmItem || martConfirmTm) {
     int b1Top, b1Bot, b2Top, b2Bot;
     uiConfirmRects(&b1Top, &b1Bot, &b2Top, &b2Bot);
     bool inX = (x >= CONFIRM_BTN_X && x <= CONFIRM_BTN_X + CONFIRM_BTN_W);
     if (inX && y >= b1Top && y <= b1Bot) {           // YES
-      if (pet.spendWallet(itemEntry(martConfirmItem).price)) {
-        bag.add(martConfirmItem);
+      uint32_t price = martConfirmTm ? tmPrice(martConfirmTm) : itemEntry(martConfirmItem).price;
+      // a TM already owned (bought, then a drop arrived) is not charged twice
+      if (martConfirmTm && pet.hasTm(martConfirmTm)) {
+        sfxPlay(SFX_DENY);
+      } else if (pet.spendWallet(price)) {
+        if (martConfirmTm) pet.giveTm(martConfirmTm);
+        else bag.add(martConfirmItem);
         sfxPlay(SFX_TAP);
       } else {
         sfxPlay(SFX_DENY);   // the wallet moved between the tap and the confirm
       }
       martConfirmItem = ITEM_NONE;
+      martConfirmTm = 0;
     } else if (inX && y >= b2Top && y <= b2Bot) {     // NO
       martConfirmItem = ITEM_NONE;
+      martConfirmTm = 0;
     }
     return;
   }
-  uint8_t n = martSellableCount();
+  uint8_t n = martRowCount();
   for (uint8_t i = 0; i < MART_PER_PAGE; i++) {
     uint8_t idx = (uint8_t)(martPage * MART_PER_PAGE + i);
     if (idx >= n) break;
     int ry = MART_ROW_Y(i);
     if (x < 76 || x > 390 || y < ry || y > ry + 50) continue;
-    ItemKey k = martKeyAt(idx);
-    if (pet.wallet < itemEntry(k).price) { sfxPlay(SFX_DENY); return; }
-    martConfirmItem = k;
+    uint8_t tm = martRowTm(idx);
+    uint32_t price = tm ? tmPrice(tm) : itemEntry(martKeyAt(idx)).price;
+    if (pet.wallet < price) { sfxPlay(SFX_DENY); return; }
+    if (tm) martConfirmTm = tm;
+    else martConfirmItem = martKeyAt(idx);
     sfxPlay(SFX_TAP);
     return;
   }

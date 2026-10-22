@@ -125,6 +125,12 @@ enum : uint16_t {
 #define MED_COUNT 8
 
 uint8_t moveUnlockLevel(int16_t dex, uint8_t idx);
+// The same question for one of the PLAYER's creatures (v3.51): a TM move is
+// learnable only once the player owns that TM, and then at any level. Level-up
+// moves keep their real gates. The move picker and the banked-creature editor
+// ask THIS; opponents keep moveUnlockLevel(). 255 = not learnable.
+class Pet;
+uint8_t moveUnlockLevelFor(const Pet &owner, int16_t dex, uint8_t idx);
 
 // ---------------------------------------------------------------------------
 // Which regions have their sprite pack on the microSD.
@@ -183,6 +189,12 @@ struct RivalRecord {
 // one bit each, met and caught. 16 bytes = 128 legendaries; wild.cpp fails the
 // build before WILD_LEGENDS outgrows it.
 #define LEGEND_BYTES 16
+// Owned TMs (v3.51): one bit per MOVE INDEX, so every index a uint8_t can hold
+// has a bit. Keyed by move, never by TM number: the TM list is regenerated,
+// the move indices are append-only (CLAUDE.md trap 2).
+#define TM_BYTES 32
+// The Game Corner's coin case. The games' own ceiling.
+#define COINS_CAP 9999
 
 class Pet {
 public:
@@ -453,6 +465,22 @@ public:
     legendCaughtBits[i >> 3] |= (uint8_t)(1 << (i & 7));
     setLegendMet(i);   // caught implies met, whatever path got there
   }
+  // TMs the player owns (v3.51), player-wide like the badges: reusable, the
+  // Gen 5 rule -- owning one lets ANY of the player's creatures learn it, at
+  // any level. Opponents never ask this; they keep TM_LEVEL (pet.cpp).
+  uint8_t tmOwned[TM_BYTES] = { 0 };
+  bool hasTm(uint8_t move) const { return (tmOwned[move >> 3] >> (move & 7)) & 1; }
+  // True if it was new. Saves itself, like every other player-wide grant.
+  bool giveTm(uint8_t move);
+  uint16_t tmOwnedCount() const;
+
+  // The Game Corner (v3.53): coins, and Surfing Pikachu's best score (v3.54).
+  // In the player record from v5 on, beside the TMs.
+  uint16_t coins = 0;
+  uint16_t surfHi = 0;
+  void addCoins(uint32_t n) { uint32_t c = (uint32_t)coins + n; coins = c > COINS_CAP ? COINS_CAP : (uint16_t)c; pendingSave = true; }
+  bool spendCoins(uint16_t n) { if (coins < n) return false; coins -= n; pendingSave = true; return true; }
+
   // A new random salt for this boot -- see CreatureUid. begin() calls it; a
   // test that simulates a reboot without re-running begin() can call it too.
   static void uidNewBoot();
