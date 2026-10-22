@@ -728,6 +728,37 @@ disconnected for a while, which may explain the week-long figure; the
    - **How Pikachu knows Surf**: Pikachu evolves at 30 here and SURF is a TM
      move (learnable at 40), so today it means declining the evolution every
      level from 30 to 39. A SURF prize TM would be the shortcut.
+3. **TMs become items, and the move list grows** (owner, 2026-10-22). Comes
+   BEFORE the Game Corner, whose prizes include TMs.
+   - **Today**: level-up moves already unlock at their real level; every TM
+     move on a species' list unlocks by itself at `TM_LEVEL` 40. 55 of the 90
+     moves are TM moves somewhere.
+   - **New rule, for the PLAYER's creatures only**: a TM move is learnable only
+     once the player owns that TM. Opponents (gyms, wild) keep today's rule --
+     NPCs had TM moves in the games too. `moveUnlockLevel()` is the one answer
+     the picker, the banked-creature editor and `relearnFromLevel()` ask; the
+     gate goes there, with the opponent path kept separate on purpose. Moves a
+     creature already knows are KEPT -- never strip a saved moveset.
+   - **TMs are REUSABLE** (Gen 5+ rule): owned once, teach any creature.
+     Stored as owned bits, not counts. Sources: occasional Explore drops,
+     Game Corner prizes, and the Mart -- **5 TMs a day, rotating daily** by
+     the same day-hash idea as `wildAreaWeather()`, never offering one the
+     player already owns.
+   - **Grow the move list** so every species gets attacking level-up moves on
+     time: today species learn ~4-6 level-up moves (Gen 5+ ~4) against ~10-20
+     in the games, and 19 species have NO attacking level-up move at all
+     (Butterfree, Beedrill, Kadabra, Eevee, Solgaleo... -- their real moves
+     simply are not in our 90). **Ceiling: a move index is a `uint8_t` in
+     every saved creature** (`Pet::moves[]`, `PartyMon::moves[]`, trades, the
+     LAN wire), so ~165 more moves fit without touching the save format;
+     past 255 is a save migration -- trap 2. New moves APPEND after the
+     marker. Pick them by coverage: each species' real level-up attacks,
+     earliest first. Each needs six localized names <= 12 chars. A move whose
+     effect the engine cannot express is added as plain damage or left out --
+     list every such call for the owner.
+   - **A test fails if any species has no attacking level-up move**, except the
+     real Gen 1 exceptions (Magikarp, Metapod, Kakuna, Abra) -- the owner's
+     rule: no new cases beyond what the games had.
 
 ### Done: Paldea's areas and legendaries (v3.49, not yet on a board)
 
