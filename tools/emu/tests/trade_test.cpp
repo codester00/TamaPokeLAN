@@ -99,7 +99,7 @@ struct TestBoard : TradeBoard {
   }
   size_t loadJournal(uint8_t *buf, size_t cap) override {
     if (journal.size() > cap) return 0;
-    memcpy(buf, journal.data(), journal.size());
+    if (!journal.empty()) memcpy(buf, journal.data(), journal.size());
     return journal.size();
   }
   bool canReceive(const PartyMon &) override { return !refuse; }
