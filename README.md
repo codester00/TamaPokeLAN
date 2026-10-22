@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.55-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.56-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -108,8 +108,10 @@ Regions with no sprite pack installed are skipped rather than offered.
 | <img src="docs/screens/btlmenu.png" width="180"> | <img src="docs/screens/btlmoves.png" width="180"> | <img src="docs/screens/pick.png" width="180"> | <img src="docs/screens/win.png" width="180"> |
 
 Turn- and move-based, with the real type chart, ailments and STAB. Moves sit in a
-2x2 grid with each one's type and remaining uses. Real Game Boy battle music
-plays throughout.
+2x2 grid with each one's type and remaining uses. Real Game Boy music plays
+throughout (since v3.56 with its bass line and at the game's own tempo): Red's
+wild, trainer, gym leader and champion battle themes, each with its own victory
+jingle, and the Game Corner's theme in the halls.
 
 ### Nine gym ladders
 
@@ -375,6 +377,15 @@ While **awake**:
   \* Legendaries only start appearing once you've **registered ≥ 25** Pokémon.
 - A daily **streak** and high **bond** push rare/legendary odds higher.
 - A clean **goodbye blesses** the next egg; a **run-away curses** it (forces Common).
+- **The legendary safety net** (v3.56, secret: nothing on screen mentions it).
+  After **10 farewell eggs in a row** without a legendary, the next farewell egg
+  is one -- as long as the egg's region still has an unregistered legendary that
+  can hatch, and you are past the 25-species gate. Only farewells count: an early
+  retire or a release neither builds the count nor gets the net, so dumping
+  creatures for eggs gains nothing from it. Sized so a player who raises every
+  creature to its farewell completes the egg-only legendaries in about **two
+  years** (37 legendaries; ~3 years without it, ~2.1 with it, 9 players in 10
+  within 2.3).
 - Within a tier it favors species whose **evolution line you haven't finished** (so
   all 1025 are completable).
 - **Shiny:** base **1 / 48** (→ **1 / 24** right after a goodbye), improved by
@@ -527,6 +538,8 @@ waves: riding a face builds speed, fighting it loses speed. Fast over a crest
 Pikachu jumps; every swing of the board from side to side in the air is a
 **trick**. Land at the slope of the sea to bank the jump — 10 + 1 per 50 ms in
 the air + 50 per trick — or wipe out and lose it and most of the speed.
+
+The ride plays **Yellow's own Surfing Pikachu theme** (v3.56).
 
 It pays **coins** (a tenth of the score, at most 500), **joy and bond** (as a
 joy game scoring score/25, at most 40) and keeps your **best score**, shown on
@@ -1375,7 +1388,7 @@ beach, forest, volcano, mountain, snow). Sleeping forces night.
 - `party.h` / `party.cpp` — the 6 retired pets kept from farewells and releases
 - `sdmon.h` / `sdmon.cpp` — TPK1 (animated) and TPK2 (PMD) sprites + thumbnails, and file reception over USB (PUT/LS)
 - `rtcbat.h` / `rtcbat.cpp` — PCF85063 RTC + AXP2101 PMU (battery, brightness, PWR button)
-- `audio.h` / `audio.cpp` — ES8311 + I2S + Game-Boy-style tone synth (non-blocking task)
+- `audio.h` / `audio.cpp` — ES8311 + I2S + the audio task; `gbsynth.cpp` the Game Boy style synth (two pulses, wave, noise); `musicplay.cpp` the music sequencer; `music.h` the themes (`tools/gen_music.py`)
 - `battle.h` / `battle.cpp` — the battle engine: damage, crits, stages, ailments, turn order, the AI
 - `link.h` / `link.cpp` — the LAN battle protocol, radio-free so it can be tested
 - `linknow.h` / `linknow.cpp` — its ESP-NOW transport, shared with trading

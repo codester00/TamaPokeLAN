@@ -324,7 +324,8 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // v5 appended the TMs (a length byte, then the bits by move index), the Game
 // Corner's coins and Surfing Pikachu's best score. Absent reads as none owned,
 // no coins, no score -- what a save from before them truly had.
-static constexpr uint16_t PLAYER_VERSION = 5;
+// v6 appended the legendary safety net's counter (one byte, after surfHi).
+static constexpr uint16_t PLAYER_VERSION = 6;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -335,7 +336,7 @@ static constexpr size_t PLAYER_MAX =
     PLAYER_FIXED + 2 * PLAYER_DEX_BYTES + 4 * (GYM_REGIONS - 1) +
     2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
     4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ +
-    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + CKPT_CRC;
+    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -430,6 +431,7 @@ bool Pet::savePlayerSnapshot() {
   cur.put(tmOwned, sizeof(tmOwned));
   cur.put(&coins, sizeof(coins));
   cur.put(&surfHi, sizeof(surfHi));
+  cur.put(&legendDry, sizeof(legendDry));   // v6
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -539,6 +541,9 @@ bool Pet::loadPlayerSnapshot() {
           memcpy(&coins, buf + at + 1 + tb, 2);
           memcpy(&surfHi, buf + at + 3 + tb, 2);
           if (coins > COINS_CAP) coins = COINS_CAP;
+          // v6: the safety net's counter. Absent reads as 0 -- a fresh count,
+          // which only ever delays the net, never hands one out early.
+          if (body >= at + 1 + tb + 5) legendDry = buf[at + 5 + tb];
         }
       }
     }
@@ -583,6 +588,7 @@ void Pet::begin() {
   memset(tmOwned, 0, sizeof(tmOwned));
   coins = 0;
   surfHi = 0;
+  legendDry = 0;
   if (!prefs.getBool("init", false)) {
     if (!prefs.putBool("init", true)) logKeyFailure("pet", "init");
     newEgg();
@@ -622,8 +628,16 @@ void Pet::newEgg() {
   uid = CreatureUid();   // an egg is not a creature yet; hatch() mints its ID
   tradeEvo = false;
   for (int i = 0; i < REGION_COUNT; i++) eggByRegion[i] = 0;
+  // Asked BEFORE the roll: whether the net is in play depends on what is still
+  // unregistered, and the egg about to be laid is not registered until it hatches.
+  const bool netActive = (lastEnd == CER_FAREWELL) && legendSafetyActive();
   eggTarget = pickEggSpecies();  // especie oculta segun rareza y pokedex
   eggByRegion[region % REGION_COUNT] = eggTarget;
+  // Any legendary egg resets the count; a farewell egg without one, while the
+  // net is in play, adds to it. Early retires and releases neither count nor
+  // reset it otherwise -- they are not the good ending (startRetire()).
+  if (eggTarget >= 1 && eggTarget <= DEX_COUNT && DEX_TBL[eggTarget].rarity == R_LEGENDARIO) legendDry = 0;
+  else if (netActive && legendDry < 255) legendDry++;
   starterPick = (registeredCount() == 0);  // primera partida: el jugador elige inicial
   // sorteo shiny: 1/48 base, mejor con despedida y con racha/vinculo altos
   int shinyBase = (lastEnd == CER_FAREWELL ? 24 : 48) - careBonus();
@@ -1122,6 +1136,14 @@ static bool eggCanHold(int16_t d) {
   return regionAvailable(regionOfDex(d)) && speciesHasArt(d) && !wildIsExploreLegend(d);
 }
 
+bool Pet::legendSafetyActive() const {
+  if (registeredCount() < 25) return false;   // the legendary tier's own gate
+  const RegionInfo &rg = REGIONS[eggRegionFallback(region % REGION_COUNT)];
+  for (int16_t d = rg.lo; d <= rg.hi; d++)
+    if (DEX_TBL[d].rarity == R_LEGENDARIO && eggCanHold(d) && lineHasUnregistered(d)) return true;
+  return false;
+}
+
 int16_t Pet::pickEggSpecies() {
   const uint8_t use = eggRegionFallback(region % REGION_COUNT);
   const RegionInfo &rg = REGIONS[use];
@@ -1139,6 +1161,10 @@ int16_t Pet::pickEggSpecies() {
     int r = random(100);
     if (r < leg) tier = R_LEGENDARIO;
     else if (r < leg + rare) tier = R_RARO;
+    // The safety net: enough farewell eggs without a legendary and this one is.
+    // Read here, moved only in newEgg(), so the EGGS console simulation can roll
+    // as often as it likes without spending or building it.
+    if (blessed && legendDry >= LEGEND_SAFETY_EGGS && legendSafetyActive()) tier = R_LEGENDARIO;
   }
 
   // candidatos del tier con linea incompleta; si no hay, baja de tier;
@@ -2500,6 +2526,7 @@ bool Pet::save() {
   SAVE_KEY(prefs.putBytes("tms", tmOwned, sizeof(tmOwned)), "tms");   // v3.51
   SAVE_KEY(prefs.putUShort("coins", coins), "coins");                // v3.53
   SAVE_KEY(prefs.putUShort("surfhi", surfHi), "surfhi");             // v3.54
+  SAVE_KEY(prefs.putUChar("ldry", legendDry), "ldry");                // v3.56
   SAVE_STR_KEY(prefs.putString("nick", nick), "nick", nick);
 #undef SAVE_KEY
 #undef SAVE_STR_KEY
@@ -2583,6 +2610,7 @@ void Pet::load() {
   coins = prefs.getUShort("coins", 0);
   if (coins > COINS_CAP) coins = COINS_CAP;
   surfHi = prefs.getUShort("surfhi", 0);
+  legendDry = prefs.getUChar("ldry", 0);
   prefs.getString("nick", nick, sizeof(nick));
   // Moves load last: relearnFromLevel() needs speciesId and ageMinutes, both of
   // which are read above. A save from before moves existed has no "mvs" key and

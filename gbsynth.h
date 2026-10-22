@@ -24,7 +24,7 @@
 // this without flashing a board first.
 
 #define GB_RATE 16000        // samples per second, matching the I2S setup
-#define GB_VOICES 3          // pulse 1, pulse 2, noise
+#define GB_VOICES 4          // pulse 1, pulse 2, noise, wave (the music's bass line)
 
 // Frequency in the Game Boy's own units: Hz = 131072 / (2048 - f), f < 2048.
 // The music and cry data in the pret disassemblies is written in these, so
@@ -44,6 +44,8 @@ struct GbVoice {
   uint32_t left = 0;         // samples remaining in this note
   bool noise = false;
   uint16_t lfsr = 0x7FFF;    // the noise channel's shift register
+  const uint8_t *wave = nullptr;   // the wave voice: 32 nibbles, or null
+  uint8_t shift = 0;         // the wave voice's output level as a right shift
 };
 
 class GbSynth {
@@ -55,6 +57,11 @@ class GbSynth {
   // small is a bright hiss, large is a low rumble.
   void noise(uint8_t vol, int8_t envDir, uint8_t envPeriod, uint32_t ms,
              uint16_t period);
+  // The wave channel (voice 3): a 32-step, 4-bit shape played as an instrument,
+  // which is the Game Boy's bass. `level` is the hardware's output level: 0
+  // mute, 1 full, 2 half, 3 quarter. It sounds an octave below a pulse voice
+  // on the same register, as on hardware.
+  void wave(uint16_t gbFreq, const uint8_t *shape32, uint8_t level, uint32_t ms);
   void silence(uint8_t ch);
   void allOff();
   bool busy() const;

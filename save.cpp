@@ -43,6 +43,7 @@ const SaveField SAVE_FIELDS[] = {
   { "tms", SK_BYTES },    // owned TMs, one bit per move index (v3.51)
   { "coins", SK_U16 },    // the Game Corner's coin case
   { "surfhi", SK_U16 },   // Surfing Pikachu's best score
+  { "ldry", SK_U8 },      // farewell eggs since a legendary (v3.56, secret)
   { "pp", SK_BYTES },     // v3.52: PP used, per creature (pp.h)
   // the banked creatures, and what you are carrying
   { "party", SK_BYTES }, { "box", SK_BYTES }, { "bag", SK_BYTES },

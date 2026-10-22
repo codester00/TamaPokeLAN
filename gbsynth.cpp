@@ -47,6 +47,24 @@ void GbSynth::noise(uint8_t vol, int8_t envDir, uint8_t envPeriod, uint32_t ms,
   g.phase = 0;
 }
 
+void GbSynth::wave(uint16_t gbFreq, const uint8_t *shape32, uint8_t level, uint32_t ms) {
+  GbVoice &g = v[3];
+  uint32_t hz = gbFreqHz(gbFreq) / 2;   // the wave channel runs at half the pulse rate
+  g.noise = false;
+  g.wave = (level && level <= 3) ? shape32 : nullptr;
+  g.shift = level ? (uint8_t)(level - 1) : 0;
+  // 32 steps a cycle: the 16.16 phase walks the shape, its top five bits the step
+  // Level 0 must not fall through to the pulse branch of render(): with the
+  // shape gone but a step left it played a full-volume square (music_test).
+  g.step = (hz && g.wave) ? (uint32_t)((uint64_t)hz * 32u * 65536u / GB_RATE) : 0;
+  g.vol = 15;
+  g.envDir = 0;
+  g.envPeriod = 0;
+  g.envCount = 0;
+  g.left = (uint32_t)((uint64_t)ms * GB_RATE / 1000);
+  g.phase = 0;
+}
+
 void GbSynth::silence(uint8_t ch) {
   if (ch < GB_VOICES) { v[ch].left = 0; v[ch].vol = 0; }
 }
@@ -84,6 +102,15 @@ void GbSynth::render(int16_t *out, size_t n, uint8_t master) {
           g.lfsr = (uint16_t)((g.lfsr >> 1) | (x << 14));
         }
         s = (g.lfsr & 1) ? 1 : -1;
+      } else if (g.wave) {
+        // the shape is 0..15 around a centre of 7.5: doubled to -15..15 so a
+        // full-level wave sits level with a full pulse, then shifted down
+        g.phase += g.step;
+        int32_t nib = g.wave[(g.phase >> 16) & 31];
+        s = ((2 * nib - 15) >> g.shift);
+        mix += s;
+        g.left--;
+        continue;
       } else if (g.step) {
         g.phase = (g.phase + g.step) & 0xFFFFu;
         s = (g.phase < DUTY[g.duty]) ? 1 : -1;
@@ -105,6 +132,12 @@ void GbSynth::render(int16_t *out, size_t n, uint8_t master) {
       g.left--;
     }
     int32_t o = mix * scale;
+    // A soft knee rather than a hard clip: four voices at full can exceed the
+    // range, and squaring off the peaks is the harsh crackle a clip makes. Below
+    // the knee nothing changes, so a single voice (every effect) is untouched.
+    const int32_t KNEE = 24000;
+    if (o > KNEE) o = KNEE + (o - KNEE) / 4;
+    else if (o < -KNEE) o = -KNEE + (o + KNEE) / 4;
     if (o > 32767) o = 32767;
     if (o < -32768) o = -32768;
     out[i] = (int16_t)o;

@@ -1,6 +1,6 @@
 #include "audio.h"
 #include "gbsynth.h"
-#include "music.h"
+#include "musicplay.h"
 #include "pin_config.h"
 #include <Arduino.h>
 #include <Wire.h>
@@ -109,22 +109,6 @@ static const SfxDef SFX[SFX_COUNT] = {
   {N_VICTORY, 6},
 };
 
-// A loop, not a one-shot: the task walks it and starts over.
-static const Note M_BATTLE[] = {
-  {392, 150}, {523, 150}, {659, 150}, {523, 150},
-  {440, 150}, {587, 150}, {698, 150}, {587, 150},
-  {392, 150}, {523, 150}, {659, 200}, {0, 100},
-  {659, 120}, {587, 120}, {523, 120}, {440, 240}, {0, 160},
-};
-static const Note M_VICTORY[] = {
-  {784, 140}, {880, 140}, {988, 140}, {1047, 420}, {0, 200},
-};
-struct TuneDef { const Note *n; uint8_t len; bool loop; };
-static const TuneDef MUSIC[] = {
-  { nullptr, 0, false },
-  { M_BATTLE, 17, true },
-  { M_VICTORY, 5, false },
-};
 static volatile uint8_t gMusic = MUS_NONE;
 static volatile uint8_t gVol = 7;
 
@@ -138,32 +122,6 @@ static uint16_t hzToGb(uint16_t hz) {
   if (!hz) return 0;
   int32_t f = 2048 - (int32_t)(131072u / hz);
   return (f < 0 || f > 2047) ? 0 : (uint16_t)f;
-}
-
-// reproduce un tono (o silencio si f==0) con rampa de ataque/caida anti-click
-static void playTone(uint16_t f, uint16_t ms) {
-  if (!gVol) { delay(ms); return; }   // muted: keep the timing, make no sound
-  int total = SAMPLE_RATE * ms / 1000;
-  int half = f ? (SAMPLE_RATE / (2 * f)) : 0;  // medio periodo en muestras
-  const int16_t amp = (int16_t)(500 * (gVol > 10 ? 10 : gVol));  // 0..5000
-  int phase = 0, done = 0;
-  bool high = true;
-  while (done < total) {
-    int n = total - done; if (n > 256) n = 256;
-    for (int i = 0; i < n; i++) {
-      int16_t s = 0;
-      if (f) {
-        s = high ? amp : -amp;
-        int idx = done + i;
-        if (idx < 64) s = (int16_t)(s * idx / 64);                 // ataque
-        else if (idx > total - 96) s = (int16_t)(s * (total - idx) / 96);  // caida
-        if (++phase >= half) { phase = 0; high = !high; }
-      }
-      buf[i * 2] = s; buf[i * 2 + 1] = s;
-    }
-    i2s.write((uint8_t *)buf, n * 4);
-    done += n;
-  }
 }
 
 // Renders `ms` of audio and pushes it to the codec. Everything sounds through
@@ -180,12 +138,11 @@ static void pump(uint32_t ms) {
   }
 }
 
+static MusicPlayer gPlayer;
+
 static void audioTask(void *) {
   uint8_t id;
-  // where each music channel has got to, and when its current note ends
-  uint16_t mi1 = 0, mi2 = 0;
-  uint32_t at1 = 0, at2 = 0, clock = 0;
-  uint8_t playing = MUS_NONE;
+  uint8_t playing = MUS_NONE;   // the Music id the player was started for
   bool ampOn = false;
 
   for (;;) {
@@ -193,9 +150,9 @@ static void audioTask(void *) {
     bool wantAudio = (m != MUS_NONE) || gSyn.busy();
     if (!gOn || !gReady) { gSyn.allOff(); m = MUS_NONE; wantAudio = false; }
 
-    // An effect always wins the melody voice. With three voices a cue that
+    // An effect always wins the first pulse voice. With four voices a cue that
     // mixed politely underneath would just be mud; cutting through is both
-    // simpler and the right priority.
+    // simpler and the right priority. The music's other voices play on under it.
     if (xQueueReceive(gQ, &id, wantAudio ? 0 : pdMS_TO_TICKS(40)) == pdTRUE) {
       if (gOn && gReady && id < SFX_COUNT) {
         if (!ampOn) { digitalWrite(PA, HIGH); delay(6); ampOn = true; }
@@ -216,46 +173,30 @@ static void audioTask(void *) {
     }
 
     if (m == MUS_NONE) {
+      if (playing != MUS_NONE) { gPlayer.stop(gSyn); playing = MUS_NONE; }
       if (ampOn && !gSyn.busy()) { digitalWrite(PA, LOW); ampOn = false; }
-      playing = MUS_NONE; mi1 = mi2 = 0; at1 = at2 = clock = 0;
       continue;
     }
 
-    if (m != playing) { playing = m; mi1 = mi2 = 0; at1 = at2 = clock = 0; }
+    if (m != playing) {
+      int t = musicTrackFor(m);
+      if (t < 0) { gMusic = MUS_NONE; continue; }
+      gSyn.allOff();
+      gPlayer.start((uint8_t)t);
+      playing = m;
+    }
     if (!ampOn) { digitalWrite(PA, HIGH); delay(6); ampOn = true; }
 
-    // 0 = the gym leader battle, 3 = the victory fanfare. Winning used to play
-    // index 2, which is the WILD BATTLE theme -- so a win sounded like the fight
-    // had started again.
-    const MusicTrack &t = MUSIC_TBL[(m == MUS_VICTORY) ? 3 : 0];
-    // start whichever channel is due
-    if (clock >= at1) {
-      if (mi1 >= t.n1) {                       // loop, or stop a one-shot
-        if (m == MUS_VICTORY) { gMusic = MUS_NONE; continue; }
-        mi1 = 0; at1 = clock;
-      }
-      const MusicNote &n = t.ch1[mi1++];
-      if (n.freq) gSyn.note(0, n.freq, n.duty, n.vol, n.envDir, n.envPeriod, n.ms);
-      else gSyn.silence(0);
-      at1 = clock + n.ms;
-    }
-    if (clock >= at2) {
-      if (mi2 >= t.n2) { mi2 = 0; at2 = clock; }
-      const MusicNote &n = t.ch2[mi2++];
-      if (n.freq) gSyn.note(1, n.freq, n.duty, n.vol, n.envDir, n.envPeriod, n.ms);
-      else gSyn.silence(1);
-      at2 = clock + n.ms;
-    }
-    uint32_t next = (at1 < at2) ? at1 : at2;
-    if (next <= clock) next = clock + 5;
-    uint32_t step = next - clock;
-    if (step > 60) step = 60;                  // stay responsive to an effect
+    // Start whatever is due, render up to the next note (at most 60 ms, to stay
+    // responsive to an effect), and move the sequencer's clock by what was played.
+    uint32_t step = gPlayer.step(gSyn, 60);
     pump(step);
-    clock += step;
+    gPlayer.advance(step);
+    if (gPlayer.finished()) gMusic = MUS_NONE;   // a one-shot that has ended
   }
 }
 
-void audioMusic(uint8_t id) { gMusic = (id < 3) ? id : MUS_NONE; }
+void audioMusic(uint8_t id) { gMusic = (id < MUS_COUNT) ? id : MUS_NONE; }
 
 void audioSetVolume(uint8_t v) {
   gVol = v > 10 ? 10 : v;

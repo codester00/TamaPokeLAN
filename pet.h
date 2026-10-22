@@ -17,6 +17,13 @@
 #define EVOLVE_ANIM_MS 5200UL              // animacion de evolucion (mas larga = mas epica)
 #define CEREMONY_MS 10000UL                // duracion de la despedida en pantalla
 #define FAREWELL_AGE_MIN (3UL * 24 * 60)   // se despide a los 3 dias de juego (en forma final)
+// The legendary safety net (v3.56). After this many FAREWELL eggs in a row
+// without a legendary, the next farewell egg is one -- as long as the egg's
+// region still has an unregistered legendary that can hatch. SECRET, by the
+// owner's call, like the 8-hour window: nothing on screen says it exists.
+// Sized by simulation so a consistent player completes the egg-only
+// legendaries in about two years (README, Game manual).
+#define LEGEND_SAFETY_EGGS 10
 // Retiring a creature BEFORE it has earned its farewell costs the NEXT one a
 // day's worth of evolution. Derived from MINUTES_PER_LEVEL rather than written
 // as 24, so it stays "a day" if the level rate is ever retuned.
@@ -484,6 +491,14 @@ public:
   // In the player record from v5 on, beside the TMs.
   uint16_t coins = 0;
   uint16_t surfHi = 0;
+  // Farewell eggs in a row without a legendary (LEGEND_SAFETY_EGGS). Player
+  // record v6 tail and legacy key "ldry". Moved only by newEgg().
+  uint8_t legendDry = 0;
+  // Is the safety net in play for an egg laid now: past the 25-species gate the
+  // legendary tier already has, and the egg's region still holding an
+  // unregistered legendary that can hatch. THE one answer pickEggSpecies() and
+  // newEgg() both ask.
+  bool legendSafetyActive() const;
   void addCoins(uint32_t n) { uint32_t c = (uint32_t)coins + n; coins = c > COINS_CAP ? COINS_CAP : (uint16_t)c; pendingSave = true; }
   bool spendCoins(uint16_t n) { if (coins < n) return false; coins -= n; pendingSave = true; return true; }
 

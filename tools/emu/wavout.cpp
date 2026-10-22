@@ -10,7 +10,7 @@
 // It drives the same GbSynth the firmware uses, so what comes out of the
 // speaker should be what comes out of this file.
 #include "../../gbsynth.h"
-#include "../../music.h"
+#include "../../musicplay.h"
 #include <cstdio>
 #include <cstring>
 #include <cmath>
@@ -82,34 +82,26 @@ int wavMain(const char *path, const char *demo) {
       syn.note(1, gbNote(bass[i] - 12), 2, 9, 0, 0, 260);
       run(syn, out, 270);
     }
-  } else if (d == "gym" || d == "trainer" || d == "wild" || d == "win") {
-    // A REAL battle theme, both pulse channels, exactly as the data says.
-    int t = (d == "gym") ? 0 : (d == "trainer") ? 1 : (d == "wild") ? 2 : 3;
-    const MusicTrack &m = MUSIC_TBL[t];
-    printf("playing %s (%u + %u events)\n", m.name, m.n1, m.n2);
-    uint32_t at1 = 0, at2 = 0;      // ms consumed on each channel
-    uint16_t i1 = 0, i2 = 0;
-    uint32_t clock = 0;
-    const uint32_t LIMIT = 30000;   // 30 s is plenty to judge it
-    while (clock < LIMIT && (i1 < m.n1 || i2 < m.n2)) {
-      if (i1 < m.n1 && clock >= at1) {
-        const MusicNote &n = m.ch1[i1];
-        if (n.freq) syn.note(0, n.freq, n.duty, n.vol, n.envDir, n.envPeriod, n.ms);
-        else syn.silence(0);
-        at1 += n.ms; i1++;
-      }
-      if (i2 < m.n2 && clock >= at2) {
-        const MusicNote &n = m.ch2[i2];
-        if (n.freq) syn.note(1, n.freq, n.duty, n.vol, n.envDir, n.envPeriod, n.ms);
-        else syn.silence(1);
-        at2 += n.ms; i2++;
-      }
-      uint32_t next = LIMIT;
-      if (i1 < m.n1 && at1 < next) next = at1;
-      if (i2 < m.n2 && at2 < next) next = at2;
-      if (next <= clock) next = clock + 5;
-      run(syn, out, next - clock);
-      clock = next;
+  } else if (musicTrackByName(d == "gym" ? "gymleaderbattle" : d == "trainer" ? "trainerbattle" :
+                              d == "wild" ? "wildbattle" : d == "win" ? "defeatedgymleader" :
+                              d.c_str()) >= 0) {
+    // A REAL Game Boy theme through the same sequencer the board runs: both pulse
+    // channels and the wave channel's bass. Any track by its file name
+    // (--demo finalbattle, --demo surfingpikachu, ...), or the four old aliases.
+    // A looping track plays its intro and two passes of its loop.
+    int t = musicTrackByName(d == "gym" ? "gymleaderbattle" : d == "trainer" ? "trainerbattle" :
+                             d == "wild" ? "wildbattle" : d == "win" ? "defeatedgymleader" : d.c_str());
+    MusicPlayer p;
+    p.start((uint8_t)t);
+    uint32_t loop = musicLoopMs((uint8_t)t);
+    uint32_t limit = loop ? 2 * loop + 15000 : 120000, clock = 0;
+    if (limit > 240000) limit = 240000;
+    printf("playing %s%s\n", musicTrackName((uint8_t)t), loop ? " (loops)" : "");
+    while (clock < limit && !p.finished()) {
+      uint32_t step = p.step(syn, 60);
+      run(syn, out, step);
+      p.advance(step);
+      clock += step;
     }
   } else {
     // the tour: everything at once, in the order it was built

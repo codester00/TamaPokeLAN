@@ -52,7 +52,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.55"
+#define FW_VERSION "3.56"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -782,6 +782,18 @@ uint8_t martConfirmTm = 0;   // a TM row being bought (a move index), 0 = none
 // of those is asked through btlWild, so there is no second opinion about what
 // kind of battle is on screen.
 bool btlWild = false;
+// Which theme this fight plays (v3.56), and which jingle a win plays -- THE one
+// answer every battle start and every win asks, so a wild win cannot end on the
+// gym fanfare. Red's own choices: wild, trainer, gym leader (the Elite Four too)
+// and the champion's final battle; a LAN rival is a trainer.
+static uint8_t btlMusic(bool won) {
+  // Asked by the trainer index, never btlLink: startTrainerBattle() does not
+  // clear the link flag, and a LAN fight always sets btlTrainer to -1.
+  if (btlWild) return won ? MUS_WIN_WILD : MUS_WILD;
+  if (btlTrainer < 0) return won ? MUS_WIN_TRAINER : MUS_TRAINER;   // LAN, or a one-off
+  if (won) return MUS_WIN_GYM;
+  return btlTrainer == TRAINER_COUNT - 1 ? MUS_FINAL : MUS_GYM;
+}
 // The wild creature's durable state, kept BESIDE the Combatant because a
 // Combatant carries no IVs and none of what a stored record needs. Without it a
 // capture would have to re-roll the individual it just caught, and the creature
@@ -4272,8 +4284,22 @@ void bootReport() {
   gCrumbMagic = 0;   // one report per crash, not on every later boot
 }
 
+// The halls' music (v3.56) follows the screen rather than the code paths that
+// open and close it: a hall is closed from the tile axis, both back gestures and
+// the surf result's tap, and a music call at each of those is a rule kept in
+// four places (CLAUDE.md trap 1). This asks one question a frame and acts only
+// when the answer changes, so it never talks over a battle's music.
+static void hallMusicSync() {
+  static uint8_t was = MUS_NONE;
+  uint8_t want = !hallOpen ? MUS_NONE : hallIsBeach(hallOpen - 1) ? MUS_SURF : MUS_GAMECORNER;
+  if (want == was) return;
+  audioMusic(want);
+  was = want;
+}
+
 void render() {
   crumbDrop();   // so a crash can name the screen it happened on
+  hallMusicSync();
   if (pet.awaitingStarter()) {  // primera partida: region y luego inicial
     if (!starterRegionDone) renderRegionPick(RPICK_FOR_START);
     else renderStarterSelect();
@@ -5576,7 +5602,7 @@ void startLinkBattle() {
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
   btlSyncSprite(1, btlFoe);
-  audioMusic(MUS_BATTLE);
+  audioMusic(btlMusic(false));
   battleOpen = true;
 }
 
@@ -5611,7 +5637,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
   btlSyncSprite(1, btlFoe);
-  audioMusic(MUS_BATTLE);
+  audioMusic(btlMusic(false));
   btlLungeUntil[0] = btlLungeUntil[1] = 0;
   btlHitUntil[0] = btlHitUntil[1] = 0;
   battleOpen = true;
@@ -5645,7 +5671,7 @@ void startBattle(int16_t dex, uint8_t lvl) {
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
   btlSyncSprite(1, btlFoe);
-  audioMusic(MUS_BATTLE);
+  audioMusic(btlMusic(false));
   btlLungeUntil[0] = btlLungeUntil[1] = 0;
   btlHitUntil[0] = btlHitUntil[1] = 0;
   battleOpen = true;
@@ -5737,7 +5763,7 @@ static void btlLinkPoll() {
   if (lan.state == LINK_DONE && !btlOver) {
     btlOver = true;
     btlWon = lan.youWon;
-    audioMusic(btlWon ? MUS_VICTORY : MUS_NONE);
+    audioMusic(btlWon ? btlMusic(true) : MUS_NONE);
     if (btlWon) sfxPlay(SFX_VICTORY);
     btlSay("%s", btlWon ? T(S_BTL_WIN) : T(S_BTL_LOSE));
     const uint8_t *rivalMac = linkNowPeerMac();
@@ -5839,7 +5865,7 @@ static void btlThrowBall(ItemKey k) {
     // failure -- discovered only then, with a party-screen swap already in
     // flight, instead of here where nothing is at risk either way.
     pet.saveNow();
-    audioMusic(MUS_VICTORY);
+    audioMusic(btlMusic(true));
     sfxPlay(SFX_VICTORY);
     btlSay(T(S_CAUGHT), btlFoe.name);
     wildGrantDrops();
@@ -5997,7 +6023,7 @@ static void btlResolve(uint8_t yourMove) {
     // wild-catch save above: cheap and safe to do now, while nothing is at
     // risk, rather than leaving it to whatever the player does next.
     pet.saveNow();
-    audioMusic(btlWon ? MUS_VICTORY : MUS_NONE);
+    audioMusic(btlWon ? btlMusic(true) : MUS_NONE);
     if (btlWon) sfxPlay(SFX_VICTORY);
     // Tell the peer before anything else: if we stop here without sending, the
     // other device sits on a battle that will never take another turn.
@@ -6526,7 +6552,7 @@ void battleTap(int16_t x, int16_t y) {
       btlFreeSprites();
       // A wild win or catch never sets btlWinUntil (that is trainer-only, see
       // below), so it never passes through that dismiss's own audioMusic(MUS_NONE)
-      // either -- MUS_VICTORY from the catch/win above was otherwise left running
+      // either -- the win's jingle from the catch/win above was otherwise left running
       // straight into the main screen and whatever came after it.
       audioMusic(MUS_NONE);
       battleOpen = false;
@@ -8898,7 +8924,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
   btlSyncSprite(1, btlFoe);
-  audioMusic(MUS_BATTLE);
+  audioMusic(btlMusic(false));
   btlLungeUntil[0] = btlLungeUntil[1] = 0;
   btlHitUntil[0] = btlHitUntil[1] = 0;
   battleOpen = true;
