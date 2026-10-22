@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.47"
+#define FW_VERSION "3.48"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -1470,10 +1470,12 @@ void handleSerial() {
     uint16_t cur = exploreAreaOf(rg);
     for (uint8_t i = 0; i < n; i++) {
       uint16_t a = (uint16_t)(first + i);
-      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s%s\n", a == cur ? '>' : ' ', i,
+      int8_t wx = wildAreaWeather(a, pet);
+      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s%s%s%s\n", a == cur ? '>' : ' ', i,
                     wildAreaName(a), wildAreaGate(a), wildAreaLvMin(a), wildAreaLvMax(a),
                     wildAreaUnlocked(a, pet) ? "" : "  locked",
-                    wildAreaHasLegend(a, pet) ? "  legendary" : "");
+                    wildAreaHasLegend(a, pet) ? "  legendary" : "",
+                    wx >= 0 ? "  today: " : "", wildWeatherName(wx));
     }
     Serial.println("DONE");
   } else if (line.startsWith("FOCUS ")) {

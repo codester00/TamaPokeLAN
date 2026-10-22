@@ -65,6 +65,15 @@ WEIGHT_TOTAL = 10000
 
 MORN, DAY, NITE = 1, 2, 4
 ANY = MORN | DAY | NITE
+# Galar's weathers, in WILD_WX_* bit order -- APPEND-ONLY like any table the
+# firmware indexes. A slot's weather mask has bit i for WEATHERS[i] and
+# WX_AVG for the all-weather average (the fallback with no clock set); an
+# area without weather marks every slot WX_ANY.
+WEATHERS = ('weather-normal', 'weather-overcast', 'weather-raining',
+            'weather-thunderstorm', 'weather-snowing', 'weather-snowstorm',
+            'weather-intense-sun', 'weather-sandstorm', 'weather-fog')
+WX_AVG = 1 << len(WEATHERS)
+WX_ANY = (WX_AVG << 1) - 1
 BANDS = (MORN, DAY, NITE)
 
 FRLG = 'https://raw.githubusercontent.com/pret/pokefirered/master/'
@@ -293,6 +302,8 @@ def pokeapi_tables(refresh=False):
             t['cond'].setdefault(r['encounter_id'], set()).add(cv[r['encounter_condition_value_id']])
         t['method'] = {r['id']: r['identifier'] for r in t['encounter_methods']}
         t['weathers'] = {v for v in cv.values() if v.startswith('weather-')}
+        if t['weathers'] != set(WEATHERS):
+            sys.exit('gen_wild: PokeAPI weathers %s are not WEATHERS' % sorted(t['weathers']))
         t['slot'] = {r['id']: r for r in t['encounter_slots']}
         loc = {r['id']: r for r in t['locations']}
         # A "map" is the location and its area, as PokeAPI names them:
@@ -348,12 +359,12 @@ def load_pokeapi(reg, refresh=False):
         # top is the map's. Such a row is met at the top's spread instead.
         if reg.get('level_spread') and hi - lo > reg['level_spread']:
             lo = hi - reg['level_spread']
-        # Seasons and weathers are averaged alike: a slot that holds in k of
-        # them counts k/n of its rate (Galar's Wild Area lists a table per
-        # weather, and every weather comes round).
-        rate = (int(sl['rarity']) * (len(seasons) / len(POKEAPI_SEASONS) if seasons else 1)
-                * (len(weathers) / len(t['weathers']) if weathers else 1))
-        row = (vids[e['version_id']], mp, (dex, lo, rate, ANY))
+        # Seasons are averaged: a slot that holds in k of the four counts k/4
+        # of its rate. Weathers are kept on the row (its 5th field) for
+        # mix_band(): the firmware draws a weather a day per area, and averages
+        # them only when the board's clock was never set.
+        rate = int(sl['rarity']) * (len(seasons) / len(POKEAPI_SEASONS) if seasons else 1)
+        row = (vids[e['version_id']], mp, (dex, lo, rate, ANY, frozenset(weathers) or None))
         if raw == 'bubbling-spots' and reg.get('bubbling') == 'fishing':
             out[row[0]].setdefault(mp, {}).setdefault('fishing', []).append(row[2])
             continue
@@ -662,25 +673,42 @@ def pre_evolutions():
     return pre
 
 
-def mix_band(data, versions, maps, when, gates=None):
+def row_weathers(slot):
+    """A source row's weathers, or None for a row that holds in all of them
+    (every loader but PokeAPI's emits 4-field rows)."""
+    return slot[4] if len(slot) > 4 else None
+
+
+def mix_band(data, versions, maps, when, gates=None, weather=None):
     """One time band's distribution over an area (steps 1-3), keyed by
     (species, gate): a method with a hidden gate (the best rod's 'fishing',
     Galar's 'water') carries it, so a species both walked into and fished up
-    splits into an open slot and a gated one."""
+    splits into an open slot and a gated one. `weather` picks one weather's
+    rows (with those that hold in every weather); None averages them all, a
+    row in k of the n weathers counting k/n of its rate."""
     gates = gates or {}
+
+    def rate(s):
+        wx = row_weathers(s)
+        if wx is None:
+            return s[2]
+        if weather is None:
+            return s[2] * len(wx) / len(WEATHERS)
+        return s[2] if weather in wx else 0
     mix = {}
     for v in versions:
         per_method = {}
         for method in WA.METHOD_WEIGHT:
             dists = []
             for mp in maps:
-                slots = [s for s in data[v].get(mp, {}).get(method, []) if s[3] & when]
+                slots = [s for s in data[v].get(mp, {}).get(method, [])
+                         if s[3] & when and rate(s)]
                 if not slots:
                     continue
-                tot = sum(s[2] for s in slots)
+                tot = sum(rate(s) for s in slots)
                 dist = {}
-                for dex, _lv, r, _w in slots:
-                    dist[dex] = dist.get(dex, 0) + r / tot
+                for s in slots:
+                    dist[s[0]] = dist.get(s[0], 0) + rate(s) / tot
                 dists.append(dist)
             if dists:
                 avg = {}
@@ -715,7 +743,7 @@ def build(refresh=False):
         for v in versions:
             for methods in data[v].values():
                 for slots in methods.values():
-                    for dex, lv, _r, _w in slots:
+                    for dex, lv, *_rest in slots:
                         src_min[dex] = min(src_min.get(dex, 255), lv)
 
         def floor_of(dex):
@@ -735,30 +763,53 @@ def build(refresh=False):
             if len(set(gates.values())) > 1:
                 # wildarea_test and verify_wild.py read ONE hidden gate an area.
                 sys.exit('gen_wild: area %r has two hidden gates %s' % (name, gates))
+            # The weathers this area has (Galar's Wild Area): the firmware
+            # draws one of them a day. Each gets its own distribution, and the
+            # average is kept for a board whose clock was never set.
+            wxs = sorted({w for v in versions for mp in maps
+                          for slots in data[v].get(mp, {}).values() for sl in slots
+                          for w in (row_weathers(sl) or ())}, key=WEATHERS.index)
+            contexts = [None] + wxs
             per_band = {}
             for when in BANDS:
-                mix = mix_band(data, versions, maps, when, gates)
-                if not mix:
-                    sys.exit('gen_wild: area %r has no encounters at time %d' % (name, when))
-                # An area whose open creatures all lack art, or wait behind
-                # the rod, is still built (owner's call, 2026-10-21): the
-                # firmware greys it out as NO VALID SPRITES until the art is
-                # ingested or the gate opens. verify_wild.py lists them.
-                per_band[when] = dict(scale(mix))
-            # One slot per (species, weight, gate) with the bands that share it.
+                for wx in contexts:
+                    mix = mix_band(data, versions, maps, when, gates, wx)
+                    if not mix:
+                        sys.exit('gen_wild: area %r has no encounters at time %d, weather %s'
+                                 % (name, when, wx))
+                    # An area whose open creatures all lack art, or wait behind
+                    # the rod, is still built (owner's call, 2026-10-21): the
+                    # firmware greys it out as NO VALID SPRITES until the art is
+                    # ingested or the gate opens. verify_wild.py lists them.
+                    per_band[(when, wx)] = dict(scale(mix))
+
+            def ctx_bit(wx):
+                if not wxs:
+                    return WX_ANY
+                return WX_AVG if wx is None else 1 << WEATHERS.index(wx)
+            # One slot per (species, gate, weight) and weather mask, with the
+            # bands that share it.
+            by_key = {}
+            for (when, wx), dist in per_band.items():
+                for key, w in dist.items():
+                    m = by_key.setdefault(key + (w,), {})
+                    m[when] = m.get(when, 0) | ctx_bit(wx)
             slots = {}
-            for when in BANDS:
-                for key, w in per_band[when].items():
-                    k = key + (w,)
-                    slots[k] = slots.get(k, 0) | when
+            for k, m in by_key.items():
+                for when, wxm in m.items():
+                    slots[k + (wxm,)] = slots.get(k + (wxm,), 0) | when
             ordered = sorted(slots.items(),
-                             key=lambda kv: (-kv[0][2], kv[0][0], kv[0][1], kv[1]))
+                             key=lambda kv: (-kv[0][2], kv[0][0], kv[0][1], kv[1], kv[0][3]))
             areas.append({'name': name, 'region': reg['region'], 'gate': gate,
                           'maps': maps, 'band': band(caps[reg['region']], gate),
                           'hidden': {g: m for m, g in gates.items()},
                           'per_band': per_band,
+                          'weathers': wxs,
                           'slots': [(dex, w, when, floor_of(dex), g)
-                                    for (dex, g, w), when in ordered]})
+                                    for (dex, g, w, _x), when in ordered],
+                          # Each slot's weather mask, beside 'slots' so the
+                          # 5-field slot every reader unpacks stays as it was.
+                          'slot_wx': [x for (_d, _g, _w, x), _when in ordered]})
         for leg in reg['legends']:
             if leg['area'] not in names:
                 sys.exit('gen_wild: legend #%d names unknown area %r' % (leg['dex'], leg['area']))
@@ -834,6 +885,12 @@ def emit(areas, legends):
     o.append('#define WILD_GATE_CHAMPION %d  // ladder positions: 0 open, 1-8 badges, 13 champion\n' % WA.GATE_CHAMPION)
     o.append('#define WILD_WHEN_MORN 1\n#define WILD_WHEN_DAY 2\n#define WILD_WHEN_NITE 4\n'
              '#define WILD_WHEN_ANY 7\n')
+    o.append('// Galar\'s weathers: one is drawn a day per area that has them (wildAreaWeather()).\n')
+    for i, w in enumerate(WEATHERS):
+        o.append('#define WILD_WX_%s %d\n' % (w[len('weather-'):].replace('-', '_').upper(), i))
+    o.append('#define WILD_WX_COUNT %d\n' % len(WEATHERS))
+    o.append('#define WILD_WX_AVG 0x%X   // WildSlot::wx bit: the all-weather average (no clock set)\n' % WX_AVG)
+    o.append('#define WILD_WX_ANY 0x%X   // WildSlot::wx of an area without weather\n' % WX_ANY)
     o.append('#define WILD_LEGEND_ROAMS 1   // WildLegend::flags: met anywhere in its region\n')
     o.append('#define WILD_REGIONS %d       // real regions, REGIONS order (no ALL)\n\n' % n_regions)
     o.append('struct WildSlot {\n'
@@ -842,6 +899,7 @@ def emit(areas, legends):
              '  uint8_t when;      // WILD_WHEN_* bits\n'
              '  uint8_t floor;     // lowest level it may appear at, 0 = none\n'
              '  uint8_t gate;      // ladder position that lets it appear: the best rod, 0 = open\n'
+             '  uint16_t wx;       // bit WILD_WX_* when met in that weather, WILD_WX_AVG in the average\n'
              '};\n'
              'struct WildArea {\n'
              '  const char *name;\n'
@@ -850,6 +908,7 @@ def emit(areas, legends):
              '  uint16_t first;    // into WILD_SLOTS\n'
              '  uint8_t count;\n'
              '  uint8_t lvMin, lvMax;  // the band, from the gym ladder (trainers.h)\n'
+             '  uint16_t wxMask;   // the weathers it has (bit WILD_WX_*), 0 = none\n'
              '};\n'
              '// APPEND-ONLY: the save stores a legendary by its index here.\n'
              'struct WildLegend {\n'
@@ -865,9 +924,10 @@ def emit(areas, legends):
     spans = []
     for a in areas:
         o.append('  // %s\n' % a['name'])
-        for dex, w, when, floor, gate in a['slots']:
-            o.append('  { %d, %d, %s, %d, %d },  // %s%s\n'
-                     % (dex, w, WHEN_NAME[when], floor, gate, DEX[dex - 1][2],
+        for (dex, w, when, floor, gate), wx in zip(a['slots'], a['slot_wx']):
+            o.append('  { %d, %d, %s, %d, %d, %s },  // %s%s\n'
+                     % (dex, w, WHEN_NAME[when], floor, gate,
+                        'WILD_WX_ANY' if wx == WX_ANY else '0x%03X' % wx, DEX[dex - 1][2],
                         (', best rod' if a['hidden'][gate] == 'fishing' else ', water mode')
                         if gate else ''))
         spans.append((first, len(a['slots'])))
@@ -877,8 +937,9 @@ def emit(areas, legends):
     for a, (f, c) in zip(areas, spans):
         if c > 255:
             sys.exit('gen_wild: area %r has %d slots, past uint8_t' % (a['name'], c))
-        o.append('  { "%s", %d, %d, %d, %d, %d, %d },\n'
-                 % (a['name'], a['region'], a['gate'], f, c, a['band'][0], a['band'][1]))
+        o.append('  { "%s", %d, %d, %d, %d, %d, %d, 0x%03X },\n'
+                 % (a['name'], a['region'], a['gate'], f, c, a['band'][0], a['band'][1],
+                    sum(1 << WEATHERS.index(w) for w in a['weathers'])))
     if len(areas) >= 0xFFFF:
         sys.exit('gen_wild: %d areas -- 0xFFFF is the no-area sentinel' % len(areas))
     o.append('};\n#define WILD_AREA_COUNT %d\n\n' % len(areas))
@@ -922,9 +983,13 @@ def check(areas):
                      % (n, WA.NAME_MAX))
         if a['gate'] not in tuple(range(9)) + (WA.GATE_CHAMPION,):
             sys.exit('gen_wild: area %r has gate %r' % (n, a['gate']))
+        ctxs = [WX_AVG] + [1 << WEATHERS.index(w) for w in a['weathers']] if a['weathers'] else [WX_ANY]
         for when in BANDS:
-            if sum(w for _d, w, wh, _f, _g in a['slots'] if wh & when) != WEIGHT_TOTAL:
-                sys.exit('gen_wild: area %r band %d does not sum to %d' % (n, when, WEIGHT_TOTAL))
+            for c in ctxs:
+                if sum(w for (_d, w, wh, _f, _g), x in zip(a['slots'], a['slot_wx'])
+                       if wh & when and x & c) != WEIGHT_TOTAL:
+                    sys.exit('gen_wild: area %r band %d weather %#x does not sum to %d'
+                             % (n, when, c, WEIGHT_TOTAL))
 
 
 def main():

@@ -218,6 +218,9 @@ public:
   uint8_t careMistakes = 0;   // descuidos: cada uno retrasa la evolucion 1 nivel
   bool sleeping = false;
   uint32_t lastSeenEpoch = 0;   // ultima hora RTC vista (para progresion offline)
+  // The day number of that clock, 0 when it was never set: the streak's day,
+  // and the day Galar's weather is drawn for (wildAreaWeather()).
+  uint32_t today() const { return lastSeenEpoch ? lastSeenEpoch / 86400 : 0; }
   uint8_t ceremony = CER_NONE;  // despedida/escapada/liberacion en curso
   uint8_t lastEnd = CER_NONE;   // como acabo la anterior (afecta al huevo)
   // A finished ceremony hands the creature over here before newEgg() wipes the
@@ -818,7 +821,6 @@ private:
   uint32_t medalUntil = 0;     // celebracion de medalla en pantalla
   uint32_t milestoneUntil = 0; // celebracion de hito de racha
 
-  uint32_t today() const { return lastSeenEpoch ? lastSeenEpoch / 86400 : 0; }
   void registerCare();   // primer cuidado del dia: racha + vinculo
   // Restarts the 8-hour window when every need has just reached CARE_FULL_PCT.
   // The ONE rule for it: care actions, the drain and waking all ask this.

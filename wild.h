@@ -109,6 +109,16 @@ bool wildAreaUnlocked(uint16_t area, const Pet &p);
 // safe the way the auto-sleep does.
 uint8_t wildTimeBand(int hour);
 
+// Today's weather in an area, as WILD_WX_* (wild_areas.h), or -1 when the area
+// has none (every region but Galar's Wild Area) or the board's clock was never
+// set -- the slots then use the all-weather average. Drawn once a day per area,
+// evenly among the weathers the game gives it. The ONE answer the pick and the
+// area's state ask; the battle backgrounds will ask it too.
+int8_t wildAreaWeather(uint16_t area, const Pet &p);
+// Its name for the serial console, in English ("" for -1). Not UI text: what
+// goes on the panel belongs in i18n.cpp.
+const char *wildWeatherName(int8_t w);
+
 // Does the area have anything to meet right now -- a slot for this time band
 // whose species has art, whose region pack is installed and whose own gate is
 // open? An area with none reads NEEDS PACK and refuses the tap.

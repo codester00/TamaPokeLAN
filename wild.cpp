@@ -178,19 +178,59 @@ uint8_t wildTimeBand(int hour) {
 // rod's) goes through gateOpen(), the same rule as areas and legendaries.
 bool (*wildHasArt)(int16_t dex) = speciesHasArt;
 
-static bool slotLive(const WildArea &a, const WildSlot &s, uint8_t when, const Pet &p) {
-  return (s.when & when) && wildHasArt(s.dex) &&
+// Galar's Wild Area has weather, like the game: each zone draws one of the
+// weathers it has in the game, once a day from the board's clock, evenly (the
+// data says which weathers a zone has, not how often each comes). The draw is
+// a hash of the day and the area's NAME, so it holds all day, differs from
+// zone to zone, and survives firmware updates that add areas. No clock set:
+// -1, and the slots fall back to the all-weather average (WILD_WX_AVG).
+static int8_t areaWeather(const WildArea &a, const Pet &p) {
+  uint32_t day = p.today();
+  if (!a.wxMask || !day) return -1;
+  uint32_t h = 2166136261u;                       // FNV-1a over the name
+  for (const char *c = a.name; *c; c++) h = (h ^ (uint8_t)*c) * 16777619u;
+  h ^= day * 0x9E3779B1u;                          // then the day, and a mix
+  h ^= h >> 16; h *= 0x85EBCA6Bu; h ^= h >> 13; h *= 0xC2B2AE35u; h ^= h >> 16;
+  uint8_t n = 0;
+  for (uint8_t w = 0; w < WILD_WX_COUNT; w++) n += (a.wxMask >> w) & 1;
+  uint8_t k = (uint8_t)(h % n);
+  for (uint8_t w = 0; w < WILD_WX_COUNT; w++)
+    if (((a.wxMask >> w) & 1) && k-- == 0) return (int8_t)w;
+  return -1;
+}
+
+int8_t wildAreaWeather(uint16_t area, const Pet &p) {
+  return area < WILD_AREA_COUNT ? areaWeather(WILD_AREAS[area], p) : -1;
+}
+
+const char *wildWeatherName(int8_t w) {
+  static const char *const NAMES[WILD_WX_COUNT] = {
+    "clear", "overcast", "rain", "thunderstorm", "snow", "snowstorm",
+    "harsh sun", "sandstorm", "fog" };
+  return w >= 0 && w < WILD_WX_COUNT ? NAMES[w] : "";
+}
+
+// The WildSlot::wx bit an area's slots must carry to be met today.
+static uint16_t weatherBit(const WildArea &a, const Pet &p) {
+  int8_t w = areaWeather(a, p);
+  return w < 0 ? WILD_WX_AVG : (uint16_t)(1u << w);
+}
+
+static bool slotLive(const WildArea &a, const WildSlot &s, uint8_t when, uint16_t wx,
+                     const Pet &p) {
+  return (s.when & when) && (s.wx & wx) && wildHasArt(s.dex) &&
          regionAvailable(regionOfDex(s.dex)) && gateOpen(a.region, s.gate, p);
 }
 
 uint8_t wildAreaState(uint16_t area, uint8_t when, const Pet &p) {
   if (area >= WILD_AREA_COUNT) return WILD_AREA_NO_SPRITES;
   const WildArea &a = WILD_AREAS[area];
+  const uint16_t wx = weatherBit(a, p);
   bool packMissing = false;
   for (uint8_t i = 0; i < a.count; i++) {
     const WildSlot &s = WILD_SLOTS[a.first + i];
-    if (slotLive(a, s, when, p)) return WILD_AREA_LIVE;
-    if ((s.when & when) && gateOpen(a.region, s.gate, p) &&
+    if (slotLive(a, s, when, wx, p)) return WILD_AREA_LIVE;
+    if ((s.when & when) && (s.wx & wx) && gateOpen(a.region, s.gate, p) &&
         !regionAvailable(regionOfDex(s.dex)))
       packMissing = true;
   }
@@ -204,14 +244,15 @@ bool wildAreaHasLive(uint16_t area, uint8_t when, const Pet &p) {
 int16_t wildAreaPick(uint16_t area, uint8_t when, const Pet &p, uint32_t roll) {
   if (area >= WILD_AREA_COUNT) return 0;
   const WildArea &a = WILD_AREAS[area];
+  const uint16_t wx = weatherBit(a, p);
   uint32_t total = 0;
   for (uint8_t i = 0; i < a.count; i++)
-    if (slotLive(a, WILD_SLOTS[a.first + i], when, p)) total += WILD_SLOTS[a.first + i].weight;
+    if (slotLive(a, WILD_SLOTS[a.first + i], when, wx, p)) total += WILD_SLOTS[a.first + i].weight;
   if (!total) return 0;
   uint32_t want = roll % total;
   for (uint8_t i = 0; i < a.count; i++) {
     const WildSlot &s = WILD_SLOTS[a.first + i];
-    if (!slotLive(a, s, when, p)) continue;
+    if (!slotLive(a, s, when, wx, p)) continue;
     if (want < s.weight) return s.dex;
     want -= s.weight;
   }

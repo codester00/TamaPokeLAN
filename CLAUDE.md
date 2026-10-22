@@ -632,7 +632,7 @@ rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
 the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
-Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45), Alola's (v3.46), Galar's (v3.47)** -- see the "Done" entries
+Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45), Alola's (v3.46), Galar's (v3.47) and its daily weather (v3.48)** -- see the "Done" entries
 below. Next: Paldea, the last region -- and PokeAPI has NO Scarlet/Violet encounter
 data, while Bulbapedia and Serebii do not resolve from the cloud container, so
 find a reachable source before planning. None of it
@@ -693,17 +693,52 @@ disconnected for a while, which may explain the week-long figure; the
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
 
+### Done: Galar's daily weather (v3.48, not yet on a board)
+
+**Each Wild Area zone draws one of its game weathers a day** (the owner's
+call, 2026-10-21, replacing the averaging and the plan's "normal-weather
+tables only"). Real-world weather over Wi-Fi was considered and declined: the
+games took it from the console's date, never the sky. It will also drive
+weather battle backgrounds -- `wildAreaWeather()` is the hook for that.
+
+- **Generator:** PokeAPI rows keep their weathers (a 5th field,
+  `row_weathers()`); `mix_band(..., weather)` builds one distribution per
+  weather an area has (that weather's rows plus the weatherless ones) and the
+  old k/9 average for `weather=None`. A slot carries a weather mask
+  (`WildSlot::wx`: bit `WILD_WX_*`, `WILD_WX_AVG` for the average,
+  `WILD_WX_ANY` in areas without weather) beside its time mask; `check()`
+  sums every (band, weather) to `WILD_WEIGHT_TOTAL`. `WEATHERS` in gen_wild.py
+  is the bit order, APPEND-ONLY. The average context reproduces v3.47's
+  tables exactly (checked slot for slot), and every other region is unchanged
+  but for the new field. 4519 -> 6132 slots.
+- **Firmware: `wildAreaWeather(area, pet)`** is the ONE answer: -1 with no
+  weather or no clock (`Pet::today()`, made public so the streak and the
+  weather share one day rule), else an even draw among `WildArea::wxMask` by
+  a hash of the day and the area's NAME -- so it holds all day, differs by
+  zone, and does not reshuffle when areas are added. `slotLive()` takes the
+  weather bit, so the pick, `wildAreaState()`/`wildAreaHasLive()` and
+  `exploreAreaOf()` all see the same day.
+- 18 areas have weather (the Wild Area zones and Outer Spikemuth); PokeAPI
+  lists all nine for each. 58 creatures come in one weather only.
+  `verify_wild.py` lists each zone's weathers and checks NO VALID SPRITES in
+  every weather. `AREA` on the console prints today's weather
+  (`wildWeatherName()`, English, console only -- on-screen text goes through
+  i18n).
+- **Nothing on screen shows the weather yet** -- that comes with the
+  backgrounds. `wildarea_test` checks: always a weather the zone has, steady
+  all day, every one comes round over 900 days roughly evenly, zones differ,
+  a weather-only creature is met on its day and never on another's, the
+  no-clock odds are exactly the average, and Kanto is the same every day.
+
 ### Done: Galar's areas and legendaries (v3.47, not yet on a board)
 
 39 areas from **Sword + Shield** (averaged) via PokeAPI, NOT VERIFIED (the
 ladder stays Sword's); Zacian, Zamazenta and Eternatus appended (52 legends);
 `BADGE_NAMES` row 7. PokeAPI's Gen 8 data turned out full (165 maps), not thin.
 
-- **Weather is averaged like seasons** (`t['weathers']`, every
-  `weather-*` condition value, 9): a row in k weathers counts k/9. This
-  REVERSES the plan's "normal-weather tables only" (§ 4): normal alone leaves
-  70 species unmet (Dreepy, Larvitar, the Eeveelutions...). Flagged to the
-  owner, not yet confirmed.
+- **Weather: superseded by v3.48's daily weather** (see its entry). As built
+  here it was averaged, a row in k of the 9 weathers counting k/9 -- which is
+  still exactly the no-clock fallback.
 - **Only the tables before the Hall of Fame** (`ignore_conditions`): the ones
   after repeat every Wild Area zone at L60, and each species they add is met
   elsewhere before (checked against the data). Rows tagged

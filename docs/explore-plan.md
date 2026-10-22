@@ -69,11 +69,12 @@ since it already holds nearly every species the pair had.
   areas of their own, gated like any other.
 - **Time of day**: each slot can be MORN, DAY or NITE where the source says
   so. The bands are 04–10, 10–18 and 18–04, and a board whose clock was never
-  set counts as DAY. Galar's weathers are AVERAGED (v3.47), reversing this
-  plan's "normal-weather tables only": normal weather alone would leave 70
-  species unmet in Galar's wild (Dreepy, Larvitar, Gastly, Ralts, Riolu, the
-  Eeveelutions...). Flagged to the owner; revert by keeping 'weather-normal'
-  rows only in `load_pokeapi()`.
+  set counts as DAY. Galar's Wild Area has DAILY IN-GAME WEATHER (v3.48, the
+  owner's call, replacing this plan's "normal-weather tables only", which
+  would have left 70 species unmet): each zone draws one of its weathers a
+  day from the clock, evenly, and uses that weather's table; with no clock
+  set, the all-weather average. Real-world weather over Wi-Fi was considered
+  and declined -- the games never used it.
 
 ## 5. Badge gates
 

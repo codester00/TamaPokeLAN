@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.47-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.48-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -556,8 +556,17 @@ Island Scan, berry trees, gifts and trades are left out.
 
 **Galar's areas (v3.47).** 39 areas from Sword and Shield, both versions
 averaged, from PokeAPI (NOT VERIFIED); the ladder stays Sword's. The **Wild
-Area** lists a table per weather: they are averaged, as Unova's seasons are,
-since every weather comes round. Only the tables before the Hall of Fame are
+Area has weather, as in the game (v3.48)**: each zone draws one of its nine
+weathers -- clear, overcast, rain, thunderstorm, snow, snowstorm, harsh sun,
+sandstorm, fog -- **once a day** from the board's clock, and holds it until
+midnight; zones keep their own sky. The day's weather uses that weather's own
+table, so 58 creatures come only on their weather's days -- Mimikyu, Sylveon and
+the Clefairy line in fog, Riolu and Weavile in a snowstorm, Umbreon and Pupitar
+in a sandstorm, Jolteon in a thunderstorm. Every weather comes round, so nothing
+is out of reach for long. The draw is even among a zone's weathers (the data
+says which a zone has, not how often each comes), and the game took it from the
+console's date, never the real sky. A board whose clock was never set uses the
+average of all nine instead. Only the tables before the Hall of Fame are
 read -- the ones after repeat each zone at level 60, and every creature they add
 is met elsewhere first. Creatures seen walking about count as grass (or water),
 the ones that burrow and the **strong wanderers** at weight 0.2 like other
@@ -1256,7 +1265,7 @@ runaway-ready state) · `WIPE` (factory reset → new game) · `BEEP` (audio tes
 `FOCUS <slot>` (swap the creature you are raising with a party slot) ·
 `BAG` (list it) · `GIVE <key> [n]` (stock it) · `WILD` / `WILD HARD` (force an
 encounter, naming the area and flagging a legendary) · `AREA` / `AREA <n>` (list the Explore region's
-areas with their gates and bands / pick one) ·
+areas with their gates, bands and today's weather / pick one) ·
 `TIME <epoch>` / `RTCSET <epoch>` · `HEALTH` (uptime + heap for the soak test) ·
 `LS` / `PUT` (SD files).
 

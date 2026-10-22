@@ -92,7 +92,10 @@ def main():
         r'\d+', open(os.path.join(ROOT, 'noart.h')).read().split('= {')[1].split('}')[0]))
     print('\nlevel bands (from trainers.h; gate = ladder trainers beaten):')
     for a in areas:
-        print('  %-7s %-17s gate %-2s  L%d-%d' % (REGIONS[a['region']][0], a['name'], a['gate'], *a['band']))
+        print('  %-7s %-17s gate %-2s  L%d-%d%s' % (REGIONS[a['region']][0], a['name'], a['gate'], *a['band'],
+                                                  '  weather a day from: ' + ', '.join(
+                                                      w[len('weather-'):] for w in a['weathers'])
+                                                  if a['weathers'] else ''))
     over, seen_over = [], set()
     for i, a in enumerate(areas):
         for d, _w, _wh, fl, g in a['slots']:
@@ -134,15 +137,21 @@ def main():
     # Areas the panel greys out as NO VALID SPRITES: in some time band, nothing
     # behind an open gate can be drawn. Built anyway (owner's call): it lights
     # up by itself when the art is ingested or the rod's gate opens.
+    # A zone with weather is checked in each of them and in the average: on a
+    # day of the weather that has nothing drawable, it would read grey.
     dark = []
     for a in areas:
+        ctxs = ([(G.WX_AVG, '')] + [(1 << G.WEATHERS.index(w), ' ' + w[len('weather-'):])
+                                     for w in a['weathers']]) if a['weathers'] else [(G.WX_ANY, '')]
         for b, bname in ((1, 'morning'), (2, 'day'), (4, 'night')):
-            drawable = [(d, g) for d, _w, wh, _f, g in a['slots'] if wh & b and d not in noart]
-            if not any(g == 0 for _d, g in drawable):
-                until = ('a hidden gate (%d)' % min(g for _d, g in drawable)) if drawable \
-                    else 'its art is ingested'
-                dark.append('  %-7s %-17s %-8s NO VALID SPRITES until %s'
-                            % (REGIONS[a['region']][0], a['name'], bname, until))
+            for c, cname in ctxs:
+                drawable = [(d, g) for (d, _w, wh, _f, g), x in zip(a['slots'], a['slot_wx'])
+                            if wh & b and x & c and d not in noart]
+                if not any(g == 0 for _d, g in drawable):
+                    until = ('a hidden gate (%d)' % min(g for _d, g in drawable)) if drawable \
+                        else 'its art is ingested'
+                    dark.append('  %-7s %-17s %-8s%s NO VALID SPRITES until %s'
+                                % (REGIONS[a['region']][0], a['name'], bname, cname, until))
     print('\nareas greyed as NO VALID SPRITES (%d):' % len(dark))
     for line in dark:
         print(line)

@@ -53,12 +53,19 @@ int main(){
   for (int i=0;i<WILD_AREA_COUNT;i++){
     const WildArea &a=WILD_AREAS[i];
     // Each time band is its own distribution: a slot counts in every band its
-    // `when` bits name, and each band must add up to the total on its own.
-    for (uint8_t b=WILD_WHEN_MORN;b<=WILD_WHEN_NITE;b<<=1){
-      uint32_t t=0;
-      for (int k=0;k<a.count;k++) if (WILD_SLOTS[a.first+k].when & b) t+=WILD_SLOTS[a.first+k].weight;
-      if (t!=WILD_WEIGHT_TOTAL) sums=false;
-    }
+    // `when` bits name, and each band must add up to the total on its own --
+    // in each weather the area has, and in the all-weather average (v3.48).
+    for (uint8_t b=WILD_WHEN_MORN;b<=WILD_WHEN_NITE;b<<=1)
+      for (int c=-1;c<WILD_WX_COUNT;c++){
+        if (c>=0 && !((a.wxMask>>c)&1)) continue;
+        uint16_t bit = c<0 ? WILD_WX_AVG : (uint16_t)(1u<<c);
+        uint32_t t=0;
+        for (int k=0;k<a.count;k++){
+          const WildSlot &sl=WILD_SLOTS[a.first+k];
+          if ((sl.when & b) && (sl.wx & bit)) t+=sl.weight;
+        }
+        if (t!=WILD_WEIGHT_TOTAL) sums=false;
+      }
     for (int k=0;k<a.count;k++){
       const WildSlot &s=WILD_SLOTS[a.first+k];
       if (s.dex<1 || s.dex>DEX_COUNT || !s.weight || !s.when || (s.when & ~WILD_WHEN_ANY)) dexes=false;
@@ -74,7 +81,7 @@ int main(){
         i>=WILD_REGION_AREAS[a.region][0]+WILD_REGION_AREAS[a.region][1]) slices=false;
   }
   ck(WILD_AREA_COUNT>0 && wildRegionHasAreas(0), "Kanto has areas");
-  ck(sums, "every area's weights add up to WILD_WEIGHT_TOTAL in each time band");
+  ck(sums, "every area's weights add up to WILD_WEIGHT_TOTAL in each time band and weather");
   ck(wildRegionHasAreas(1), "Johto has areas");
   ck(wildRegionHasAreas(2), "Hoenn has areas");
   ck(wildRegionHasAreas(3), "Sinnoh has areas");
@@ -345,15 +352,16 @@ int main(){
         uint32_t open=0;
         for (int k=0;k<a.count;k++){
           const WildSlot &s=WILD_SLOTS[a.first+k];
-          if ((s.when&b) && !s.gate && speciesHasArt(s.dex)) open+=s.weight;
+          // These Pets have no clock, so a zone with weather uses its average.
+          if ((s.when&b) && (s.wx&WILD_WX_AVG) && !s.gate && speciesHasArt(s.dex)) open+=s.weight;
         }
         for (int k=0;k<a.count;k++){
           const WildSlot &s=WILD_SLOTS[a.first+k];
-          if (!(s.when&b)) continue;
+          if (!(s.when&b) || !(s.wx&WILD_WX_AVG)) continue;
           uint32_t want=0; bool onlyRod=true;
           for (int j=0;j<a.count;j++){
             const WildSlot &o=WILD_SLOTS[a.first+j];
-            if (o.dex!=s.dex || !(o.when&b)) continue;
+            if (o.dex!=s.dex || !(o.when&b) || !(o.wx&WILD_WX_AVG)) continue;
             if (!o.gate){ if (speciesHasArt(o.dex)) want+=o.weight; onlyRod=false; }
           }
           uint32_t got=0, late=0;
@@ -482,6 +490,94 @@ int main(){
     // condition; read as written, the zone would hold only its post-game set.
     ck(wildAreaHasLive((uint16_t)rolling,WILD_WHEN_DAY,none) && picks(rolling,none,674)>0,
        "Rolling Fields holds its ordinary creatures from the start (Pancham)");
+  }
+
+
+  // ---- Galar's daily weather (v3.48) ------------------------------------------
+  // Each Wild Area zone draws one of its game weathers a day from the board's
+  // clock. Asked of the firmware's own wildAreaWeather() and picks.
+  {
+    int west=areaIn(7,"W. LAKE AXEWELL"), r22=areaNamed("ROUTE 22");
+    const WildArea &a=WILD_AREAS[west];
+    int nWx=0; for (int w=0;w<WILD_WX_COUNT;w++) nWx+=(a.wxMask>>w)&1;
+    ck(nWx>1 && WILD_AREAS[r22].wxMask==0, "a Wild Area zone has several weathers; Kanto's Route 22 none");
+    Pet clockless; Pet dated;
+    ck(wildAreaWeather((uint16_t)west,clockless)==-1, "with no clock set there is no weather (the average holds)");
+    // Every weather the zone has comes round, roughly evenly, and a day keeps one.
+    int seen[WILD_WX_COUNT]={0}; bool inMask=true, steady=true;
+    const uint32_t DAYS=900, base=20000u;   // days since 1970: 2024 onwards
+    for (uint32_t d=0;d<DAYS;d++){
+      dated.lastSeenEpoch=(base+d)*86400u+3600u;
+      int8_t w=wildAreaWeather((uint16_t)west,dated);
+      dated.lastSeenEpoch=(base+d)*86400u+86000u;
+      if (wildAreaWeather((uint16_t)west,dated)!=w) steady=false;
+      if (w<0 || !((a.wxMask>>w)&1)) { inMask=false; continue; }
+      seen[w]++;
+    }
+    bool all=true, even=true;
+    for (int w=0;w<WILD_WX_COUNT;w++) if ((a.wxMask>>w)&1){
+      if (!seen[w]) all=false;
+      if (seen[w] < (int)DAYS/nWx/2 || seen[w] > (int)DAYS*2/nWx) even=false;
+    }
+    ck(inMask, "a day's weather is always one the zone has in the game");
+    ck(steady, "and it holds from morning to midnight");
+    ck(all && even, "over 900 days every one of its weathers comes round, roughly evenly");
+    int diffZone=0;
+    int dusty=areaIn(7,"DUSTY BOWL");
+    for (uint32_t d=0;d<60;d++){
+      dated.lastSeenEpoch=(base+d)*86400u;
+      if (wildAreaWeather((uint16_t)west,dated)!=wildAreaWeather((uint16_t)dusty,dated)) diffZone++;
+    }
+    ck(diffZone>10, "zones keep their own weather, not one shared sky");
+    // The weather decides what is met: find a creature this zone holds in one
+    // weather and not in another, then a day of each.
+    int16_t only=0; int wIn=-1, wOut=-1;
+    for (int k=0;k<a.count && !only;k++){
+      const WildSlot &sl=WILD_SLOTS[a.first+k];
+      if (sl.gate || !speciesHasArt(sl.dex)) continue;
+      uint16_t present=0;   // its open slots only: a gated one cannot be met here
+      for (int j=0;j<a.count;j++){
+        const WildSlot &o=WILD_SLOTS[a.first+j];
+        if (o.dex==sl.dex && !o.gate) present|=o.wx;
+      }
+      for (int w=0;w<WILD_WX_COUNT;w++) if (((a.wxMask>>w)&1) && !((present>>w)&1)){
+        for (int v=0;v<WILD_WX_COUNT;v++) if ((present>>v)&1){ only=sl.dex; wIn=v; wOut=w; break; }
+        if (only) break;
+      }
+    }
+    ck(only!=0, "some creature of the zone comes in one weather and not another");
+    Pet dIn, dOut;
+    for (uint32_t d=0;d<DAYS && (!dIn.lastSeenEpoch || !dOut.lastSeenEpoch);d++){
+      dated.lastSeenEpoch=(base+d)*86400u;
+      int8_t w=wildAreaWeather((uint16_t)west,dated);
+      if (w==wIn && !dIn.lastSeenEpoch) dIn.lastSeenEpoch=dated.lastSeenEpoch;
+      if (w==wOut && !dOut.lastSeenEpoch) dOut.lastSeenEpoch=dated.lastSeenEpoch;
+    }
+    printf("      %s: %s in weather %d, absent in %d\n", a.name, DEX_TBL[only].name, wIn, wOut);
+    ck(picks(west,dIn,only)>0 && picks(west,dOut,only)==0,
+       "on its weather's day it can be met, on the other's never");
+    // No clock: exactly the all-weather average the slots carry.
+    uint32_t avgW=0, total=0;
+    for (int k=0;k<a.count;k++){
+      const WildSlot &sl=WILD_SLOTS[a.first+k];
+      if (!(sl.wx&WILD_WX_AVG) || sl.gate || !speciesHasArt(sl.dex)) continue;
+      total+=sl.weight; if (sl.dex==only) avgW+=sl.weight;
+    }
+    uint32_t got=0;
+    for (uint32_t r=0;r<total;r++) if (wildAreaPick((uint16_t)west,WILD_WHEN_DAY,clockless,r)==only) got++;
+    ck(total>0 && got==avgW, "with no clock set, its odds are exactly the all-weather average");
+    // A zone with no weather is the same every day.
+    bool same=true;
+    for (uint32_t d=0;d<40;d++){
+      dated.lastSeenEpoch=(base+d)*86400u;
+      for (uint32_t r=0;r<WILD_WEIGHT_TOTAL;r+=7)
+        if (wildAreaPick((uint16_t)r22,WILD_WHEN_DAY,dated,r)!=wildAreaPick((uint16_t)r22,WILD_WHEN_DAY,clockless,r)) same=false;
+    }
+    ck(same, "Kanto's Route 22, with no weather, is the same every day");
+    bool agree=true;
+    for (int i=0;i<WILD_AREA_COUNT;i++) if (WILD_AREAS[i].wxMask)
+      if (wildAreaHasLive((uint16_t)i,WILD_WHEN_DAY,dIn)!=(wildAreaState((uint16_t)i,WILD_WHEN_DAY,dIn)==WILD_AREA_LIVE)) agree=false;
+    ck(agree, "and on a weather day, wildAreaHasLive() and wildAreaState() still agree");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);
