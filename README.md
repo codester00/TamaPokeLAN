@@ -565,8 +565,10 @@ the Clefairy line in fog, Riolu and Weavile in a snowstorm, Umbreon and Pupitar
 in a sandstorm, Jolteon in a thunderstorm. Every weather comes round, so nothing
 is out of reach for long. The draw is even among a zone's weathers (the data
 says which a zone has, not how often each comes), and the game took it from the
-console's date, never the real sky. A board whose clock was never set uses the
-average of all nine instead. Only the tables before the Hall of Fame are
+console's date, never the real sky. **Explore's area row shows today's
+weather** after the zone's levels (`Lv.26-34 FOG`), in the list as well. A board
+whose clock was never set shows no weather and uses the average of all nine
+instead. Only the tables before the Hall of Fame are
 read -- the ones after repeat each zone at level 60, and every creature they add
 is met elsewhere first. Creatures seen walking about count as grass (or water),
 the ones that burrow and the **strong wanderers** at weight 0.2 like other

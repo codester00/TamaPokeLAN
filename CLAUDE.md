@@ -724,8 +724,12 @@ weather battle backgrounds -- `wildAreaWeather()` is the hook for that.
   every weather. `AREA` on the console prints today's weather
   (`wildWeatherName()`, English, console only -- on-screen text goes through
   i18n).
-- **Nothing on screen shows the weather yet** -- that comes with the
-  backgrounds. `wildarea_test` checks: always a weather the zone has, steady
+- **Explore shows it** (owner's call): `areaStatusText()`, the one status
+  line for the area list and Explore's area row, appends today's weather to a
+  live zone's band (`Lv.26-34 FOG`). Nine `S_WX_*` strings in WILD_WX_* order
+  (a `static_assert` in wild.cpp holds the two together), 11 characters at most
+  so the line fits the row at text size 2 (`explore_test` checks 20 in all).
+  No clock, or no weather, shows only the band. The backgrounds come later. `wildarea_test` checks: always a weather the zone has, steady
   all day, every one comes round over 900 days roughly evenly, zones differ,
   a weather-only creature is met on its day and never on another's, the
   no-clock odds are exactly the average, and Kanto is the same every day.

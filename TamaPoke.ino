@@ -3273,9 +3273,14 @@ void openAreaList() {
 void areaStatusText(uint16_t a, char *buf, size_t n) {
   if (!wildAreaUnlocked(a, pet)) { areaGateText(a, buf, n); return; }
   switch (wildAreaState(a, wildTimeBand(exploreHour()), pet)) {
-    case WILD_AREA_LIVE:
-      snprintf(buf, n, T(S_AREA_LV_FMT), wildAreaLvMin(a), wildAreaLvMax(a));
+    case WILD_AREA_LIVE: {
+      int len = snprintf(buf, n, T(S_AREA_LV_FMT), wildAreaLvMin(a), wildAreaLvMax(a));
+      // A Galar Wild Area zone says today's weather: it decides who is out.
+      int8_t wx = wildAreaWeather(a, pet);
+      if (wx >= 0 && len > 0 && (size_t)len < n)
+        snprintf(buf + len, n - len, " %s", T((StrId)(S_WX_CLEAR + wx)));
       break;
+    }
     case WILD_AREA_NEEDS_PACK: snprintf(buf, n, "%s", T(S_NEED_PACK)); break;
     default:                   snprintf(buf, n, "%s", T(S_AREA_NO_SPRITES)); break;
   }

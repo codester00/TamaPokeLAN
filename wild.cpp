@@ -1,4 +1,5 @@
 #include "wild.h"
+#include "i18n.h"   // the weather names, checked against WILD_WX_* below
 #include "pet.h"     // regionAvailable(), regionOfDex()
 #include "noart.h"   // speciesHasArt()
 #include "wild_areas.h"
@@ -11,6 +12,8 @@ static_assert(sizeof(WILD_REGION_AREAS[0][0]) >= 2, "WILD_REGION_AREAS must hold
 static_assert(sizeof(((WildLegend *)0)->area) >= 2, "WildLegend::area must hold an area index past 255");
 static_assert(sizeof(decltype(wildAreaFirst(0))) >= 2, "wildAreaFirst() must return an area index past 255");
 static_assert(WILD_AREA_COUNT < WILD_NO_AREA, "WILD_NO_AREA is a real area");
+static_assert(S_WX_FOG - S_WX_CLEAR + 1 == WILD_WX_COUNT && S_WX_FOG - S_WX_CLEAR == WILD_WX_FOG,
+              "the weather names in i18n.h must follow WILD_WX_* (wild_areas.h)");
 static_assert(WILD_LEGEND_COUNT <= 8 * LEGEND_BYTES,
               "the save's legendary bitmasks are full -- raise LEGEND_BYTES (pet.h)");
 

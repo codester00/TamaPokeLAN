@@ -305,6 +305,40 @@ int main() {
     wildHasArt = speciesHasArt;
   }
 
+
+  // Today's weather on the area row (v3.48): a Galar Wild Area zone names it
+  // after its levels, through the same status line the list draws; no clock,
+  // or an area without weather, says nothing about it.
+  {
+    uint16_t gfirst = wildAreaFirst(7), west = WILD_NO_AREA;
+    for (uint8_t k = 0; k < wildAreaCount(7); k++)
+      if (!strcmp(wildAreaName((uint16_t)(gfirst + k)), "W. LAKE AXEWELL")) west = (uint16_t)(gfirst + k);
+    ck(west != WILD_NO_AREA, "Galar's West Lake Axewell is found");
+    uint32_t keep = pet.lastSeenEpoch;
+    char sub[40], lv[24];
+    snprintf(lv, sizeof(lv), T(S_AREA_LV_FMT), wildAreaLvMin(west), wildAreaLvMax(west));
+    pet.lastSeenEpoch = 0;
+    areaStatusText(west, sub, sizeof(sub));
+    ck(!strcmp(sub, lv), "with no clock set the row shows only its levels");
+    bool named = true, seen[9] = {false};
+    for (uint32_t d = 0; d < 120; d++) {
+      pet.lastSeenEpoch = (20000u + d) * 86400u + 43200u;
+      int8_t wx = wildAreaWeather(west, pet);
+      char want[40];
+      snprintf(want, sizeof(want), "%s %s", lv, wx >= 0 ? T((StrId)(S_WX_CLEAR + wx)) : "?");
+      areaStatusText(west, sub, sizeof(sub));
+      if (wx < 0 || strcmp(sub, want)) named = false; else seen[wx] = true;
+      if (strlen(sub) > 20) named = false;   // fits the row at text size 2
+    }
+    int kinds = 0; for (int w = 0; w < 9; w++) kinds += seen[w];
+    ck(named, "with a clock it shows its levels and today's weather, in 20 characters or fewer");
+    ck(kinds > 5, "and the weather it shows changes from day to day");
+    areaStatusText(first, sub, sizeof(sub));   // Kanto's Route 1
+    snprintf(lv, sizeof(lv), T(S_AREA_LV_FMT), wildAreaLvMin(first), wildAreaLvMax(first));
+    ck(!strcmp(sub, lv), "an area without weather shows only its levels, clock or not");
+    pet.lastSeenEpoch = keep;
+  }
+
   printf("%s\n", bad ? "FAILURES" : "all good");
   return bad ? 1 : 0;
 }

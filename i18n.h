@@ -260,6 +260,11 @@ enum StrId : uint16_t {
   S_AREA_LV_FMT,    // an Explore area's level band, "Lv.%u-%u"
   S_AREA_WHOLE,     // Explore in a region that has no areas yet
   S_AREA_NO_SPRITES, // an open Explore area with nothing that can be drawn to meet (yet)
+  // Today's weather in a Galar Wild Area zone, on Explore's area row, in
+  // WILD_WX_* order (wild.cpp static_asserts the count). 11 characters at most:
+  // the row fits "Lv.60-70 " and the name at text size 2.
+  S_WX_CLEAR, S_WX_OVERCAST, S_WX_RAIN, S_WX_THUNDERSTORM, S_WX_SNOW,
+  S_WX_SNOWSTORM, S_WX_HARSH_SUN, S_WX_SANDSTORM, S_WX_FOG,
   STR_COUNT
 };
 
