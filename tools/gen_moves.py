@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dex_moves import (MOVES, MC_PHYS, MC_SPEC, MC_STATUS, EF_STAGE,
                        ST_ATK, ST_DEF, ST_SPA, ST_SPD, ST_SPE, TG_SELF, TG_FOE,
                        AIL_NONE, AIL_PARA, AIL_BURN, AIL_POISON, AIL_SLEEP,
-                       AIL_FREEZE, AIL_CONFUSE)
+                       AIL_FREEZE, AIL_CONFUSE, HIT_STATS)
 from dex_move_names import MOVE_NAME_LANGS, MOVE_NAMES
 
 # The ailment pair is optional in MOVES: only the ~17 moves that inflict one
@@ -61,6 +61,17 @@ def main():
             sys.exit('%s: statMask sin stages' % name)
         if not 0 <= acc <= 100:
             sys.exit('%s: precision fuera de rango' % name)
+
+    # A damaging move's stat change rides beside the row, keyed by slug. Only a
+    # damaging move may have one: a status move IS its stage change (EF_STAGE).
+    for slug, (hmask, hst, htgt, hch) in HIT_STATS.items():
+        row = [m for m in MOVES if m[1] == slug]
+        if not row:
+            sys.exit('HIT_STATS names a move not in MOVES: %s' % slug)
+        if row[0][3] == MC_STATUS:
+            sys.exit('%s: a status move cannot carry HIT_STATS' % slug)
+        if not hmask or not hst or not 0 < hch <= 100 or htgt not in (TG_SELF, TG_FOE):
+            sys.exit('%s: bad HIT_STATS entry' % slug)
 
     move_keys = [slug or name.lower() for name, slug, *_ in MOVES]
     if set(move_keys) != set(MOVE_NAMES):
@@ -136,6 +147,11 @@ def main():
              '  uint8_t target;    // TG_*\n'
              '  uint8_t ailment;   // AIL_*, 0 = none\n'
              '  uint8_t ailChance; // percent, 0 = never\n'
+             '  // a DAMAGING move\'s stat change after it hits (HIT_STATS):\n'
+             '  uint8_t hitMask;   // ST_*, 0 = none\n'
+             '  int8_t  hitStages; // +/- stages\n'
+             '  uint8_t hitTarget; // TG_SELF (the user) or TG_FOE\n'
+             '  uint8_t hitChance; // percent\n'
              '};\n\n')
 
     o.append('enum MoveId : uint8_t {\n  MV_NONE = 0,\n')
@@ -159,17 +175,19 @@ def main():
            9: 'EF_HEAL', 10: 'EF_RECHARGE', 11: 'EF_CHARGE'}
 
     o.append('static const MoveEntry MOVE_TBL[MOVE_COUNT] = {\n')
-    o.append('  { "-", T_NORMAL, MC_STATUS, 0, 0, EF_NONE, 0, 0, 0, TG_SELF, AIL_NONE, 0 },  // 0: sin usar\n')
+    o.append('  { "-", T_NORMAL, MC_STATUS, 0, 0, EF_NONE, 0, 0, 0, TG_SELF, AIL_NONE, 0, 0, 0, TG_FOE, 0 },  // 0: sin usar\n')
     AILN = {AIL_NONE: 'AIL_NONE', AIL_PARA: 'AIL_PARA', AIL_BURN: 'AIL_BURN',
             AIL_POISON: 'AIL_POISON', AIL_SLEEP: 'AIL_SLEEP',
             AIL_FREEZE: 'AIL_FREEZE', AIL_CONFUSE: 'AIL_CONFUSE'}
     for i, m in enumerate(MOVES):
         (name, slug, typ, cat, power, acc, eff, param, mask, stages, tgt,
          ail, ach) = unpack(m)
-        o.append('  { "%s", T_%s, %s, %d, %d, %s, %d, %s, %d, %s, %s, %d },  // %d\n'
+        hm, hs, ht, hc = HIT_STATS.get(slug, (0, 0, TG_FOE, 0))
+        o.append('  { "%s", T_%s, %s, %d, %d, %s, %d, %s, %d, %s, %s, %d, %s, %d, %s, %d },  // %d\n'
                  % (name, typ.upper(), cname(cat), power, acc, EFN[eff], param,
                     maskname(mask), stages, 'TG_SELF' if tgt == TG_SELF else 'TG_FOE',
-                    AILN[ail], ach, i + 1))
+                    AILN[ail], ach, maskname(hm), hs,
+                    'TG_SELF' if ht == TG_SELF else 'TG_FOE', hc, i + 1))
     o.append('};\n\n')
 
     # --- learnsets, CSR ---------------------------------------------------
@@ -188,6 +206,14 @@ def main():
         if n and not rows:
             empties.append(n)
         ofs.append(len(flat))
+
+    # learnCount() is a uint8_t and LEARN_OFS a uint16_t: past either, every
+    # lookup after it reads the wrong species (CLAUDE.md trap 2).
+    widest = max(ofs[i + 1] - ofs[i] for i in range(len(ofs) - 1))
+    if widest > 255 or len(flat) > 65535:
+        sys.exit('learnset too big for its index types: widest %d, total %d' % (widest, len(flat)))
+    if len(MOVES) > 255:
+        sys.exit('%d moves: a move index is ONE BYTE in every saved creature' % len(MOVES))
 
     o.append('static const LearnEntry LEARN_TBL[%d] = {\n' % len(flat))
     line = []

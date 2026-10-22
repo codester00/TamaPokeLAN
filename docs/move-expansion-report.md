@@ -1,6 +1,6 @@
 # Move expansion report
 
-Generated 2026-10-22 from PokeAPI's CSV dump, against the move table on the branch. **Nothing in the game has changed yet**; this is the list to approve before the build.
+Generated 2026-10-22 from PokeAPI's CSV dump, against the move table on the branch. **AS BUILT (v3.50):** the owner then chose stat changes on damaging moves (yes), accuracy and evasion stages (no), the games' pre-Gen-6 spellings (yes) and 150 of the 165 free slots. The build took `tools/move_report.py` with those defaults: 150 moves (32 that fix creatures, 118 most widely learned), 48 damaging moves carrying a stat change (including Psychic, Crunch and the other existing ones), 13 species left without an attacking level-up move, all of them listed in `movepool_test`. The tables below are the FIRST draft, before those choices, kept for the reasoning.
 
 ## The rules applied
 

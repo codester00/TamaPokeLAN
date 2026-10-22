@@ -384,8 +384,16 @@ int main(int argc, char **argv) {
   while (battleOpen && taps < 200) {
     taps++;
     if (btlMsgCount) { click(233, 320); continue; }
+    // the slot the hard AI would pick: since v3.50 a L100 Charizard's set is
+    // all Fire, and blindly tapping slot 0 threw resisted recoil at Brock's
+    // rocks. This section is about the squad chaining, not move choice.
+    // the top menu first: FIGHT is cell 0, which is why tapping slot 0 used
+    // to work by accident from either menu
+    if (btlMenu == 0) { click(BTL_CELL_X(0) + 40, BTL_CELL_Y(0) + 20); continue; }
     int slot = -1;
-    for (int i = 0; i < MOVE_SLOTS; i++) if (btlYou.moves[i]) { slot = i; break; }
+    uint8_t want = aiChooseMove(btlYou, btlFoe, true);
+    for (int i = 0; i < MOVE_SLOTS; i++) if (btlYou.moves[i] == want) { slot = i; break; }
+    if (slot < 0) for (int i = 0; i < MOVE_SLOTS; i++) if (btlYou.moves[i]) { slot = i; break; }
     if (slot < 0) break;
     click(BTL_CELL_X(slot) + 40, BTL_CELL_Y(slot) + 20);
     if (btlFoeAt > sawFoeAt) sawFoeAt = btlFoeAt;

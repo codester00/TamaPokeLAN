@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.49-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.50-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -414,7 +414,9 @@ While **awake**:
   sprite pack is on the card, so evolving can never hand you a creature the
   device cannot draw.
 
-Each creature also knows up to **4 moves**, from a pool of 77. Two kinds:
+Each creature also knows up to **4 moves**, from a pool of **239** (v3.50 added 150:
+first the real early attacks creatures were missing, then the most widely learned;
+see `docs/move-expansion-report.md`). Two kinds:
 
 - **Level-up moves** are gated: Charizard learns FLAMETHROWER at 34, WING ATTACK
   at 36, DRAGON RAGE at 54. A hatchling starts with **only** what its species
@@ -430,6 +432,18 @@ Each creature also knows up to **4 moves**, from a pool of 77. Two kinds:
   keeps its level gate — otherwise every gated move would come free, since most
   of them were sold as TMs at some point. Levels come from FireRed/LeafGreen,
   the Kanto games that still gate properly.
+
+**Stat changes.** Stages run from −6 to +6 on ATTACK, DEFENSE, SP. ATK, SP. DEF
+and SPEED, reset on switching out, and the battle text says when one moves
+("CHARIZARD's ATTACK rose!"). A status move such as GROWL or SWORDS DANCE changes
+them outright; since v3.50 **an attack can too**, as in the games: BUBBLE BEAM has
+a 10% chance to lower SPEED, MUD SHOT always does, METAL CLAW may raise the
+user's ATTACK, CLOSE COMBAT and OVERHEAT lower the user's own stats. 48 attacks
+carry one, including PSYCHIC, CRUNCH, SHADOW BALL and ACID, which used to ignore
+theirs. Accuracy and evasion stages are deliberately left out. Every species can
+attack by level-up except the ones that cannot in the games either (METAPOD,
+KAKUNA, ABRA, DITTO, SMEARGLE...) and five whose only real attacks need effects
+this game does not have (UNOWN, WOBBUFFET, WYNAUT, PYUKUMUKU, APPLIN).
 
 Moves **freeze when a pet is banked** into the party, alongside its level and
 training: the set you chose while it was alive is what it fights with forever.

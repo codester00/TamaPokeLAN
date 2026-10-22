@@ -198,6 +198,7 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
       applyStages(t, m.statMask, m.stages);
       log.stageMask = m.statMask;
       log.stageDelta = m.stages;
+      log.stageOnUser = (m.target == TG_SELF);
     }
     return;
   }
@@ -253,6 +254,19 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
         if (m.ailment == AIL_SLEEP) def.ailTurns = 2 + random(3);
         log.inflicted = m.ailment;
       }
+    }
+  }
+  // --- a damaging move's own stat change (Bubble Beam, Close Combat...). On
+  // the user it happens whatever became of the target, as in the games; on the
+  // target only while it is still standing.
+  if (m.hitMask && total > 0 && random(100) < m.hitChance) {
+    bool onUser = (m.hitTarget == TG_SELF);
+    Combatant &t = onUser ? atk : def;
+    if (!t.fainted()) {
+      applyStages(t, m.hitMask, m.hitStages);
+      log.stageMask = m.hitMask;
+      log.stageDelta = m.hitStages;
+      log.stageOnUser = onUser;
     }
   }
   log.targetFainted = def.fainted();
@@ -323,8 +337,16 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
       if (m.effect == EF_RECHARGE) sc -= dmg / 4; // a free turn for the foe
       if (m.effect == EF_RECOIL) sc -= dmg / 6;
       if (m.effect == EF_CHARGE) sc -= dmg / 3;   // a turn spent winding up
-      if (m.ailment != AIL_NONE && foe.ailment == AIL_NONE)
+      // the side effects only count when the hit lands at all: a move the
+      // target is immune to must never win on its rider
+      if (dmg && m.ailment != AIL_NONE && foe.ailment == AIL_NONE)
         sc += m.ailChance / 4;
+      // a stat change that comes with the hit: good for us when it lowers the
+      // foe or raises the user, a cost when it lowers the user (Close Combat)
+      if (dmg && m.hitMask) {
+        int good = (m.hitTarget == TG_SELF) ? m.hitStages : -m.hitStages;
+        sc += good * (int32_t)m.hitChance / 8;
+      }
     }
 
     if (sc > bestScore) { bestScore = sc; best = mv; }

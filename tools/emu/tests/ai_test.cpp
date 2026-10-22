@@ -10,6 +10,7 @@
 #include "dex.h"
 #include "types.h"
 #include <cstdio>
+#include <cstring>
 uint32_t g_seed=4242; FakeSerial Serial; FakeESP ESP; FakeWire Wire;
 volatile int g_touchX=0,g_touchY=0; volatile bool g_touchDown=false; bool wasPressed=false;
 uint32_t millis(){return 0;} void FakeESP::restart(){exit(0);}
@@ -63,6 +64,12 @@ int main(){
 
   // it must not throw a move the target is immune to
   Combatant norm,ghost; mk(norm,143,50); mk(ghost,94,50);
+  // A moveset WITH an alternative. Since v3.50's move expansion Snorlax's own
+  // L50 set is four Normal/Fighting moves, none of which touch a Ghost, so it
+  // would test nothing; the rule is about choosing when a choice exists.
+  auto mvId=[](const char *n){ for(uint16_t i=1;i<MOVE_COUNT;i++) if(!strcmp(MOVE_TBL[i].name,n)) return (uint8_t)i; return (uint8_t)0; };
+  norm.moves[0]=mvId("BODY SLAM"); norm.moves[1]=mvId("HYPER BEAM");
+  norm.moves[2]=mvId("HAMMER ARM"); norm.moves[3]=mvId("CRUNCH");
   bool everImmune=false;
   for(int i=0;i<40;i++){
     uint8_t p2=aiChooseMove(norm,ghost,true);

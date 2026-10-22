@@ -265,6 +265,12 @@ enum StrId : uint16_t {
   // the row fits "Lv.60-70 " and the name at text size 2.
   S_WX_CLEAR, S_WX_OVERCAST, S_WX_RAIN, S_WX_THUNDERSTORM, S_WX_SNOW,
   S_WX_SNOWSTORM, S_WX_HARSH_SUN, S_WX_SANDSTORM, S_WX_FOG,
+  // A stat stage changing in battle (v3.50): "<creature>'s <stat> rose!".
+  // Creature name first, then the stat, in every language -- printf has no
+  // reordering, so the sentence is built around that order. 39 chars at most
+  // with a 12-character name, the battle message buffer.
+  S_BTL_STAT_UP, S_BTL_STAT_UP2, S_BTL_STAT_DOWN, S_BTL_STAT_DOWN2,
+  S_ST_ATTACK, S_ST_DEFENSE, S_ST_SPATK, S_ST_SPDEF, S_ST_SPEED, S_ST_STATS,
   STR_COUNT
 };
 

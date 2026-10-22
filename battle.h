@@ -44,6 +44,7 @@ struct TurnLog {
   uint8_t inflicted = AIL_NONE;
   int8_t stageDelta = 0;   // for EF_STAGE, so the UI can say "rose sharply"
   uint8_t stageMask = 0;
+  bool stageOnUser = false; // the stages above landed on the attacker, not the target
   bool missed = false;
   bool crit = false;
   bool immune = false;     // type chart says it does nothing

@@ -47,7 +47,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.49"
+#define FW_VERSION "3.50"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -298,6 +298,9 @@ bool uiOnRim(int16_t x, int16_t y);
 float uiRimAngle(int16_t x, int16_t y);
 void uiDrawRimBar();
 void uiChrome();
+// A species learns up to ~140 moves since v3.50's move expansion; the picker
+// lists them all. Was 64, which would have silently cut the list short.
+#define MOVE_PICK_MAX 192
 uint8_t learnableList(uint8_t *out, uint8_t max);
 uint8_t pickCandidates();
 // Declared here because renderMonSheet() and the sheet's tap handlers use both
@@ -777,7 +780,7 @@ int8_t btlSwapWho = -1;        // 0 = your side, 1 = the foe's, -1 = nothing due
 uint8_t btlMenu = 0;
 #define BTL_LUNGE_MS 260
 #define BTL_HIT_MS 420
-char btlMsg[6][40];
+char btlMsg[8][40];   // a turn now narrates stat changes too
 uint8_t btlMsgCount = 0;   // queued lines; a tap shows the next
 #define BTL_CELL_W 160
 #define BTL_CELL_H 54
@@ -2545,7 +2548,7 @@ void onTap(int16_t x, int16_t y) {
     return;
   }
   if (movePickOpen) {
-    uint8_t all[64];
+    uint8_t all[MOVE_PICK_MAX];
     uint8_t n = learnableList(all, sizeof(all));
     for (uint8_t i = 0; i < MOVE_PICK_PER_PAGE; i++) {
       uint8_t idx = movePickPage * MOVE_PICK_PER_PAGE + i;
@@ -2993,7 +2996,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_CARD:    p = &cardPage;    n = CARD_PAGES; break;
     case SCR_TRAIN:   p = &trainPage;   n = trainPages(); break;
     case SCR_MOVEPICK: {
-      uint8_t all[64];
+      uint8_t all[MOVE_PICK_MAX];
       uint8_t k = learnableList(all, sizeof(all));
       p = &movePickPage;
       n = k ? (uint8_t)((k + MOVE_PICK_PER_PAGE - 1) / MOVE_PICK_PER_PAGE) : 1;
@@ -4514,7 +4517,7 @@ void renderMovePick() {
   gfx->setCursor(CX - strlen(T(S_MOVE_PICK)) * 6, 40);
   gfx->print(T(S_MOVE_PICK));
 
-  uint8_t all[64];
+  uint8_t all[MOVE_PICK_MAX];
   uint8_t n = learnableList(all, sizeof(all));
   uint8_t pages = n ? (n + MOVE_PICK_PER_PAGE - 1) / MOVE_PICK_PER_PAGE : 1;
   if (movePickPage >= pages) movePickPage = 0;
@@ -4525,7 +4528,15 @@ void renderMovePick() {
     // is obvious rather than a guess
     drawMoveRow(MOVE_PICK_Y(i), all[idx], all[idx] == pickTargetMoves()[movePickSlot], pickTargetDex());
   }
-  for (uint8_t i = 0; i < pages && pages > 1; i++) {
+  if (pages > 9) {   // dots stop fitting the panel: a page number instead
+    char pg[12];
+    snprintf(pg, sizeof(pg), "%u/%u", (unsigned)(movePickPage + 1), (unsigned)pages);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(pg) * 6, 372);
+    gfx->print(pg);
+  }
+  for (uint8_t i = 0; i < pages && pages > 1 && pages <= 9; i++) {
     if (i == movePickPage) gfx->fillCircle(CX - (pages - 1) * 13 + i * 26, 380, 5, UI_INK);
     else gfx->drawCircle(CX - (pages - 1) * 13 + i * 26, 380, 4, UI_INK);
   }
@@ -4586,7 +4597,7 @@ static void btlFreeSprites() {
 }
 
 static void btlSay(const char *fmt, ...) {
-  if (btlMsgCount >= 6) return;
+  if (btlMsgCount >= sizeof(btlMsg) / sizeof(btlMsg[0])) return;
   va_list ap;
   va_start(ap, fmt);
   vsnprintf(btlMsg[btlMsgCount], sizeof(btlMsg[0]), fmt, ap);
@@ -4624,6 +4635,21 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
     static const StrId AIL_STR[] = { S_AIL_PARA, S_AIL_PARA, S_AIL_BURN, S_AIL_POISON,
                                      S_AIL_SLEEP, S_AIL_FREEZE, S_AIL_CONFUSE };
     if (lg.inflicted < 7) btlSay(T(S_BTL_STATUS), target.name, T(AIL_STR[lg.inflicted]));
+  }
+  // A stat stage that moved: a status move's (Growl, Swords Dance) or the one a
+  // damaging move carries (Bubble Beam, Close Combat). One stat is named; a
+  // move touching several (Dragon Dance, Ancient Power) says STATS.
+  if (lg.stageMask && lg.stageDelta) {
+    static const uint8_t BIT[5] = { ST_ATK, ST_DEF, ST_SPA, ST_SPD, ST_SPE };
+    static const StrId NAME[5] = { S_ST_ATTACK, S_ST_DEFENSE, S_ST_SPATK, S_ST_SPDEF, S_ST_SPEED };
+    StrId stat = S_ST_STATS;
+    for (int k = 0; k < 5; k++)
+      if (lg.stageMask == BIT[k]) stat = NAME[k];
+    bool big = lg.stageDelta >= 2 || lg.stageDelta <= -2;
+    StrId fmt = lg.stageDelta > 0 ? (big ? S_BTL_STAT_UP2 : S_BTL_STAT_UP)
+                                  : (big ? S_BTL_STAT_DOWN2 : S_BTL_STAT_DOWN);
+    const Combatant &who = lg.stageOnUser ? actor : target;
+    if (!who.fainted()) btlSay(T(fmt), who.name, T(stat));
   }
   if (lg.targetFainted) btlSay(T(S_BTL_FAINT), target.name);
 }

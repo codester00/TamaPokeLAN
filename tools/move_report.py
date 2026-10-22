@@ -14,11 +14,18 @@ CSV, REPO, OUT, OUTJ = sys.argv[1:5]
 def rd(n): return list(csv.DictReader(open(os.path.join(CSV, n + '.csv'), encoding='utf-8')))
 
 MAX_NAME, MAX_LOCAL = 12, 23
-BUDGET = 255 - 90            # one byte per stored move; 90 in use (incl. STRUGGLE)
+BUDGET = int(os.environ.get('BUDGET', 150))
 LANG = {'9': 'EN', '7': 'ES', '5': 'FR', '6': 'DE', '8': 'IT'}
+STAT_X = {7:'ACC',8:'EVA'}
 TYPES = {1:'normal',2:'fighting',3:'flying',4:'poison',5:'ground',6:'rock',7:'bug',8:'ghost',
          9:'steel',10:'fire',11:'water',12:'grass',13:'electric',14:'psychic',15:'ice',
          16:'dragon',17:'dark',18:'fairy'}
+# The owner's calls (2026-10-22): stat changes on damaging moves YES, accuracy
+# and evasion stages NO, the pre-Gen-6 spellings YES, 150 of the 165 free
+# slots. Each can be flipped from the environment to re-run the comparison.
+STATHIT = os.environ.get('STATHIT', '1') == '1'
+ACCEVA = os.environ.get('ACCEVA', '0') == '1'
+OLDNAME = os.environ.get('OLDNAME', '1') == '1'
 STAT = {2:'ATK',3:'DEF',4:'SPA',5:'SPD',6:'SPE'}           # 1 hp, 7 acc, 8 eva
 AIL = {1:'PARA',2:'SLEEP',3:'FREEZE',4:'BURN',5:'POISON',6:'CONFUSE'}
 
@@ -89,19 +96,36 @@ def classify(mid):
             enc.update(effect='HEAL', param=int(mt['healing']) or 50, target='SELF')
             return enc, note
         if eff in STAGE_EFFECTS:
-            if any(s not in STAT for s, _ in sc) or not sc:
+            if any(s not in (({**STAT, **STAT_X}) if ACCEVA else STAT) for s, _ in sc) or not sc:
                 return None, 'accuracy/evasion stages'
             deltas = {c for _, c in sc}
             if len(deltas) != 1: return None, 'different stage amounts in one move'
             tgt = int(m['target_id'])
-            enc.update(effect='STAGE', mask=[STAT[s] for s, _ in sc], stages=deltas.pop(),
+            enc.update(effect='STAGE', mask=[{**STAT, **STAT_X}[s] for s, _ in sc], stages=deltas.pop(),
                        target='SELF' if tgt in (7, 13, 4, 5) else 'FOE', acc=acc)
             return enc, note
-        if eff in (24, 25, 17, 109, 278, 323): return None, 'accuracy/evasion stages'
+        if eff in (24, 25, 17, 109, 278, 323) and not ACCEVA: return None, 'accuracy/evasion stages'
+        if eff in (24, 25, 17, 109, 278, 323):
+            ok = {**STAT, **STAT_X}
+            deltas = {c for _, c in sc}
+            if not sc or any(x not in ok for x, _ in sc) or len(deltas) != 1: return None, 'mixed stages'
+            tgt = int(m['target_id'])
+            enc.update(effect='STAGE', mask=[ok[x] for x, _ in sc], stages=deltas.pop(),
+                       target='SELF' if tgt in (7, 13, 4, 5) else 'FOE', acc=acc)
+            return enc, note
         if ail: return None, 'status move that only inflicts a status'
         return None, 'unique status effect'
     # damaging
-    if int(mt['stat_chance']) or sc: return None, 'stat change on a damaging move'
+    hitstat = None
+    if int(mt['stat_chance']) or sc:
+        if not STATHIT: return None, 'stat change on a damaging move'
+        ok = {**STAT, **STAT_X} if ACCEVA else STAT
+        deltas = {c for _, c in sc}
+        if not sc or any(x not in ok for x, _ in sc) or len(deltas) != 1:
+            return None, 'stat change on a damaging move (mixed/acc)'
+        hitstat = dict(mask=[ok[x] for x, _ in sc], stages=deltas.pop(),
+                       who='SELF' if mt['meta_category_id'] == '7' else 'FOE',
+                       chance=int(mt['stat_chance']) or 100)
     if ail and ail not in AIL: return None, 'unsupported status (bad poison, trap, ...)'
     if eff in (78, 45, 105, 450): return None, 'fixed number of hits'
     if eff in (43, 262): return None, 'trapping damage over turns'
@@ -120,6 +144,8 @@ def classify(mid):
     if eff in FIXED: slot = 'FIXED'; enc['param'] = FIXED[eff]
     if eff in DRAIN: slot = 'DRAIN'; enc['param'] = int(mt['drain'])
     if eff in RECOIL: slot = 'RECOIL'; enc['param'] = RECOIL[eff]
+    if slot is None and hitstat and eff in {73,71,74,70,72,205,141,396,69,140,219,230,277,21,397,139,183,272,296,297,331,335,359,375,405,469,358}:
+        slot = 'NONE'
     if slot is None:
         return None, 'unique effect: ' + prose.get(eff, '?')[:60]
     if pri:
@@ -130,6 +156,7 @@ def classify(mid):
         enc.update(ail=AIL[ail], ach=ach or 100)
     if power > 255: return None, 'power above 255'
     enc['effect'] = slot
+    if hitstat: enc['hitstat'] = hitstat
     return enc, note
 
 # ------------------------------------------------------------- learnsets
@@ -193,6 +220,9 @@ for mid in sorted(moves):
     if enc is None:
         discard[why].append(mid); continue
     nm = {k: norm(v) for k, v in names[mid].items()}
+    if OLDNAME and len(nm.get('EN', '')) > MAX_NAME and int(moves[mid]['generation_id']) <= 5 \
+            and len(nm['EN'].replace(' ', '')) <= MAX_NAME:
+        nm['EN'] = nm['EN'].replace(' ', '')
     long_ = [k for k, v in nm.items() if len(v) > (MAX_NAME if k == 'EN' else MAX_LOCAL)]
     missing = [k for k in ('EN', 'ES', 'FR', 'DE', 'IT') if k not in nm]
     if long_ or missing:
