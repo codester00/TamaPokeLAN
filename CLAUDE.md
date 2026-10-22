@@ -701,8 +701,33 @@ disconnected for a while, which may explain the week-long figure; the
    after the v3.49 update and read it as "my badges are gone" (they were not --
    each difficulty keeps its own). Persist the last choice; it is one new
    setting, so it needs a `SAVE_FIELDS` entry like `lang`/`vol`.
-2. **A side game or two** -- being planned with the owner; see the next entry
-   once chosen.
+2. **The Game Corner and Surfing Pikachu** (decided with the owner 2026-10-22;
+   the full plan is still to be written). Art and music all exist in pret's
+   disassemblies (unlicensed Nintendo art, same arrangement as the avatars):
+   `pokered`/`pokecrystal` `gfx/slots/`, `pokecrystal` `gfx/card_flip/`,
+   `pokeyellow` `gfx/surfing_pikachu/` + `engine/minigame/surfing_pikachu.asm`.
+   - **The halls are Explore areas**: CELADON GAME CORNER (Kanto, slots, Red's
+     reels, after Lt. Surge) and GOLDENROD GAME CORNER (Johto, slots + card
+     flip, Crystal's art, after Bugsy). A row in the area list behind the usual
+     gate; tapping it opens the hall, never a battle. Careful: area indices,
+     `exploreAreaOf()` and `wildAreaState()` all assume a WILD area.
+   - **Coins**: bought with step money at the games' price ($1,000 = 50),
+     won at the tables, saved (a new player-record field). Prize counters as in
+     the games: Celadon Abra / Clefairy / Dratini / Scyther or Pinsir / Porygon
+     + TMs; Goldenrod Abra / Ekans or Sandshrew / Dratini. A prize creature goes
+     to party/box like a catch. **There are no TM items today** -- every TM
+     move is free in the picker at `TM_LEVEL` 40 -- so a prize TM needs a
+     meaning; proposed: it lets one creature learn that move NOW, below 40.
+   - **Surfing Pikachu is a SECRET** (like the rod): it appears on SEA ROUTES
+     19-21 (Kanto, gate 5; Yellow's Summer Beach House is on Route 19) only when
+     the live pet is PIKACHU, it KNOWS SURF, the area is unlocked, and every
+     species the area offers is registered in the Pokedex -- caught ANYWHERE,
+     by any means (owner: "all pokemon are the same regardless of where or how
+     they're acquired"), so no new save data. Pays: a saved high score, coins
+     and bond.
+   - **How Pikachu knows Surf**: Pikachu evolves at 30 here and SURF is a TM
+     move (learnable at 40), so today it means declining the evolution every
+     level from 30 to 39. A SURF prize TM would be the shortcut.
 
 ### Done: Paldea's areas and legendaries (v3.49, not yet on a board)
 
