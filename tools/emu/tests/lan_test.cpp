@@ -11,6 +11,7 @@
 #include "pet.h"
 #include "party.h"
 #include "battle.h"
+#include "pp.h"
 #include "link.h"
 #include <cstdio>
 uint32_t g_seed=5; FakeSerial Serial; FakeESP ESP; FakeWire Wire;
@@ -89,6 +90,9 @@ int main(){
   ck(btlYou.dex==9 && btlYou.level==50, "and leads with what we sent");
   ck(!strcmp(btlSquad[1].name,"SNORE"), "including the rest of it");
   ck(btlFoe.dex==6 && btlFoe.hp==btlFoe.maxHp, "the rival leads with theirs, at full health");
+  // PP in a LAN fight (v3.55): counted, from full, on both sides
+  ck(btlYou.ppOn && btlFoe.ppOn && btlYou.pp[0] == ppMax(btlYou.moves[0]) &&
+     btlFoe.pp[0] == ppMax(btlFoe.moves[0]), "both sides count PP, from full");
 
   // --- the peer's team is LIVE, not rebuilt each time it is looked at
   ck(btlFoeSquadN==2, "the peer's whole team is held as combatants");
@@ -125,6 +129,9 @@ int main(){
   render();                          // btlLinkPoll spots that both are in
   ck(btlMyAct == 0 && !lan.pendingAct,
      "and the turn goes as soon as the rival's action lands");
+  ck(btlYou.pp[0] == ppMax(btlYou.moves[0]) - 1 && btlFoe.pp[0] == ppMax(btlFoe.moves[0]) - 1,
+     "the host spends PP for both creatures");
+  ck(!ppDirty(), "and a LAN fight never touches the saved PP");
 
   // --- a peer that goes quiet ends the fight rather than hanging on it
   btlOver = false; btlMsgCount = 0;
@@ -142,8 +149,12 @@ int main(){
   r.hostMove = 1; r.guestMove = 1; r.hostDmg = 5; r.guestDmg = 7;
   r.hostIdx = 0; r.guestIdx = 0;
   r.guestAil = AIL_BURN;
+  for (int i = 0; i < MOVE_SLOTS; i++) r.guestPp[i] = 3;
+  r.guestPp[1] = 250;                 // more than any move has: clamped
   memcpy(lan.result,&r,sizeof(r)); lan.resultN=sizeof(r); lan.resultNew=true;
   render();
+  ck(btlYou.pp[0] == 3, "the guest shows the PP the host says it has left");
+  ck(btlYou.pp[1] <= ppMax(btlYou.moves[1]), "and never more than the move has");
   ck(btlYou.hp==r.guestHp && btlFoe.hp==r.hostHp, "the guest takes the host's numbers");
   ck(btlYou.ailment==AIL_BURN, "and the ailment it was handed");
   ck(!lan.resultNew, "a result is consumed once");

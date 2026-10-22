@@ -193,17 +193,17 @@ int main() {
     ppRefillAll();
   }
 
-  // --- 7. the heal loop: the AI no longer heals turn after turn
+  // --- 7. the heal loop is ended by PP (the owner's call, v3.55: no special
+  // heal rules in the AI)
   {
     // The shape of the report: the healer's only attack does nothing to the
-    // foe (TACKLE into a GENGAR), its SLUDGE BOMB takes 30-45% a turn, and RECOVER
-    // gives back 50%. The old AI healed whenever it was hurt, which here is
-    // every other turn, forever: the gym leader could neither win nor lose.
+    // foe (TACKLE into a GENGAR), its SLUDGE BOMB takes 30-45% a turn, and
+    // RECOVER gives back 50%. Without PP the AI healed every other turn,
+    // forever; with RECOVER's 5 PP it can heal at most five times.
     uint8_t ball = mv("SLUDGE BOMB");
     Combatant ai, foe; TurnLog lg;
     mk(ai, 113, 50);           // CHANSEY
     setMoves(ai, recover, tackle, 0, 0);
-    ai.pp[0] = ai.pp[1] = 200; // PP alone must not be what stops the loop
     uint8_t flv = 0;
     for (uint8_t l = 5; l <= 100 && !flv; l++) {
       mk(foe, 94, l);          // GENGAR
@@ -212,27 +212,17 @@ int main() {
       if (d * 100 >= ai.maxHp * 30UL && d * 100 <= ai.maxHp * 45UL) flv = l;
     }
     ck(flv != 0, "(a GENGAR that hits CHANSEY for 30-45%)");
-    foe.pp[0] = 200;
-    int run = 0, maxRun = 0, heals = 0, turns = 0;
+    int heals = 0, turns = 0;
     for (; turns < 300 && !ai.fainted() && !foe.fainted(); turns++) {
       uint8_t m = aiChooseMove(ai, foe, true);
-      if (m == recover) { heals++; if (++run > maxRun) maxRun = run; } else run = 0;
+      if (m == recover) heals++;
       battleAct(ai, foe, m, lg);
       if (!foe.fainted()) battleAct(foe, ai, ball, lg);
     }
-    printf("     GENGAR L%u: %d turns, %d heals, longest run %d\n", flv, turns, heals, maxRun);
-    ck(maxRun <= 3, "never more than three heals in a row");
+    printf("     GENGAR L%u: %d turns, %d heals\n", flv, turns, heals);
+    ck(heals >= 2, "(the AI does heal while it can)");
+    ck(heals <= ppMax(recover), "no more heals than RECOVER has PP");
     ck((ai.fainted() || foe.fainted()) && turns <= 40, "and the fight ends within 40 turns");
-
-    // A heal that cannot keep up with what the foe hits for is never chosen.
-    mk(ai, 113, 30);
-    setMoves(ai, recover, tackle, 0, 0);
-    mk(foe, 68, 70);           // MACHAMP
-    setMoves(foe, mv("CLOSE COMBAT"), 0, 0, 0);
-    ai.hp = ai.maxHp / 2;
-    int32_t gain = ai.maxHp / 2, hit = battleDamage(foe, ai, foe.moves[0], false, 236);
-    ck(hit >= gain, "(the foe out-damages the heal)");
-    ck(aiChooseMove(ai, foe, true) != recover, "so the AI attacks instead");
   }
 
   printf(bad ? "\n%d FAILED\n" : "\nall passed\n", bad);

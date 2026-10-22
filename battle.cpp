@@ -155,6 +155,11 @@ static void heal(Combatant &c, uint16_t amount) {
 
 // ---------- PP ----------
 
+void battleFullPp(Combatant &c) {
+  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMax(c.moves[i]);
+  c.ppOn = true;
+}
+
 bool battleSlotReady(const Combatant &c, int slot) {
   if (slot < 0 || slot >= MOVE_SLOTS) return false;
   uint8_t mv = c.moves[slot];
@@ -232,12 +237,6 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   if (!mv || mv >= MOVE_COUNT) { log.skipped = true; return; }
   const MoveEntry &m = MOVE_TBL[mv];
   log.move = mv;
-  if (m.cat == MC_STATUS && m.effect == EF_HEAL) {
-    if (atk.healRun < 255) atk.healRun++;
-    if (atk.healCount < 255) atk.healCount++;
-  } else {
-    atk.healRun = 0;
-  }
 
   // --- accuracy. acc 0 means it cannot miss (SWIFT, and every status move)
   if (m.acc && m.effect != EF_NEVER_MISS && random(100) >= m.acc) {
@@ -367,27 +366,11 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
       // damage would. Healing is worth it only when actually hurt; a boost is
       // worth it early and worthless once the stage is already stacked.
       if (m.effect == EF_HEAL) {
-        // Healing is worth it only when actually hurt -- and only when it
-        // gains on the foe. A gym leader once healed for 25 turns running
-        // against a creature that could not out-damage the heal, and lost
-        // nothing by it but the player's patience. So: a heal that restores
-        // no more than the foe takes back in a turn is pointless, each heal
-        // in a row is worth 25 less than the last (three at most), and every
-        // heal this fight 10 less again -- a heal that out-gains the foe still
-        // stalls forever without that, two heals to every attack.
-        int32_t mx = self.maxHp ? self.maxHp : 1;
-        int32_t missing = mx - self.hp;
-        int32_t gain = mx * (m.param > 0 ? m.param : 50) / 100;
-        if (gain > missing) gain = missing;
-        int32_t incoming = 0;
-        for (int k = 0; k < MOVE_SLOTS; k++) {
-          if (!battleSlotReady(foe, k)) continue;
-          int32_t d = battleDamage(foe, self, foe.moves[k], false, 236);
-          if (d > incoming) incoming = d;
-        }
-        if (gain <= incoming) sc = -50;
-        else sc = (missing * 100 / mx) - 30 - 25 * (int32_t)self.healRun -
-                  10 * (int32_t)self.healCount;
+        // Worth it only when actually hurt. Healing forever is stopped by PP
+        // (RECOVER has 5), not by the AI second-guessing itself (v3.55: the
+        // v3.52 heal rules were removed by the owner's call).
+        int32_t missing = (int32_t)self.maxHp - self.hp;
+        sc = (missing * 100 / (self.maxHp ? self.maxHp : 1)) - 30;
       } else if (m.effect == EF_STAGE) {
         static const uint8_t BIT[SI_COUNT] = { ST_ATK, ST_DEF, ST_SPA, ST_SPD, ST_SPE };
         int stacked = 0, hit = 0;

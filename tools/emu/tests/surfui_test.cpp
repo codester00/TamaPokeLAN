@@ -30,6 +30,13 @@ void onTap(int16_t x, int16_t y);
 void onSwipeV(int dir);
 void areaRowRect(int i, int *x, int *y, int *w, int *h);
 void openAreaList();
+int areaListEntry(uint8_t region, int k, bool *isHall);
+static int hallRowOf(uint8_t region, uint8_t hall) {
+  bool isHall;
+  for (int k = 0, e; (e = areaListEntry(region, k, &isHall)) >= 0; k++)
+    if (isHall && e == hall) return k;
+  return -1;
+}
 uint8_t areaHallCount(uint8_t region);
 void surfFrame(uint32_t now);
 void hallBack();
@@ -102,10 +109,17 @@ int main() {
   setAll();
   pet.coins = 0; pet.surfHi = 0;
   exploreOpen = true; exploreRegion = 0;
-  openAreaList(); areaPage = 0;
+  openAreaList();
+  int beachRow = hallRowOf(0, HALL_BEACH);
+  {
+    bool isHall;
+    int before = beachRow > 0 ? areaListEntry(0, beachRow - 1, &isHall) : -1;
+    ck(before == (int)sea && !isHall, "the beach house sits right after SEA ROUTES 19-21");
+  }
+  areaPage = (uint8_t)(beachRow / 3);
   render();
   shot("surf_list");
-  int x, y, w, h; areaRowRect(1, &x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
+  int x, y, w, h; areaRowRect(beachRow % 3, &x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
   ck(hallOpen == HALL_BEACH + 1 && hallMode == 4, "tapping it starts the ride");
   uint8_t joy0 = pet.joy, bond0 = pet.bond;
   pet.joy = 10; joy0 = 10;
@@ -133,7 +147,8 @@ int main() {
   { Pet r; r.begin(); ck(r.surfHi == sc, "the best score survives a reload"); }
 
   // --- 5. leaving mid-run keeps what was earned, and a worse run is not a best
-  areaRowRect(1, &x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
+  areaPage = (uint8_t)(beachRow / 3);
+  areaRowRect(beachRow % 3, &x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
   t = surfLast;
   for (int i = 0; i < 60; i++) { t += 85; surfFrame(t); }
   uint32_t part = surfRun.score;

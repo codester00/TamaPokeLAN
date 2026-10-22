@@ -6,13 +6,17 @@
 //
 // Faithful where it is cheap to be: the reel strips are the games' own
 // (pokered's slot_machine_wheels.asm, pokecrystal's Reel1Tilemap..), so are the
-// payout tables and Crystal's card-flip odds. Where the games' machines rig the
-// odds in engine code we do it more simply, with one rule tuned per hall so a
-// coin returns a little under a coin on average (gamecorner_test measures it):
-//   - VETO: a winning spin is turned into a losing one this often (Red's
-//     machines, which would otherwise pay out more than they take);
-//   - BIAS: this often the middle line is set up to win, weighted toward the
-//     small prizes (Crystal's machines, which otherwise pay out half).
+// payout tables and Crystal's card-flip odds. The games' machines were rigged
+// in engine code, and Red's differed machine to machine ("this one's lucky").
+// Here each time the player sits down a machine draws its ODDS, the coins it
+// returns per 1000 bet, from SLOT_ODDS_MIN-SLOT_ODDS_MAX (owner, v3.55), and
+// every spin is rigged toward them (gamecorner_test measures it):
+//   - BIAS: when the strips alone pay less (Crystal's do: about half), the
+//     middle line is set up to win this often, weighted toward small prizes;
+//   - VETO: when they pay more (Red's do, up to twice), just enough wins are
+//     turned into losses. Both rates are worked out from the strips themselves
+//     (slotReturns), per bet -- more coins mean more lines, and the lines on
+//     these strips tend to win together.
 #include <stdint.h>
 #include "pet.h"
 #include "party.h"
@@ -34,10 +38,10 @@ struct SlotMachine {
   uint8_t len;                       // stops per reel
   uint8_t symbols;
   const uint16_t *pay;               // coins per winning line, by symbol
-  const uint8_t *biasWeight;         // BIAS: how often each symbol is chosen
-  uint8_t biasPerMille;
+  const uint8_t *biasWeight;         // BIAS: how often each symbol is chosen, or none
 };
-#define SLOT_RETURN_PM 880             // coins back per 1000 bet, on average
+#define SLOT_ODDS_MIN 880              // coins back per 1000 bet, a stingy machine
+#define SLOT_ODDS_MAX 1100             // and a lucky one
 
 struct SlotResult {
   uint8_t stop[SLOT_REELS];   // the stop under the middle line, per reel
@@ -52,11 +56,13 @@ uint8_t slotSymbol(const SlotMachine &m, uint8_t reel, uint8_t stop, int8_t row)
 // the screen both ask it, so what is shown is what is paid.
 uint16_t slotPayout(const SlotMachine &m, const uint8_t stop[SLOT_REELS], uint8_t bet,
                     uint8_t *lines = nullptr);
-// The average return of a spin at `bet`, per mille of the bet, before any
-// veto: the bare strips plus the bias. Exact, by enumerating every stop.
-uint32_t slotExpected(uint8_t hall, uint8_t bet);
-// One spin. Decides the stops (the screen only reveals them) and the win.
-SlotResult slotSpin(uint8_t hall, uint8_t bet);
+// A spin's return per 1000 coins bet on the bare strips and on a biased spin.
+void slotReturns(uint8_t hall, uint8_t bet, uint32_t *barePm, uint32_t *biasedPm);
+// A machine's odds for one sitting, SLOT_ODDS_MIN..SLOT_ODDS_MAX.
+uint16_t slotDrawOdds();
+// One spin at a machine with `odds`. Decides the stops (the screen only
+// reveals them) and the win.
+SlotResult slotSpin(uint8_t hall, uint8_t bet, uint16_t odds);
 
 // ---- card flip (Goldenrod) --------------------------------------------------
 // A card is creature + 4 * (number - 1): creature 0-3 (PIKACHU, JIGGLYPUFF,
@@ -105,6 +111,12 @@ uint8_t hallsIn(uint8_t region, const Pet &p, uint8_t out[HALL_COUNT]);
 // anywhere (the owner: "all pokemon are the same regardless of where or how
 // they're acquired"). Nothing new is saved for it.
 #define SURF_AREA_NAME "SEA ROUTES 19-21"
+
+// Where a hall sits in its region's area list (v3.55): how many of the
+// region's wild areas come before it. A Game Corner goes where the story puts
+// it -- before the first area its gate has not yet reached -- and the beach
+// house right after SEA ROUTES 19-21.
+uint16_t hallListAfter(uint8_t hall);
 bool surfSecretOpen(const Pet &p);
 
 // A prize creature as a storable record, minted from the live pet's counter

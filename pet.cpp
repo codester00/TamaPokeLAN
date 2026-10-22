@@ -1442,6 +1442,35 @@ uint16_t Pet::tmOwnedCount() const {
   return n;
 }
 
+void Pet::rollWildMoves() {
+  for (int i = 0; i < MOVE_SLOTS; i++) moves[i] = 0;
+  if (isEgg()) return;
+  uint8_t lvl = level(), n = learnCount(speciesId);
+  uint8_t pool[255];
+  uint8_t k = 0;
+  for (uint8_t i = 0; i < n; i++) {
+    if (moveUnlockLevel(speciesId, i) > lvl) continue;
+    uint8_t mv = learnMove(speciesId, i);
+    if (!mv || mv >= MOVE_COUNT) continue;
+    bool dup = false;
+    for (uint8_t j = 0; j < k; j++) if (pool[j] == mv) dup = true;
+    if (!dup) pool[k++] = mv;
+  }
+  // a partial shuffle: the first four of the pool are the pick
+  uint8_t take = k < MOVE_SLOTS ? k : MOVE_SLOTS;
+  for (uint8_t i = 0; i < take; i++) {
+    uint8_t j = (uint8_t)(i + random(k - i));
+    uint8_t t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    moves[i] = pool[i];
+  }
+  bool attack = false;
+  for (uint8_t i = 0; i < take; i++) if (MOVE_TBL[moves[i]].cat != MC_STATUS) attack = true;
+  if (attack) return;
+  uint8_t atk[255], na = 0;
+  for (uint8_t i = take; i < k; i++) if (MOVE_TBL[pool[i]].cat != MC_STATUS) atk[na++] = pool[i];
+  if (na) moves[take ? random(take) : 0] = atk[random(na)];
+}
+
 void Pet::relearnFromLevel() {
   for (int i = 0; i < MOVE_SLOTS; i++) moves[i] = 0;
   if (isEgg()) return;

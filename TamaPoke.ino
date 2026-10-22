@@ -52,7 +52,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.54"
+#define FW_VERSION "3.55"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -716,6 +716,7 @@ bool hallBuyConfirm = false;   // "Buy 50 coins?" is up
 char hallMsg[40] = "";         // the last result line
 uint8_t slotBet = 1;
 SlotResult slotRes;
+uint16_t slotOdds = SLOT_ODDS_MIN;   // this sitting's machine (slotDrawOdds)
 uint8_t slotShown = SLOT_REELS;   // reels revealed of slotRes; SLOT_REELS = idle
 int8_t cardGuessC = CARD_ANY, cardGuessN = CARD_ANY;
 int8_t cardShown = -1;         // the card just turned over, -1 = none
@@ -3281,13 +3282,31 @@ uint16_t exploreAreaOf(uint8_t region) {
   return bestLive != WILD_NO_AREA ? bestLive : best;
 }
 
-// The Game Corners sit at the TOP of their region's list, ahead of the wild
-// areas: a hall is not a wild area, so wildAreaCount(), exploreAreaOf() and
-// wildAreaState() never see one, and list row k is a hall for k < the region's
-// hall count and wild area k - that count after it.
+// The Game Corners sit among their region's wild areas where the story puts
+// them (hallListAfter()), but a hall is not a wild area: wildAreaCount(),
+// exploreAreaOf() and wildAreaState() never see one. areaListEntry() is the
+// ONE answer to what list row k holds -- the drawing, the tap and
+// areaListPos() all ask it.
 uint8_t areaHallCount(uint8_t region) {
   uint8_t h[HALL_COUNT];
   return hallsIn(region, pet, h);
+}
+
+// Row k of a region's list: a hall (*isHall, its HallId) or a wild area (its
+// WILD_AREAS index). -1 past the end.
+int areaListEntry(uint8_t region, int k, bool *isHall) {
+  uint8_t h[HALL_COUNT];
+  uint8_t nh = hallsIn(region, pet, h);
+  uint16_t n = wildAreaCount(region), first = wildAreaFirst(region);
+  int row = 0;
+  for (uint16_t w = 0; w <= n; w++) {
+    for (uint8_t i = 0; i < nh; i++) {
+      if (hallListAfter(h[i]) != w) continue;
+      if (row++ == k) { if (isHall) *isHall = true; return h[i]; }
+    }
+    if (w < n && row++ == k) { if (isHall) *isHall = false; return first + w; }
+  }
+  return -1;
 }
 
 uint8_t areaListRows(uint8_t region) {
@@ -3315,7 +3334,10 @@ void areaRowRect(int i, int *x, int *y, int *w, int *h) {
 // test that works it out for itself is a second copy of the layout.
 void areaListPos(uint16_t area, uint8_t *page, uint8_t *row) {
   uint8_t region = wildAreaRegion(area);
-  int k = areaHallCount(region) + (area - wildAreaFirst(region));
+  int k = 0;
+  bool hall;
+  for (int e; (e = areaListEntry(region, k, &hall)) >= 0; k++)
+    if (!hall && e == area) break;
   if (page) *page = (uint8_t)(k / AREA_ROWS);
   if (row) *row = (uint8_t)(k % AREA_ROWS);
 }
@@ -3337,18 +3359,18 @@ static int areaListRowAt(int16_t x, int16_t y) {
 int areaRowAt(int16_t x, int16_t y) {
   uint8_t region = currentExploreRegion();
   int k = areaListRowAt(x, y);
-  int nh = areaHallCount(region);
-  if (k < nh) return -1;
-  return wildAreaFirst(region) + (k - nh);
+  bool hall;
+  int e = k < 0 ? -1 : areaListEntry(region, k, &hall);
+  return (e >= 0 && !hall) ? e : -1;
 }
 
 // The hall under a tap on the list, or -1.
 int areaHallAt(int16_t x, int16_t y) {
   uint8_t region = currentExploreRegion();
   int k = areaListRowAt(x, y);
-  uint8_t h[HALL_COUNT];
-  uint8_t nh = hallsIn(region, pet, h);
-  return (k >= 0 && k < nh) ? h[k] : -1;
+  bool hall;
+  int e = k < 0 ? -1 : areaListEntry(region, k, &hall);
+  return (e >= 0 && hall) ? e : -1;
 }
 
 // The row on Explore's main screen that names the area and opens the list.
@@ -3406,7 +3428,7 @@ void openAreaList() {
   uint8_t region = currentExploreRegion();
   if (!wildRegionHasAreas(region)) return;
   uint16_t a = exploreAreaOf(region);
-  areaPage = (uint8_t)((a - wildAreaFirst(region) + areaHallCount(region)) / AREA_ROWS);   // open on yours
+  areaListPos(a, &areaPage, nullptr);   // open on yours
   areaListOpen = true;
 }
 
@@ -3460,15 +3482,15 @@ void renderAreaList() {
   gfx->print(title);
   uint8_t when = wildTimeBand(exploreHour());
   uint16_t chosen = exploreAreaOf(region);
-  uint8_t halls[HALL_COUNT];
-  uint8_t nh = hallsIn(region, pet, halls);
   for (int i = 0; i < AREA_ROWS; i++) {
     int k = areaPage * AREA_ROWS + i;
-    if (k >= areaListRows(region)) break;
+    bool isHall;
+    int e = areaListEntry(region, k, &isHall);
+    if (e < 0) break;
     int rx, ry, rw, rh;
     areaRowRect(i, &rx, &ry, &rw, &rh);
-    if (k < nh) {          // a Game Corner: its name, then the coins or its gate
-      uint8_t hl = halls[k];
+    if (isHall) {          // a hall: its name, then the coins, its best or its gate
+      uint8_t hl = (uint8_t)e;
       bool open_ = hallUnlocked(hl, pet);
       gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
       gfx->drawRoundRect(rx, ry, rw, rh, 12, open_ ? UI_INK : UI_TRACK);
@@ -3481,7 +3503,7 @@ void renderAreaList() {
       areaCentred(sub, CX, ry + 56, rw - 16);
       continue;
     }
-    uint16_t a = (uint16_t)(wildAreaFirst(region) + (k - nh));
+    uint16_t a = (uint16_t)e;
     bool open_ = wildAreaUnlocked(a, pet);
     bool live = open_ && wildAreaState(a, when, pet) == WILD_AREA_LIVE;
     gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
@@ -3717,7 +3739,7 @@ static void slotsTap(uint8_t h, int16_t tx, int16_t ty) {
       snprintf(hallMsg, sizeof(hallMsg), "%s", T(S_GC_NEED_COINS));
       return;
     }
-    slotRes = slotSpin(h, slotBet);
+    slotRes = slotSpin(h, slotBet, slotOdds);
     slotShown = 0;
     hallMsg[0] = 0;
     sfxPlay(SFX_TAP);
@@ -3933,7 +3955,7 @@ void hallTap(int16_t x, int16_t y) {
     sfxPlay(SFX_TAP);
     hallMsg[0] = 0;
     switch (btn[i]) {
-      case HB_SLOTS:  hallMode = HM_SLOTS; slotShown = SLOT_REELS; break;
+      case HB_SLOTS:  hallMode = HM_SLOTS; slotShown = SLOT_REELS; slotOdds = slotDrawOdds(); break;
       case HB_CARDS:  hallMode = HM_CARDS; cardShown = -1; break;
       case HB_PRIZES: hallMode = HM_PRIZES; hallPage = 0; break;
       case HB_BUY:
@@ -3962,17 +3984,15 @@ void surfStart() {
   surfCoinsWon = 0;
   surfTouch = 0;
   surfTouchUntil = 0;
-  surfSensor = pedoTilt(&surfTilt0x, &surfTilt0y);   // whatever angle it is held at is level
+  surfSensor = tiltLevel(&surfTilt0x, &surfTilt0y);   // Tilt Maze's calibration: as held = level
 }
 
 // The board's input, -1..1, positive = nose up. Tilting the panel to the right
 // (the way Pikachu travels) puts the nose down.
 float surfInput(uint32_t now) {
   if (surfSensor) {
-    float tx, ty;
-    if (pedoTilt(&tx, &ty)) {
-      float ax, ay;
-      tiltToScreen(tx - surfTilt0x, ty - surfTilt0y, &ax, &ay);
+    float ax, ay;
+    if (tiltRead(surfTilt0x, surfTilt0y, &ax, &ay)) {
       float v = -ax * 2.0f;
       return v > 1 ? 1 : v < -1 ? -1 : v;
     }
@@ -5522,8 +5542,10 @@ void startLinkBattle() {
   // silently diverge if anything changed between offering and starting.
   btlSquadN = 0;
   btlSquadAt = 0;
-  for (uint8_t i = 0; i < lan.mineN && i < TRAINER_TEAM_MAX; i++)
-    linkMonTo(btlSquad[btlSquadN++], lan.mine[i]);
+  for (uint8_t i = 0; i < lan.mineN && i < TRAINER_TEAM_MAX; i++) {
+    linkMonTo(btlSquad[btlSquadN], lan.mine[i]);
+    battleFullPp(btlSquad[btlSquadN++]);   // LAN counts PP from full, never the saved book
+  }
   if (!btlSquadN) return;
   btlYou = btlSquad[0];
   btlLink = true;
@@ -5533,8 +5555,10 @@ void startLinkBattle() {
   btlHard = false;
   btlFoeAt = 0;
   btlFoeSquadN = 0;
-  for (uint8_t i = 0; i < lan.theirsN && i < TRAINER_TEAM_MAX; i++)
-    linkMonTo(btlFoeSquad[btlFoeSquadN++], lan.theirs[i]);
+  for (uint8_t i = 0; i < lan.theirsN && i < TRAINER_TEAM_MAX; i++) {
+    linkMonTo(btlFoeSquad[btlFoeSquadN], lan.theirs[i]);
+    battleFullPp(btlFoeSquad[btlFoeSquadN++]);
+  }
   btlFoe = btlFoeSquad[0];
   btlMyAct = 0;
   btlMsgCount = 0;
@@ -5659,6 +5683,10 @@ static void btlApplyResult() {
   btlFoe.hp = r.hostHp > btlFoe.maxHp ? btlFoe.maxHp : r.hostHp;
   btlYou.ailment = r.guestAil;
   btlFoe.ailment = r.hostAil;
+  for (int i = 0; i < MOVE_SLOTS; i++) {   // the host spends PP; we show it
+    uint8_t mx = ppMax(btlYou.moves[i]);
+    btlYou.pp[i] = r.guestPp[i] > mx ? mx : r.guestPp[i];
+  }
 
   btlMsgCount = 0;
   if (r.hostMove) btlSay(T(S_BTL_USED), btlFoe.name, moveName(r.hostMove));
@@ -5728,6 +5756,7 @@ static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
   r.guestDmg = (hp0Foe > btlFoe.hp) ? hp0Foe - btlFoe.hp : 0;
   r.hostIdx = btlSquadAt; r.guestIdx = btlFoeAt;
   if (btlYou.fainted() || btlFoe.fainted()) r.flags |= 0x04;
+  for (int i = 0; i < MOVE_SLOTS; i++) r.guestPp[i] = btlFoe.pp[i];
   lan.sendResult((const uint8_t *)&r, (uint8_t)sizeof(r));
 }
 
@@ -5897,10 +5926,14 @@ static void btlResolve(uint8_t yourMove) {
 
   uint16_t hp0You = btlYou.hp, hp0Foe = btlFoe.hp;
   battleAct(*a, *b, ma, lg);
+  // what was really used (an empty move becomes STRUGGLE), for the guest
+  uint8_t usedYou = yourMove, usedFoe = foeMove;
+  if (a == &btlYou) usedYou = lg.move; else usedFoe = lg.move;
   btlNarrate(*a, *b, lg);
   if (lg.damage && !lg.hurtSelf) btlLungeUntil[a == &btlYou ? 0 : 1] = now + BTL_LUNGE_MS;
   if (!b->fainted()) {
     battleAct(*b, *a, mb, lg);
+    if (b == &btlYou) usedYou = lg.move; else usedFoe = lg.move;
     btlNarrate(*b, *a, lg);
     if (lg.damage && !lg.hurtSelf)
       btlLungeUntil[b == &btlYou ? 0 : 1] = now + BTL_LUNGE_MS + BTL_LUNGE_MS;
@@ -5908,7 +5941,7 @@ static void btlResolve(uint8_t yourMove) {
   // whoever actually lost health flinches, whichever side dealt it
   if (btlYou.hp < hp0You) btlHitUntil[0] = now + BTL_HIT_MS;
   if (btlFoe.hp < hp0Foe) btlHitUntil[1] = now + BTL_HIT_MS;
-  if (btlLink && btlLinkHost) btlShipResult(yourMove, foeMove, hp0You, hp0Foe);
+  if (btlLink && btlLinkHost) btlShipResult(usedYou, usedFoe, hp0You, hp0Foe);
   btlRecordPp();
   if (!btlYou.fainted() && !btlFoe.fainted()) {
     battleEndTurn(btlYou, lg);
@@ -6618,12 +6651,15 @@ void battleTap(int16_t x, int16_t y) {
         return;
       }
       // nothing left anywhere: any move tapped is STRUGGLE, as in the games.
-      // Never in a link fight (ppOn is off there), so no wire message needed.
-      sfxPlay(SFX_TAP);
-      btlMenu = 0;
       btlSay(T(S_BTL_STRUGGLE), btlYou.name);
-      btlResolve(MV_STRUGGLE);
-      return;
+      if (!btlLink) {
+        sfxPlay(SFX_TAP);
+        btlMenu = 0;
+        btlResolve(MV_STRUGGLE);
+        return;
+      }
+      // In a link fight the move goes over the wire as usual: the host's
+      // battleAct() turns an empty move into STRUGGLE, the one rule for both.
     }
     sfxPlay(SFX_TAP);
     btlMenu = 0;
@@ -8838,7 +8874,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   foe.ivAtk = wildIv[0]; foe.ivDef = wildIv[1];
   foe.ivSpe = wildIv[2]; foe.ivHp = wildIv[3];
   foe.ageMinutes = (uint32_t)(wildLvl ? wildLvl - 1 : 0) * MINUTES_PER_LEVEL;
-  foe.relearnFromLevel();
+  foe.rollWildMoves();         // four at random, not its best four (v3.55)
   combatantFromPet(btlFoe, foe);
   btlFoe.shiny = wildShiny;
 
@@ -9286,6 +9322,20 @@ void tiltToScreen(float dx, float dy, float *sx, float *sy) {
   *sx = -dy;
   *sy = dx;
 }
+
+// The tilt games' ONE calibration (v3.55): tiltLevel() records the angle the
+// board is held at as level, tiltRead() gives the tilt since then in SCREEN
+// directions (+x = toward the right edge, +y = toward the bottom), through
+// tiltToScreen(). Tilt Maze and Surfing Pikachu both read the sensor only
+// through these, so the hardware-measured mapping cannot drift between them.
+bool tiltLevel(float *x0, float *y0) { return pedoTilt(x0, y0); }
+
+bool tiltRead(float x0, float y0, float *ax, float *ay) {
+  float tx, ty;
+  if (!pedoTilt(&tx, &ty)) return false;
+  tiltToScreen(tx - x0, ty - y0, ax, ay);
+  return true;
+}
 #define TILT_GOAL_PTS 3
 float tiltBx = CX, tiltBy = CY, tiltVx = 0, tiltVy = 0, tilt0x = 0, tilt0y = 0;
 float tiltGx = CX, tiltGy = CY, tiltHx[TILT_HOLES], tiltHy[TILT_HOLES];
@@ -9488,7 +9538,7 @@ void startTilt() {
   mgUntil = mgStart + TILT_MS;
   tiltBx = CX; tiltBy = CY; tiltVx = tiltVy = 0;
   // Whatever angle the board is held at when the game opens is level.
-  if (!pedoTilt(&tilt0x, &tilt0y)) {
+  if (!tiltLevel(&tilt0x, &tilt0y)) {
     mgNoSensor = true;
     mgOverUntil = mgStart + 2500;
     sfxPlay(SFX_DENY);
@@ -9499,13 +9549,11 @@ void startTilt() {
 
 static void tiltStep(uint32_t now) {
   if (now >= mgUntil) { mgFinish(now); return; }
-  float tx, ty;
-  if (!pedoTilt(&tx, &ty)) return;
+  float ax, ay;
+  if (!tiltRead(tilt0x, tilt0y, &ax, &ay)) return;
   // Scaled by the real frame time: the panel draws slower on hardware.
   float f = (float)(now - mgLast) / 85.0f;
   if (f > 3) f = 3;
-  float ax, ay;
-  tiltToScreen(tx - tilt0x, ty - tilt0y, &ax, &ay);
   tiltVx = (tiltVx + ax * TILT_K * f) * TILT_FRICTION;
   tiltVy = (tiltVy + ay * TILT_K * f) * TILT_FRICTION;
   tiltBx += tiltVx * f;

@@ -315,6 +315,12 @@ public:
   // The newest MOVE_SLOTS moves this species has learned by its current level,
   // newest last. Used on hatch, on a fresh save, and to backfill empty slots.
   void relearnFromLevel();
+  // A WILD creature's moves (v3.55): four at random from everything its level
+  // allows -- level-up moves at their level, TMs at the opponents' gate
+  // (moveUnlockLevel), so one past 40 MAY know a TM rather than always
+  // fielding its best four. At least one attack when the species has any, so
+  // a wild fight can never be four status moves.
+  void rollWildMoves();
   // The level at which `dex` may legally use learnset entry `i`. A level-up
   // move carries its own; a level-0 entry is a TM/tutor/egg move, which the
   // data gives no level at all, and those unlock together at TM_LEVEL.

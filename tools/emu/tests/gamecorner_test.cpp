@@ -23,11 +23,11 @@ static void ck(bool ok, const char *w) { printf("%s  %s\n", ok ? "PASS" : "FAIL"
 
 // The return per coin with the rigging, and the "natural" one of the bare
 // strips (every stop equally likely, nothing vetoed or lined up).
-static double played(uint8_t hall, uint8_t bet, int spins, bool *paysAsShown) {
+static double played(uint8_t hall, uint8_t bet, int spins, bool *paysAsShown, uint16_t odds) {
   const SlotMachine &m = slotMachine(hall);
   double won = 0;
   for (int i = 0; i < spins; i++) {
-    SlotResult r = slotSpin(hall, bet);
+    SlotResult r = slotSpin(hall, bet, odds);
     if (r.win != slotPayout(m, r.stop, bet)) *paysAsShown = false;
     won += r.win;
   }
@@ -54,24 +54,37 @@ int main() {
     ck(g.pay[0] == 300 && g.pay[1] == 50 && g.pay[2] == 6, "Crystal's payout table (300, 50, 6, ...)");
   }
 
-  // --- 2. what is shown is what is paid, and the house keeps a little
+  // --- 2. what is shown is what is paid, and each machine's odds hold
+  // A machine draws its odds per sitting (v3.55), 0.88-1.10 a coin; the stingy
+  // and the lucky end are both played. The bands are wide because the
+  // emulator's random() is a 16-bit LCG whose consecutive draws are not
+  // independent, which skews three-reel combinations by several hundredths.
+  // The board draws from the hardware generator.
   for (uint8_t h = 0; h < HALL_CORNERS; h++) {
     for (uint8_t bet = 1; bet <= SLOT_MAX_BET; bet++) {
       bool shown = true;
-      double ev = played(h, bet, 400000, &shown), nat = natural(h, bet);
-      printf("     %s bet %u: %.3f a coin (bare strips %.3f)\n", hallName(h), bet, ev, nat);
+      double lo = played(h, bet, 400000, &shown, SLOT_ODDS_MIN);
+      double hi = played(h, bet, 400000, &shown, SLOT_ODDS_MAX);
+      double nat = natural(h, bet);
+      printf("     %s bet %u: %.3f at the stingy end, %.3f at the lucky (bare strips %.3f)\n",
+             hallName(h), bet, lo, hi, nat);
       ck(shown, "every spin pays exactly what its stops show");
-      // The rule aims at SLOT_RETURN_PM (0.88) exactly; the band is wide
-      // because the emulator's random() is a 16-bit LCG whose consecutive
-      // draws are not independent, which skews three-reel combinations by a
-      // few hundredths. The board draws from the hardware generator.
-      ck(ev > 0.75 && ev < 0.97, "a coin returns a little under a coin");
-      ck(slotExpected(h, bet) > 0, "(the expected return is worked out)");
+      ck(lo > 0.75 && lo < 0.98, "a stingy machine returns a little under a coin");
+      ck(hi > 0.97 && hi < 1.22, "a lucky one a little over");
+      ck(hi > lo + 0.12, "and the odds really differ");
       // the rigging engages in both directions: Red's strips would pay out
       // more than they take, Crystal's middle line far less
-      if (nat > 1.0) ck(ev < nat - 0.15, "a machine that would pay out more vetoes wins");
-      if (nat < 0.7) ck(ev > nat + 0.15, "a machine that would pay out less lines wins up");
+      if (nat > 1.25) ck(hi < nat - 0.12, "a machine that would pay out more vetoes wins");
+      if (nat < 0.7) ck(lo > nat + 0.15, "a machine that would pay out less lines wins up");
     }
+  }
+  {
+    bool inRange = true;
+    for (int i = 0; i < 2000; i++) {
+      uint16_t o = slotDrawOdds();
+      if (o < SLOT_ODDS_MIN || o > SLOT_ODDS_MAX) inRange = false;
+    }
+    ck(inRange && SLOT_ODDS_MIN == 880 && SLOT_ODDS_MAX == 1100, "a machine's odds are drawn from 0.88-1.10");
   }
 
   // --- 3. more coins, more lines
@@ -118,7 +131,7 @@ int main() {
       const Prize &p = hallPrize(HALL_CELADON, i);
       if (p.kind == PRIZE_TM && !strcmp(MOVE_TBL[p.what].name, "SURF")) surf = true;
     }
-    ck(hallPrizeCount(HALL_CELADON) == 11 && hallPrizeCount(HALL_GOLDENROD) == 6,
+    ck(hallPrizeCount(HALL_CELADON) == 12 && hallPrizeCount(HALL_GOLDENROD) == 7,
        "every prize is there (a renamed TM would drop out)");
     ck(surf, "Celadon has the SURF TM");
     bool tmsAreTms = true;
@@ -132,7 +145,23 @@ int main() {
       }
     ck(tmsAreTms, "every prize TM is a TM someone can learn");
     Pet live; live.dbgHatchAs(25, false);
-    const Prize &por = hallPrize(HALL_CELADON, 4);
+    uint8_t pi = 0;
+    for (uint8_t i = 0; i < hallPrizeCount(HALL_CELADON); i++) if (hallPrize(HALL_CELADON, i).what == 137) pi = i;
+    const Prize &por = hallPrize(HALL_CELADON, pi);
+    bool both = false, both2 = false, s1 = false, s2 = false;
+    for (uint8_t i = 0; i < hallPrizeCount(HALL_CELADON); i++) {
+      const Prize &q = hallPrize(HALL_CELADON, i);
+      if (q.kind == PRIZE_MON && q.what == 123) s1 = true;   // SCYTHER
+      if (q.kind == PRIZE_MON && q.what == 127) s2 = true;   // PINSIR
+    }
+    both = s1 && s2; s1 = s2 = false;
+    for (uint8_t i = 0; i < hallPrizeCount(HALL_GOLDENROD); i++) {
+      const Prize &q = hallPrize(HALL_GOLDENROD, i);
+      if (q.kind == PRIZE_MON && q.what == 23) s1 = true;    // EKANS
+      if (q.kind == PRIZE_MON && q.what == 27) s2 = true;    // SANDSHREW
+    }
+    both2 = s1 && s2;
+    ck(both && both2, "both versions' exclusives are on each counter");
     PartyMon m = prizeToPartyMon(por, live);
     ck(m.dex == 137 && m.level == 26 && m.uid.valid() && m.moves[0], "a prize PORYGON is level 26, with moves and an ID");
     PartyMon m2 = prizeToPartyMon(por, live);

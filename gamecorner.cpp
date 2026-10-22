@@ -34,8 +34,8 @@ static const uint16_t GS_PAY[CS_COUNT] = { 300, 50, 6, 8, 10, 15 };
 static const uint8_t GS_BIAS[CS_COUNT] = { 2, 6, 40, 25, 15, 12 };
 
 static const SlotMachine MACHINES[HALL_CORNERS] = {
-  { { RED_W1, RED_W2, RED_W3 }, 18, RS_COUNT, RED_PAY, nullptr, 0 },
-  { { GS_W1, GS_W2, GS_W3 }, 15, CS_COUNT, GS_PAY, GS_BIAS, 25 },
+  { { RED_W1, RED_W2, RED_W3 }, 18, RS_COUNT, RED_PAY, nullptr },
+  { { GS_W1, GS_W2, GS_W3 }, 15, CS_COUNT, GS_PAY, GS_BIAS },
 };
 
 const SlotMachine &slotMachine(uint8_t hall) {
@@ -83,50 +83,68 @@ static uint8_t stopsOf(const SlotMachine &m, uint8_t reel, uint8_t sym, uint8_t 
   return n;
 }
 
-uint32_t slotExpected(uint8_t hall, uint8_t bet) {
-  static uint32_t cache[HALL_CORNERS][SLOT_MAX_BET + 1];
+// What a spin returns per 1000 coins bet, worked out exactly by enumerating
+// every stop: on the BARE strips (each stop equally likely), and on a BIASED
+// spin (a symbol by weight, then each reel at a random stop showing it). The
+// rigging below mixes the two, or vetoes wins, to land on a machine's odds.
+void slotReturns(uint8_t hall, uint8_t bet, uint32_t *barePm, uint32_t *biasedPm) {
+  static uint32_t cache[HALL_CORNERS][SLOT_MAX_BET + 1][2];
   const SlotMachine &m = slotMachine(hall);
   if (hall >= HALL_CORNERS) hall = 0;
   bet = clampBet(bet);
-  if (cache[hall][bet]) return cache[hall][bet];
-  // the bare strips: every stop equally likely
-  uint64_t won = 0, n = 0;
-  uint8_t s[SLOT_REELS];
-  for (s[0] = 0; s[0] < m.len; s[0]++)
-    for (s[1] = 0; s[1] < m.len; s[1]++)
-      for (s[2] = 0; s[2] < m.len; s[2]++) { won += slotPayout(m, s, bet); n++; }
-  uint64_t bare = won * 1000000ULL / n;            // in millionths of a coin
-  uint64_t ev = bare;
-  if (m.biasWeight && m.biasPerMille) {
-    // a biased spin: a symbol by weight, then each reel at a random stop of it
+  uint32_t *c = cache[hall][bet];
+  if (!c[0]) {
+    uint64_t won = 0, n = 0;
+    uint8_t s[SLOT_REELS];
+    for (s[0] = 0; s[0] < m.len; s[0]++)
+      for (s[1] = 0; s[1] < m.len; s[1]++)
+        for (s[2] = 0; s[2] < m.len; s[2]++) { won += slotPayout(m, s, bet); n++; }
+    c[0] = (uint32_t)(won * 1000ULL / n / bet);
+    if (!c[0]) c[0] = 1;
+    uint64_t biased = 0;
     uint32_t total = 0;
-    for (uint8_t k = 0; k < m.symbols; k++) total += m.biasWeight[k];
-    uint64_t biased = 0;   // sum over symbols of weight * mean payout, millionths
-    for (uint8_t sym = 0; sym < m.symbols; sym++) {
-      uint8_t a[32], b[32], c[32];
-      uint8_t na = stopsOf(m, 0, sym, a), nb = stopsOf(m, 1, sym, b), nc = stopsOf(m, 2, sym, c);
-      if (!na || !nb || !nc) continue;
-      uint64_t w = 0;
-      for (uint8_t i = 0; i < na; i++) for (uint8_t j = 0; j < nb; j++) for (uint8_t k = 0; k < nc; k++) {
-        uint8_t st[SLOT_REELS] = { a[i], b[j], c[k] };
-        w += slotPayout(m, st, bet);
+    if (m.biasWeight) {
+      for (uint8_t k = 0; k < m.symbols; k++) total += m.biasWeight[k];
+      for (uint8_t sym = 0; sym < m.symbols; sym++) {
+        uint8_t a[32], b[32], d[32];
+        uint8_t na = stopsOf(m, 0, sym, a), nb = stopsOf(m, 1, sym, b), nd = stopsOf(m, 2, sym, d);
+        if (!na || !nb || !nd) continue;
+        uint64_t w = 0;
+        for (uint8_t i = 0; i < na; i++) for (uint8_t j = 0; j < nb; j++) for (uint8_t k = 0; k < nd; k++) {
+          uint8_t st[SLOT_REELS] = { a[i], b[j], d[k] };
+          w += slotPayout(m, st, bet);
+        }
+        biased += (uint64_t)m.biasWeight[sym] * w * 1000ULL / ((uint64_t)na * nb * nd);
       }
-      biased += (uint64_t)m.biasWeight[sym] * w * 1000000ULL / ((uint64_t)na * nb * nc);
     }
-    biased /= total;
-    ev = (bare * (1000 - m.biasPerMille) + biased * m.biasPerMille) / 1000;
+    c[1] = total ? (uint32_t)(biased / total / bet) : 0;
   }
-  uint32_t perMille = (uint32_t)(ev / bet / 1000);
-  cache[hall][bet] = perMille ? perMille : 1;
-  return cache[hall][bet];
+  if (barePm) *barePm = c[0];
+  if (biasedPm) *biasedPm = c[1];
 }
 
-SlotResult slotSpin(uint8_t hall, uint8_t bet) {
+uint16_t slotDrawOdds() {
+  return (uint16_t)(SLOT_ODDS_MIN + random(SLOT_ODDS_MAX - SLOT_ODDS_MIN + 1));
+}
+
+SlotResult slotSpin(uint8_t hall, uint8_t bet, uint16_t odds) {
   const SlotMachine &m = slotMachine(hall);
   bet = clampBet(bet);
+  uint32_t bare, biased;
+  slotReturns(hall, bet, &bare, &biased);
+  // A machine paying less than its odds lines wins up (BIAS); one paying more
+  // turns wins away (VETO). Per 10,000: random() is 16 bits in the emulator,
+  // so a wider roll would never reach the top of its range there.
+  uint32_t biasP = 0, vetoP = 0;
+  if (odds > bare && biased > bare) {
+    biasP = (uint32_t)((uint64_t)(odds - bare) * 10000ULL / (biased - bare));
+    if (biasP > 10000) biasP = 10000;
+  } else if (odds < bare) {
+    vetoP = (uint32_t)((uint64_t)(bare - odds) * 10000ULL / bare);
+  }
   SlotResult r;
   for (int i = 0; i < SLOT_REELS; i++) r.stop[i] = (uint8_t)random(m.len);
-  if (m.biasWeight && (uint32_t)random(1000) < m.biasPerMille) {
+  if (biasP && (uint32_t)random(10000) < biasP) {
     // line up one symbol on the middle line
     uint16_t total = 0;
     for (uint8_t s = 0; s < m.symbols; s++) total += m.biasWeight[s];
@@ -140,12 +158,7 @@ SlotResult slotSpin(uint8_t hall, uint8_t bet) {
     }
   }
   r.win = slotPayout(m, r.stop, bet, &r.lines);
-  // VETO, at whatever rate brings this bet down to the target return
-  uint32_t ev = slotExpected(hall, bet);
-  if (r.win && ev > SLOT_RETURN_PM &&
-      // per 10,000: random() is 16 bits in the emulator, so a wider roll
-      // would never reach the top of its range there
-      (uint32_t)random(10000) < (uint32_t)((uint64_t)(ev - SLOT_RETURN_PM) * 10000ULL / ev)) {
+  if (r.win && vetoP && (uint32_t)random(10000) < vetoP) {
     // the third reel slips on until nothing lines up, as a rigged reel does
     for (uint8_t k = 0; k < m.len && r.win; k++) {
       r.stop[2] = (uint8_t)((r.stop[2] + 1) % m.len);
@@ -189,9 +202,10 @@ static uint8_t mvByName(const char *n) {
   return 0;
 }
 
-// FireRed's Celadon counter (Scyther; LeafGreen's is Pinsir) and its TMs, plus
-// SURF by the owner's call (2026-10-22) -- the shortcut Surfing Pikachu needs.
-// Gold's Goldenrod counter (Ekans; Silver's is Sandshrew) and its TMs.
+// Celadon: FireRed's counter AND LeafGreen's version exclusive (Pinsir, at
+// LeafGreen's level and price), and the TMs, plus SURF by the owner's call
+// (2026-10-22) -- the shortcut Surfing Pikachu needs. Goldenrod: Gold's counter
+// and Silver's exclusive (Sandshrew). Both versions by the owner's call (v3.55).
 // TMs are filled in by name at first use, so a renamed move fails the test
 // rather than silently selling move 0.
 struct PrizeSrc { PrizeKind kind; uint16_t dex; const char *move; uint8_t level; uint16_t price; };
@@ -199,7 +213,8 @@ static const PrizeSrc CELADON_SRC[] = {
   { PRIZE_MON, 63, nullptr, 9, 180 },      // ABRA
   { PRIZE_MON, 35, nullptr, 8, 500 },      // CLEFAIRY
   { PRIZE_MON, 147, nullptr, 18, 2800 },   // DRATINI
-  { PRIZE_MON, 123, nullptr, 25, 5500 },   // SCYTHER
+  { PRIZE_MON, 123, nullptr, 25, 5500 },   // SCYTHER (FireRed)
+  { PRIZE_MON, 127, nullptr, 18, 2500 },   // PINSIR (LeafGreen)
   { PRIZE_MON, 137, nullptr, 26, 9999 },   // PORYGON
   { PRIZE_TM, 0, "SURF", 0, 4000 },
   { PRIZE_TM, 0, "ICE BEAM", 0, 4000 },
@@ -210,14 +225,15 @@ static const PrizeSrc CELADON_SRC[] = {
 };
 static const PrizeSrc GOLDENROD_SRC[] = {
   { PRIZE_MON, 63, nullptr, 5, 200 },      // ABRA
-  { PRIZE_MON, 23, nullptr, 5, 700 },      // EKANS
+  { PRIZE_MON, 23, nullptr, 5, 700 },      // EKANS (Gold)
+  { PRIZE_MON, 27, nullptr, 5, 700 },      // SANDSHREW (Silver)
   { PRIZE_MON, 147, nullptr, 10, 2100 },   // DRATINI
   { PRIZE_TM, 0, "THUNDER", 0, 5500 },
   { PRIZE_TM, 0, "BLIZZARD", 0, 5500 },
   { PRIZE_TM, 0, "FIRE BLAST", 0, 5500 },
 };
 #define SRC_N(a) (uint8_t)(sizeof(a) / sizeof(a[0]))
-static Prize gPrizes[HALL_CORNERS][12];
+static Prize gPrizes[HALL_CORNERS][16];
 static uint8_t gPrizeN[HALL_CORNERS];
 static bool gPrizesBuilt = false;
 
@@ -234,6 +250,7 @@ static void buildPrizes() {
       p.level = src[h][i].level;
       p.price = src[h][i].price;
       if (!p.what) continue;               // a move this build does not have
+      if (gPrizeN[h] >= sizeof(gPrizes[h]) / sizeof(gPrizes[h][0])) break;
       gPrizes[h][gPrizeN[h]++] = p;
     }
   }
@@ -284,6 +301,19 @@ uint8_t hallsIn(uint8_t region, const Pet &p, uint8_t out[HALL_COUNT]) {
     if (HALLS[h].beach && !surfSecretOpen(p)) continue;   // secret until it opens
     out[n++] = h;
   }
+  return n;
+}
+
+uint16_t hallListAfter(uint8_t h) {
+  if (h >= HALL_COUNT) return 0;
+  uint8_t rg = HALLS[h].region;
+  uint16_t first = wildAreaFirst(rg), n = wildAreaCount(rg);
+  if (HALLS[h].beach) {
+    uint16_t a = wildAreaByName(rg, SURF_AREA_NAME);
+    return a == WILD_NO_AREA ? n : (uint16_t)(a - first + 1);
+  }
+  for (uint16_t i = 0; i < n; i++)
+    if (wildAreaGate((uint16_t)(first + i)) > HALLS[h].gate) return i;
   return n;
 }
 

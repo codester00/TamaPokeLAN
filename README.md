@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.54-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.55-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -434,8 +434,12 @@ see `docs/move-expansion-report.md`). Two kinds:
   learn it. A move that is *also* a TM keeps its level gate. Levels come from
   FireRed/LeafGreen, the Kanto games that still gate properly. Moves a creature
   already knew before v3.51 are kept. **Opponents are unchanged**: gym leaders
-  and wild creatures still get their TM moves at level 40, as NPCs had TM
-  moves in the games.
+  still get their TM moves at level 40, as NPCs had TM moves in the games.
+- **Wild creatures know four moves at random** (since v3.55) from everything
+  they could know at their level — not their best four. Past level 40 that
+  includes their TM moves, so a wild creature *may* know one, never must; each
+  set has at least one attack when the creature has any. See which by watching
+  what it uses, or by catching it.
 
 **Stat changes.** Stages run from −6 to +6 on ATTACK, DEFENSE, SP. ATK, SP. DEF
 and SPEED, reset on switching out, and the battle text says when one moves
@@ -458,15 +462,15 @@ tap becomes **STRUGGLE** (50 power, the user takes a quarter of the damage back)
 **Your creatures' PP carries over** from fight to fight and across restarts, per
 creature, and comes back for the **whole team** when the live pet's energy fills
 up while it sleeps — a night's sleep or a nap. A newly learned move starts full.
-Opponents always start full. A LAN battle counts no PP at all and leaves your
-saved PP alone.
+Opponents always start full. **A LAN battle counts PP too** (since v3.55):
+both sides start full and spend PP as they fight, so a long fight runs out the
+same way a gym does — but your saved PP is left alone, before and after. Both
+boards need v3.55 to fight each other (the link refuses an older build).
 
-**The battle AI and healing.** The smart AI (hard, and every wild fight on hard)
-heals only when the heal gains on the foe — a RECOVER that restores less than
-the foe's best hit takes back is never chosen — and each heal is worth less than
-the last: 25 less for each heal in a row (so three in a row at most) and 10 less
-for every heal already used that fight. Before v3.52 a leader could heal turn
-after turn for as long as it was a little hurt.
+**The battle AI and healing.** The smart AI heals when it is hurt, as it always
+has; what ends a heal loop is **PP**: RECOVER has 5, so a leader can heal five
+times and then has to fight. (v3.52 also made each heal worth less than the
+last; v3.55 took that back out, by the owner's call, since PP does the job.)
 
 Moves **freeze when a pet is banked** into the party, alongside its level and
 training: the set you chose while it was alive is what it fights with forever.
@@ -474,8 +478,10 @@ training: the set you chose while it was alive is what it fights with forever.
 ### The Game Corners
 
 Since v3.53 two Explore areas are not wild areas at all: **CELADON GAME CORNER**
-sits at the top of Kanto's area list and opens after **Lt. Surge**, and
-**GOLDENROD GAME CORNER** at the top of Johto's after **Bugsy**. Tapping one
+in Kanto's area list, opening after **Lt. Surge**, and **GOLDENROD GAME CORNER**
+in Johto's, after **Bugsy**. Since v3.55 each sits where it falls in the story —
+after the last area its gate shares, before the first that needs a later badge —
+rather than at the top of the list. Tapping one
 opens the hall, never a fight. Swipe down to back out, one level at a time.
 
 - **Coins** are bought at the games' price, **50 for $1,000** of step money, up
@@ -486,14 +492,19 @@ opens the hall, never a fight. Swipe down to back out, one level at a time.
   8, cherries 6). Bet 1-3 coins: 1 plays the middle line, 2 adds the top and
   bottom, 3 the diagonals. SPIN, then STOP each reel; a win is paid when the
   last one stops (backing out mid-spin pays it too). Like the real machines they
-  are rigged: on average a coin brings back **0.88 coins** at every bet.
+  are rigged, and **each machine is different**: every time you sit down at the
+  slots the machine draws its odds, between **0.88 and 1.10 coins back per
+  coin** (since v3.55; it was a flat 0.88). Walk away and sit down again for a
+  new machine.
 - **Card flip** (Goldenrod): bet 3 coins on a creature (pays 12), a number
   (18) or both (72) — Crystal's odds, which are exactly fair. The deck of 24
   runs down before it is shuffled again.
 - **Prizes**: Celadon (FireRed's counter) ABRA Lv.9 180, CLEFAIRY Lv.8 500,
-  DRATINI Lv.18 2,800, SCYTHER Lv.25 5,500, PORYGON Lv.26 9,999, and TMs: SURF
+  DRATINI Lv.18 2,800, SCYTHER Lv.25 5,500, PINSIR Lv.18 2,500 (LeafGreen's),
+  PORYGON Lv.26 9,999, and TMs: SURF
   4,000, ICE BEAM 4,000, IRON TAIL 3,500, THUNDERBOLT 4,000, SHADOW BALL 4,500,
-  FLAMETHROWER 4,000. Goldenrod (Gold's) ABRA Lv.5 200, EKANS Lv.5 700, DRATINI
+  FLAMETHROWER 4,000. Goldenrod (Gold's) ABRA Lv.5 200, EKANS Lv.5 700,
+  SANDSHREW Lv.5 700 (Silver's), DRATINI
   Lv.10 2,100, and THUNDER, BLIZZARD and FIRE BLAST at 5,500. A prize creature
   joins the party or the box like a catch; a TM you own is not sold twice.
 
@@ -501,7 +512,7 @@ opens the hall, never a fight. Swipe down to back out, one level at a time.
 
 **Kept out of the release notes and the installer page on purpose** — like the
 best rod, it is a secret for players to find. A **SUMMER BEACH HOUSE** row
-appears in Kanto's area list, under the Celadon Game Corner, only while **all
+appears in Kanto's area list, right after SEA ROUTES 19-21, only while **all
 four** hold, and nothing hints at it before:
 
 1. the live pet is a **PIKACHU**,
@@ -510,7 +521,7 @@ four** hold, and nothing hints at it before:
 4. **every species that area offers** is registered in the Pokédex — raised
    from any source; species with no art are not counted.
 
-Tapping it starts a **60-second ride**. Tilt the board (the Tilt Maze sensor; a
+Tapping it starts a **60-second ride**. Tilt the board (the Tilt Maze sensor, held level the same way Tilt Maze calibrates it; a
 tap on the left or right half leans it when there is no sensor) to match the
 waves: riding a face builds speed, fighting it loses speed. Fast over a crest
 Pikachu jumps; every swing of the board from side to side in the air is a

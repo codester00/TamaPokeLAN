@@ -10,6 +10,7 @@
 #include "pet.h"
 #include "inventory.h"
 #include "wild.h"
+#include "moves.h"
 #include "noart.h"
 #include <cstdio>
 uint32_t g_seed=3; FakeSerial Serial; FakeESP ESP; FakeWire Wire;
@@ -183,6 +184,52 @@ int main(){
   gRegionArt = saved;
   ck(wildPickSpecies(REGION_ALL, R_COMUN, 1)!=0,
      "and the pool comes back when the packs do");
+
+  // ---- a wild creature's moves (v3.55) -------------------------------------
+  // Four at random from what it could know at its level, not its best four: a
+  // creature past the TM level MAY know a TM, never must. Asked of the real
+  // rollWildMoves() over many rolls, so "sometimes" is shown both ways.
+  {
+    auto tmOnly = [](int16_t dex, uint8_t mv) {   // no level-up row teaches it
+      for (uint8_t i = 0; i < learnCount(dex); i++)
+        if (learnMove(dex, i) == mv && learnLevel(dex, i) > 0) return false;
+      return true;
+    };
+    auto legal = [](int16_t dex, uint8_t lvl, uint8_t mv) {
+      for (uint8_t i = 0; i < learnCount(dex); i++)
+        if (learnMove(dex, i) == mv && moveUnlockLevel(dex, i) <= lvl) return true;
+      return false;
+    };
+    Pet w; w.dbgHatchAs(6, false);                  // CHARIZARD
+    w.ageMinutes = 49UL * MINUTES_PER_LEVEL;        // level 50
+    bool allLegal = true, allAttack = true, noDup = true, withTm = false, withoutTm = false, varied = false;
+    uint8_t first[MOVE_SLOTS] = {};
+    for (int r = 0; r < 300; r++) {
+      w.rollWildMoves();
+      bool tm = false, atk = false;
+      for (int i = 0; i < MOVE_SLOTS; i++) {
+        uint8_t m = w.moves[i];
+        if (!m || !legal(6, w.level(), m)) allLegal = false;
+        if (m && MOVE_TBL[m].cat != MC_STATUS) atk = true;
+        if (m && tmOnly(6, m)) tm = true;
+        for (int j = 0; j < i; j++) if (m && w.moves[j] == m) noDup = false;
+        if (r == 0) first[i] = m; else if (first[i] != m) varied = true;
+      }
+      if (!atk) allAttack = false;
+      if (tm) withTm = true; else withoutTm = true;
+    }
+    ck(w.level() == 50 && allLegal && noDup, "a wild L50 CHARIZARD's four moves are all ones it could know, no repeats");
+    ck(varied, "and differ from one encounter to the next");
+    ck(withTm && withoutTm, "it sometimes knows a TM move, and sometimes none");
+    ck(allAttack, "and always has at least one attack");
+    w.ageMinutes = 19UL * MINUTES_PER_LEVEL;        // level 20: below the TM level
+    bool noTm = true;
+    for (int r = 0; r < 200; r++) {
+      w.rollWildMoves();
+      for (int i = 0; i < MOVE_SLOTS; i++) if (w.moves[i] && tmOnly(6, w.moves[i])) noTm = false;
+    }
+    ck(noTm, "below the TM level a wild creature knows no TM move");
+  }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);
   return bad?1:0;

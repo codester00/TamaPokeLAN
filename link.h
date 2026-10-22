@@ -39,7 +39,7 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 3        // bump on ANY wire change; a mismatch is refused
+#define LINK_PROTO 4        // bump on ANY wire change; a mismatch is refused
 #define LINK_MAX_PAYLOAD 200
 #define LINK_NAME_LEN 12
 
@@ -129,6 +129,9 @@ struct LinkResult {
   uint16_t hostDmg, guestDmg;
   uint8_t hostIdx, guestIdx;   // which squad member is out on each side
   uint8_t flags;               // bit0 crit, bit1 super, bit2 a faint happened
+  // v3.55: the PP the guest's creature out now has left, ABSOLUTE like the
+  // rest (rule 3). Only the host spends PP; the guest shows these.
+  uint8_t guestPp[MOVE_SLOTS];
 };
 
 struct Link {

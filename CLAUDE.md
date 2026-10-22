@@ -835,6 +835,38 @@ guard was negative-checked.
   is no sensor (the emulator). Leaving mid-ride pays what was earned. **The
   physics constants are tuned in the emulator only** -- feel them on a board.
 
+### Done: v3.55 follow-ups (2026-10-22, not yet on a board)
+
+The owner's list after reading v3.50-v3.54. Same branch, not merged.
+
+- **Wild movesets are random**: `Pet::rollWildMoves()` (called by
+  `startWildBattle()` in place of `relearnFromLevel()`) picks four distinct
+  moves from everything `moveUnlockLevel()` allows at the level -- so past 40 a
+  TM move is possible, never certain -- and swaps one attack in if the four
+  drew none. Gym rosters keep `relearnFromLevel()`. `wild_test` pins: legal, no
+  repeats, varies, TM sometimes and sometimes not, none below 40.
+- **LAN counts PP**: each side's squad starts full (`battleFullPp()`), the host
+  spends for both and ships the guest's PP in `LinkResult::guestPp`
+  (`LINK_PROTO` 3 -> 4, so an older board refuses rather than desyncs). The PP
+  book is never read or written by a LAN fight; `lan_test` checks `!ppDirty()`.
+  An all-empty guest still SENDS its tap -- the host turns it into STRUGGLE.
+- **The v3.52 heal penalty is gone** (owner: "PP should fix that"). `pp_test`
+  now plays the Gengar/Chansey stall with real PP: it heals at most RECOVER's 5
+  and ends inside 40 turns.
+- **Halls in story order**: `areaListEntry(region, k, &isHall)` is the ONE row
+  resolver (list drawing, taps, `areaListPos()`); `hallListAfter()` in
+  gamecorner.cpp says which wild area a hall follows -- a corner before the
+  first area of a later gate, the beach house right after SEA ROUTES 19-21.
+  Tests find rows through it, never by position.
+- **Slot odds per sitting**: `slotDrawOdds()` draws 880-1100 per 1000 bet when
+  SLOTS opens; `slotSpin(hall, bet, odds)` lines wins up or vetoes them against
+  the bare strips' own return (`slotReturns()`, enumerated once). The emulator's
+  LCG skews the measured return, so `gamecorner_test`'s bands are wide.
+- **Both versions' prizes**: PINSIR L18 2,500 (LeafGreen) at Celadon, SANDSHREW
+  L5 700 (Silver) at Goldenrod.
+- **One tilt reading**: `tiltLevel()` / `tiltRead()` beside `tiltToScreen()`;
+  Tilt Maze and Surfing Pikachu both go through them.
+
 ### Done: Paldea's areas and legendaries (v3.49, not yet on a board)
 
 The last region and the first open world: 32 zones, NOT VERIFIED, built as
