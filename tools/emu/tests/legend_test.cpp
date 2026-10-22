@@ -261,6 +261,24 @@ int main(){
     ck(wildLegendLevel(zac)==70 && wildLegendLevel(eter)==60, "at PokeAPI's Sword/Shield levels");
   }
 
+  // ---- Paldea (v3.49, from PKHeX + the game's spawn table): the Treasures
+  // of Ruin, Koraidon and Miraidon -------------------------------------------
+  {
+    int tl=legendOf(1003), cy=legendOf(1004), kor=legendOf(1007), mir=legendOf(1008);
+    int trail=areaIn(8,"SOCARRAT TRAIL"), n2=areaIn(8,"NORTH PROV. 2"), zero=areaIn(8,"AREA ZERO");
+    ck(tl>=0 && cy>=0 && kor>=0 && mir>=0 && trail>=0 && n2>=0 && zero>=0,
+       "Paldea's legendaries and areas are found");
+    Pet p; badges(p,8,8);
+    ck(wildAreaUnlocked((uint16_t)trail,p) && count(trail,p,tl)==0 && !wildAreaUnlocked((uint16_t)zero,p),
+       "with Grusha's badge Socarrat Trail is open, but Ting-Lu and Area Zero wait for the champion");
+    p.winBadge(8,TRAINER_COUNT-1,false);
+    ck(count(trail,p,tl)==10000 && count(n2,p,cy)==10000, "then Ting-Lu and Chi-Yu meet you at their shrines");
+    ck(count(zero,p,kor)==10000, "and Koraidon in Area Zero");
+    p.setLegendMet(kor);
+    ck(count(zero,p,mir)==10000, "then Miraidon -- both versions' in one home");
+    ck(wildLegendLevel(tl)==60 && wildLegendLevel(kor)==72, "at PKHeX's levels");
+  }
+
   // ---- the save --------------------------------------------------------------
   {
     Pet a; a.begin();
@@ -304,13 +322,14 @@ int main(){
     }
     ck(!homed, "no egg hatches a legendary that has a home in Explore");
     ck(mew && celebi, "while Mew and Celebi still hatch -- the legendary tier is not empty");
-    // Hoenn's through Galar's have homes (v3.42-v3.47); Paldea's do not yet.
-    // Found by asking wildIsExploreLegend(), not by a typed range.
-    bool homed2=false, paldeaLegend=false, forces=false, ub=false, gifts=false, dlc=false;
+    // Every region's story legendaries have homes now (v3.42-v3.49). Found by
+    // asking wildIsExploreLegend(), not by a typed range.
+    bool homed2=false, paldeaEgg=false, forces=false, ub=false, gifts=false, dlc=false;
     for (int i=0;i<900;i++){
-      for (uint8_t r=2;r<=7;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
+      for (uint8_t r=2;r<=8;r++) if (wildIsExploreLegend(p.rollInRegion(r,R_LEGENDARIO))) homed2=true;
       int16_t k=p.rollInRegion(8,R_LEGENDARIO);
-      if (k>=1001 && k<=1024 && !wildIsExploreLegend(k)) paldeaLegend=true;   // the treasures .. Terapagos
+      // The expansions' legendaries and Pecharunt: egg-only (owner's call).
+      if ((k>=1014 && k<=1017) || k==1024 || k==1025) paldeaEgg=true;
       int16_t gl=p.rollInRegion(7,R_LEGENDARIO);
       if (gl>=891 && gl<=898) dlc=true;   // Kubfu .. Calyrex: the expansions, not in Sword/Shield's data
       int16_t u=p.rollInRegion(4,R_LEGENDARIO);
@@ -320,11 +339,11 @@ int main(){
       int16_t a=p.rollInRegion(6,R_LEGENDARIO);
       if (a==772 || a==789) gifts=true;
     }
-    ck(!homed2, "Hoenn's through Galar's homed legendaries left their eggs with their areas");
+    ck(!homed2, "Hoenn's through Paldea's homed legendaries left their eggs with their areas");
     ck(!ub, "and so did the Ultra Beasts, from the rare tier");
     ck(gifts, "while Type: Null and Cosmog, gifts in the game, still hatch");
     ck(dlc, "Galar's expansion legendaries, met in no table here, still hatch");
-    ck(paldeaLegend, "and a region whose legendaries have no homes yet still hatches them");
+    ck(paldeaEgg, "and Paldea's expansion legendaries and Pecharunt, egg-only, still hatch");
     ck(forces, "Tornadus, Thundurus and Landorus, never met in B2W2, still hatch");
   }
 

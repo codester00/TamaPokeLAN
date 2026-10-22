@@ -106,20 +106,24 @@ def main():
         print('\nabove the band: they stay in their area and appear at their floor (%d):' % len(over))
         for a, d, fl, g in over:
             print('  %-11s L%d in %s (band L%d-%d)%s' % (DEX[d - 1][2], fl, a['name'], *a['band'],
-                                                          ', %s: gate %d' % ('best rod' if a['hidden'][g] == 'fishing'
-                                                                            else 'water mode', g)
+                                                          ', %s: gate %d' % (G.HIDDEN_LABEL[a['hidden'][g]], g)
                                                           if g else ''))
 
     # The hidden gates (owner's call: nothing on the panel shows them): the
-    # best rod's, and Galar's water mode. One report per region and method.
+    # best rod's, Galar's water mode, and Paldea's story-flagged spawns. One
+    # report per region and kind (a story lock per flag's gate).
     for reg in WA.REGIONS:
-        for method, label, src in (('fishing', 'best rod', reg['super_rod']),
-                                   ('water', 'water mode', reg.get('water'))):
+        kinds = [('fishing', 'best rod', reg.get('super_rod')),
+                 ('water', 'water mode', reg.get('water'))]
+        for flag, fg in sorted(reg.get('flag_gates', {}).items()):
+            kinds.append(('story', 'story lock', {'gate': fg, 'note': 'spawn flag ' + flag}))
+        for method, label, src in kinds:
             if not src:
                 continue
             gate = src['gate']
             held = [(a, d) for a in areas if a['region'] == reg['region']
-                    for d, _w, _wh, _f, g in a['slots'] if g and a['hidden'][g] == method]
+                    for d, _w, _wh, _f, g in a['slots']
+                    if g and g == gate and a['hidden'][g] == method]
             if not held:
                 continue
             print('\n%s: %s holds %d %s slots back until gate %d (%s); first met only then:'
@@ -173,6 +177,9 @@ def main():
         verified = regs[0]['source'] in DECOMP_SOURCES
         print('  %-7s %d areas, %s' % (name, n, 'VERIFIED against the %s disassembly' % regs[0]['source']
                                        if verified else 'NOT VERIFIED (no disassembly; %s)' % regs[0]['source']))
+        if regs[0]['source'] == 'pkhex-sv':
+            print('          rates: each species\' own spawn weight from the game\'s pokedata_array;'
+                  ' how much of a zone each biome covers is in neither source and is not modelled')
         met = {d for a in areas if a['region'] == r for d, _w, _wh, _f, _g in a['slots']} | legend_dex
         missing = [d for d in range(lo, hi + 1) if d not in met]
         if missing:

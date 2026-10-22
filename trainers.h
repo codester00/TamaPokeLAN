@@ -342,6 +342,9 @@ static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
   // Galar is Sword's ladder: Bea (Fighting) fourth, Gordie (Rock) sixth.
   { "GRASS BADGE", "WATER BADGE", "FIRE BADGE", "FIGHTING BADGE",
     "FAIRY BADGE", "ROCK BADGE", "DARK BADGE", "DRAGON BADGE" },
+  // Paldea's badges are named by type, in TRAINERS_PALDEA's order.
+  { "BUG BADGE", "GRASS BADGE", "ELECTRIC BADGE", "WATER BADGE",
+    "NORMAL BADGE", "GHOST BADGE", "PSYCHIC BADGE", "ICE BADGE" },
 };
 
 // Hard mode reruns the same ladder with perfect IVs and a smarter AI, so the

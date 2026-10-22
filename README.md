@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.48-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.49-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -464,7 +464,9 @@ reward, with the Waterium Z). Galar's rod comes before the first gym, so it
 holds nothing back -- but Galar's **lakes** wait the same way for the **Rotom
 Bike's water mode**, given on Route 9 after the **Rock Badge**: until then the
 Wild Area's water creatures (Lapras, Wailmer, Milotic, Jellicent and others)
-stay out of their zones. Until then the area's other creatures share its encounters at their
+stay out of their zones. Paldea has no fishing; its one such lock is **wild
+Orthworm, which waits for its Titan** (Path of Legends, around level 29) --
+mapped to the gym at that level, Kofu's Water Badge. Until then the area's other creatures share its encounters at their
 own relative rates. **Nothing on the screen says so** -- by design, like the
 care window: the row is not greyed, nothing is starred, and an area always has
 something to meet. Easy or hard badges both count. Creatures met only that way
@@ -579,6 +581,23 @@ badges; here each zone opens at the badge its levels fit, which is what that cap
 amounts to. PokeAPI labels Rolling Fields' ordinary tables with a Max Raid den
 condition; they are read as the ordinary tables they are.
 
+**Paldea's areas (v3.49) -- an open world.** 32 zones from Scarlet and Violet:
+the fifteen Province areas, Asado Desert, Tagtree Thicket, Glaseado Mountain,
+Casseroya Lake, Dalizapa Passage, Alfornada Cavern, Socarrat Trail, the four
+Paldean seas, Poco Path, Inlet Grotto, Mesagoza, Montenevera, the League's
+grounds and Area Zero. NOT VERIFIED, from two sources that both come from the
+game files: **PKHeX** (the save editor) for which creatures each zone has, their
+levels, times and weathers, and the game's own **spawn table** for how often --
+each creature's spawn weight, the same figure Bulbapedia prints. How much of a
+zone each biome covers is in neither, so each creature simply carries its own
+weight: South Province Area One leads with Lechonk, Fletchling and Tarountula,
+Asado Desert with Sandile and Cacnea. Two versions' exclusives count half each.
+Scarlet/Violet let you walk almost anywhere from the start; what holds you back
+is a zone's level, so **a zone opens at the badge its typical level fits**,
+following Paldea's south-to-north climb. Daily weather and Explore's weather
+label work as in Galar (Paldea's mist is fog). Kitakami and Blueberry Academy,
+the expansions' regions, are not here: their creatures come from eggs.
+
 **NO VALID SPRITES (v3.45).** Every area is built from the games' data whether
 or not its creatures can be drawn yet. An open area with nothing to meet that
 can be drawn -- its species have no art yet, or all it holds still waits behind
@@ -641,7 +660,16 @@ Hokulani and Route 11 after Mallow's (Grassium Z); the rest of Ula'ula after
 Sophocles's (Electrium Z); Seafolk Village, Poni Wilds and the Ancient Poni Path
 after Mina's (Fairium Z); Exeggutor Island and Vast Poni Canyon after Nanu's
 grand trial (Darkinium Z); Mount Lanakila after Hapu's (Groundium Z); Poni's far
-side and Resolution Cave after the champion. Galar: the Slumbering Weald, Routes
+side and Resolution Cave after the champion. Paldea: Poco Path, Inlet Grotto,
+South Province Areas One and Two, Mesagoza and the League's grounds from the
+start; the rest of the south, West and East Province Area One and the southern
+sea after the Grass Badge (Brassius -- Koraidon/Miraidon can swim by then);
+Asado Desert, East Province Areas Two and Three, the eastern sea and West
+Province Area Two after the Electric Badge; Tagtree Thicket, West Province Area
+Three and the western sea after the Water Badge; Dalizapa Passage, Montenevera,
+Glaseado Mountain and Alfornada Cavern after the Normal Badge; South Province
+Area Six after the Ghost Badge; the north, its sea, Casseroya Lake and Socarrat
+Trail after the Ice Badge; Area Zero after the champion. Galar: the Slumbering Weald, Routes
 1-4, the Galar Mine, Motostoke's water and the Wild Area's southern fields and
 lakes from the start; Route 5 and Hulbury after the Grass Badge; Galar Mine No. 2
 and Motostoke's outskirts after the Water Badge; the northern Wild Area,
@@ -689,6 +717,8 @@ listed, greyed, saying what it needs -- `REQUIRES BOULDER BADGE`.
 | Necrozma | Ten Carat Hill | the champion, **and every Ultra Beast caught** | 75 |
 | Zacian, Zamazenta | the Slumbering Weald's depths (both versions') | the champion | 70 |
 | Eternatus | Hammerlocke's hills (the Energy Plant has no wild table) | the champion | 60 |
+| Wo-Chien, Chien-Pao, Ting-Lu, Chi-Yu | South Province Area One, West Province Area One, Socarrat Trail, North Province Area Two (their shrines) | the champion | 60 |
+| Koraidon, Miraidon | Area Zero (both versions') | the champion | 72 |
 
 Unova's levels are PokeAPI's B2W2 static encounters. Tornadus, Thundurus and
 Landorus are never met in B2W2 (only through the 3DS Dream Radar), so like the
@@ -701,6 +731,12 @@ legendaries and leave the rare egg tier. **Necrozma waits until all seven are
 caught**, as in the game -- met is not enough -- and its home wears no star until
 then. Type: Null and Cosmog are
 gifts, never fought, so they stay in eggs.
+
+Paldea's levels are PKHeX's. In the game each Treasure of Ruin's shrine opens
+after eight stakes are pulled across Paldea -- no badge, but they are level 60
+and the stake hunt is post-game play, so they wait for the champion. Koraidon
+and Miraidon are the Zero Lab's rematch after the story. Area Zero's Paradox
+creatures are ordinary spawns there, both versions'.
 
 Galar's levels are PokeAPI's Sword/Shield statics. Eternatus is fought before the
 final with Leon, a step the ladder has no place for, so it waits for the
@@ -722,8 +758,9 @@ out there. Difficulty does not change its level.
 in an egg. **Mythicals** (Mew, Celebi and the rest) have no home in any game's
 story and stay egg-only, rare, under the same egg odds as ever: the legendary
 egg tier opens at 25 species registered and is 3 % of eggs, 10 % after a
-farewell, plus a care bonus. Regions whose areas have not landed yet keep their
-legendaries in eggs and in the old 1 % wild roll until they do.
+farewell, plus a care bonus. Since v3.49 every region's story legendaries have
+homes; the legendaries of the games' expansions (Kubfu, Calyrex, the Loyal
+Three, Ogerpon, Terapagos) and Pecharunt stay in eggs.
 
 **Levels follow the gym ladder, not your pet.** An area's band ends just below
 the level cap of the next gym battle it leads to:
@@ -744,10 +781,11 @@ Rainbow Badge). The gym ladder's level cap handicaps a strong
 early catch the same way it handles an over-raised pet.
 
 **Hard changes how the wild creature fights, not how strong it is**: same band,
-the smart battle AI, and two item drops instead of one. Regions whose areas have
-not landed yet keep the old region-wide pool:
+the smart battle AI, and two item drops instead of one. Every region has areas
+since v3.49; the old region-wide pool below is only reached through ALL, which
+Explore keeps switched off:
 
-| Tier (regions without areas) | Chance |
+| Tier (the old region-wide pool) | Chance |
 |---|---|
 | ✨ Legendary | 1 % |
 | 🔵 Rare | 7 % |

@@ -46,6 +46,7 @@ so a strong early catch is handicapped there anyway.
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 
@@ -85,6 +86,15 @@ PLATINUM = 'https://raw.githubusercontent.com/pret/pokeplatinum/master/'
 # PokeAPI's data dump: the source for regions no disassembly covers (Unova
 # onward). Fetched from GitHub, not pokeapi.co, which some networks block.
 POKEAPI = 'https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv/'
+# Paldea (no decomp, nothing in PokeAPI): PKHeX's game-derived legality data
+# for WHERE and at what level, and the game's own spawn table (pokedata_array,
+# published as JSON by an open-source randomizer) for HOW OFTEN. Both pinned
+# to a commit: these files change with the projects, and a silent upstream
+# change must not reshuffle Paldea.
+PKHEX = ('https://raw.githubusercontent.com/kwsch/PKHeX/'
+         '0a7854f64e118ad228513f3cf4b84c308dac2fdc/PKHeX.Core/')
+SV_SPAWNS = ('https://raw.githubusercontent.com/XLuma/SV-Randomizer/'
+             '3c28a5c9485b37cf858d5c1254dfe8867790a11b/Randomizer/WildEncounters/')
 
 SLUG = {slug: n for n, slug, *_ in DEX}
 
@@ -134,7 +144,7 @@ def dex_of(const):
     return SLUG[s]
 
 
-def fetch(url, name, refresh=False):
+def fetch_bytes(url, name, refresh=False):
     os.makedirs(CACHE, exist_ok=True)
     path = os.path.join(CACHE, name)
     if refresh or not os.path.exists(path):
@@ -144,8 +154,12 @@ def fetch(url, name, refresh=False):
                               capture_output=True).stdout
         with open(path, 'wb') as f:
             f.write(data)
-    with open(path, encoding='utf-8') as f:
+    with open(path, 'rb') as f:
         return f.read()
+
+
+def fetch(url, name, refresh=False):
+    return fetch_bytes(url, name, refresh).decode('utf-8')
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +399,139 @@ def load_pokeapi(reg, refresh=False):
     return out
 
 
+# PKHeX's AreaWeather9 bits -> WEATHERS. Paldea's mist is Galar's fog.
+PALDEA_WEATHER = ((1, 'weather-normal'), (2, 'weather-overcast'), (4, 'weather-raining'),
+                  (8, 'weather-thunderstorm'), (16, 'weather-fog'), (32, 'weather-snowing'),
+                  (64, 'weather-snowstorm'), (128, 'weather-sandstorm'))
+# pokedata_array's times of day -> our bands (dusk and night are both night).
+PALDEA_TIME = ((MORN, ('morning',)), (DAY, ('noon',)), (NITE, ('evening', 'night')))
+
+
+def paldea_tables(refresh=False):
+    """PKHeX's wild slots by location id, its location names, and the spawn
+    table's entries by National Dex number (internal species ids converted
+    through PKHeX's own SpeciesConverter table, not a list of our own)."""
+    pkl = fetch_bytes(PKHEX + 'Resources/legality/wild/Gen9/encounter_wild_paldea.pkl',
+                      'pkhex_encounter_wild_paldea.pkl', refresh)
+    names = fetch(PKHEX + 'Resources/text/locations/gen9/text_sv_00000_en.txt',
+                  'pkhex_text_sv_00000_en.txt', refresh).splitlines()
+    conv = fetch(PKHEX + 'PKM/Util/Conversion/SpeciesConverter.cs',
+                 'pkhex_SpeciesConverter.cs', refresh)
+    first = int(re.search(r'FirstUnalignedNational9\s*=\s*(\d+)', conv).group(1))
+    table = [int(x) for x in re.findall(r'-?\d+', re.search(
+        r'Table9InternalToNational =>\s*\[(.*?)\]', conv, re.S).group(1))]
+
+    def national(raw):
+        shift = raw - first
+        return raw + table[shift] if 0 <= shift < len(table) else raw
+    ids = {line.strip(): i for i, line in enumerate(
+        fetch(SV_SPAWNS + 'pokemon_to_id.txt', 'sv_pokemon_to_id.txt', refresh).splitlines())}
+    entries = {}
+    for e in json.loads(fetch(SV_SPAWNS + 'pokedata_array_clean.json',
+                              'sv_pokedata_array_clean.json', refresh))['values']:
+        if e['devid'] not in ids:
+            sys.exit('gen_wild: spawn table species %s has no id' % e['devid'])
+        entries.setdefault(national(ids[e['devid']]), []).append(e)
+    # BinLinker container (PKHeX's BinLinkerAccessor): 'sv', a count, then
+    # start/end offsets; each area is location, -, cross-from, -, then 8-byte
+    # slots (EncounterArea9.cs): species u16, form, gender, min, max, time, weather.
+    if pkl[:2] != b'sv':
+        sys.exit('gen_wild: encounter_wild_paldea.pkl is not a BinLinker "sv" file')
+    slots = {}
+    for i in range(struct.unpack_from('<H', pkl, 2)[0]):
+        start, end = struct.unpack_from('<II', pkl, 4 + i * 4)
+        area = pkl[start:end]
+        loc, cross = area[0], area[2]
+        if cross:       # a creature wandering in from the next zone counts at home
+            continue
+        for k in range((len(area) - 4) // 8):
+            sp, _form, _gen, lo, _hi, tm, wx = struct.unpack_from('<HBBBBBB', area, 4 + k * 8)
+            slots.setdefault(loc, []).append((sp, lo, tm, wx))
+    return slots, names, entries
+
+
+def load_paldea(reg, refresh=False):
+    """Scarlet/Violet. WHICH creatures a zone has, their levels and weathers:
+    PKHeX (from the game files). HOW OFTEN: each one's spawn weight in the
+    game's own pokedata_array -- the highest of its entries that apply to the
+    zone and the time of day (an entry applies when it names the zone's area,
+    names no area at all -- most spawn wherever their biome is -- or, for Area
+    Zero, names its fields). PKHeX decides membership: an entry allowed in an
+    area still never spawns where its biome is missing. Each species carries
+    its own weight; how much of a zone each biome covers is in neither source,
+    and weighting by biome share let a zone's thin biomes swamp it (an oasis
+    ruling Asado Desert), so it is not modelled. A version-exclusive entry
+    counts half, as two averaged versions would."""
+    slots, names, entries = paldea_tables(refresh)
+    # The spawn table numbers its areas; PKHeX names locations. Area n is
+    # location 2n + 4 (docs/explore-plan.md § 15.1: confirmed by species).
+    area_of = lambda loc: (loc - 4) // 2 if 6 <= loc <= 48 and loc % 2 == 0 else None
+    out = {}
+    exclude = set(reg.get('exclude', ()))
+    for loc, sl in slots.items():
+        if loc >= reg['pkhex_max_location']:          # Kitakami, Blueberry: not Paldea's
+            continue
+        mp = names[loc]
+        zero = mp == reg['area_zero']
+        area = area_of(loc)
+
+        def applies(e):
+            if e['locationName']:
+                return zero and e['locationName'].startswith('a_w23')
+            if zero:
+                return False
+            listed = [a for a in e['area'].split(',') if a]
+            return not listed or (area is not None and str(area) in listed)
+        by_dex = {}
+        for sp, lo, tm, wx in sl:
+            if sp in exclude:
+                continue
+            d = by_dex.setdefault(sp, [255, set()])
+            d[0] = min(d[0], lo)
+            d[1] |= {w for bit, w in PALDEA_WEATHER if wx & bit} if wx else set(WEATHERS)
+        rows = out.setdefault(mp, {}).setdefault('land', [])
+        for sp, (lo, wxs) in by_dex.items():
+            if sp > len(DEX):
+                sys.exit('gen_wild: PKHeX species %d is past the dex' % sp)
+            mine = [e for e in entries.get(sp, []) if applies(e)] or entries.get(sp, [])
+            if not mine:
+                sys.exit('gen_wild: %s has no spawn-table entry at all' % DEX[sp - 1][2])
+            for band, keys in PALDEA_TIME:
+                now = [e for e in mine if any(e['timetable'][k] for k in keys)]
+                if not now:
+                    continue
+                def weight(e):
+                    w = max([e['lotvalue%d' % k] for k in range(1, 5)
+                             if e['biome%d' % k] != 'NONE'] or [e['lotvalue']])
+                    return w / 2 if sum(e['versiontable'].values()) == 1 else w
+                best = max(now, key=weight)
+                # A spawn behind a story flag waits for the ladder position
+                # the region's 'flag_gates' gives it, hidden like the rod --
+                # only when every entry that could bring it is behind one.
+                flags = {e['flagName'] for e in now}
+                for f in flags - {''}:
+                    if f not in reg['flag_gates']:
+                        sys.exit('gen_wild: spawn flag %s has no gate in flag_gates' % f)
+                gate = 0 if '' in flags else min(reg['flag_gates'][f] for f in flags)
+                weathers = None if wxs >= set(WEATHERS) else frozenset(wxs)
+                rows.append((sp, lo, weight(best), band, weathers, gate))
+    SOURCE_MAPS[reg['source']] = set(out)
+    return {'paldea': out}
+
+
+def paldea_static_level(leg, refresh=False):
+    """A Paldea legendary's level from PKHeX's static encounters
+    (Encounters9.cs), at its location id."""
+    text = fetch(PKHEX + 'Legality/Encounters/Data/Gen9/Encounters9.cs',
+                 'pkhex_Encounters9.cs', refresh)
+    lv = [int(m.group(1)) for m in re.finditer(
+        r'Species = 0*%d, [^\n]*?Level = 0*(\d+), Location = 0*%d\b' % (leg['dex'], leg['location']),
+        text)]
+    if not lv:
+        sys.exit('gen_wild: PKHeX has no static #%d at location %d' % (leg['dex'], leg['location']))
+    return min(lv)
+
+
 def pokeapi_static_level(reg, leg, refresh=False):
     """A legendary's level from PokeAPI's static encounters at its 'static'
     location area, in the region's versions -- or its 'method' there, for
@@ -603,7 +750,10 @@ def legend_level(src, leg, refresh=False):
 
 def super_rod_gate(reg, refresh=False):
     """The ladder position the region's best rod is handed out at, after
-    checking that the named script really is where the game gives it."""
+    checking that the named script really is where the game gives it. A
+    region with no rod to wait for (Paldea has no fishing) has none: 0."""
+    if 'super_rod' not in reg:
+        return 0
     rod = reg['super_rod']
     if rod['gate'] not in tuple(range(9)) + (WA.GATE_CHAMPION,):
         sys.exit('gen_wild: super rod gate %r' % rod['gate'])
@@ -645,6 +795,8 @@ def water_gate(reg):
 
 
 def load_source(reg, refresh=False):
+    if reg['source'] == 'pkhex-sv':
+        return load_paldea(reg, refresh)
     if reg['source'] in GEN3:
         return load_gen3(reg['source'], refresh)
     if reg['source'] == 'platinum':
@@ -675,11 +827,16 @@ def pre_evolutions():
 
 def row_weathers(slot):
     """A source row's weathers, or None for a row that holds in all of them
-    (every loader but PokeAPI's emits 4-field rows)."""
+    (every loader but PokeAPI's and Paldea's emits 4-field rows)."""
     return slot[4] if len(slot) > 4 else None
 
 
-def mix_band(data, versions, maps, when, gates=None, weather=None):
+def row_gate(slot):
+    """A source row's own hidden gate (Paldea's story-flagged spawns), else 0."""
+    return slot[5] if len(slot) > 5 else 0
+
+
+def mix_band(data, versions, maps, when, gates=None, weather=None, area_gate=0):
     """One time band's distribution over an area (steps 1-3), keyed by
     (species, gate): a method with a hidden gate (the best rod's 'fishing',
     Galar's 'water') carries it, so a species both walked into and fished up
@@ -708,7 +865,8 @@ def mix_band(data, versions, maps, when, gates=None, weather=None):
                 tot = sum(rate(s) for s in slots)
                 dist = {}
                 for s in slots:
-                    dist[s[0]] = dist.get(s[0], 0) + rate(s) / tot
+                    key = (s[0], row_gate(s))
+                    dist[key] = dist.get(key, 0) + rate(s) / tot
                 dists.append(dist)
             if dists:
                 avg = {}
@@ -720,8 +878,9 @@ def mix_band(data, versions, maps, when, gates=None, weather=None):
             continue
         wsum = sum(WA.METHOD_WEIGHT[m] for m in per_method)
         for method, dist in per_method.items():
-            gate = gates.get(method, 0)
-            for dex, p in dist.items():
+            for (dex, rgate), p in dist.items():
+                # A row's own gate holds back only past the area's own.
+                gate = max(gates.get(method, 0), rgate if rgate > area_gate else 0)
                 key = (dex, gate)
                 mix[key] = mix.get(key, 0) + p * WA.METHOD_WEIGHT[method] / wsum / len(versions)
     return mix
@@ -773,7 +932,7 @@ def build(refresh=False):
             per_band = {}
             for when in BANDS:
                 for wx in contexts:
-                    mix = mix_band(data, versions, maps, when, gates, wx)
+                    mix = mix_band(data, versions, maps, when, gates, wx, gate)
                     if not mix:
                         sys.exit('gen_wild: area %r has no encounters at time %d, weather %s'
                                  % (name, when, wx))
@@ -800,9 +959,18 @@ def build(refresh=False):
                     slots[k + (wxm,)] = slots.get(k + (wxm,), 0) | when
             ordered = sorted(slots.items(),
                              key=lambda kv: (-kv[0][2], kv[0][0], kv[0][1], kv[1], kv[0][3]))
+            # What holds each gated slot back: the method's (the rod, the
+            # water mode) or the row's own (Paldea's story-flagged spawns).
+            held = {g: m for m, g in gates.items()}
+            for (_d, g, _w, _x), _when in ordered:
+                if g and g not in held:
+                    held[g] = 'story'
+            if len({g for (_d, g, _w, _x), _when in ordered if g}) > 1:
+                # wildarea_test and verify_wild.py read ONE hidden gate an area.
+                sys.exit('gen_wild: area %r has two hidden gates %s' % (name, held))
             areas.append({'name': name, 'region': reg['region'], 'gate': gate,
                           'maps': maps, 'band': band(caps[reg['region']], gate),
-                          'hidden': {g: m for m, g in gates.items()},
+                          'hidden': held,
                           'per_band': per_band,
                           'weathers': wxs,
                           'slots': [(dex, w, when, floor_of(dex), g)
@@ -820,6 +988,7 @@ def build(refresh=False):
                 sys.exit('gen_wild: legend #%d gate %r is not at or after its area\'s'
                          % (leg['dex'], gate))
             game_level = (pokeapi_static_level(reg, leg, refresh) if 'versions' in reg
+                          else paldea_static_level(leg, refresh) if reg['source'] == 'pkhex-sv'
                           else legend_level(reg['source'], leg, refresh))
             legends.append({'dex': leg['dex'], 'area': idx, 'gate': gate,
                             'roams': bool(leg.get('roams')),
@@ -867,6 +1036,7 @@ def scale(mix):
     return sorted(out.items(), key=lambda kv: (-kv[1], kv[0]))
 
 
+HIDDEN_LABEL = {'fishing': 'best rod', 'water': 'water mode', 'story': 'story lock'}
 WHEN_NAME = {ANY: 'WILD_WHEN_ANY', MORN: 'WILD_WHEN_MORN', DAY: 'WILD_WHEN_DAY',
              NITE: 'WILD_WHEN_NITE', MORN | DAY: 'WILD_WHEN_MORN | WILD_WHEN_DAY',
              MORN | NITE: 'WILD_WHEN_MORN | WILD_WHEN_NITE',
@@ -906,7 +1076,7 @@ def emit(areas, legends):
              '  uint8_t region;    // REGIONS index\n'
              '  uint8_t gate;      // ladder position that opens it\n'
              '  uint16_t first;    // into WILD_SLOTS\n'
-             '  uint8_t count;\n'
+             '  uint16_t count;    // NOT uint8_t: Glaseado Mountain alone has 300+\n'
              '  uint8_t lvMin, lvMax;  // the band, from the gym ladder (trainers.h)\n'
              '  uint16_t wxMask;   // the weathers it has (bit WILD_WX_*), 0 = none\n'
              '};\n'
@@ -928,15 +1098,14 @@ def emit(areas, legends):
             o.append('  { %d, %d, %s, %d, %d, %s },  // %s%s\n'
                      % (dex, w, WHEN_NAME[when], floor, gate,
                         'WILD_WX_ANY' if wx == WX_ANY else '0x%03X' % wx, DEX[dex - 1][2],
-                        (', best rod' if a['hidden'][gate] == 'fishing' else ', water mode')
-                        if gate else ''))
+                        ', ' + HIDDEN_LABEL[a['hidden'][gate]] if gate else ''))
         spans.append((first, len(a['slots'])))
         first += len(a['slots'])
     o.append('};\n#define WILD_SLOT_COUNT %d\n\n' % first)
     o.append('static const WildArea WILD_AREAS[] = {\n')
     for a, (f, c) in zip(areas, spans):
-        if c > 255:
-            sys.exit('gen_wild: area %r has %d slots, past uint8_t' % (a['name'], c))
+        if c > 0xFFFF:
+            sys.exit('gen_wild: area %r has %d slots, past uint16_t' % (a['name'], c))
         o.append('  { "%s", %d, %d, %d, %d, %d, %d, 0x%03X },\n'
                  % (a['name'], a['region'], a['gate'], f, c, a['band'][0], a['band'][1],
                     sum(1 << WEATHERS.index(w) for w in a['weathers'])))

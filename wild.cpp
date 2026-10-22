@@ -12,6 +12,7 @@ static_assert(sizeof(WILD_REGION_AREAS[0][0]) >= 2, "WILD_REGION_AREAS must hold
 static_assert(sizeof(((WildLegend *)0)->area) >= 2, "WildLegend::area must hold an area index past 255");
 static_assert(sizeof(decltype(wildAreaFirst(0))) >= 2, "wildAreaFirst() must return an area index past 255");
 static_assert(WILD_AREA_COUNT < WILD_NO_AREA, "WILD_NO_AREA is a real area");
+static_assert(sizeof(((WildArea *)0)->count) >= 2, "WildArea::count must hold Glaseado Mountain's 300+ slots");
 static_assert(S_WX_FOG - S_WX_CLEAR + 1 == WILD_WX_COUNT && S_WX_FOG - S_WX_CLEAR == WILD_WX_FOG,
               "the weather names in i18n.h must follow WILD_WX_* (wild_areas.h)");
 static_assert(WILD_LEGEND_COUNT <= 8 * LEGEND_BYTES,
@@ -230,7 +231,7 @@ uint8_t wildAreaState(uint16_t area, uint8_t when, const Pet &p) {
   const WildArea &a = WILD_AREAS[area];
   const uint16_t wx = weatherBit(a, p);
   bool packMissing = false;
-  for (uint8_t i = 0; i < a.count; i++) {
+  for (uint16_t i = 0; i < a.count; i++) {
     const WildSlot &s = WILD_SLOTS[a.first + i];
     if (slotLive(a, s, when, wx, p)) return WILD_AREA_LIVE;
     if ((s.when & when) && (s.wx & wx) && gateOpen(a.region, s.gate, p) &&
@@ -249,11 +250,11 @@ int16_t wildAreaPick(uint16_t area, uint8_t when, const Pet &p, uint32_t roll) {
   const WildArea &a = WILD_AREAS[area];
   const uint16_t wx = weatherBit(a, p);
   uint32_t total = 0;
-  for (uint8_t i = 0; i < a.count; i++)
+  for (uint16_t i = 0; i < a.count; i++)
     if (slotLive(a, WILD_SLOTS[a.first + i], when, wx, p)) total += WILD_SLOTS[a.first + i].weight;
   if (!total) return 0;
   uint32_t want = roll % total;
-  for (uint8_t i = 0; i < a.count; i++) {
+  for (uint16_t i = 0; i < a.count; i++) {
     const WildSlot &s = WILD_SLOTS[a.first + i];
     if (!slotLive(a, s, when, wx, p)) continue;
     if (want < s.weight) return s.dex;
@@ -267,7 +268,7 @@ uint8_t wildAreaLevel(uint16_t area, int16_t dex, uint32_t roll) {
   const WildArea &a = WILD_AREAS[area];
   uint8_t lo = a.lvMin ? a.lvMin : 1, hi = a.lvMax < lo ? lo : a.lvMax;
   uint8_t lvl = (uint8_t)(lo + roll % (uint32_t)(hi - lo + 1));
-  for (uint8_t i = 0; i < a.count; i++) {
+  for (uint16_t i = 0; i < a.count; i++) {
     const WildSlot &s = WILD_SLOTS[a.first + i];
     if (s.dex == dex && lvl < s.floor) lvl = s.floor;
   }

@@ -927,7 +927,89 @@ GALAR = {
     ],
 }
 
-REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA, KALOS, ALOLA, GALAR]
+# Paldea is SCARLET + VIOLET, NOT VERIFIED (no Gen 9 decomp, nothing in
+# PokeAPI): WHERE and at what level from PKHeX's game-derived legality data,
+# HOW OFTEN from the game's own spawn table (gen_wild.py's load_paldea()). An
+# open world: every zone can be walked into from the start, and what holds you
+# back is its level -- so a zone opens at the badge whose band fits its median
+# spawn level (owner's call, docs/explore-plan.md § 15.3), which follows
+# Paldea's own south-to-north climb. The seas open with Brassius's badge, where
+# Koraidon/Miraidon learns to swim (the second Titan) -- the level rule lands
+# them there anyway. No fishing in Paldea, so no rod to wait for.
+PALDEA = {
+    'region': 8,
+    'source': 'pkhex-sv',
+    'pkhex_max_location': 132,     # Kitakami and Blueberry start here: egg-only
+    'area_zero': 'Area Zero',      # its spawns are the table's a_w23 fields
+    # The spawn table's story flags, as ladder positions. A creature that only
+    # spawns behind one waits for it, hidden like the best rod:
+    #  - the Hall of Fame: Area Zero's Paradox creatures (Area Zero itself
+    #    opens with the champion, so this holds nothing back there);
+    #  - Titan Orthworm beaten (Path of Legends, level ~29, not on this
+    #    ladder): wild Orthworm waits for the gym at that level, Kofu's.
+    'flag_gates': {'FSYS_SCENARIO_GAME_CLEAR': GATE_CHAMPION,
+                   'FEVT_NUSHI_HAGANE_EVENT_END': 4},
+    'areas': [
+        # The start -- Cabo Poco, the Academy's city and the south
+        ('POCO PATH',        0, ['Poco Path']),
+        ('INLET GROTTO',     0, ['Inlet Grotto']),
+        ('SOUTH PROV. 1',    0, ['South Province (Area One)']),
+        ('MESAGOZA',         0, ['Mesagoza']),
+        ('SOUTH PROV. 2',    0, ['South Province (Area Two)']),
+        ('POKEMON LEAGUE',   0, ['Pok\u00e9mon League']),
+        # Brassius (two badges) -- the rest of the south, the first of the
+        # east and west, the southern sea
+        ('SOUTH PROV. 3',    2, ['South Province (Area Three)']),
+        ('WEST PROV. 1',     2, ['West Province (Area One)']),
+        ('SOUTH PROV. 4',    2, ['South Province (Area Four)']),
+        ('SOUTH PROV. 5',    2, ['South Province (Area Five)']),
+        ('EAST PROV. 1',     2, ['East Province (Area One)']),
+        ('S. PALDEAN SEA',   2, ['South Paldean Sea']),
+        # Iono
+        ('EAST PROV. 2',     3, ['East Province (Area Two)']),
+        ('ASADO DESERT',     3, ['Asado Desert']),
+        ('EAST PROV. 3',     3, ['East Province (Area Three)']),
+        ('E. PALDEAN SEA',   3, ['East Paldean Sea']),
+        ('WEST PROV. 2',     3, ['West Province (Area Two)']),
+        # Kofu
+        ('TAGTREE THICKET',  4, ['Tagtree Thicket']),
+        ('W. PALDEAN SEA',   4, ['West Paldean Sea']),
+        ('WEST PROV. 3',     4, ['West Province (Area Three)']),
+        # Larry
+        ('DALIZAPA PASSAGE', 5, ['Dalizapa Passage']),
+        ('MONTENEVERA',      5, ['Montenevera']),
+        ('GLASEADO MTN',     5, ['Glaseado Mountain']),
+        ('ALFORNADA CAVERN', 5, ['Alfornada Cavern']),
+        # Ryme
+        ('SOUTH PROV. 6',    6, ['South Province (Area Six)']),
+        # Grusha -- the north
+        ('NORTH PROV. 3',    8, ['North Province (Area Three)']),
+        ('N. PALDEAN SEA',   8, ['North Paldean Sea']),
+        ('NORTH PROV. 1',    8, ['North Province (Area One)']),
+        ('NORTH PROV. 2',    8, ['North Province (Area Two)']),
+        ('CASSEROYA LAKE',   8, ['Casseroya Lake']),
+        ('SOCARRAT TRAIL',   8, ['Socarrat Trail']),
+        # The champion -- the story's end, under the Great Crater
+        ('AREA ZERO',        GATE_CHAMPION, ['Area Zero']),
+    ],
+    'skip': {},
+    'legends': [
+        # The Treasures of Ruin, at their shrines (PKHeX's static locations).
+        # Each shrine opens to eight stakes pulled across Paldea -- no badge in
+        # the game, but they are level 60 and the hunt is post-game play: the
+        # champion (the plan, by the owner's leave). 'location' is PKHeX's id.
+        {'dex': 1001, 'area': 'SOUTH PROV. 1',  'location': 6,   'gate': GATE_CHAMPION},  # Wo-Chien
+        {'dex': 1002, 'area': 'WEST PROV. 1',   'location': 22,  'gate': GATE_CHAMPION},  # Chien-Pao
+        {'dex': 1003, 'area': 'SOCARRAT TRAIL', 'location': 109, 'gate': GATE_CHAMPION},  # Ting-Lu
+        {'dex': 1004, 'area': 'NORTH PROV. 2',  'location': 48,  'gate': GATE_CHAMPION},  # Chi-Yu
+        # Koraidon (Scarlet) and Miraidon (Violet): the Zero Lab rematch after
+        # the story -- both versions' in one home, as every version pair.
+        {'dex': 1007, 'area': 'AREA ZERO', 'location': 124, 'gate': GATE_CHAMPION},
+        {'dex': 1008, 'area': 'AREA ZERO', 'location': 124, 'gate': GATE_CHAMPION},
+    ],
+}
+
+REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA, KALOS, ALOLA, GALAR, PALDEA]
 
 # WILD_LEGENDS[] is stored by INDEX in the save (the met/caught bitmasks), so
 # the order legendaries are emitted in is APPEND-ONLY -- the same rule as move
@@ -941,4 +1023,5 @@ LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250,
                 716, 717, 718,
                 791, 792, 785, 786, 787, 788,
                 793, 794, 795, 796, 797, 798, 799, 800,
-                888, 889, 890]
+                888, 889, 890,
+                1001, 1002, 1003, 1004, 1007, 1008]

@@ -89,6 +89,7 @@ int main(){
   ck(wildRegionHasAreas(5), "Kalos has areas");
   ck(wildRegionHasAreas(6), "Alola has areas");
   ck(wildRegionHasAreas(7), "Galar has areas");
+  ck(wildRegionHasAreas(8), "Paldea has areas");
   {
     // A locked row says which badge it needs; a region with areas whose badge
     // names were never filled in would name a leader instead.
@@ -578,6 +579,34 @@ int main(){
     for (int i=0;i<WILD_AREA_COUNT;i++) if (WILD_AREAS[i].wxMask)
       if (wildAreaHasLive((uint16_t)i,WILD_WHEN_DAY,dIn)!=(wildAreaState((uint16_t)i,WILD_WHEN_DAY,dIn)==WILD_AREA_LIVE)) agree=false;
     ck(agree, "and on a weather day, wildAreaHasLive() and wildAreaState() still agree");
+  }
+
+
+  // ---- Paldea (v3.49, PKHeX + the game's spawn table) ------------------------
+  {
+    int s1=areaIn(8,"SOUTH PROV. 1"), asado=areaIn(8,"ASADO DESERT"), glas=areaIn(8,"GLASEADO MTN");
+    ck(s1>=0 && asado>=0 && glas>=0, "Paldea's South Province 1, Asado Desert and Glaseado Mountain are found");
+    // The rates are the spawn table's, not an even share: a zone's weights
+    // differ from species to species (with no clock, the average's slots).
+    uint16_t lo=0xFFFF, hi=0;
+    const WildArea &a=WILD_AREAS[s1];
+    for (int k=0;k<a.count;k++){
+      const WildSlot &sl=WILD_SLOTS[a.first+k];
+      if (!(sl.when&WILD_WHEN_DAY) || !(sl.wx&WILD_WX_AVG)) continue;
+      if (sl.weight<lo) lo=sl.weight;
+      if (sl.weight>hi) hi=sl.weight;
+    }
+    ck(hi>lo*2, "South Province 1's creatures come at the spawn table's own odds, not all alike");
+    // A zone this big needed WildArea::count past 255 (trap 2).
+    ck(WILD_AREAS[glas].count>255, "Glaseado Mountain holds more than 255 slots");
+    // Wild Orthworm waits for its Titan, mapped to Kofu's badge -- a story
+    // lock, hidden like the rod. Asado Desert itself opens with Iono's.
+    Pet iono, kofu;
+    for (uint8_t t=0;t<3;t++){ iono.winBadge(8,t,false); kofu.winBadge(8,t,false); }
+    kofu.winBadge(8,3,false);
+    ck(wildAreaUnlocked((uint16_t)asado,iono) && picks(asado,iono,968)==0,
+       "Asado Desert opens with Iono's badge, but its Orthworm waits for its Titan (Kofu's)");
+    ck(picks(asado,kofu,968)>0, "and is there once Kofu's badge is won");
   }
 
   printf(bad?"FAILED %d\n":"OK\n", bad);

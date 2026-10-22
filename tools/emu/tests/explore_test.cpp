@@ -102,18 +102,26 @@ int main() {
   onTap(rightX, rightY);
   ck(exploreRegion == 2, "the selector skips a region whose pack is missing");
 
-  // A region whose areas have not landed draws from its own whole pool. Which
-  // region that is changes as areas land (Johto was one until v3.40), so it is
-  // FOUND, never named -- a region with areas may hold another region's
-  // species (Johto's Route 29 has Pidgey) and would make this check wrong.
-  uint8_t noAreas = REGION_ALL;
-  for (uint8_t r = 0; r < REGION_COUNT && noAreas == REGION_ALL; r++)
-    if (r != REGION_ALL && r != pet.region && !wildRegionHasAreas(r)) noAreas = r;
-  ck(noAreas != REGION_ALL, "(some region still has no areas)");
+  // Every real region has areas since v3.49 (Paldea, the last). The selected
+  // region, not the egg region, decides where an encounter comes from: from
+  // the area Explore looks in there. Checked against that area's own picks --
+  // an area may hold another region's species (Johto's Route 29 has Pidgey).
+  bool allAreas = true;
+  for (uint8_t r = 0; r < REGION_COUNT; r++)
+    if (r != REGION_ALL && !wildRegionHasAreas(r)) allAreas = false;
+  ck(allAreas, "every region has areas");
+  const uint8_t far = REGION_COUNT - 2;          // the last real region, never the egg's here
+  ck(far != pet.region, "(the region tried is not the egg region)");
   gRegionArt = 0xFFFF;
-  ck(startWildBattle(noAreas, false), "an installed selected region starts an encounter");
-  ck(wildDex >= REGIONS[noAreas].lo && wildDex <= REGIONS[noAreas].hi,
-     "the encounter comes from the selected region, not the egg region");
+  battleOpen = false; exploreOpen = true;
+  ck(startWildBattle(far, false), "an installed selected region starts an encounter");
+  {
+    uint16_t at = exploreAreaOf(far);
+    bool fromIt = false;
+    for (uint32_t r = 0; r < 20000 && !fromIt; r++)
+      if (wildAreaPick(at, wildTimeBand(exploreHour()), pet, r) == wildDex) fromIt = true;
+    ck(at != WILD_NO_AREA && fromIt, "the encounter comes from the selected region's area, not the egg region");
+  }
 
   // ---------------------------------------------------------------- areas
   battleOpen = false;
@@ -190,18 +198,16 @@ int main() {
   onRim(1);
   ck(areaListOpen && areaPage == p0 + 1, "the area list pages on the rim");
 
-  // A region without areas yet: the row cannot open a list, encounters still work.
+  // Every other region's area row opens its own list, as Kanto's does.
+  bool lists = true;
+  for (uint8_t r = 1; r < REGION_COUNT; r++) {
+    if (r == REGION_ALL) continue;
+    areaListOpen = false; battleOpen = false; exploreOpen = true; exploreRegion = r;
+    tapRect(exploreAreaRect);
+    if (!areaListOpen || exploreAreaOf(r) == WILD_NO_AREA) lists = false;
+  }
   areaListOpen = false;
-  exploreRegion = noAreas;
-  tapRect(exploreAreaRect);
-  ck(!areaListOpen, "a region without areas has no list to open");
-  battleOpen = false; exploreOpen = true;
-  ck(startWildBattle(noAreas, true), "and it still has encounters, from the whole region");
-  // and Johto, which has areas since v3.40, opens its list like Kanto does
-  battleOpen = false; exploreOpen = true; exploreRegion = 1;
-  tapRect(exploreAreaRect);
-  ck(areaListOpen && exploreAreaOf(1) != WILD_NO_AREA, "Johto's area row opens Johto's list");
-  areaListOpen = false;
+  ck(lists, "every region's area row opens its own list");
 
   // ALL is switched off (EXPLORE_ALLOW_ALL 0). The selector must visit every
   // installed region and never ALL -- the first half proves the second is not

@@ -465,9 +465,13 @@ Rotom Bike's water mode as a second hidden gate. Zacian, Zamazenta, Eternatus.
 **Galar's daily weather: DONE (v3.48).** Each Wild Area zone draws one of its
 weathers a day from the clock and Explore shows it beside the levels.
 
-**Next:** Paldea -- planned in § 15, not built.
+**Paldea: DONE (2026-10-22, v3.49)** -- § 15, with one change found while
+building: each species carries its own spawn weight rather than an average of
+equal biome shares, which let a zone's thin biomes swamp it. Time of day comes
+from the spawn table (PKHeX merges it), and Titan Orthworm's flag became a
+hidden story lock at Kofu's badge. **Every region has areas.**
 
-## 15. Paldea (planned 2026-10-22, not built)
+## 15. Paldea (planned 2026-10-22, built in v3.49)
 
 The last region, and the first open world. Everything below is a proposal for
 the owner; the open questions are at the end.

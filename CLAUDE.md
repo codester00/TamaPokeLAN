@@ -632,14 +632,9 @@ rows read "REQUIRES BOULDER BADGE"; one guaranteed legendary encounter, then a
 rare repeat until caught; story legendaries no longer hatch; mythicals are
 egg-only; ALL is switched off). **Done on the branch: Kanto's areas (v3.39),
 the legendaries and Johto's areas (v3.40), the hidden best-rod gate (v3.41),
-Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45), Alola's (v3.46), Galar's (v3.47) and its daily weather (v3.48)** -- see the "Done" entries
-below. Next: Paldea, the last region -- PLANNED in `docs/explore-plan.md` § 15
-(2026-10-22), all four owner questions answered: zones and levels from PKHeX,
-RATES from the game's own `pokedata_array` (per-biome spawn weights, JSON in
-`XLuma/SV-Randomizer`; area n = PKHeX location 2n + 4), level-fit gates,
-Kitakami/Blueberry egg-only, the Treasures of Ruin at the champion. Serebii is
-refused by the cloud network policy and Bulbapedia's Cloudflare challenge
-blocks scripted reads, even headless Chromium. None of it
+Hoenn's areas and legendaries (v3.42), Sinnoh's (v3.43), Unova's (v3.44), Kalos's and the NO VALID SPRITES catch-all (v3.45), Alola's (v3.46), Galar's (v3.47) and its daily weather (v3.48), and Paldea's
+(v3.49) -- EVERY REGION HAS AREAS** -- see the "Done" entries below. Left: the
+whole rework on a board (none of it has been), and the 24-48 h soak. None of it
 has been on a board yet. The original brief, kept for
 the reasoning (owner said yes to everything below except step-based
 encounters, which are on hold). Today: one region-wide pool per region, tiers
@@ -696,6 +691,53 @@ disconnected for a while, which may explain the week-long figure; the
      measured.
    - Bluetooth time from a phone is possible but the most work; and a daily
      "is this the right time?" prompt is the fallback if all else fails.
+
+### Done: Paldea's areas and legendaries (v3.49, not yet on a board)
+
+The last region and the first open world: 32 zones, NOT VERIFIED, built as
+`docs/explore-plan.md` § 15 planned, with one change (below). Six legendaries
+appended (58), `BADGE_NAMES` row 8 (type badges).
+
+- **Two pinned sources, both from the game files** (`load_paldea()`):
+  PKHeX's `encounter_wild_paldea.pkl` (BinLinker; which species a zone has,
+  levels, weather masks; location names from `text_sv_00000_en.txt`) and the
+  game's `pokedata_array` as JSON from `XLuma/SV-Randomizer` (spawn weights,
+  times, versions, story flags; internal species ids through PKHeX's
+  `SpeciesConverter` table). `PKHEX`/`SV_SPAWNS` in gen_wild.py pin commits;
+  `fetch_bytes()` caches the binary.
+- **An entry applies to a zone** when it names the zone's area (area n =
+  location 2n + 4), names NO area (224 of 449: they spawn wherever their biome
+  is -- the discovery that made the rates usable), or, for Area Zero, names its
+  `a_w23` fields. PKHeX decides membership; an entry with no applicable match
+  falls back to the species' entries anywhere.
+- **The change from the plan: each species carries its own weight** (the
+  highest lot value of its applicable entries active in that time band),
+  instead of averaging equal biome shares. Built both ways: equal shares let a
+  zone's thin biomes swamp it (an oasis ruling Asado Desert, Gastly topping
+  South Province 1); per-species weights put Lechonk/Fletchling/Tarountula and
+  Sandile/Cacnea on top, as in the game. A version-exclusive entry counts half.
+- **Time from the spawn table, not PKHeX**: PKHeX merges a species' entries'
+  time masks (Gastly's night-only and all-day entries read "any"). Weather is
+  PKHeX's per-slot mask (mist = fog); the daily draw and the Explore label work
+  as in Galar.
+- **Story flags become hidden row gates** (`flag_gates`, `row_gate()`, the
+  `'story'` hidden kind): the Hall of Fame (the Paradox creatures -- Area Zero
+  opens at the champion, so it holds nothing back) and Titan Orthworm beaten,
+  mapped to Kofu's badge (gate 4). An unknown flag stops the generator.
+- **`WildArea::count` is `uint16_t`** (Glaseado Mountain: 452 slots), the
+  firmware loops widened, a `static_assert` guards it. 6132 -> 14844 slots.
+- Zone gates are the level-fit table (median spawn level vs the ladder's
+  bands); the seas land at Brassius's, where swimming arrives. Treasures of
+  Ruin at their shrines (PKHeX statics, L60) and Koraidon/Miraidon in Area Zero
+  (L72), all champion. Kitakami/Blueberry (location >= 132) and the
+  expansions' legendaries: egg-only (owner).
+- `legend_test`'s egg check is now "Paldea's expansion legendaries and
+  Pecharunt still hatch" -- no region is without homes; `explore_test`'s
+  "a region without areas" section became "every region has areas" and
+  "every region's row opens its list". Negative-checked: the story-flag gate
+  (Orthworm) and the spawn weights flattened to an even share. Earlier regions
+  byte-identical apart from the widened count. Firmware 2,121,392 bytes =
+  67.4 % of the 3 MB app partition.
 
 ### Done: Galar's daily weather (v3.48, not yet on a board)
 
