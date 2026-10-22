@@ -15,6 +15,7 @@
 #include "pet.h"
 #include "party.h"
 #include "noart.h"   // speciesHasArt / NO_ART_COUNT
+#include "wild.h"    // wildIsExploreLegend
 #include <cstdio>
 #include <set>
 uint32_t g_seed=23; FakeSerial Serial; FakeESP ESP; FakeWire Wire;
@@ -222,6 +223,38 @@ int main(){
     ck(artless == 0, "no egg ever contains a species with no art");
     // and the guard is real: the list is not empty, so this can actually fail
     ck(NO_ART_COUNT > 0, "and there really are art-less species to exclude");
+  }
+
+  // ---- every hatchable species can come out of an ALL egg ----------------
+  //
+  // A tier's candidates were once gathered into a 260-entry buffer, scanned
+  // from #1. ALL's common tier grew to 313, so the last 53 (Galar and Paldea)
+  // could never hatch from an ALL egg while their own region still gave them.
+  // Asked as the RULE -- every species the egg pool admits comes up -- not as
+  // a count that happens to fit today.
+  {
+    Pet p; seed(p, 60);
+    gRegionArt = 0xFFFF;
+    std::set<int16_t> want, got;
+    for (int16_t d = 1; d <= DEX_COUNT; d++)
+      if (DEX_TBL[d].rarity == R_COMUN && speciesHasArt(d) && !wildIsExploreLegend(d)) want.insert(d);
+    for (int i = 0; i < 40000; i++) got.insert(p.rollInRegion(REGION_ALL, R_COMUN));
+    int missing = 0, last = 0;
+    for (int16_t d : want) if (!got.count(d)) { if (missing < 5) printf("      never rolled: #%d %s\n", d, DEX_TBL[d].name); missing++; }
+    for (int16_t d : got) if (d > last) last = d;
+    printf("      %d hatchable commons, %d rolled, highest #%d\n", (int)want.size(), (int)got.size(), last);
+    ck(want.size() > 260, "(the common tier is larger than the old 260 buffer)");
+    ck(missing == 0, "an ALL egg can hold every hatchable common, up to the last dex number");
+
+    // and through the egg roll itself, which prefers unregistered lines: the
+    // highest-numbered hatchable common comes up (a capped scan from #1 never
+    // gets there, whatever this seed has registered)
+    int16_t top = *want.rbegin();
+    p.setRegion(REGION_ALL);
+    bool reached = false;
+    for (int i = 0; i < 20000 && !reached; i++) reached = p.pickEggSpecies() == top;
+    printf("      the last hatchable common is #%d %s\n", top, DEX_TBL[top].name);
+    ck(reached, "pickEggSpecies() on ALL can hatch the last hatchable common");
   }
 
   // ---- evolution obeys the same rule the egg pool does --------------------

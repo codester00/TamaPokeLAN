@@ -866,6 +866,13 @@ The owner's list after reading v3.50-v3.54. Same branch, not merged.
   L5 700 (Silver) at Goldenrod.
 - **One tilt reading**: `tiltLevel()` / `tiltRead()` beside `tiltToScreen()`;
   Tilt Maze and Surfing Pikachu both go through them.
+- **ALL eggs reach the whole dex**: both egg rolls gathered a tier into a
+  `CAND_MAX` 260 buffer, scanning from #1 -- sized for 386 species. ALL's
+  common tier is 313, so 53 Galar/Paldea commons (#831 WOOLOO to #1012
+  POLTCHAGEIST) could never hatch from an ALL egg. `pickInRange()` counts, rolls
+  an index, and walks again: no buffer, nothing to outgrow. `region_test`
+  rolls every hatchable common out of ALL and hatches the last one through
+  `pickEggSpecies()`; both negative-checked against the 260 cap.
 
 ### Done: Paldea's areas and legendaries (v3.49, not yet on a board)
 

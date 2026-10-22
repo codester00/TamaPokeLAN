@@ -1031,9 +1031,22 @@ uint8_t Pet::eggRarity() const {
 
 // elige la especie del huevo: tirada de rareza (mejorada por una despedida
 // completa, castigada por una escapada) y sesgo hacia lineas incompletas
-// Room for the candidate list. A whole rarity tier of a 386-species dex is far
-// more than the 80 the Kanto-only build needed.
-#define CAND_MAX 260
+//
+// A tier's candidates are COUNTED, then the chosen one is found by a second
+// walk, rather than gathered into a fixed buffer. The buffer used to be 260,
+// sized when the dex was 386: ALL's common tier grew to 313, and the scan
+// stopped at 260, so 53 Galar and Paldea commons could never hatch from an
+// ALL egg. Counting has no size to outgrow.
+template <typename Ok>
+static int16_t pickInRange(int16_t lo, int16_t hi, Ok ok) {
+  uint16_t n = 0;
+  for (int16_t d = lo; d <= hi; d++) if (ok(d)) n++;
+  if (!n) return 0;
+  uint16_t k = (uint16_t)random(n);
+  for (int16_t d = lo; d <= hi; d++)
+    if (ok(d) && k-- == 0) return d;
+  return 0;
+}
 
 uint16_t gRegionArt = 0xFFFF;   // everything, until the SD narrows it
 
@@ -1132,15 +1145,10 @@ int16_t Pet::pickEggSpecies() {
   // si la pokedex del tier esta completa, vale cualquiera del tier
   for (int pass = 0; pass < 2; pass++) {
     for (int t = tier; t >= R_COMUN; t--) {
-      int16_t cand[CAND_MAX];
-      int n = 0;
-      for (int16_t d = rg.lo; d <= rg.hi && n < CAND_MAX; d++) {
-        if (DEX_TBL[d].rarity != t) continue;
-        if (pass == 0 && !lineHasUnregistered(d)) continue;
-        if (!eggCanHold(d)) continue;
-        cand[n++] = d;
-      }
-      if (n > 0) return cand[random(n)];
+      int16_t d = pickInRange(rg.lo, rg.hi, [&](int16_t c) {
+        return DEX_TBL[c].rarity == t && (pass == 1 || lineHasUnregistered(c)) && eggCanHold(c);
+      });
+      if (d) return d;
     }
   }
   return rg.starters[random(rg.starterCount)];  // inalcanzable, por si acaso
@@ -1152,11 +1160,10 @@ int16_t Pet::pickEggSpecies() {
 int16_t Pet::rollInRegion(uint8_t r, uint8_t tier) {
   const RegionInfo &rg = REGIONS[eggRegionFallback(r % REGION_COUNT)];
   for (int t = tier; t >= R_COMUN; t--) {
-    int16_t cand[CAND_MAX];
-    int n = 0;
-    for (int16_t d = rg.lo; d <= rg.hi && n < CAND_MAX; d++)
-      if (DEX_TBL[d].rarity == t && eggCanHold(d)) cand[n++] = d;
-    if (n) return cand[random(n)];
+    int16_t d = pickInRange(rg.lo, rg.hi, [&](int16_t c) {
+      return DEX_TBL[c].rarity == t && eggCanHold(c);
+    });
+    if (d) return d;
   }
   return rg.starters[0];      // a region with nothing in it cannot happen
 }
