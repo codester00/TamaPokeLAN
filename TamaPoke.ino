@@ -52,7 +52,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.56"
+#define FW_VERSION "3.57"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -385,6 +385,10 @@ bool btlOver = false;
 bool btlWon = false;
 bool btlNewBadge = false;
 uint32_t btlWinUntil = 0;   // the win screen is up
+// A gym win waits for its last turn to be read: the final hit, the bar draining
+// and the faint play out first, and the badge screen opens on the tap that
+// clears the last message (battleTap()).
+bool btlWinPending = false;
 // A gym or wild fight was lost: when its last message is dismissed, the
 // blackout screen comes up and Mom sends you home (v3.38). Never for a LAN
 // fight -- a friendly match with a rival is not a blackout.
@@ -5592,6 +5596,7 @@ void startLinkBattle() {
   btlWon = false;
   btlMenu = 0;
   btlWinUntil = 0;
+  btlWinPending = false;
   btlLost = false;
   btlSwapWho = -1;
   lanWaitSince = 0;      // a rematch reuses this screen; the old wait is over
@@ -5629,6 +5634,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlWon = false;
   btlMenu = 0;
   btlWinUntil = 0;
+  btlWinPending = false;
   btlLost = false;
   btlSwapWho = -1;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
@@ -5663,6 +5669,7 @@ void startBattle(int16_t dex, uint8_t lvl) {
   btlWon = false;
   btlMenu = 0;
   btlWinUntil = 0;
+  btlWinPending = false;
   btlLost = false;
   btlSwapWho = -1;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
@@ -5996,6 +6003,10 @@ static void btlResolve(uint8_t yourMove) {
   if (btlFoe.fainted() || btlYou.fainted()) {
     btlOver = true;
     btlWon = btlFoe.fainted();
+    // the last one down drops out of frame like every other, rather than the
+    // fight cutting away with it still standing
+    if (btlFoe.fainted()) btlFaintUntil[1] = millis() + BTL_FAINT_MS;
+    if (btlYou.fainted()) btlFaintUntil[0] = millis() + BTL_FAINT_MS;
     btlNewBadge = false;
     btlTrainGain = 0;
     if (btlWon && btlTrainer >= 0 && !pet.hasBadge(btlRegion, btlTrainer, btlHard)) {
@@ -6036,7 +6047,11 @@ static void btlResolve(uint8_t yourMove) {
     // A wild win reports its drops as narration rather than on the win screen:
     // that screen is the badge ceremony, and it has no badge to show.
     if (btlWon && btlWild) { btlSay("%s", T(S_BTL_WIN)); wildGrantDrops(); return; }
-    if (btlWon && btlTrainer >= 0) { btlWinUntil = millis() + 60000; return; }
+    if (btlWon && btlTrainer >= 0) {
+      if (btlMsgCount) btlWinPending = true;     // after the last turn is read
+      else btlWinUntil = millis() + 60000;
+      return;
+    }
     btlLost = !btlWon;   // a LAN fight returned above: only gyms and the wild black out
     btlSay("%s", T(S_BTL_LOSE));
   }
@@ -6531,6 +6546,7 @@ static void btlRun() {
 void battleTap(int16_t x, int16_t y) {
   if (btlWinUntil) {          // dismiss the win screen and leave the fight
     btlWinUntil = 0;
+  btlWinPending = false;
     btlFreeSprites();
     audioMusic(MUS_NONE);
     battleOpen = false;
@@ -6548,6 +6564,11 @@ void battleTap(int16_t x, int16_t y) {
       memcpy(btlMsg[i - 1], btlMsg[i], sizeof(btlMsg[0]));
     btlMsgCount--;
     if (btlMsgCount) return;
+    if (btlOver && btlWinPending) {        // the last turn has been read: the badge
+      btlWinPending = false;
+      btlWinUntil = millis() + 60000;
+      return;
+    }
     if (btlOver) {
       btlFreeSprites();
       // A wild win or catch never sets btlWinUntil (that is trainer-only, see
@@ -8916,6 +8937,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlMenu = 0;
   btlBagPage = 0;
   btlWinUntil = 0;
+  btlWinPending = false;
   btlLost = false;
   btlSwapWho = -1;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;

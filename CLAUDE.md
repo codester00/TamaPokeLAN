@@ -837,6 +837,17 @@ guard was negative-checked.
   is no sensor (the emulator). Leaving mid-ride pays what was earned. **The
   physics constants are tuned in the emulator only** -- feel them on a board.
 
+### Done: the gym win plays its last turn (v3.57, on the branch, not merged)
+
+Reported from a board: a gym win cut to the badge screen the moment the winning
+move was picked, so the hit, the bar draining and the faint were never seen.
+`btlResolve()` set `btlWinUntil` on the spot, and the battle renderer hands the
+whole screen to `renderWin()` as soon as that is set. Now a trainer win sets
+`btlWinPending` while the turn's messages are queued, and `battleTap()` opens
+the badge screen on the tap that clears the last one; the final faint also
+drops the last creature out of frame (`btlFaintUntil`), for every kind of win
+or loss. `blackout_test` plays Brock out through `onTap()`; negative-checked.
+
 ### Done: the legendary safety net, the farming lockout and the chiptune (v3.56, merged to `main` 2026-10-23, not yet on a board)
 
 - **The legendary safety net** (owner, 2026-10-22). After `LEGEND_SAFETY_EGGS`

@@ -24,6 +24,8 @@ void setup(); void render();
 void onTap(int16_t x, int16_t y); void onSwipeV(int dir); void onSwipe(int dir);
 uint8_t uiCurrentScreen(); extern const char *const SCREEN_NAME[];
 void startBattle(int16_t dex, uint8_t lvl);
+void startTrainerBattle(uint8_t idx, bool hard);
+extern uint32_t btlWinUntil, btlFaintUntil[2];
 int btlCellIndexAt(int16_t x, int16_t y);
 extern Pet pet;
 extern bool battleOpen, btlOver, btlWon, btlLost, blackoutOpen;
@@ -117,6 +119,28 @@ int main() {
   ck(!btlLost, "starting a fight clears a stale loss");
   playOut();
   ck(!blackoutOpen, "so a win after a loss does not black out either");
+
+  // ---- a gym win plays its last turn out before the badge screen
+  {
+    pet.dbgHatchAs(150, false);                // MEWTWO: the ladder caps it at Brock's 14
+    freshCreature(100);
+    startTrainerBattle(0, false);              // Brock
+    int16_t mx = 0, my = 0;
+    cellPoint(0, mx, my);
+    for (int t = 0; t < 600 && battleOpen && !btlOver; t++) {
+      if (btlMsgCount) onTap(233, 233);
+      else onTap(mx, my);
+    }
+    ck(btlOver && btlWon, "(Mewtwo beat Brock)");
+    ck(btlMsgCount > 0 && !btlWinUntil && on("battle"),
+       "the final turn's messages are on screen, not the badge yet");
+    ck(btlFaintUntil[1] > millis(), "and the last of his team drops out of frame");
+    int taps = 0;
+    while (btlMsgCount && taps < 50) { onTap(233, 233); taps++; }
+    ck(btlWinUntil && on("win"), "clearing the last message opens the badge screen");
+    onTap(233, 233);
+    ck(!battleOpen && !btlWinUntil, "and a tap there leaves the fight");
+  }
 
   printf("%s\n", bad ? "FAILURES" : "all good");
   return bad ? 1 : 0;
