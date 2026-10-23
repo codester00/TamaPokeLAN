@@ -839,27 +839,44 @@ guard was negative-checked.
 
 ### TODO: agreed with the owner 2026-10-23, in this order (plans, nothing built)
 
-1. **Training scales with level, in battle only.** The player keeps seeing
-   training on its 0-100 scale everywhere (card, training games); only the
-   battle maths uses `tr * level / 100` (+100 at L100, +14 at L14). First make
-   `pet.cpp` and `party.cpp` ask ONE stat function (party.cpp has its own copy
-   of `calcStat()` today -- trap 1). Leaders: easy = no training (the games'
+1. **Training scales with level, in battle only.** Training stays on its 0-100
+   scale on the training screen and in the minigames; the CARD's stat numbers
+   show the battle values (owner, 2026-10-23). Battle maths uses
+   `tr * level / 100` (+100 at L100, +14 at L14). First make `pet.cpp` and
+   `party.cpp` ask ONE stat function (party.cpp has its own copy of
+   `calcStat()` today -- trap 1). Leaders: easy = no training (the games'
    story leaders have no EVs), hard = full training on the same scale, IVs
    16/31 as now. Bump `LINK_PROTO`. Re-measure the ladder win rates and update
    the tables in README/here before shipping.
 2. **A post-game battle league** (owner, later): fully trained teams, like the
    games' Battle Tower/Frontier/PWT/Battle Tree. Not designed yet.
 3. **Secret codes, entered in the Memory game** (taps in the watch phase, which
-   do nothing today). Five codes: one each for Celadon, Goldenrod and Surfing
-   Pikachu (one-time: jump straight in, back out to normal; coins and high
-   scores earned are kept); one for a hidden SETTINGS menu (rule changes, saved,
-   with a visible "modified rules" mark while any is on); one for the CHEATS
-   menu (grants and gates; using any option sets a PERMANENT flag shown on the
-   player card). Cheats never touch LAN battles or trades. Every toggle is
-   checked inside the existing one-answer function for its rule.
+   do nothing today). DEVELOPERS ONLY: never in the README or release notes.
+   Five codes:
+   - Celadon, Goldenrod, Surfing Pikachu: one-time entry, straight in; backing
+     out returns to normal. Coins and high scores earned are kept. No mark.
+   - Hidden SETTINGS (rule changes that grant nothing: lockout off, legendary
+     eggs, ALL region, no gym level cap, no hard team cap, companions evolve,
+     no bond cap, no runaways, fair slots, Necrozma met-only, classic stats).
+     Turning ANY on sets a PERMANENT "modified rules" mark on the player card
+     -- it does not go away when the toggle is turned off (owner: that player
+     did not face the same game).
+   - CHEATS (grants and gates). Using any sets a separate PERMANENT "cheats"
+     mark on the player card, plus a record of WHICH were used (bits, for the
+     debugger). Creatures directly changed by a cheat (max training, hatch now,
+     shiny egg, forced legendary, a move from a cheated TM) carry their own
+     mark in `PartyMon::flags` / the pet checkpoint, so it travels with trades.
+     Money, coins and balls are fungible: they mark the trainer only.
+   - Toggles never apply in LAN battles or trades, but the trainer marks and
+     creature marks are SHOWN in LAN (pairing screen and battle) -- protocol
+     bump. Every toggle is checked inside the existing one-answer function.
 4. **Bill's PC**: Pokedex-shaped storage, up to 6 of each species (~6,150),
    on the unused internal FFat partition, with a jump-to-number search shared
-   with the Pokedex. Multi-release; plan to be written before building.
+   with the Pokedex. Dex states: SEEN and REGISTERED exactly as today, plus
+   OWNED = held in the PC or the party right now (releasing the last one
+   removes it from the collection). Grid: coloured if the PC holds one,
+   outline if only the party does, grey silhouette otherwise. A 7th forces a
+   release through the existing chooser. Multi-release; full plan first.
 
 ### Done: the gym win plays its last turn (v3.57, on the branch, not merged)
 
