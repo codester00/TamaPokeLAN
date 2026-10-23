@@ -24,6 +24,13 @@
 // Sized by simulation so a consistent player completes the egg-only
 // legendaries in about two years (README, Game manual).
 #define LEGEND_SAFETY_EGGS 10
+// The farming lockout (v3.56). An egg after an early retire or a release is a
+// legendary ATTEMPT at the plain 3 %. The first LEGEND_FREE_ATTEMPTS since the
+// last farewell keep it -- an honest player's mistakes cost nothing -- and every
+// one after that rolls legendary at 0 until a farewell clears the count. Like a
+// password lockout: it stops the hatch-and-dump loop (~1,240 eggs, ~8 hours of
+// tapping for every egg-only legendary) without touching a farewell egg.
+#define LEGEND_FREE_ATTEMPTS 2
 // Retiring a creature BEFORE it has earned its farewell costs the NEXT one a
 // day's worth of evolution. Derived from MINUTES_PER_LEVEL rather than written
 // as 24, so it stays "a day" if the level rate is ever retuned.
@@ -494,6 +501,15 @@ public:
   // Farewell eggs in a row without a legendary (LEGEND_SAFETY_EGGS). Player
   // record v6 tail and legacy key "ldry". Moved only by newEgg().
   uint8_t legendDry = 0;
+  // Early-retire / release eggs since the last farewell (LEGEND_FREE_ATTEMPTS).
+  // Player record v7 tail and legacy key "lstk". Moved only by newEgg().
+  uint8_t legendAttempts = 0;
+  // Would an egg laid now, after `ending`, have its legendary chance locked out?
+  // THE one answer pickEggSpecies() asks: the attempt it would be is past the
+  // free ones. A farewell (or a runaway, already common-only) is never locked.
+  bool legendLockedFor(uint8_t ending) const {
+    return ending == CER_RELEASE && legendAttempts >= LEGEND_FREE_ATTEMPTS;
+  }
   // Is the safety net in play for an egg laid now: past the 25-species gate the
   // legendary tier already has, and the egg's region still holding an
   // unregistered legendary that can hatch. THE one answer pickEggSpecies() and

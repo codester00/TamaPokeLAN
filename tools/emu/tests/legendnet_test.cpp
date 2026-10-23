@@ -27,9 +27,12 @@ static void reg(Pet &p, int16_t d) { p.dexReg[(d - 1) >> 3] |= (uint8_t)(1 << ((
 // A pet past the 25-species gate, its eggs from Unova, nothing of Unova seen.
 static void fresh(Pet &p) {
   p.begin();
+  // begin() loads what an earlier section saved: start from a clean Pokedex
+  memset(p.dexReg, 0, sizeof(p.dexReg));
   for (int16_t d = 1; d <= 60; d++) reg(p, d);
   p.region = UNOVA;
   p.legendDry = 0;
+  p.legendAttempts = 0;
 }
 // Lay `n` eggs after the given ending; the eggs are never hatched, so whatever
 // was unregistered stays unregistered and the net stays in play. Returns the
@@ -116,6 +119,72 @@ int main() {
     pr.remove("plyA"); pr.remove("plyB");
     pr.end();
     { Pet r; r.begin(); ck(r.legendDry == 7, "and through the legacy key alone"); }
+  }
+
+  // --- 6. the farming lockout: release eggs past the free attempts roll no legendary
+  {
+    // an honest mistake: the first LEGEND_FREE_ATTEMPTS release eggs keep 3 %
+    Pet p; fresh(p);
+    int legs = 0;
+    p.lastEnd = CER_RELEASE;
+    for (int i = 0; i < 4000; i++) {
+      p.legendAttempts = (uint8_t)(i % LEGEND_FREE_ATTEMPTS);
+      if (isLeg(p.pickEggSpecies())) legs++;
+    }
+    printf("      4000 rolls within the free attempts: %d legendary\n", legs);
+    ck(legs > 60 && legs < 200, "the first release eggs since a farewell keep the plain 3%");
+    p.legendAttempts = LEGEND_FREE_ATTEMPTS - 1;
+    ck(!p.legendLockedFor(CER_RELEASE), "the last free attempt is not locked");
+    p.legendAttempts = LEGEND_FREE_ATTEMPTS;
+    ck(p.legendLockedFor(CER_RELEASE), "the one after it is");
+
+    // a farm: one release egg after another
+    Pet f; fresh(f);
+    int late = 0, rare = 0, all = 0;
+    for (int i = 0; i < 4000; i++) {
+      f.lastEnd = CER_RELEASE;
+      f.newEgg();
+      int16_t d = f.eggPeek();
+      if (i >= LEGEND_FREE_ATTEMPTS) {
+        all++;
+        if (isLeg(d)) late++;
+        if (d >= 1 && d <= DEX_COUNT && DEX_TBL[d].rarity == R_RARO) rare++;
+      }
+    }
+    printf("      4000 release eggs in a row: %d legendary past the free ones, %d rare of %d\n", late, rare, all);
+    ck(f.legendAttempts >= LEGEND_FREE_ATTEMPTS, "release eggs build the attempt count");
+    ck(late == 0, "past the free attempts no release egg is a legendary");
+    ck(rare > all / 10, "but the rare tier is untouched -- only the legendary chance is locked");
+
+    // a farewell clears it, and is never locked itself
+    f.lastEnd = CER_FAREWELL;
+    ck(!f.legendLockedFor(CER_FAREWELL), "a farewell egg is never locked out");
+    int flegs = 0;
+    uint8_t keep = f.legendAttempts;
+    f.legendDry = 0;
+    for (int i = 0; i < 2000; i++) if (isLeg(f.pickEggSpecies())) flegs++;
+    ck(flegs > 0 && f.legendAttempts == keep, "a locked player's farewell rolls still give legendaries (and EGGS moves nothing)");
+    f.newEgg();
+    ck(f.legendAttempts == 0, "laying the farewell egg clears the count");
+    ck(!f.legendLockedFor(CER_RELEASE), "so the next release egg has its 3% back");
+
+    // a runaway neither counts nor clears
+    f.legendAttempts = 5;
+    f.lastEnd = CER_RUNAWAY;
+    f.newEgg();
+    ck(f.legendAttempts == 5, "a runaway egg leaves the count where it was");
+  }
+
+  // --- 7. the attempt count survives a reload, through the checkpoint and the legacy key
+  {
+    Pet p; fresh(p);
+    p.legendAttempts = 9;
+    p.renameTrainer("RED");
+    { Pet r; r.begin(); ck(r.legendAttempts == 9, "the attempt count survives a reload"); }
+    Preferences pr; pr.begin("tamapoke", false);
+    pr.remove("plyA"); pr.remove("plyB");
+    pr.end();
+    { Pet r; r.begin(); ck(r.legendAttempts == 9, "and through the legacy key alone"); }
   }
 
   printf(bad ? "\n%d FAILED\n" : "\nall passed\n", bad);

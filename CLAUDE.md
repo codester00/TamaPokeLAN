@@ -855,12 +855,25 @@ guard was negative-checked.
   - Saved: player record v6 tail (one byte after `surfHi`) and legacy key `ldry`
     (`SAVE_FIELDS`). `legendnet_test` covers it; negative-checked three ways (no
     forcing, a counter that never builds, release eggs counting).
-- **Egg farming is NOT fixed, deliberately left to the owner**: an early retire
-  or a release is allowed at any time and gives a plain-odds egg (3 %
-  legendary) in ~20-30 s a cycle. The unregistered-first rule still applies, so
-  a farmer needs ~1,240 eggs for the 37 egg-only legendaries -- roughly 8-10
-  hours of tapping, against ~2 years of real play. The obvious fix is
-  "legendary tier only on farewell eggs"; not made without the owner.
+- **The farming lockout** (owner, 2026-10-23; same secrecy as the net -- README
+  and these notes, not the release notes). Before it, an early retire or a
+  release gave a plain-odds egg (3 % legendary) in ~20-30 s a cycle, so a farmer
+  reached the 37 egg-only legendaries in ~1,240 eggs, ~8 hours of tapping. Now
+  each release-ending egg is an ATTEMPT; the first `LEGEND_FREE_ATTEMPTS` (2)
+  since the last farewell keep 3 %, every later one rolls legendary at 0 (rare
+  untouched). A farewell egg clears the count; a runaway leaves it.
+  - `Pet::legendLockedFor(ending)` is THE one answer; `pickEggSpecies()` only
+    reads `legendAttempts`, `newEgg()` is the only writer (after the roll), so
+    `EGGS` stays a pure simulation.
+  - Why a farewell clears it, not a level or a timer: the owner offered either,
+    and a level-25 reset simulated an exploiter 2.5x FASTER than honest play.
+    By simulation with the farewell rule: honest play (farewell every life) 2.08
+    years for every egg-only legendary; the best exploit (dump 1-10 creatures
+    between farewells) 1.5-1.6 years; a pure farmer gets two attempts, then
+    waits ~3 days for a farewell. k=1 gives 1.74-1.85, k=3 1.32-1.39.
+  - Saved: player record v7 tail (one byte after `legendDry`) and legacy key
+    `lstk` (`SAVE_FIELDS`). `legendnet_test` sections 6-7; negative-checked
+    (the lock removed, a farewell not clearing, the checkpoint byte not written).
 - **The chiptune** (owner: "add the chip tune"). The synth was already wired
   in (CLAUDE.md said otherwise); what v3.56 fixed:
   - `tools/gen_music.py` EXECUTES the disassembly's sequences -- `sound_call`,

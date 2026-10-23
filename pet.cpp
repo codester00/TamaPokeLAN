@@ -325,7 +325,8 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // Corner's coins and Surfing Pikachu's best score. Absent reads as none owned,
 // no coins, no score -- what a save from before them truly had.
 // v6 appended the legendary safety net's counter (one byte, after surfHi).
-static constexpr uint16_t PLAYER_VERSION = 6;
+// v7 appended the farming lockout's attempt count (one byte, after that).
+static constexpr uint16_t PLAYER_VERSION = 7;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -336,7 +337,7 @@ static constexpr size_t PLAYER_MAX =
     PLAYER_FIXED + 2 * PLAYER_DEX_BYTES + 4 * (GYM_REGIONS - 1) +
     2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
     4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ +
-    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + CKPT_CRC;
+    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + 1 /* v7 legendAttempts */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -432,6 +433,7 @@ bool Pet::savePlayerSnapshot() {
   cur.put(&coins, sizeof(coins));
   cur.put(&surfHi, sizeof(surfHi));
   cur.put(&legendDry, sizeof(legendDry));   // v6
+  cur.put(&legendAttempts, sizeof(legendAttempts));   // v7
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -544,6 +546,8 @@ bool Pet::loadPlayerSnapshot() {
           // v6: the safety net's counter. Absent reads as 0 -- a fresh count,
           // which only ever delays the net, never hands one out early.
           if (body >= at + 1 + tb + 5) legendDry = buf[at + 5 + tb];
+          // v7: the lockout's attempt count. Absent reads as 0 -- no attempts yet.
+          if (body >= at + 1 + tb + 6) legendAttempts = buf[at + 6 + tb];
         }
       }
     }
@@ -589,6 +593,7 @@ void Pet::begin() {
   coins = 0;
   surfHi = 0;
   legendDry = 0;
+  legendAttempts = 0;
   if (!prefs.getBool("init", false)) {
     if (!prefs.putBool("init", true)) logKeyFailure("pet", "init");
     newEgg();
@@ -638,6 +643,10 @@ void Pet::newEgg() {
   // reset it otherwise -- they are not the good ending (startRetire()).
   if (eggTarget >= 1 && eggTarget <= DEX_COUNT && DEX_TBL[eggTarget].rarity == R_LEGENDARIO) legendDry = 0;
   else if (netActive && legendDry < 255) legendDry++;
+  // The lockout's count: a farewell clears it, an early retire or release adds
+  // an attempt. Updated AFTER the roll, so the roll saw the attempt it was.
+  if (lastEnd == CER_FAREWELL) legendAttempts = 0;
+  else if (lastEnd == CER_RELEASE && legendAttempts < 255) legendAttempts++;
   starterPick = (registeredCount() == 0);  // primera partida: el jugador elige inicial
   // sorteo shiny: 1/48 base, mejor con despedida y con racha/vinculo altos
   int shinyBase = (lastEnd == CER_FAREWELL ? 24 : 48) - careBonus();
@@ -1158,6 +1167,10 @@ int16_t Pet::pickEggSpecies() {
     bool blessed = (lastEnd == CER_FAREWELL);
     int rare = (blessed ? 45 : 27) + careBonus();
     int leg = (registeredCount() >= 25) ? (blessed ? 10 : 3) + careBonus() / 3 : 0;
+    // The farming lockout: past the free attempts since a farewell, a release
+    // egg's legendary share goes to 0 (common takes it). Read here, moved only in
+    // newEgg(), like the safety net.
+    if (legendLockedFor(lastEnd)) leg = 0;
     int r = random(100);
     if (r < leg) tier = R_LEGENDARIO;
     else if (r < leg + rare) tier = R_RARO;
@@ -2527,6 +2540,7 @@ bool Pet::save() {
   SAVE_KEY(prefs.putUShort("coins", coins), "coins");                // v3.53
   SAVE_KEY(prefs.putUShort("surfhi", surfHi), "surfhi");             // v3.54
   SAVE_KEY(prefs.putUChar("ldry", legendDry), "ldry");                // v3.56
+  SAVE_KEY(prefs.putUChar("lstk", legendAttempts), "lstk");           // v3.56
   SAVE_STR_KEY(prefs.putString("nick", nick), "nick", nick);
 #undef SAVE_KEY
 #undef SAVE_STR_KEY
@@ -2611,6 +2625,7 @@ void Pet::load() {
   if (coins > COINS_CAP) coins = COINS_CAP;
   surfHi = prefs.getUShort("surfhi", 0);
   legendDry = prefs.getUChar("ldry", 0);
+  legendAttempts = prefs.getUChar("lstk", 0);
   prefs.getString("nick", nick, sizeof(nick));
   // Moves load last: relearnFromLevel() needs speciesId and ageMinutes, both of
   // which are read above. A save from before moves existed has no "mvs" key and
