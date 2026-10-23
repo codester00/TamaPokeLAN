@@ -387,12 +387,12 @@ While **awake**:
   years** (37 legendaries; ~3 years without it, ~2.1 with it, 9 players in 10
   within 2.3).
 - **The farming lockout** (v3.56, also secret). An egg after an early retire or a
-  release is a legendary *attempt*. The first **2** since your last farewell keep
+  release is a legendary *attempt*. The first one since your last farewell keeps
   the plain ~3 % -- a care mistake costs nothing extra -- but every one after that
   has a **0 %** legendary chance (the rare chance is untouched) until a creature
   is raised to its farewell, which clears the count. A runaway neither counts nor
   clears. Hatching and dumping over and over used to reach every egg-only
-  legendary in ~1,240 eggs, about 8 hours of tapping; now it stops after two.
+  legendary in ~1,240 eggs, about 8 hours of tapping; now it stops after one.
 - Within a tier it favors species whose **evolution line you haven't finished** (so
   all 1025 are completable).
 - **Shiny:** base **1 / 48** (→ **1 / 24** right after a goodbye), improved by

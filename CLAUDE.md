@@ -622,8 +622,8 @@ hardware's and hid that alarm. (The installer was not rebuilt at the time;
 ### NEXT SESSION: action list (agreed with the owner 2026-10-20)
 
 v3.49 (the whole Explore rework, on top of v3.38's avatars + blackout) is
-MERGED to `main` (2026-10-22), and so is **v3.50-v3.55** (later the same day,
-fast-forward, installer rebuilt: it serves v3.55); NOT tagged as a release
+MERGED to `main` (2026-10-22), and so is **v3.50-v3.56** (v3.55 later the same
+day, v3.56 on 2026-10-23; fast-forward, installer rebuilt: it serves v3.56); NOT tagged as a release
 yet. Before the merge every suite ran clean under AddressSanitizer +
 UBSan, the firmware built clean with all warnings on, and a maxed-out save
 measured ~215 of 504 usable NVS entries. The owner believes tagging is blocked
@@ -837,7 +837,7 @@ guard was negative-checked.
   is no sensor (the emulator). Leaving mid-ride pays what was earned. **The
   physics constants are tuned in the emulator only** -- feel them on a board.
 
-### Done: the legendary safety net and the chiptune (v3.56, not yet on a board)
+### Done: the legendary safety net, the farming lockout and the chiptune (v3.56, merged to `main` 2026-10-23, not yet on a board)
 
 - **The legendary safety net** (owner, 2026-10-22). After `LEGEND_SAFETY_EGGS`
   (10) farewell eggs in a row without a legendary, the next farewell egg is one.
@@ -859,7 +859,7 @@ guard was negative-checked.
   and these notes, not the release notes). Before it, an early retire or a
   release gave a plain-odds egg (3 % legendary) in ~20-30 s a cycle, so a farmer
   reached the 37 egg-only legendaries in ~1,240 eggs, ~8 hours of tapping. Now
-  each release-ending egg is an ATTEMPT; the first `LEGEND_FREE_ATTEMPTS` (2)
+  each release-ending egg is an ATTEMPT; the first `LEGEND_FREE_ATTEMPTS` (1, the owner's pick)
   since the last farewell keep 3 %, every later one rolls legendary at 0 (rare
   untouched). A farewell egg clears the count; a runaway leaves it.
   - `Pet::legendLockedFor(ending)` is THE one answer; `pickEggSpecies()` only
@@ -869,8 +869,8 @@ guard was negative-checked.
     and a level-25 reset simulated an exploiter 2.5x FASTER than honest play.
     By simulation with the farewell rule: honest play (farewell every life) 2.08
     years for every egg-only legendary; the best exploit (dump 1-10 creatures
-    between farewells) 1.5-1.6 years; a pure farmer gets two attempts, then
-    waits ~3 days for a farewell. k=1 gives 1.74-1.85, k=3 1.32-1.39.
+    between farewells) 1.74-1.85 years; a pure farmer gets one attempt, then
+    waits ~3 days for a farewell. k=2 would give 1.5-1.6, k=3 1.32-1.39.
   - Saved: player record v7 tail (one byte after `legendDry`) and legacy key
     `lstk` (`SAVE_FIELDS`). `legendnet_test` sections 6-7; negative-checked
     (the lock removed, a farewell not clearing, the checkpoint byte not written).

@@ -30,7 +30,7 @@
 // one after that rolls legendary at 0 until a farewell clears the count. Like a
 // password lockout: it stops the hatch-and-dump loop (~1,240 eggs, ~8 hours of
 // tapping for every egg-only legendary) without touching a farewell egg.
-#define LEGEND_FREE_ATTEMPTS 2
+#define LEGEND_FREE_ATTEMPTS 1
 // Retiring a creature BEFORE it has earned its farewell costs the NEXT one a
 // day's worth of evolution. Derived from MINUTES_PER_LEVEL rather than written
 // as 24, so it stays "a day" if the level rate is ever retuned.
