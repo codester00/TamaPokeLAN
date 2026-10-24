@@ -12,6 +12,7 @@
 #include "battle.h"
 #include "pp.h"
 #include "link.h"
+#include "../../../backs_indoor.h"
 #include <cstdio>
 uint32_t g_seed = 11; FakeSerial Serial; FakeESP ESP; FakeWire Wire;
 volatile int g_touchX = 0, g_touchY = 0; volatile bool g_touchDown = false;
@@ -35,6 +36,7 @@ extern uint8_t btlSquadN, btlSquadAt, btlFoeAt, btlFoeSquadN, btlMenu, btlMsgCou
 extern uint8_t btlSwapDue, btlNextAt[2];
 extern uint16_t btlNextHp[2];
 extern int16_t btlSceneDex;
+extern int8_t btlSceneIndoor;
 extern char btlMsg[8][40];
 extern uint16_t btlMsgHp[8][2];
 extern uint16_t btlHpShown[2];
@@ -181,6 +183,7 @@ int main() {
   lan.send = capture;
   startLinkBattle();
   ck(btlSceneDex == btlSquad[0].dex, "a LAN fight's scene is the host's lead, on the host");
+  ck(btlSceneIndoor == INDOOR_FRONTIER, "and it is the Battle Frontier, indoors");
   // the rival switched to slot 2 earlier, and slot 1 fainted before that
   btlFoeSquad[1].hp = 0;
   btlFoeSquad[btlFoeAt] = btlFoe;
@@ -229,6 +232,7 @@ int main() {
   lan.state = LINK_READY;
   startLinkBattle();
   ck(btlSceneDex == btlFoeSquad[0].dex, "and the guest shows the same scene, the host's lead");
+  ck(btlSceneIndoor == INDOOR_FRONTIER, "and the guest is in the Battle Frontier too");
   memset(&r, 0, sizeof(r));
   r.hostHp = btlFoe.maxHp; r.guestHp = 0; r.hostMove = btlFoe.moves[0];
   r.hostIdx = 0; r.guestIdx = 0;

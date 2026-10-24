@@ -25,6 +25,7 @@
 #include "trade.h"
 #include "noart.h"
 #include "backs.h"
+#include "backs_indoor.h"
 #include "badges.h"
 #include "avatars.h"
 #include <stdarg.h>
@@ -55,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.64"
+#define FW_VERSION "3.65"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -882,6 +883,11 @@ uint8_t btlNextAil[2] = { 0, 0 };
 // The scene, chosen once when the fight starts (btlFixScene()). It used to be
 // the foe's biome looked up every frame, so every replacement changed it.
 int16_t btlSceneDex = 0;
+// An indoor scene (INDOOR_*) for a trainer or LAN fight, -1 outdoors. Set with
+// btlSceneDex by btlFixScene(), from btlIndoorScene().
+int8_t btlSceneIndoor = -1;
+#define BTL_INDOOR_Y 6   // an indoor scene's top; the lower band starts at 254
+int btlIndoorY() { return BTL_INDOOR_Y; }   // for tests: the layout, not a copy of it
 #define BTL_FAINT_MS 700
 #define BTL_ENTER_MS 420
 // battle menu: 0 = FIGHT/POKEMON, 1 = the moves, 2 = the switch list
@@ -5678,6 +5684,21 @@ static void drawBack(const BackScene &b, int y0) {
 // the same day/night split the main screen already uses. Fixed for the whole
 // fight by btlFixScene(): a trainer's second creature does not move the fight.
 static void drawBattleBack() {
+  if (btlSceneIndoor >= 0 && btlSceneIndoor < INDOOR_COUNT) {   // lit at any hour
+    // Drawn higher than an outdoor scene, so the foe stands on Emerald's
+    // platform; the floor's last row fills down to the lower band.
+    const BackScene &b = INDOOR_BACKS[btlSceneIndoor];
+    drawBack(b, BTL_INDOOR_Y);
+    const uint8_t *row = b.idx + (uint32_t)(b.h - 1) * b.w;
+    int x0 = CX - b.w, y = BTL_INDOOR_Y + 2 * b.h;
+    for (int c = 0; c < b.w;) {
+      int run = 1;
+      while (c + run < b.w && row[c + run] == row[c]) run++;
+      gfx->fillRect(x0 + 2 * c, y, 2 * run, 254 - y, b.pal[row[c]]);
+      c += run;
+    }
+    return;
+  }
   int16_t dex = btlSceneDex;
   if (dex < 1 || dex > DEX_COUNT) { gfx->fillCircle(CX, CY, 231, UI_BG_DAY); return; }
   uint8_t bi = DEX_TBL[dex].biome;
@@ -5689,7 +5710,22 @@ static void drawBattleBack() {
 // Every battle start calls this once, just before it opens the screen: the
 // lead opponent's biome, and in a LAN fight the HOST's lead on both boards, so
 // the two players see the same place.
+// THE answer for which fights are indoors, as Emerald stages them: a gym leader
+// in the gym, each Elite Four seat in its own room, the champion in his, and a
+// LAN fight in the Battle Frontier. Wild and one-off fights stay outdoors.
+int8_t btlIndoorScene() {
+  if (btlLink) return INDOOR_FRONTIER;
+  if (btlTrainer < 0) return -1;
+  if (btlTrainer < TRAINER_GYMS) return INDOOR_LEADER;
+  if (btlTrainer < TRAINER_GYMS + TRAINER_ELITE4) return INDOOR_SIDNEY + (btlTrainer - TRAINER_GYMS);
+  return INDOOR_CHAMPION;
+}
+static_assert(INDOOR_DRAKE - INDOOR_SIDNEY + 1 == TRAINER_ELITE4 &&
+              TRAINER_COUNT == TRAINER_GYMS + TRAINER_ELITE4 + 1,
+              "one indoor room per Elite Four seat, then the champion");
+
 static void btlFixScene() {
+  btlSceneIndoor = btlIndoorScene();
   if (btlLink) btlSceneDex = btlLinkHost ? btlSquad[0].dex : btlFoeSquad[0].dex;
   else btlSceneDex = btlFoe.dex;
 }

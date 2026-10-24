@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.64-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.65-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -576,6 +576,10 @@ are raising.
 drains while "X used Y!" is shown, not the moment the moves are picked, and poison
 and burns have their own line ("X is hurt by poison!") with their own drop. In LAN
 battles both boards now read the same lines.
+
+**Indoor battles** (v3.65): gym leaders fight in the gym, each Elite Four member
+and the champion in their own room, and LAN battles in the Battle Frontier --
+Emerald's battle backgrounds, at every hour. Wild fights stay outdoors.
 
 **Kanto's areas (v3.39).** 36 areas built from FireRed and LeafGreen's own
 encounter tables (the `pret/pokefirered` disassembly), both versions combined so
