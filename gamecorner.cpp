@@ -1,6 +1,7 @@
 // The Game Corners' rules -- see gamecorner.h.
 #include "gamecorner.h"
 #include <Arduino.h>
+#include "settings.h"
 #include <string.h>
 #include "moves.h"
 #include "wild.h"
@@ -124,6 +125,7 @@ void slotReturns(uint8_t hall, uint8_t bet, uint32_t *barePm, uint32_t *biasedPm
 }
 
 uint16_t slotDrawOdds() {
+  if (settingOn(SET_FAIR_SLOTS)) return SLOT_ODDS_FAIR;   // the hidden setting
   return (uint16_t)(SLOT_ODDS_MIN + random(SLOT_ODDS_MAX - SLOT_ODDS_MIN + 1));
 }
 
@@ -132,6 +134,7 @@ SlotResult slotSpin(uint8_t hall, uint8_t bet, uint16_t odds) {
   bet = clampBet(bet);
   uint32_t bare, biased;
   slotReturns(hall, bet, &bare, &biased);
+  if (odds == SLOT_ODDS_FAIR) odds = (uint16_t)bare;   // the strips as they are
   // A machine paying less than its odds lines wins up (BIAS); one paying more
   // turns wins away (VETO). Per 10,000: random() is 16 bits in the emulator,
   // so a wider roll would never reach the top of its range there.

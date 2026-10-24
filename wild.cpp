@@ -317,7 +317,9 @@ bool wildLegendLive(uint8_t i, const Pet &p) {
   if (i >= WILD_LEGEND_COUNT || p.legendCaught(i)) return false;
   const WildLegend &l = WILD_LEGENDS[i];
   for (uint8_t k = 0; k < l.needCount; k++)        // e.g. Necrozma: every Ultra Beast
-    if (!p.legendCaught(WILD_LEGEND_NEEDS[l.needFirst + k])) return false;
+    if (!p.legendCaught(WILD_LEGEND_NEEDS[l.needFirst + k]) &&
+        !(settingOn(SET_NECROZMA_MET) && p.legendMet(WILD_LEGEND_NEEDS[l.needFirst + k])))
+      return false;
   return gateOpen(WILD_AREAS[l.area].region, l.gate, p) && speciesHasArt(l.dex) &&
          regionAvailable(regionOfDex(l.dex));
 }

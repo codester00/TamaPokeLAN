@@ -73,6 +73,7 @@ PLAYER_KEYS = [
     "tnam", "avtr", "badg", "reg", "regn", "badh", "strk", "bstrk", "cday",
     "medal", "tmedal", "mstone", "wlt", "stps", "ghi", "shi", "qhi",
     "lang", "snd", "vol",
+    "stng", "rlus",   # v3.59: hidden settings, and which were ever on
 ]
 
 # Legacy scalar keys that are actually booleans on the wire -- the editor

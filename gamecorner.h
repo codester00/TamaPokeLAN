@@ -40,6 +40,7 @@ struct SlotMachine {
   const uint16_t *pay;               // coins per winning line, by symbol
   const uint8_t *biasWeight;         // BIAS: how often each symbol is chosen, or none
 };
+#define SLOT_ODDS_FAIR 0               // slotDrawOdds() with "fair slots": no rigging
 #define SLOT_ODDS_MIN 880              // coins back per 1000 bet, a stingy machine
 #define SLOT_ODDS_MAX 1100             // and a lucky one
 

@@ -34,6 +34,8 @@
 #include "items.h"
 #include "tms.h"
 #include "pp.h"
+#include "codes.h"
+#include "settings.h"
 #include "gamecorner.h"
 #include "gamecorner_art.h"
 #include "surf.h"
@@ -52,7 +54,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.58"
+#define FW_VERSION "3.59"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -281,7 +283,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[SCR_COUNT];   // const is internal linkage in C++
 
@@ -333,6 +335,14 @@ void renderHall();
 void hallTap(int16_t x, int16_t y);
 void hallBack();
 void openHall(uint8_t h);
+// The hidden screens (v3.59), defined beside the halls but reached from the
+// gesture handlers and the Memory game well above and below them.
+extern bool codesOpen;
+extern uint8_t codesPage;
+uint8_t codesPages();
+void renderCodes();
+void codesTap(int16_t x, int16_t y);
+void codeApply(uint8_t id);
 void surfStart();
 void surfPay();
 void surfFrame(uint32_t now);
@@ -1779,6 +1789,13 @@ void handleSerial() {
                   pet.savePending() ? 1 : 0);
     nvsReport("health");
     Serial.println("DONE");
+  } else if (line.startsWith("CODE ")) {       // developers: a secret code by name
+    String nm = line.substring(5);
+    nm.trim();
+    int found = -1;
+    for (int c = 0; c < CODE_COUNT; c++) if (nm == CODES[c].name) found = c;
+    if (found < 0) Serial.println("CODE: unknown");
+    else { codeApply((uint8_t)found); Serial.printf("CODE %s\n", CODES[found].name); }
   } else if (line == "STATS") {
     // A stable per-board label, for the web installer's backup history so two
     // devices' saves can be told apart. The efuse MAC is fixed in silicon and
@@ -1985,6 +2002,7 @@ void onSwipeV(int dir) {
   if (menuOpen) { menuOpen = false; return; }   // any swipe closes the menu
   if (battleOpen) return;   // no swiping out of a fight
   const bool back = dir > 0;
+  if (codesOpen) { if (back) codesOpen = false; return; }
   if (tradeOpen) {          // down backs out one level; a pending trade cannot be left
     if (!back) return;
     if (tradePicking) tradePicking = false;
@@ -2424,6 +2442,7 @@ void onSwipe(int dir) {
   if (menuOpen) { menuOpen = false; return; }   // any swipe closes the menu
   if (blackoutOpen) { blackoutDismiss(); return; }
   if (battleOpen || tradeOpen) return;   // no swiping out of a fight or a trade
+  if (codesOpen) { codesOpen = false; return; }
 
   int t = uiTileIndex();
   if (t >= 0) {
@@ -2479,6 +2498,10 @@ void onTap(int16_t x, int16_t y) {
   }
   if (tradeOpen) {
     tradeTap(x, y);
+    return;
+  }
+  if (codesOpen) {
+    codesTap(x, y);
     return;
   }
   if (blackoutOpen) {
@@ -2982,6 +3005,7 @@ RTC_NOINIT_ATTR uint32_t gCrumbHeap;
 uint8_t uiCurrentScreen() {
   if (pet.awaitingStarter()) return starterRegionDone ? SCR_STARTER : SCR_REGION;
   if (tradeOpen) return SCR_TRADE;
+  if (codesOpen) return SCR_CODES;
   if (blackoutOpen) return SCR_BLACKOUT;
   if (galleryOpen) return galleryPick ? SCR_DEXPICK : SCR_GALLERY;
   if (movePickOpen) return SCR_MOVEPICK;
@@ -3040,6 +3064,13 @@ static const TileDef TILE[TILE_COUNT] = {
   { SCR_GALLERY, SCR_DEXPICK },
 };
 
+// The tile a screen sits on, by its screen id: never a position typed out.
+int uiTileOf(uint8_t scr) {
+  for (int i = 0; i < TILE_COUNT; i++)
+    if (TILE[i].scr == scr) return i;
+  return TILE_PET;
+}
+
 int uiTileIndex() {
   uint8_t s = uiCurrentScreen();
   for (int i = 0; i < TILE_COUNT; i++)
@@ -3096,6 +3127,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_PLAYER:  p = &playerPage;  n = PLAYER_PAGES; break;
     case SCR_AVATAR:  p = &avatarPage;  n = avatarPages(); break;
     case SCR_AREA:    p = &areaPage;    n = areaPages(currentExploreRegion()); break;
+    case SCR_CODES:   p = &codesPage;   n = codesPages(); break;
     case SCR_HALL:    if (hallMode == HM_PRIZES) { p = &hallPage; n = hallPrizePages(); } break;
     case SCR_BOX:     p = &boxPage;     n = BOX_SLOTS / BOX_PER_PAGE; break;
     case SCR_BAGSCR:  p = &bagPage;     n = bagPages(); break;
@@ -3235,9 +3267,7 @@ void uiChrome() {
 // default and startWildBattle(), so none of them can disagree.
 bool exploreRegionAllowed(uint8_t r) {
   if (r >= REGION_COUNT || !regionAvailable(r)) return false;
-#if !EXPLORE_ALLOW_ALL
-  if (r == REGION_ALL) return false;
-#endif
+  if (r == REGION_ALL && !EXPLORE_ALLOW_ALL && !settingOn(SET_EXPLORE_ALL)) return false;
   return true;
 }
 
@@ -3548,6 +3578,79 @@ void renderAreaList() {
   }
   uiChrome();
   gfx->flush();
+}
+
+// ---------- the hidden screens (v3.59) ----------
+// Opened only by a secret code (codes.h). SETTINGS is a rim-paged list of the
+// rule toggles in settings.h, laid out like the area list (areaRowRect).
+bool codesOpen = false;
+uint8_t codesPage = 0;
+
+static uint8_t codesRows() { return SET_COUNT; }
+uint8_t codesPages() { return (uint8_t)((codesRows() + AREA_ROWS - 1) / AREA_ROWS); }
+
+void renderCodes() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  gfx->setTextColor(UI_INK);
+  areaCentred(T(S_CODE_SETTINGS), CX, 60, 300);
+  for (int i = 0; i < AREA_ROWS; i++) {
+    int k = codesPage * AREA_ROWS + i;
+    if (k >= codesRows()) break;
+    int rx, ry, rw, rh;
+    areaRowRect(i, &rx, &ry, &rw, &rh);
+    bool on = gameSettings & (1u << k);
+    gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
+    gfx->drawRoundRect(rx, ry, rw, rh, 12, on ? UI_BAR_OK : UI_INK);
+    gfx->setTextColor(UI_INK);
+    areaCentred(T((StrId)(S_SET_FIRST + k)), CX, ry + 22, rw - 16);
+    gfx->setTextColor(on ? UI_BAR_OK : UI_INK_SOFT);
+    areaCentred(T(on ? S_SET_ON : S_SET_OFF), CX, ry + 56, rw - 16);
+  }
+  uiChrome();
+  gfx->flush();
+}
+
+// The setting (its bit index) under a tap, or -1. Drawing and tapping both
+// lay out through areaRowRect().
+int codesRowAt(int16_t x, int16_t y) {
+  for (int i = 0; i < AREA_ROWS; i++) {
+    int rx, ry, rw, rh;
+    areaRowRect(i, &rx, &ry, &rw, &rh);
+    if (x < rx || x > rx + rw || y < ry || y > ry + rh) continue;
+    int k = codesPage * AREA_ROWS + i;
+    return k < codesRows() ? k : -1;
+  }
+  return -1;
+}
+
+void codesTap(int16_t x, int16_t y) {
+  int k = codesRowAt(x, y);
+  if (k < 0) return;
+  uint16_t bit = (uint16_t)(1u << k);
+  pet.setSetting(bit, !(gameSettings & bit));
+  pet.flushSave();
+  sfxPlay(SFX_TAP);
+}
+
+// THE one place a secret code does anything: the Memory game and `CODE <name>`
+// on the console both land here. A hall opened this way is opened once, for
+// this visit; the area list still asks hallsIn(), so it does not appear there.
+void codeApply(uint8_t id) {
+  switch (id) {
+    case CODE_CELADON: case CODE_GOLDENROD: case CODE_SURF:
+      miniGame = MG_NONE;
+      trainOpen = false;
+      uiTileGo(uiTileOf(SCR_EXPLORE));
+      openHall(id == CODE_CELADON ? HALL_CELADON : id == CODE_GOLDENROD ? HALL_GOLDENROD : HALL_BEACH);
+      break;
+    case CODE_SETTINGS:
+      miniGame = MG_NONE;
+      codesOpen = true;
+      codesPage = 0;
+      break;
+    default: break;   // CHEATS: v3.60
+  }
 }
 
 // ---------- the Game Corners (v3.53) ----------
@@ -4314,6 +4417,9 @@ static void hallMusicSync() {
 
 void render() {
   crumbDrop();   // so a crash can name the screen it happened on
+  // The hidden settings never apply to a LAN battle (settings.h): one answer
+  // a frame, rather than a switch at every way into and out of one.
+  settingsSuspended = lanOpen || btlLink;
   hallMusicSync();
   if (pet.awaitingStarter()) {  // primera partida: region y luego inicial
     if (!starterRegionDone) renderRegionPick(RPICK_FOR_START);
@@ -4323,6 +4429,10 @@ void render() {
   // Modal, and above everything: a pending trade keeps the player here.
   if (tradeOpen) {
     renderTrade();
+    return;
+  }
+  if (codesOpen) {
+    renderCodes();
     return;
   }
   if (blackoutOpen) {
@@ -5584,9 +5694,25 @@ static void buildSquad(uint8_t maxLvl, uint8_t maxCount, uint16_t mask) {
 // How many you may bring: the leader's own count in hard mode, six otherwise.
 // PICK_TRAINERS, not TRAINERS -- this answers for the fight being set up, so it
 // must read the region the picker was opened for.
+// THE team-size rule: the leader's own count on hard, unless the hidden
+// setting lifts it. squadCap() (the picker) and startTrainerBattle() both ask.
+static uint8_t teamCapFor(const Trainer &t, bool hard) {
+  return hard && !settingOn(SET_NO_TEAM_CAP) ? t.count : TRAINER_TEAM_MAX;
+}
+
 uint8_t squadCap(uint8_t idx, bool hard) {
   if (idx >= TRAINER_COUNT) return TRAINER_TEAM_MAX;   // PICK_LAN: uncapped six
-  return hard ? PICK_TRAINERS[idx].count : TRAINER_TEAM_MAX;
+  return teamCapFor(PICK_TRAINERS[idx], hard);
+}
+
+// THE level cap: the leader's best, on both ladders (0 = none, with the
+// hidden setting).
+static uint8_t gymLevelCap(const Trainer &t) {
+  if (settingOn(SET_NO_LEVEL_CAP)) return 0;
+  uint8_t top = 0;
+  for (int k = 0; k < t.count; k++)
+    if (t.team[k].level > top) top = t.team[k].level;
+  return top;
 }
 
 // A fight against another device. The squads are already exchanged; the host
@@ -5642,13 +5768,10 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   if (idx >= TRAINER_COUNT || pet.isEgg() || pet.ceremony != CER_NONE) return;
   uint8_t region = gymRegion % GYM_REGIONS;
   const Trainer &tr = TRAINER_SETS[region].list[idx];
-  uint8_t top = 0;
-  for (int k = 0; k < tr.count; k++)
-    if (tr.team[k].level > top) top = tr.team[k].level;
   // BOTH ladders cap your level to the leader's best. Without it a L73 team
   // walks every trainer at 100% and the type chart never matters. Hard adds the
   // size cap on top, plus a smarter AI and better opposing IVs.
-  buildSquad(top, hard ? tr.count : TRAINER_TEAM_MAX, squadMask);
+  buildSquad(gymLevelCap(tr), teamCapFor(tr, hard), squadMask);
   if (!btlSquadN) return;
   btlTrainer = (int8_t)idx;
   btlRegion = region;
@@ -6885,6 +7008,17 @@ void battleTap(int16_t x, int16_t y) {
 // Page 1: who you are -- avatar, badges, totals. Tap the avatar to cycle it;
 // the four sprites are hand-drawn (see species.h) because SpriteCollab has no
 // trainer art and ripped sprites would be unlicensed.
+// The trainer's permanent marks (v3.59): the hidden settings were ever used.
+// Shown above the name on the player card; they never come off.
+static void drawTrainerMarks(int y) {
+  if (!pet.rulesUsed) return;
+  const char *m = T(S_RULES_MARK);
+  gfx->setTextSize(1);
+  gfx->setTextColor(UI_BAR_WARN);
+  gfx->setCursor(CX - (int)strlen(m) * 3, y);
+  gfx->print(m);
+}
+
 static void renderPlayerBadges() {
   // the player's name if they have set one, the generic title if not; either
   // way tapping it opens the keyboard
@@ -6893,6 +7027,7 @@ static void renderPlayerBadges() {
   gfx->setTextSize(3);
   gfx->setCursor(CX - (int)strlen(tn) * 9, 40);
   gfx->print(tn);
+  drawTrainerMarks(26);
 
   // Pages 1 and 2 are the other regions' ladders: name them, and drop the
   // avatar so the badges have the room. Only page 0 is "you".
@@ -7541,6 +7676,7 @@ static void lanOffer(bool host) {
   // on whether the radio comes up -- doing it the other way round meant a
   // failed radio skipped the squad entirely and left nothing to inspect.
   lan.begin(host, pet.trainerName);
+  settingsSuspended = true;   // what goes on the wire is built by the shared rules
   buildSquad(0, TRAINER_TEAM_MAX, squadMask);
   for (uint8_t i = 0; i < btlSquadN; i++) {
     LinkMon m;
@@ -9856,9 +9992,17 @@ int8_t simonLit = -1;
 static const uint16_t SIMON_COL[4] = { C565(0xd8, 0x3a, 0x4a), C565(0x3a, 0x7a, 0xd8),
                                        C565(0xe8, 0xc0, 0x30), C565(0x4a, 0xa8, 0x4a) };
 
+// The secret codes (codes.h) are tapped during the WATCH phase, which the game
+// itself ignores. Each tap holds the showing back SIMON_CODE_HOLD_MS, so a
+// code can be entered calmly; a player who never taps there sees no change.
+#define SIMON_CODE_HOLD_MS 1500
+uint8_t codeTaps[CODE_LEN];
+uint8_t codeTapN = 0;
+
 void startSimon() {
   if (!mgCanStart()) return;
   mgBegin(MG_SIMON, TR_JOY | TR_BOND);
+  codeTapN = 0;
   for (auto &s : simonSeq) s = random(4);
   simonLen = 1;
   simonPos = 0;
@@ -9885,7 +10029,21 @@ int simonBerryAt(int16_t x, int16_t y) {
 }
 
 static void simonPress(int16_t x, int16_t y, uint32_t now) {
-  if (simonShowing) return;                          // watch first
+  if (simonShowing) {                                // watch first -- or a code
+    int c = simonBerryAt(x, y);
+    if (c < 0) return;
+    memmove(codeTaps, codeTaps + 1, CODE_LEN - 1);
+    codeTaps[CODE_LEN - 1] = (uint8_t)c;
+    if (codeTapN < CODE_LEN) codeTapN++;
+    simonShowAt = now + SIMON_CODE_HOLD_MS;          // the showing waits, then starts over
+    int code = codeTapN == CODE_LEN ? codeMatch(codeTaps) : -1;
+    if (code >= 0) {                                 // no pay: the round just ends
+      sfxPlay(SFX_MEDAL);
+      miniGame = MG_NONE;
+      codeApply((uint8_t)code);
+    }
+    return;
+  }
   int b = simonBerryAt(x, y);
   if (b < 0) return;                                 // between berries: nothing
   simonLit = b;

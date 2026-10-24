@@ -28,6 +28,7 @@ extern Pet pet;
 extern bool cardOpen, galleryOpen, clockOpen, kbOpen, menuOpen, partyOpen, partyPick;
 extern bool trainOpen, movePickOpen, battleOpen, gymOpen, playerOpen, boxOpen, pickOpen;
 extern bool exploreOpen, areaListOpen; extern uint8_t areaPage, exploreRegion;
+extern bool codesOpen; extern uint8_t codesPage;
 extern uint8_t hallOpen, hallMode, hallPage;
 void exploreBtnRect(int *x, int *y, int *w, int *h);
 extern bool martOpen;
@@ -119,6 +120,9 @@ int main(){
   // Explore's area list (v3.39): Kanto alone has 36 areas, three a page.
   clearAll(); exploreOpen=true; exploreRegion=0; areaListOpen=true;
                                                   check("areas",    &areaListOpen, &areaPage);
+  // The hidden SETTINGS (v3.59): twelve toggles, three a page.
+  clearAll(); codesOpen=true;                     check("settings", &codesOpen,    &codesPage);
+  codesOpen=false;
   // A Game Corner's prize counter (v3.53): Celadon has 11 prizes, three a
   // page. hallOpen is the hall + 1, so the check watches a bool mirror of it.
   {

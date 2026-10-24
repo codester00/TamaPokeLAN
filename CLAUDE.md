@@ -883,6 +883,46 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: secret codes and the hidden SETTINGS (v3.59, on the branch, not merged)
+
+Phase 2 of `docs/build-plan.md`. **DEVELOPERS ONLY -- never in the README,
+release notes or installer page.** Codes are eight berries tapped in the
+Memory game's WATCH phase (0 up, 1 right, 2 down, 3 left); `codes.h` is the
+table, `codeApply()` the one place a code acts (`CODE <name>` on the console
+too). Each tap holds the showing back 1.5 s (`SIMON_CODE_HOLD_MS`); a match ends
+the round with no pay.
+
+| code | sequence | does |
+|---|---|---|
+| CELADON | 0 1 2 3 0 1 2 3 | opens Celadon Game Corner, this visit only |
+| GOLDENROD | 0 3 2 1 0 3 2 1 | opens Goldenrod Game Corner, this visit only |
+| SURF | 0 2 0 2 1 3 1 3 | opens Surfing Pikachu, this visit only |
+| SETTINGS | 0 0 2 2 3 1 3 1 | the hidden SETTINGS screen (`SCR_CODES`) |
+| CHEATS | 2 2 0 0 1 3 1 3 | nothing yet (v3.60) |
+
+- A hall code just calls `openHall()` from the Explore tile: no `hallViaCode`
+  flag was needed, because nothing inside a hall re-checks its gate, and the
+  area list still asks `hallsIn()`/`hallUnlocked()`.
+- **`settings.h`**: twelve bits in `gameSettings` (APPEND-ONLY, strings at
+  `S_SET_FIRST + bit`), each checked inside the function that owns the rule --
+  `legendLockedFor()`, `Pet::legendSafetyEggs()`, `eggCanHold()`,
+  `exploreRegionAllowed()`, `gymLevelCap()`, `teamCapFor()` (now also used by
+  `startTrainerBattle()`, which had its own copy of the hard team cap),
+  `Pet::grows()` (ageing, evolving, the cord), `bondCappedToday()` (now also
+  `addBond()`'s check), `canRunawayNow()`, `slotDrawOdds()` (`SLOT_ODDS_FAIR`),
+  `wildLegendLive()`, `battleStat()`.
+- **`settingsSuspended`** makes every setting read off: set by `render()` each
+  frame while `lanOpen || btlLink`, and by `lanOffer()` before it builds what
+  goes on the wire.
+- **The rules mark**: `Pet::setSetting()` ORs into `rulesUsed`, which nothing
+  clears; the player card draws "MODIFIED RULES" above the name. Saved:
+  player record v8 tail (settings, rulesUsed) and legacy keys `stng`/`rlus`.
+- `codes_test` (codes through `mgPress()`, each setting through its owner, the
+  mark through both reload halves, the screen's tap); `swipe_test` pages it.
+  Negative-checked: the mark cleared on toggle-off, the level cap ignoring its
+  setting, LAN suspension ignored. Not covered by a test: legendary eggs,
+  runaways, Necrozma.
+
 ### Done: training scales with level in battle (v3.58, on the branch, not merged)
 
 Phase 1 of `docs/build-plan.md`. `stats.h` holds THE stat formula,

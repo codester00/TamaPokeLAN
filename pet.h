@@ -4,6 +4,7 @@
 #include "dex.h"
 #include "trainers.h"   // GYM_REGIONS sizes the badge masks
 #include "party.h"
+#include "settings.h"
 
 // 1 tick = 1 minuto de juego. Baja este valor para probar mas rapido
 // (p. ej. 5000UL = las estadisticas caen 12x mas rapido).
@@ -240,7 +241,7 @@ public:
   bool wasFullyCared = false;   // graceCheck() restarts the window on the rising edge
   uint16_t unattended = 0;      // awake minutes since last fully cared for; see GRACE_MIN
   bool fullyCared() const;      // every need at CARE_FULL_PCT: what restarts the window
-  bool bondCappedToday() const { return bondToday >= BOND_DAILY_MAX; }   // why a game paid no bond
+  bool bondCappedToday() const { return !settingOn(SET_NO_BOND_CAP) && bondToday >= BOND_DAILY_MAX; }   // why a game paid no bond
   uint8_t careMistakes = 0;   // descuidos: cada uno retrasa la evolucion 1 nivel
   bool sleeping = false;
   uint32_t lastSeenEpoch = 0;   // ultima hora RTC vista (para progresion offline)
@@ -508,6 +509,7 @@ public:
   // THE one answer pickEggSpecies() asks: the attempt it would be is past the
   // free ones. A farewell (or a runaway, already common-only) is never locked.
   bool legendLockedFor(uint8_t ending) const {
+    if (settingOn(SET_NO_LOCKOUT)) return false;
     return ending == CER_RELEASE && legendAttempts >= LEGEND_FREE_ATTEMPTS;
   }
   // Is the safety net in play for an egg laid now: past the 25-species gate the
@@ -515,6 +517,17 @@ public:
   // unregistered legendary that can hatch. THE one answer pickEggSpecies() and
   // newEgg() both ask.
   bool legendSafetyActive() const;
+  // How many dry farewell eggs bring the net: LEGEND_SAFETY_EGGS, or 5 with the
+  // hidden setting. The one place the threshold is read.
+  static uint8_t legendSafetyEggs() { return settingOn(SET_SAFETY5) ? 5 : LEGEND_SAFETY_EGGS; }
+  // Hidden SETTINGS (v3.59): which ones were EVER turned on (settings.h bits).
+  // Permanent -- the player card's "modified rules" mark. Player record v8
+  // tail and legacy key "rlus"; gameSettings itself rides beside it ("stng").
+  uint16_t rulesUsed = 0;
+  void setSetting(uint16_t bit, bool on);
+  // Does this creature age and evolve? Not a revived companion -- unless the
+  // hidden setting says companions grow. Ageing, evolving and the cord ask it.
+  bool grows() const { return !frozen || settingOn(SET_COMPANION_GROWS); }
   void addCoins(uint32_t n) { uint32_t c = (uint32_t)coins + n; coins = c > COINS_CAP ? COINS_CAP : (uint16_t)c; pendingSave = true; }
   bool spendCoins(uint16_t n) { if (coins < n) return false; coins -= n; pendingSave = true; return true; }
 

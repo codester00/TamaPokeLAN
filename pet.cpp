@@ -1,5 +1,14 @@
 #include "pet.h"
 #include "stats.h"
+
+uint16_t gameSettings = 0;
+bool settingsSuspended = false;
+
+void Pet::setSetting(uint16_t bit, bool on) {
+  if (on) { gameSettings |= bit; rulesUsed |= bit; }   // the mark never comes off
+  else gameSettings &= ~bit;
+  pendingSave = true;
+}
 #include "pp.h"
 #include "avatars.h"
 #include "dex.h"
@@ -327,7 +336,7 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // no coins, no score -- what a save from before them truly had.
 // v6 appended the legendary safety net's counter (one byte, after surfHi).
 // v7 appended the farming lockout's attempt count (one byte, after that).
-static constexpr uint16_t PLAYER_VERSION = 7;
+static constexpr uint16_t PLAYER_VERSION = 8;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -338,7 +347,7 @@ static constexpr size_t PLAYER_MAX =
     PLAYER_FIXED + 2 * PLAYER_DEX_BYTES + 4 * (GYM_REGIONS - 1) +
     2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
     4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ +
-    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + 1 /* v7 legendAttempts */ + CKPT_CRC;
+    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + 1 /* v7 legendAttempts */ + 4 /* v8 settings, rulesUsed */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -435,6 +444,8 @@ bool Pet::savePlayerSnapshot() {
   cur.put(&surfHi, sizeof(surfHi));
   cur.put(&legendDry, sizeof(legendDry));   // v6
   cur.put(&legendAttempts, sizeof(legendAttempts));   // v7
+  cur.put(&gameSettings, sizeof(gameSettings));       // v8
+  cur.put(&rulesUsed, sizeof(rulesUsed));
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -549,6 +560,11 @@ bool Pet::loadPlayerSnapshot() {
           if (body >= at + 1 + tb + 5) legendDry = buf[at + 5 + tb];
           // v7: the lockout's attempt count. Absent reads as 0 -- no attempts yet.
           if (body >= at + 1 + tb + 6) legendAttempts = buf[at + 6 + tb];
+          // v8: the hidden settings and the rules mark. Absent reads as none.
+          if (body >= at + 1 + tb + 10) {
+            memcpy(&gameSettings, buf + at + 7 + tb, 2);
+            memcpy(&rulesUsed, buf + at + 9 + tb, 2);
+          }
         }
       }
     }
@@ -595,6 +611,8 @@ void Pet::begin() {
   surfHi = 0;
   legendDry = 0;
   legendAttempts = 0;
+  gameSettings = 0;
+  rulesUsed = 0;
   if (!prefs.getBool("init", false)) {
     if (!prefs.putBool("init", true)) logKeyFailure("pet", "init");
     newEgg();
@@ -774,7 +792,7 @@ void Pet::tick() {
                             // tiempo corriera aqui, el huevo eclosionaria solo a
                             // los 3 min con la especie sorteada y se perderia la
                             // eleccion del jugador
-  if (!frozen) ageMinutes++;   // a revived companion does not age
+  if (grows()) ageMinutes++;   // a revived companion does not age
 
   if (isEgg()) {
     if (ageMinutes >= 3) hatch();  // si no lo tocas, eclosiona solo a los 3 min
@@ -1143,7 +1161,8 @@ static uint8_t eggRegionFallback(uint8_t want) {
 //   - it is not a legendary with a home in Explore: those are caught, never
 //     hatched (owner's call). Mythicals have no home and stay in eggs.
 static bool eggCanHold(int16_t d) {
-  return regionAvailable(regionOfDex(d)) && speciesHasArt(d) && !wildIsExploreLegend(d);
+  return regionAvailable(regionOfDex(d)) && speciesHasArt(d) &&
+         (!wildIsExploreLegend(d) || settingOn(SET_LEGEND_EGGS));
 }
 
 bool Pet::legendSafetyActive() const {
@@ -1178,7 +1197,7 @@ int16_t Pet::pickEggSpecies() {
     // The safety net: enough farewell eggs without a legendary and this one is.
     // Read here, moved only in newEgg(), so the EGGS console simulation can roll
     // as often as it likes without spending or building it.
-    if (blessed && legendDry >= LEGEND_SAFETY_EGGS && legendSafetyActive()) tier = R_LEGENDARIO;
+    if (blessed && legendDry >= legendSafetyEggs() && legendSafetyActive()) tier = R_LEGENDARIO;
   }
 
   // candidatos del tier con linea incompleta; si no hay, baja de tier;
@@ -1349,7 +1368,7 @@ void Pet::registerCare() {
 }
 
 void Pet::addBond(uint8_t amt) {
-  if (bondToday >= BOND_DAILY_MAX) return;  // tope diario: el vinculo no se farmea
+  if (bondCappedToday()) return;  // tope diario: el vinculo no se farmea
   bond = clamp100(bond + amt);
   bondToday += amt;
 }
@@ -1712,7 +1731,7 @@ bool Pet::canFarewellNow() const {
 // abandono total durante 1h: lista para escaparse. La dispara el usuario con el
 // boton (final triste); cuidarla un solo tick la salva (neglectTicks se resetea)
 bool Pet::canRunawayNow() const {
-  if (frozen) return false;
+  if (frozen || settingOn(SET_NO_RUNAWAY)) return false;   // the console's RUN still works
   // inTotalNeglect() as well as the counter, and NOT just the counter. The
   // sleeping branch of tick() returns before the neglect block, so neglectTicks
   // is frozen rather than cleared for the whole night: a creature that went to
@@ -1814,7 +1833,7 @@ void Pet::hatch() {
 // (ninguna estadistica por debajo de 40). NO evoluciona sola: la dispara el
 // usuario tocando al bicho (evolve()), para que vea la transformacion.
 bool Pet::canEvolveNow() const {
-  if (frozen) return false;     // frozen at the form it was banked in
+  if (!grows()) return false;   // frozen at the form it was banked in
   if (isEgg() || sleeping || ceremony != CER_NONE) return false;
   if (evoInfo().status != EVO_READY) return false;
   // The TARGET has to be drawable, not merely present in the table. Evolution
@@ -1857,7 +1876,7 @@ void Pet::markTraded(PartyMon &in, int16_t gaveDex) {
 
 Pet::CordUse Pet::cordUse() const {
   // A frozen companion can never evolve, so a cord on it would be thrown away.
-  if (isEgg() || frozen || tradeEvo) return CORD_NO_EFFECT;
+  if (isEgg() || !grows() || tradeEvo) return CORD_NO_EFFECT;
   if (tradeTarget(speciesId, uid, 0)) return CORD_SOLO;
   if (tradeTarget(speciesId, uid, -1)) return CORD_NEEDS_PARTNER;
   return CORD_NO_EFFECT;
@@ -2533,6 +2552,8 @@ bool Pet::save() {
   SAVE_KEY(prefs.putUShort("surfhi", surfHi), "surfhi");             // v3.54
   SAVE_KEY(prefs.putUChar("ldry", legendDry), "ldry");                // v3.56
   SAVE_KEY(prefs.putUChar("lstk", legendAttempts), "lstk");           // v3.56
+  SAVE_KEY(prefs.putUShort("stng", gameSettings), "stng");            // v3.59
+  SAVE_KEY(prefs.putUShort("rlus", rulesUsed), "rlus");               // v3.59
   SAVE_STR_KEY(prefs.putString("nick", nick), "nick", nick);
 #undef SAVE_KEY
 #undef SAVE_STR_KEY
@@ -2618,6 +2639,8 @@ void Pet::load() {
   surfHi = prefs.getUShort("surfhi", 0);
   legendDry = prefs.getUChar("ldry", 0);
   legendAttempts = prefs.getUChar("lstk", 0);
+  gameSettings = prefs.getUShort("stng", 0);
+  rulesUsed = prefs.getUShort("rlus", 0) | gameSettings;
   prefs.getString("nick", nick, sizeof(nick));
   // Moves load last: relearnFromLevel() needs speciesId and ageMinutes, both of
   // which are read above. A save from before moves existed has no "mvs" key and

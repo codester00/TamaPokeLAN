@@ -44,7 +44,9 @@ const SaveField SAVE_FIELDS[] = {
   { "coins", SK_U16 },    // the Game Corner's coin case
   { "surfhi", SK_U16 },   // Surfing Pikachu's best score
   { "ldry", SK_U8 },      // farewell eggs since a legendary (v3.56, secret)
-  { "lstk", SK_U8 },      // release eggs since a farewell: the farming lockout (v3.56)
+  { "lstk", SK_U8 },
+  { "stng", SK_U16 },     // the hidden settings (v3.59)
+  { "rlus", SK_U16 },     // which were ever on: the rules mark (v3.59)      // release eggs since a farewell: the farming lockout (v3.56)
   { "pp", SK_BYTES },     // v3.52: PP used, per creature (pp.h)
   // the banked creatures, and what you are carrying
   { "party", SK_BYTES }, { "box", SK_BYTES }, { "bag", SK_BYTES },
