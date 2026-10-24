@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.57-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.58-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1137,8 +1137,18 @@ Every pet rolls four **IVs** (individual values, 0–31) at hatch — ATK / DEF 
 VIT — that never change and make each one genuinely unique:
 
 ```
-stat = base + level + (IV × level)/100 + training
+stat = base + level + (IV × level)/100 + (training × level)/100
 ```
+
+**Training counts in proportion to level** (since v3.58), the same way IVs do:
+full training is **+100** at level 100, **+73** at 73 and **+14** at 14. The
+training screen and the minigames still show training on its **0–100** scale;
+the stat card shows the numbers the creature actually fights with. Vitality's
+flat **+10** is not training and does not scale.
+
+**Leaders:** on **easy** they fight with no training (the games' story leaders
+have none) and IVs of 16; on **hard** with full training (100) and perfect IVs
+(31). Wild creatures have no training.
 
 The `(IV × level)/100` term is the **real formula from Gen III onward** — a perfect
 IV is worth +31 at level 100. But IVs do a second job here that they don't do in

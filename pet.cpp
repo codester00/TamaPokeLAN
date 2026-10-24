@@ -1,4 +1,5 @@
 #include "pet.h"
+#include "stats.h"
 #include "pp.h"
 #include "avatars.h"
 #include "dex.h"
@@ -1380,37 +1381,28 @@ void Pet::rename(const char *name) {
   save();
 }
 
-// La aportacion del IV (IV x nivel / 100) es exactamente la de los juegos de
-// 3a generacion en adelante: un IV perfecto vale +31 a nivel 100. El resto de
-// la formula es la de TamaPoke (base plana + nivel) y no la de los juegos: con
-// el x nivel/100 canonico sobre la base, un bicho recien nacido mostraria
-// stats de un solo digito, que en una pantalla de mascota parece un error.
-static uint16_t calcStat(uint8_t base, uint8_t iv, uint8_t lvl, uint8_t tr) {
-  return (uint16_t)base + lvl + (uint16_t)iv * lvl / 100 + tr;
-}
-
 uint16_t Pet::atkStat() const {
-  return isEgg() ? 0 : calcStat(DEX_TBL[speciesId].bAtk, ivAtk, level(), trAtk);
+  return isEgg() ? 0 : battleStat(DEX_TBL[speciesId].bAtk, ivAtk, level(), trAtk);
 }
 uint16_t Pet::defStat() const {
-  return isEgg() ? 0 : calcStat(DEX_TBL[speciesId].bDef, ivDef, level(), trDef);
+  return isEgg() ? 0 : battleStat(DEX_TBL[speciesId].bDef, ivDef, level(), trDef);
 }
 uint16_t Pet::speStat() const {
-  return isEgg() ? 0 : calcStat(DEX_TBL[speciesId].bSpe, ivSpe, level(), trSpe);
+  return isEgg() ? 0 : battleStat(DEX_TBL[speciesId].bSpe, ivSpe, level(), trSpe);
 }
 // la vitalidad no se entrena (no hay nada que la suba), asi que lleva un +10
 // fijo en lugar del entrenamiento, igual que el +Nivel+10 del HP en los juegos
 uint16_t Pet::vitStat() const {
-  return isEgg() ? 0 : calcStat(DEX_TBL[speciesId].bHp, ivHp, level(), 10);
+  return isEgg() ? 0 : battleHp(DEX_TBL[speciesId].bHp, ivHp, level());
 }
 // Special reuses the physical IV and training against the species' special base
 // stat, which is what keeps Alakazam (50 Atk / 135 SpA) a real attacker without
 // adding IVs or migrating saves.
 uint16_t Pet::spaStat() const {
-  return isEgg() ? 0 : calcStat(DEX_TBL[speciesId].bSpA, ivAtk, level(), trAtk);
+  return isEgg() ? 0 : battleStat(DEX_TBL[speciesId].bSpA, ivAtk, level(), trAtk);
 }
 uint16_t Pet::spdStat() const {
-  return isEgg() ? 0 : calcStat(DEX_TBL[speciesId].bSpD, ivDef, level(), trDef);
+  return isEgg() ? 0 : battleStat(DEX_TBL[speciesId].bSpD, ivDef, level(), trDef);
 }
 
 // ---------- moves ----------

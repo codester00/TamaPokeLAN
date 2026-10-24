@@ -52,7 +52,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.57"
+#define FW_VERSION "3.58"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -5520,12 +5520,18 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
   if (lg.targetFainted) btlSay(T(S_BTL_FAINT), target.name);
 }
 
-// Builds one opponent through Pet, so it gets the same stat formula and the
-// same learnset-driven moveset the player's creatures do.
-static void foeFromSpecies(Combatant &c, int16_t dex, uint8_t lvl, uint8_t iv) {
+// Builds one LEADER's creature through Pet, so it gets the same stat formula
+// and the same learnset-driven moveset the player's creatures do. The ONE
+// answer for a leader's IVs and training (v3.58): easy is the games' story
+// leaders (no training, IV 16), hard their post-game facilities (full
+// training, IV 31). Training scales with level like the player's.
+static void foeFromSpecies(Combatant &c, int16_t dex, uint8_t lvl, bool hard) {
   Pet foe;
   foe.dbgHatchAs(dex, false);
+  uint8_t iv = hard ? HARD_IV : EASY_IV;
   foe.ivAtk = foe.ivDef = foe.ivSpe = foe.ivHp = iv;
+  uint8_t tr = hard ? Pet::trMaxFor(iv) : 0;
+  foe.trAtk = foe.trDef = foe.trSpe = tr;
   foe.ageMinutes = (uint32_t)(lvl ? lvl - 1 : 0) * MINUTES_PER_LEVEL;
   foe.relearnFromLevel();
   combatantFromPet(c, foe);
@@ -5650,7 +5656,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlWild = false;
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlFoeAt = 0;
-  foeFromSpecies(btlFoe, tr.team[0].dex, tr.team[0].level, hard ? HARD_IV : EASY_IV);
+  foeFromSpecies(btlFoe, tr.team[0].dex, tr.team[0].level, hard);
   btlMsgCount = 0;
   btlOver = false;
   btlWon = false;
@@ -6548,8 +6554,7 @@ static void btlDoSwap() {
     } else {
       const Trainer &t = BTL_TRAINERS[btlTrainer];
       btlFoeAt = btlNextAt[1];
-      foeFromSpecies(btlFoe, t.team[btlFoeAt].dex, t.team[btlFoeAt].level,
-                     btlHard ? HARD_IV : EASY_IV);
+      foeFromSpecies(btlFoe, t.team[btlFoeAt].dex, t.team[btlFoeAt].level, btlHard);
       btlSay(T(S_BTL_SENDS), t.name, btlFoe.name);
     }
     btlHpShown[1] = btlFoe.hp;

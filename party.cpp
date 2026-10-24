@@ -1,4 +1,5 @@
 #include "party.h"
+#include "stats.h"
 #include <stdlib.h>
 #include <string.h>
 #include "dex.h"
@@ -172,29 +173,22 @@ void Party::releaseAt(uint8_t i) {
   save();
 }
 
-// Mirrors calcStat() in pet.cpp: base + level + IV contribution + training.
-// Kept in step with it by hand; there is no shared home for it that both the
-// live pet and a frozen party member could use without dragging Pet in here.
-static uint16_t calcStat(uint8_t base, uint8_t iv, uint16_t lvl, uint8_t tr) {
-  return (uint16_t)base + lvl + (uint32_t)iv * lvl / 100 + tr;
-}
-
 uint16_t Party::atkOf(const PartyMon &m) const {
-  return m.empty() ? 0 : calcStat(DEX_TBL[m.dex].bAtk, m.ivAtk, m.level, m.trAtk);
+  return m.empty() ? 0 : battleStat(DEX_TBL[m.dex].bAtk, m.ivAtk, m.level, m.trAtk);
 }
 uint16_t Party::defOf(const PartyMon &m) const {
-  return m.empty() ? 0 : calcStat(DEX_TBL[m.dex].bDef, m.ivDef, m.level, m.trDef);
+  return m.empty() ? 0 : battleStat(DEX_TBL[m.dex].bDef, m.ivDef, m.level, m.trDef);
 }
 uint16_t Party::speOf(const PartyMon &m) const {
-  return m.empty() ? 0 : calcStat(DEX_TBL[m.dex].bSpe, m.ivSpe, m.level, m.trSpe);
+  return m.empty() ? 0 : battleStat(DEX_TBL[m.dex].bSpe, m.ivSpe, m.level, m.trSpe);
 }
 uint16_t Party::vitOf(const PartyMon &m) const {
-  return m.empty() ? 0 : calcStat(DEX_TBL[m.dex].bHp, m.ivHp, m.level, 10);
+  return m.empty() ? 0 : battleHp(DEX_TBL[m.dex].bHp, m.ivHp, m.level);
 }
 // Special reuses the physical IV and training, same rule as Pet::spaStat().
 uint16_t Party::spaOf(const PartyMon &m) const {
-  return m.empty() ? 0 : calcStat(DEX_TBL[m.dex].bSpA, m.ivAtk, m.level, m.trAtk);
+  return m.empty() ? 0 : battleStat(DEX_TBL[m.dex].bSpA, m.ivAtk, m.level, m.trAtk);
 }
 uint16_t Party::spdOf(const PartyMon &m) const {
-  return m.empty() ? 0 : calcStat(DEX_TBL[m.dex].bSpD, m.ivDef, m.level, m.trDef);
+  return m.empty() ? 0 : battleStat(DEX_TBL[m.dex].bSpD, m.ivDef, m.level, m.trDef);
 }

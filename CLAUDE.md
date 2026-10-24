@@ -883,6 +883,22 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: training scales with level in battle (v3.58, on the branch, not merged)
+
+Phase 1 of `docs/build-plan.md`. `stats.h` holds THE stat formula,
+`battleStat()` (training x level / 100, like the IV) and `battleHp()` (flat
++10, unscaled); `pet.cpp` and `party.cpp` both call it -- party.cpp had its own
+copy. Training stays 0-100 everywhere it is shown as training; the card shows
+the battle numbers. `foeFromSpecies(c, dex, lvl, hard)` is the one answer for a
+leader: easy IV 16 / training 0, hard IV 31 / `trMaxFor(31)` = 100. Wild foes
+stay 0. `LINK_PROTO` 5 -> 6. `stats_test` (scaling at L1/14/50/100, Pet and
+Party agree) and `trainscale_test` (leaders and wild, read off real battle
+starts); both negative-checked. **The ladder table below predates this and
+has not been updated: the re-measure (`tools/emu/ladder_sim.cpp`) is waiting
+on the owner** -- solo, hard mode drops from ~100% to ~0% for a fully trained
+Charizard at every gym (symmetric training, and Charizard alone against a
+whole team), easy barely moves for an untrained one.
+
 ### Done: LAN battle fixes from the first two-board fights (v3.57, on the branch, not merged)
 
 Reported from boards (2026-10-24) and found reviewing the LAN battle code,

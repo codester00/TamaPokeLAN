@@ -4,6 +4,7 @@
 #include "Arduino.h"
 #include "Preferences.h"
 #include "pet.h"
+#include "party.h"
 #include "dex.h"
 #include <cstdio>
 
@@ -84,6 +85,30 @@ int main() {
     Pet g; g.dbgHatchAs(92, false);
     g.weight = WEIGHT_MIN;
     ck(g.weightHg() >= 1, "the lightest creature at its lightest still weighs something");
+  }
+
+
+  // --- v3.58: training scales with level, in battle; one formula for both
+  {
+    const uint8_t lv[] = { 1, 14, 50, 100 };
+    for (uint8_t L : lv) {
+      Pet t; t.dbgHatchAs(6, false);
+      t.ivAtk = t.ivDef = t.ivSpe = t.ivHp = 31;
+      t.ageMinutes = (uint32_t)(L - 1) * MINUTES_PER_LEVEL;
+      t.trAtk = t.trDef = t.trSpe = 0;
+      uint16_t a0 = t.atkStat(), d0 = t.defStat(), s0 = t.speStat(), sa0 = t.spaStat(), h0 = t.vitStat();
+      t.trAtk = t.trDef = t.trSpe = 100;
+      char w[96];
+      snprintf(w, sizeof w, "L%u: full training is worth +%u (got +%d)", L, L, t.atkStat() - a0);
+      ck(t.atkStat() - a0 == L && t.defStat() - d0 == L && t.speStat() - s0 == L &&
+         t.spaStat() - sa0 == L, w);
+      ck(t.vitStat() == h0, "vitality is not training and does not move with it");
+      PartyMon m = t.toPartyMon();
+      snprintf(w, sizeof w, "L%u: a banked copy fights with the same numbers", L);
+      ck(party.atkOf(m) == t.atkStat() && party.defOf(m) == t.defStat() &&
+         party.speOf(m) == t.speStat() && party.spaOf(m) == t.spaStat() &&
+         party.spdOf(m) == t.spdStat() && party.vitOf(m) == t.vitStat(), w);
+    }
   }
 
   printf("%s\n", bad ? "FAILURES" : "all good");

@@ -39,7 +39,9 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 5        // bump on ANY wire change; a mismatch is refused
+#define LINK_PROTO 6        // bump on ANY wire change; a mismatch is refused
+                            // (6, v3.58: the stats a LinkMon carries scale
+                            // training with level)
 #define LINK_MAX_PAYLOAD 200
 #define LINK_NAME_LEN 12
 
