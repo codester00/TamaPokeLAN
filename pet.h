@@ -5,6 +5,7 @@
 #include "trainers.h"   // GYM_REGIONS sizes the badge masks
 #include "party.h"
 #include "settings.h"
+#include "cheats.h"
 
 // 1 tick = 1 minuto de juego. Baja este valor para probar mas rapido
 // (p. ej. 5000UL = las estadisticas caen 12x mas rapido).
@@ -146,6 +147,9 @@ uint8_t moveUnlockLevel(int16_t dex, uint8_t idx);
 // ask THIS; opponents keep moveUnlockLevel(). 255 = not learnable.
 class Pet;
 uint8_t moveUnlockLevelFor(const Pet &owner, int16_t dex, uint8_t idx);
+// Would teaching `mv` to `dex` at `lvl` lean on a TM only the cheat gave? The
+// move picker marks the creature when it does (cheats.h). v3.60.
+bool moveNeedsCheatedTm(const Pet &owner, int16_t dex, uint8_t lvl, uint8_t mv);
 
 // ---------------------------------------------------------------------------
 // Which regions have their sprite pack on the microSD.
@@ -238,6 +242,11 @@ public:
   // Received in a trade and not yet evolved by it: PMON_TRADE_EVO on the
   // stored record, carried across banking and swapping like the ID.
   bool tradeEvo = false;
+  // A cheat changed this creature (cheats.h). PMON_CHEATED on the wire, in the
+  // party and in the pet checkpoint's flags byte; nothing clears it.
+  bool cheated = false;
+  uint8_t monFlags() const { return (tradeEvo ? PMON_TRADE_EVO : 0) | (cheated ? PMON_CHEATED : 0); }
+  void setMonFlags(uint8_t f) { tradeEvo = (f & PMON_TRADE_EVO) != 0; cheated = (f & PMON_CHEATED) != 0; }
   bool wasFullyCared = false;   // graceCheck() restarts the window on the rising edge
   uint16_t unattended = 0;      // awake minutes since last fully cared for; see GRACE_MIN
   bool fullyCared() const;      // every need at CARE_FULL_PCT: what restarts the window
@@ -524,6 +533,20 @@ public:
   // Permanent -- the player card's "modified rules" mark. Player record v8
   // tail and legacy key "rlus"; gameSettings itself rides beside it ("stng").
   uint16_t rulesUsed = 0;
+  // CHEATS (v3.60): which were ever used (cheats.h bits; permanent, the cheats
+  // mark), the TMs a cheat gave (a move taught from one marks the creature),
+  // and the re-roll salt for today's weather and Mart. Player record v9 tail;
+  // legacy keys "chts", "tmch", "dslt". cheatToggles rides with them ("chtg").
+  uint32_t cheatsUsed = 0;
+  uint8_t tmCheated[TM_BYTES] = { 0 };
+  uint8_t daySalt = 0;
+  void noteCheat(uint8_t id) { cheatsUsed |= 1ul << id; pendingSave = true; }
+  // The cheats that are the player's or the live pet's to change (everything
+  // but the Master Ball, which is the bag's, and the legendary, which is the
+  // next encounter's). Returns false, and marks nothing, when it would do
+  // nothing (no egg to hatch, an egg to train). Saves.
+  bool applyCheat(uint8_t id);
+  bool tmIsCheated(uint8_t move) const { return (tmCheated[move >> 3] >> (move & 7)) & 1; }
   void setSetting(uint16_t bit, bool on);
   // Does this creature age and evolve? Not a revived companion -- unless the
   // hidden setting says companions grow. Ageing, evolving and the cord ask it.

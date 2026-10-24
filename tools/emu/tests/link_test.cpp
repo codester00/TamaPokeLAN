@@ -148,6 +148,23 @@ int main(){
     ck(C.state==LINK_REFUSED, "two devices with the same id refuse rather than guess");
   }
 
+  // --- the trainer marks ride in the hello's flags byte (v3.60)
+  {
+    Link C; C.send=[](void*,const uint8_t*,uint8_t){};
+    C.begin(true,"C"); C.id=1;
+    uint8_t p[2+7+LINK_NAME_LEN]; memset(p,0,sizeof(p));
+    p[0]=LM_HELLO; p[1]=7+LINK_NAME_LEN; p[2]=LINK_PROTO;
+    p[3]=(uint8_t)((LINK_MARK_RULES|LINK_MARK_CHEATS)<<1); p[4]=1;
+    p[5]=2; p[7]=(uint8_t)(linkBuildTag()&0xFF); p[8]=(uint8_t)(linkBuildTag()>>8);
+    C.onPacket(p,sizeof(p));
+    ck(C.state!=LINK_REFUSED && C.peerMarks==(LINK_MARK_RULES|LINK_MARK_CHEATS) && C.isHost,
+       "the rival's marks arrive with its hello, without touching who hosts");
+    Link D; D.send=[](void*,const uint8_t*,uint8_t){};
+    D.begin(true,"D"); D.id=1;
+    hello(D, LINK_PROTO-1, false, 1, 2, linkBuildTag());
+    ck(D.state==LINK_REFUSED, "a board one protocol behind (no marks) is refused");
+  }
+
   // --- compatibility
   {
     Link C; C.send=[](void*,const uint8_t*,uint8_t){};

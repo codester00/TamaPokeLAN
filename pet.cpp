@@ -2,6 +2,7 @@
 #include "stats.h"
 
 uint16_t gameSettings = 0;
+uint8_t cheatToggles = 0;
 bool settingsSuspended = false;
 
 void Pet::setSetting(uint16_t bit, bool on) {
@@ -336,7 +337,7 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // no coins, no score -- what a save from before them truly had.
 // v6 appended the legendary safety net's counter (one byte, after surfHi).
 // v7 appended the farming lockout's attempt count (one byte, after that).
-static constexpr uint16_t PLAYER_VERSION = 8;
+static constexpr uint16_t PLAYER_VERSION = 9;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -347,7 +348,7 @@ static constexpr size_t PLAYER_MAX =
     PLAYER_FIXED + 2 * PLAYER_DEX_BYTES + 4 * (GYM_REGIONS - 1) +
     2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
     4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ +
-    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + 1 /* v7 legendAttempts */ + 4 /* v8 settings, rulesUsed */ + CKPT_CRC;
+    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + 1 /* v7 legendAttempts */ + 4 /* v8 settings, rulesUsed */ + 4 + 1 + 1 + 1 + TM_BYTES /* v9 cheats */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -446,6 +447,11 @@ bool Pet::savePlayerSnapshot() {
   cur.put(&legendAttempts, sizeof(legendAttempts));   // v7
   cur.put(&gameSettings, sizeof(gameSettings));       // v8
   cur.put(&rulesUsed, sizeof(rulesUsed));
+  cur.put(&cheatsUsed, sizeof(cheatsUsed));           // v9
+  cur.put(&cheatToggles, 1);
+  cur.put(&daySalt, 1);
+  cur.put(&tmBytes, 1);
+  cur.put(tmCheated, sizeof(tmCheated));
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -565,6 +571,19 @@ bool Pet::loadPlayerSnapshot() {
             memcpy(&gameSettings, buf + at + 7 + tb, 2);
             memcpy(&rulesUsed, buf + at + 9 + tb, 2);
           }
+          // v9: the cheats -- the mark, the toggles, the salt, then the TMs a
+          // cheat gave behind their own length byte. Absent reads as none.
+          const size_t v9 = at + 11 + tb;
+          if (body >= v9 + 7) {
+            memcpy(&cheatsUsed, buf + v9, 4);
+            cheatToggles = buf[v9 + 4];
+            daySalt = buf[v9 + 5];
+            size_t cb = buf[v9 + 6];
+            if (body >= v9 + 7 + cb) {
+              CkptCursor cc{ buf, v9 + 7, body };
+              cc.take(tmCheated, sizeof(tmCheated), cb);
+            }
+          }
         }
       }
     }
@@ -613,6 +632,10 @@ void Pet::begin() {
   legendAttempts = 0;
   gameSettings = 0;
   rulesUsed = 0;
+  cheatsUsed = 0;
+  cheatToggles = 0;
+  daySalt = 0;
+  memset(tmCheated, 0, sizeof(tmCheated));
   if (!prefs.getBool("init", false)) {
     if (!prefs.putBool("init", true)) logKeyFailure("pet", "init");
     newEgg();
@@ -651,6 +674,7 @@ void Pet::newEgg() {
   prevSpeciesId = -1;
   uid = CreatureUid();   // an egg is not a creature yet; hatch() mints its ID
   tradeEvo = false;
+  cheated = false;
   for (int i = 0; i < REGION_COUNT; i++) eggByRegion[i] = 0;
   // Asked BEFORE the roll: whether the net is in play depends on what is still
   // unregistered, and the egg about to be laid is not registered until it hatches.
@@ -889,7 +913,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   strncpy(nick, m.nick, sizeof(nick) - 1);
   nick[sizeof(nick) - 1] = 0;
   uid = m.uid;   // the same creature, so the same identity
-  tradeEvo = (m.flags & PMON_TRADE_EVO) != 0;
+  setMonFlags(m.flags);
   registerSpecies(speciesId);
   save();
 }
@@ -929,7 +953,7 @@ PartyMon Pet::toPartyMon() const {
   m.lastLearnLevel = lastLearnLevel;
   m.ageMinutes = ageMinutes;
   m.uid = uid;
-  m.flags = tradeEvo ? PMON_TRADE_EVO : 0;
+  m.flags = monFlags();
   return m;
 }
 
@@ -988,7 +1012,7 @@ bool Pet::switchTo(const PartyMon &m) {
   strncpy(nick, m.nick, sizeof(nick) - 1);
   nick[sizeof(nick) - 1] = 0;
   uid = m.uid;   // the same creature, so the same identity
-  tradeEvo = (m.flags & PMON_TRADE_EVO) != 0;
+  setMonFlags(m.flags);
   registerSpecies(speciesId);
   return save();
 }
@@ -1478,12 +1502,62 @@ uint8_t moveUnlockLevel(int16_t dex, uint8_t idx) {
   return tmLevelFor(MOVE_TBL[mv]);       // a TM: no natural level, so the gate
 }
 
+bool moveNeedsCheatedTm(const Pet &owner, int16_t dex, uint8_t lvl, uint8_t mv) {
+  if (!owner.tmIsCheated(mv)) return false;
+  uint8_t n = learnCount(dex);
+  for (uint8_t i = 0; i < n; i++)          // reachable by level-up: no TM needed
+    if (learnMove(dex, i) == mv && learnLevel(dex, i) > 0 && learnLevel(dex, i) <= lvl) return false;
+  return true;
+}
+
 uint8_t moveUnlockLevelFor(const Pet &owner, int16_t dex, uint8_t idx) {
   uint8_t at = learnLevel(dex, idx);
   if (at > 0) return at;                 // a real level-up move: its own gate
   uint8_t mv = learnMove(dex, idx);
   if (!mv || mv >= MOVE_COUNT) return 255;
   return owner.hasTm(mv) ? 1 : 255;      // a TM: owned, or not at all
+}
+
+bool Pet::applyCheat(uint8_t id) {
+  switch (id) {
+    case CHEAT_COINS: addCoins(1000); break;
+    case CHEAT_MONEY: wallet = wallet + 100000 > WALLET_CAP ? WALLET_CAP : wallet + 100000; break;
+    case CHEAT_ALL_TMS:
+      for (uint16_t i = 0; i < TM_COUNT; i++) {
+        uint8_t mv = TM_MOVES[i];
+        if (giveTm(mv)) tmCheated[mv >> 3] |= (uint8_t)(1 << (mv & 7));
+      }
+      break;
+    case CHEAT_UNLIMITED_PP: cheatToggles ^= CT_UNLIMITED_PP; break;
+    case CHEAT_ALL_AREAS: cheatToggles ^= CT_ALL_AREAS; break;
+    case CHEAT_ALL_BADGES:   // the masks directly: winBadge() saves every time
+      for (uint8_t rg = 0; rg < GYM_REGIONS; rg++) {
+        uint16_t all = (uint16_t)((1u << TRAINER_COUNT) - 1);
+        if (rg == 0) { badges |= all; badgesHard |= all; }
+        else { badgesX[rg - 1] |= all; badgesHardX[rg - 1] |= all; }
+      }
+      break;
+    case CHEAT_MAX_TRAINING:
+      if (isEgg()) return false;
+      trAtk = trMaxAtk(); trDef = trMaxDef(); trSpe = trMaxSpe();
+      cheated = true;
+      break;
+    case CHEAT_HATCH:
+      if (!isEgg()) return false;
+      hatch();
+      cheated = true;
+      break;
+    case CHEAT_SHINY_EGG:
+      if (!isEgg()) return false;
+      eggShiny = true;
+      cheatToggles |= CT_EGG_MARKED;   // hatch() marks what comes out
+      break;
+    case CHEAT_REROLL_DAY: daySalt++; break;
+    default: return false;
+  }
+  noteCheat(id);
+  save();
+  return true;
 }
 
 bool Pet::giveTm(uint8_t move) {
@@ -1816,6 +1890,8 @@ void Pet::hatch() {
   nick[0] = 0;
   uid = mintUid();   // a new creature, so a new identity
   tradeEvo = false;
+  cheated = (cheatToggles & CT_EGG_MARKED) != 0;   // a cheat made this egg shiny
+  cheatToggles &= (uint8_t)~CT_EGG_MARKED;
   registerSpecies(speciesId);  // criado = registrado en la pokedex
   // Start empty: checkLearnGates() fills the level-1 moves. Seeding from TMs
   // instead would hand a newborn FIRE BLAST, which no level 1 creature knows.
@@ -2338,7 +2414,7 @@ bool Pet::saveCoreSnapshot() {
   ckptWr16(buf + PET_TAIL_MONLEN, (uint16_t)sizeof(PartyMon));
   memcpy(buf + PET_TAIL_MON, &endedMon, sizeof(PartyMon));
   memcpy(buf + PET_TAIL_UID, &uid, sizeof(CreatureUid));
-  buf[PET_TAIL_FLAGS] = tradeEvo ? PMON_TRADE_EVO : 0;
+  buf[PET_TAIL_FLAGS] = monFlags();
   ckptWr16(buf + PET_TAIL_FLAGS + 1, unattended);
   buf[PET_TAIL_FLAGS + 3] = petStep;   // v5; see caress()
 
@@ -2401,7 +2477,7 @@ bool Pet::loadCoreSnapshot() {
       memcpy(&uid, buf + PET_TAIL_MON + monLen, sizeof(CreatureUid));
     // v4: the flags byte follows the ID, again located by the STORED length.
     const size_t fl = PET_TAIL_MON + monLen + sizeof(CreatureUid);
-    if (monLen && fl + 1 <= body) tradeEvo = (buf[fl] & PMON_TRADE_EVO) != 0;
+    if (monLen && fl + 1 <= body) setMonFlags(buf[fl]);
     // v5: untended minutes, so switching off and on does not restart the window.
     // A v4 record reads 0 here (its reserved bytes were zero): a fresh window.
     if (monLen && fl + 3 <= body) unattended = ckptRd16(buf + fl + 1);
@@ -2554,6 +2630,10 @@ bool Pet::save() {
   SAVE_KEY(prefs.putUChar("lstk", legendAttempts), "lstk");           // v3.56
   SAVE_KEY(prefs.putUShort("stng", gameSettings), "stng");            // v3.59
   SAVE_KEY(prefs.putUShort("rlus", rulesUsed), "rlus");               // v3.59
+  SAVE_KEY(prefs.putUInt("chts", cheatsUsed), "chts");               // v3.60
+  SAVE_KEY(prefs.putUChar("chtg", cheatToggles), "chtg");             // v3.60
+  SAVE_KEY(prefs.putUChar("dslt", daySalt), "dslt");                  // v3.60
+  SAVE_KEY(prefs.putBytes("tmch", tmCheated, sizeof(tmCheated)), "tmch");   // v3.60
   SAVE_STR_KEY(prefs.putString("nick", nick), "nick", nick);
 #undef SAVE_KEY
 #undef SAVE_STR_KEY
@@ -2641,6 +2721,10 @@ void Pet::load() {
   legendAttempts = prefs.getUChar("lstk", 0);
   gameSettings = prefs.getUShort("stng", 0);
   rulesUsed = prefs.getUShort("rlus", 0) | gameSettings;
+  cheatsUsed = prefs.getUInt("chts", 0);
+  cheatToggles = prefs.getUChar("chtg", 0);
+  daySalt = prefs.getUChar("dslt", 0);
+  loadBlob(prefs, "tmch", tmCheated, sizeof(tmCheated));
   prefs.getString("nick", nick, sizeof(nick));
   // Moves load last: relearnFromLevel() needs speciesId and ageMinutes, both of
   // which are read above. A save from before moves existed has no "mvs" key and

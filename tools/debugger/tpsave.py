@@ -74,6 +74,7 @@ PLAYER_KEYS = [
     "medal", "tmedal", "mstone", "wlt", "stps", "ghi", "shi", "qhi",
     "lang", "snd", "vol",
     "stng", "rlus",   # v3.59: hidden settings, and which were ever on
+    "chts", "chtg", "dslt", "tmch",   # v3.60: cheats used, toggles, day salt, TMs a cheat gave
 ]
 
 # Legacy scalar keys that are actually booleans on the wire -- the editor

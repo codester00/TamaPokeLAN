@@ -54,7 +54,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.59"
+#define FW_VERSION "3.60"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -343,6 +343,8 @@ uint8_t codesPages();
 void renderCodes();
 void codesTap(int16_t x, int16_t y);
 void codeApply(uint8_t id);
+bool cheatApply(uint8_t id);
+extern bool cheatLegendNext;
 void surfStart();
 void surfPay();
 void surfFrame(uint32_t now);
@@ -814,6 +816,8 @@ static uint8_t btlMusic(bool won) {
 // you fought would not be the creature you kept.
 int16_t wildDex = 0;
 uint8_t wildLvl = 1;
+bool cheatLegendNext = false;   // CHEAT_LEGEND armed: RAM only, for the next encounter
+bool wildCheated = false;       // this wild foe came from that cheat
 uint8_t wildIv[4] = { 0, 0, 0, 0 };   // atk, def, spe, hp
 int8_t wildLegend = -1;   // the WILD_LEGENDS index being fought, or -1 (wild.h)
 bool wildShiny = false;
@@ -2100,6 +2104,16 @@ void onSwipeV(int dir) {
 // The detail sheet, shared by the party and the box so the two cannot drift.
 // `fromBox` picks which action the LEFT button offers; the right one is always
 // RELEASE, which is irreversible and therefore always asks first.
+// A creature a cheat changed says so on its sheet and its card (v3.60).
+static void drawCreatureMark(bool cheated, int y) {
+  if (!cheated) return;
+  const char *t = T(S_CHEATED);
+  gfx->setTextSize(1);
+  gfx->setTextColor(UI_BAR_BAD);
+  gfx->setCursor(CX - (int)strlen(t) * 3, y);
+  gfx->print(t);
+}
+
 void renderMonSheet(const PartyMon &m, bool fromBox) {
   const DexEntry &d = DEX_TBL[m.dex];
   gfx->fillScreen(RGB565_BLACK);
@@ -2118,6 +2132,7 @@ void renderMonSheet(const PartyMon &m, bool fromBox) {
   gfx->setTextSize(1);
   gfx->setCursor(CX - (int)strlen(ty) * 3, 64);
   gfx->print(ty);
+  drawCreatureMark(m.flags & PMON_CHEATED, 28);   // above the name: the moves start at 78
 
   for (int i = 0; i < MOVE_SLOTS; i++) {
     drawMoveRow(78 + i * 52, m.moves[i], false, m.dex);
@@ -2689,6 +2704,10 @@ void onTap(int16_t x, int16_t y) {
       for (int s = 0; s < MOVE_SLOTS; s++)
         if (tgt[s] == all[idx] && s != movePickSlot) tgt[s] = tgt[movePickSlot];
       tgt[movePickSlot] = all[idx];
+      PartyMon *pm = movePickParty ? &party.slots[movePickParty - 1] : nullptr;
+      if (moveNeedsCheatedTm(pet, pickTargetDex(), pm ? (uint8_t)pm->level : pet.level(), all[idx])) {
+        if (pm) pm->flags |= PMON_CHEATED; else pet.cheated = true;   // a cheat's TM marks it
+      }
       if (movePickParty) party.save(); else pet.saveNow();
       movePickOpen = false;
       return;
@@ -3580,25 +3599,46 @@ void renderAreaList() {
   gfx->flush();
 }
 
-// ---------- the hidden screens (v3.59) ----------
+// ---------- the hidden screens (v3.59, v3.60) ----------
 // Opened only by a secret code (codes.h). SETTINGS is a rim-paged list of the
-// rule toggles in settings.h, laid out like the area list (areaRowRect).
+// rule toggles in settings.h, CHEATS of the cheats in cheats.h, both laid out
+// like the area list (areaRowRect).
 bool codesOpen = false;
+bool codesCheats = false;   // which of the two lists is open
 uint8_t codesPage = 0;
+static_assert(S_SET_LAST - S_SET_FIRST + 1 == SET_COUNT, "a setting without its name, or a name without its setting");
+static_assert(S_CHEAT_LAST - S_CHEAT_FIRST + 1 == CHEAT_COUNT, "a cheat without its name, or a name without its cheat");
 
-static uint8_t codesRows() { return SET_COUNT; }
+static uint8_t codesRows() { return codesCheats ? CHEAT_COUNT : SET_COUNT; }
+
+// A cheat row's second line: a toggle says ON/OFF, a one-shot asks to be used.
+static StrId cheatStatus(uint8_t id) {
+  if (id == CHEAT_UNLIMITED_PP) return (cheatToggles & CT_UNLIMITED_PP) ? S_SET_ON : S_SET_OFF;
+  if (id == CHEAT_ALL_AREAS) return (cheatToggles & CT_ALL_AREAS) ? S_SET_ON : S_SET_OFF;
+  return S_CHEAT_USE;
+}
 uint8_t codesPages() { return (uint8_t)((codesRows() + AREA_ROWS - 1) / AREA_ROWS); }
 
 void renderCodes() {
   gfx->fillScreen(RGB565_BLACK);
   gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
   gfx->setTextColor(UI_INK);
-  areaCentred(T(S_CODE_SETTINGS), CX, 60, 300);
+  areaCentred(T(codesCheats ? S_CODE_CHEATS : S_CODE_SETTINGS), CX, 60, 300);
   for (int i = 0; i < AREA_ROWS; i++) {
     int k = codesPage * AREA_ROWS + i;
     if (k >= codesRows()) break;
     int rx, ry, rw, rh;
     areaRowRect(i, &rx, &ry, &rw, &rh);
+    if (codesCheats) {
+      StrId st = cheatStatus((uint8_t)k);
+      gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
+      gfx->drawRoundRect(rx, ry, rw, rh, 12, st == S_SET_ON ? UI_BAR_OK : UI_INK);
+      gfx->setTextColor(UI_INK);
+      areaCentred(T((StrId)(S_CHEAT_FIRST + k)), CX, ry + 22, rw - 16);
+      gfx->setTextColor(st == S_SET_ON ? UI_BAR_OK : UI_INK_SOFT);
+      areaCentred(T(st), CX, ry + 56, rw - 16);
+      continue;
+    }
     bool on = gameSettings & (1u << k);
     gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
     gfx->drawRoundRect(rx, ry, rw, rh, 12, on ? UI_BAR_OK : UI_INK);
@@ -3624,9 +3664,23 @@ int codesRowAt(int16_t x, int16_t y) {
   return -1;
 }
 
+// One cheat, used: THE one place a cheat acts (the screen and tests call it).
+bool cheatApply(uint8_t id) {
+  bool did;
+  if (id == CHEAT_MASTERBALL) did = bag.add(IT_MASTERBALL, 1);
+  else if (id == CHEAT_LEGEND) did = cheatLegendNext = true;
+  else return pet.applyCheat(id);   // marks and saves itself
+  if (did) { pet.noteCheat(id); pet.flushSave(); }
+  return did;
+}
+
 void codesTap(int16_t x, int16_t y) {
   int k = codesRowAt(x, y);
   if (k < 0) return;
+  if (codesCheats) {
+    sfxPlay(cheatApply((uint8_t)k) ? SFX_MEDAL : SFX_DENY);
+    return;
+  }
   uint16_t bit = (uint16_t)(1u << k);
   pet.setSetting(bit, !(gameSettings & bit));
   pet.flushSave();
@@ -3644,12 +3698,13 @@ void codeApply(uint8_t id) {
       uiTileGo(uiTileOf(SCR_EXPLORE));
       openHall(id == CODE_CELADON ? HALL_CELADON : id == CODE_GOLDENROD ? HALL_GOLDENROD : HALL_BEACH);
       break;
-    case CODE_SETTINGS:
+    case CODE_SETTINGS: case CODE_CHEATS:
       miniGame = MG_NONE;
       codesOpen = true;
+      codesCheats = id == CODE_CHEATS;
       codesPage = 0;
       break;
-    default: break;   // CHEATS: v3.60
+    default: break;
   }
 }
 
@@ -5328,6 +5383,7 @@ void renderCardStats() {
   gfx->setTextSize(2);
   gfx->setCursor(CX - (int)strlen(ty) * 6, 76);
   gfx->print(ty);
+  drawCreatureMark(pet.cheated, 94);
 
   // 360 de tope de barra: a nivel 73 (fin de ciclo) el stat mas alto de toda
   // la dex es la vitalidad de CHANSEY (355). El 260 anterior ya se desbordaba.
@@ -5678,6 +5734,7 @@ static void buildSquad(uint8_t maxLvl, uint8_t maxCount, uint16_t mask) {
     if (maxLvl && tmp.level() > maxLvl)
       tmp.ageMinutes = (uint32_t)(maxLvl - 1) * MINUTES_PER_LEVEL;
     combatantFromPet(btlSquad[btlSquadN], tmp);
+    btlSquad[btlSquadN].ppOn = !cheatOn(CT_UNLIMITED_PP);
     btlLoadPp(btlSquad[btlSquadN++]);
     btlPetIn = true;      // the training reward goes to whoever fought for it
   }
@@ -5686,6 +5743,7 @@ static void buildSquad(uint8_t maxLvl, uint8_t maxCount, uint16_t mask) {
     PartyMon m = party.slots[i];
     if (maxLvl && m.level > maxLvl) m.level = maxLvl;
     combatantFromParty(btlSquad[btlSquadN], m);
+    btlSquad[btlSquadN].ppOn = !cheatOn(CT_UNLIMITED_PP);   // the cheat; never LAN (suspended)
     btlLoadPp(btlSquad[btlSquadN++]);
   }
   if (btlSquadN) btlYou = btlSquad[0];
@@ -6294,6 +6352,11 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
   gfx->setTextSize(1);
   gfx->setCursor(tx, ty);
   gfx->print(l);
+  if (c.cheated) {                // the creature mark (v3.60): a cheat changed it
+    gfx->setTextColor(UI_BAR_BAD);
+    gfx->setCursor(tx + 138, ty);
+    gfx->print("!");
+  }
   gfx->setTextColor(UI_BAR_WARN);
   gfx->setCursor(tx, ty + 14);
   gfx->print("HP");
@@ -7010,13 +7073,20 @@ void battleTap(int16_t x, int16_t y) {
 // trainer art and ripped sprites would be unlicensed.
 // The trainer's permanent marks (v3.59): the hidden settings were ever used.
 // Shown above the name on the player card; they never come off.
-static void drawTrainerMarks(int y) {
-  if (!pet.rulesUsed) return;
-  const char *m = T(S_RULES_MARK);
+// The same marks for a rival over LAN (LINK_MARK_*), on the pairing screen.
+static void drawMarks(uint8_t marks, int y) {
+  char m[48] = "";
+  if (marks & LINK_MARK_RULES) snprintf(m, sizeof(m), "%s", T(S_RULES_MARK));
+  if (marks & LINK_MARK_CHEATS)
+    snprintf(m + strlen(m), sizeof(m) - strlen(m), "%s%s", m[0] ? " / " : "", T(S_CHEATS_MARK));
+  if (!m[0]) return;
   gfx->setTextSize(1);
-  gfx->setTextColor(UI_BAR_WARN);
+  gfx->setTextColor(marks & LINK_MARK_CHEATS ? UI_BAR_BAD : UI_BAR_WARN);
   gfx->setCursor(CX - (int)strlen(m) * 3, y);
   gfx->print(m);
+}
+static void drawTrainerMarks(int y) {
+  drawMarks((pet.rulesUsed ? LINK_MARK_RULES : 0) | (pet.cheatsUsed ? LINK_MARK_CHEATS : 0), y);
 }
 
 static void renderPlayerBadges() {
@@ -7609,6 +7679,7 @@ void renderLan() {
       gfx->setTextSize(2);
       gfx->setCursor(CX - (int)strlen(lan.peerName) * 6, 130);
       gfx->print(lan.peerName);
+      drawMarks(lan.peerMarks, 118);   // the rival's marks, as they would see their own
     }
     snprintf(l, sizeof(l), T(S_LAN_VS), lan.theirsN);
     gfx->setTextColor(UI_INK);
@@ -7676,6 +7747,7 @@ static void lanOffer(bool host) {
   // on whether the radio comes up -- doing it the other way round meant a
   // failed radio skipped the squad entirely and left nothing to inspect.
   lan.begin(host, pet.trainerName);
+  lan.myMarks = (pet.rulesUsed ? LINK_MARK_RULES : 0) | (pet.cheatsUsed ? LINK_MARK_CHEATS : 0);
   settingsSuspended = true;   // what goes on the wire is built by the shared rules
   buildSquad(0, TRAINER_TEAM_MAX, squadMask);
   for (uint8_t i = 0; i < btlSquadN; i++) {
@@ -9147,6 +9219,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   int16_t dex = 0;
   uint8_t lvl = 1;
   int legend = -1;
+  wildCheated = false;
   if (wildRegionHasAreas(region)) {
     // A region with areas draws from the one the player chose, weighted by the
     // game's own encounter rates, at the level band its gym ladder sets.
@@ -9158,7 +9231,9 @@ bool startWildBattle(uint8_t region, bool hard) {
     // dozen places (caught, fled, ran, fainted, won), and one start is a single
     // place to get right. A power cut mid-fight costs the guarantee, never the
     // legendary -- the rare repeat still applies.
-    legend = wildLegendFor(area, pet, (uint32_t)random(65536) * 31u + random(31));
+    legend = cheatLegendNext ? wildLegendForced(region, pet) : -1;
+    if (legend >= 0) { cheatLegendNext = false; wildCheated = true; }   // the CHEAT's meeting
+    else legend = wildLegendFor(area, pet, (uint32_t)random(65536) * 31u + random(31));
     if (legend >= 0) {
       dex = wildLegendDex((uint8_t)legend);
       lvl = wildLegendLevel((uint8_t)legend);
@@ -9293,6 +9368,7 @@ PartyMon wildToPartyMon() {
   // Caught here, so this board is where it started. Minted from the LIVE pet's
   // counter: btlFoe was built in a throwaway Pet whose own counter means nothing.
   m.uid = pet.mintUid();
+  if (wildCheated) m.flags |= PMON_CHEATED;   // met through the legendary cheat
   return m;
 }
 

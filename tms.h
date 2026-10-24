@@ -44,7 +44,7 @@ inline uint8_t martTmToday(const Pet &p, uint32_t day, uint8_t out[MART_TM_PER_D
   uint16_t picked[MART_TM_PER_DAY];
   uint8_t k = 0;
   for (uint32_t i = 0; k < MART_TM_PER_DAY && i < 64; i++) {
-    uint16_t pos = (uint16_t)(tmMix(day * 2654435761U + i * 40503U + 0x7E5D) % TM_COUNT);
+    uint16_t pos = (uint16_t)(tmMix((day + p.daySalt * 100003U) * 2654435761U + i * 40503U + 0x7E5D) % TM_COUNT);
     bool dup = false;
     for (uint8_t j = 0; j < k; j++) if (picked[j] == pos) dup = true;
     if (!dup) picked[k++] = pos;

@@ -109,7 +109,8 @@ struct PartyMon {
   // ---- flags, appended in v3.32 --------------------------------------------
   // PMON_TRADE_EVO: received in a trade, and will evolve by trade the next
   // time it is the live pet (Pet::evoInfo()). Set by Pet::markTraded(), cleared
-  // by the evolution. The three reserved bytes keep the record 4-aligned and
+  // by the evolution. PMON_CHEATED (v3.60): a cheat changed it, for good.
+  // The three reserved bytes keep the record 4-aligned and
   // are zero; tradeMonValid() refuses a record where they are not.
   uint8_t flags = 0;
   uint8_t reserved[3] = { 0, 0, 0 };
@@ -122,6 +123,7 @@ struct PartyMon {
 // tools/debugger/tpsave.py decodes this layout by hand. Append, then move both.
 static_assert(sizeof(PartyMon) == 64, "PartyMon layout changed -- see the comment above");
 #define PMON_TRADE_EVO 0x01
+#define PMON_CHEATED   0x02   // a cheat changed this creature (cheats.h); never cleared
 
 class Party {
 public:

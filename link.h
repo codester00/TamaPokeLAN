@@ -39,9 +39,12 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 6        // bump on ANY wire change; a mismatch is refused
+#define LINK_PROTO 7        // bump on ANY wire change; a mismatch is refused
                             // (6, v3.58: the stats a LinkMon carries scale
-                            // training with level)
+                            // training with level; 7, v3.60: the trainer marks
+                            // in the hello, the creature mark in LinkMon::flags)
+#define LINK_MARK_RULES  1  // the hidden settings were used (Pet::rulesUsed)
+#define LINK_MARK_CHEATS 2  // cheats were used (Pet::cheatsUsed)
 #define LINK_MAX_PAYLOAD 200
 #define LINK_NAME_LEN 12
 
@@ -116,6 +119,7 @@ struct LinkMon {
   uint8_t moves[MOVE_SLOTS];
   uint8_t shiny;
   char name[LINK_NAME_LEN];
+  uint8_t flags;   // PMON_CHEATED (v3.60); sat in the struct's tail padding, so the size held
 };
 
 // What the host tells the guest happened. Everything the guest needs to render
@@ -157,6 +161,10 @@ struct Link {
   uint16_t peerId = 0;
   char peerName[LINK_NAME_LEN] = "";   // write: onPacket() only. read: display only.
   char myName[LINK_NAME_LEN] = "";     // write: begin() only. read: sendHello() only.
+  // The trainers' marks (LINK_MARK_*), shown on the pairing screen. Ours is set
+  // by the caller after begin(); theirs arrives in the hello's flags byte.
+  uint8_t myMarks = 0;
+  uint8_t peerMarks = 0;
 
   LinkMon mine[TRAINER_TEAM_MAX];
   uint8_t mineN = 0;

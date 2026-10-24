@@ -66,7 +66,7 @@
 // boards in one process, packets dropped and duplicated on purpose, and a
 // power cut at every single durable write. Only the radio is unverifiable here.
 
-#define TRADE_PROTO 1
+#define TRADE_PROTO 2   // 2, v3.60: PMON_CHEATED is a valid flag; older boards would refuse it
 #define TRADE_NAME_LEN 12
 #define TRADE_LOG_CAP 8
 #define TRADE_RESEND_MS 400

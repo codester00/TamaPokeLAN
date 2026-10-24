@@ -159,7 +159,7 @@ uint8_t wildAreaLvMax(uint16_t a) { return areaAt(a).lvMax; }
 // THE gate: ladder position `gate` in `region` is open once the trainer before
 // it is beaten on either difficulty. Areas and legendaries both ask this.
 static bool gateOpen(uint8_t region, uint8_t gate, const Pet &p) {
-  if (gate == 0) return true;
+  if (gate == 0 || cheatOn(CT_ALL_AREAS)) return true;   // the cheat opens every gate
   uint8_t bit = (uint8_t)(gate - 1);   // the ladder trainer that opens it
   return p.hasBadge(region, bit, false) || p.hasBadge(region, bit, true);
 }
@@ -197,6 +197,7 @@ static int8_t areaWeather(const WildArea &a, const Pet &p) {
   uint32_t h = 2166136261u;                       // FNV-1a over the name
   for (const char *c = a.name; *c; c++) h = (h ^ (uint8_t)*c) * 16777619u;
   h ^= day * 0x9E3779B1u;                          // then the day, and a mix
+  h ^= p.daySalt * 0x27D4EB2Fu;                    // the re-roll cheat (0: none)
   h ^= h >> 16; h *= 0x85EBCA6Bu; h ^= h >> 13; h *= 0xC2B2AE35u; h ^= h >> 16;
   uint8_t n = 0;
   for (uint8_t w = 0; w < WILD_WX_COUNT; w++) n += (a.wxMask >> w) & 1;
@@ -322,6 +323,15 @@ bool wildLegendLive(uint8_t i, const Pet &p) {
       return false;
   return gateOpen(WILD_AREAS[l.area].region, l.gate, p) && speciesHasArt(l.dex) &&
          regionAvailable(regionOfDex(l.dex));
+}
+
+int wildLegendForced(uint8_t region, const Pet &p) {
+  for (uint8_t i = 0; i < WILD_LEGEND_COUNT; i++) {
+    const WildLegend &l = WILD_LEGENDS[i];
+    if (WILD_AREAS[l.area].region == region && !p.legendCaught(i) && speciesHasArt(l.dex) &&
+        regionAvailable(regionOfDex(l.dex))) return i;
+  }
+  return -1;
 }
 
 int wildLegendFor(uint16_t area, const Pet &p, uint32_t roll) {

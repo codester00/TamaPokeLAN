@@ -46,7 +46,11 @@ const SaveField SAVE_FIELDS[] = {
   { "ldry", SK_U8 },      // farewell eggs since a legendary (v3.56, secret)
   { "lstk", SK_U8 },
   { "stng", SK_U16 },     // the hidden settings (v3.59)
-  { "rlus", SK_U16 },     // which were ever on: the rules mark (v3.59)      // release eggs since a farewell: the farming lockout (v3.56)
+  { "rlus", SK_U16 },     // which were ever on: the rules mark (v3.59)
+  { "chts", SK_U32 },     // which cheats were ever used: the cheats mark (v3.60)
+  { "chtg", SK_U8 },      // the cheat toggles (v3.60)
+  { "dslt", SK_U8 },      // the day re-roll salt (v3.60)
+  { "tmch", SK_BYTES },   // the TMs a cheat gave (v3.60)      // release eggs since a farewell: the farming lockout (v3.56)
   { "pp", SK_BYTES },     // v3.52: PP used, per creature (pp.h)
   // the banked creatures, and what you are carrying
   { "party", SK_BYTES }, { "box", SK_BYTES }, { "bag", SK_BYTES },

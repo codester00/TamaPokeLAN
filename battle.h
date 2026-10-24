@@ -27,6 +27,7 @@ struct Combatant {
   bool recharge = false;     // EF_RECHARGE spent this creature's next turn
   uint8_t charging = 0;      // EF_CHARGE move already wound up
   bool shiny = false;        // which sprite variant to stream
+  bool cheated = false;      // carries PMON_CHEATED: the plates show the mark (v3.60)
   char name[12] = "";
   // PP (v3.52). linkMonTo() builds a bare Combatant (ppOn false); a LAN fight
   // turns it on full with battleFullPp() (v3.55) and never touches the saved

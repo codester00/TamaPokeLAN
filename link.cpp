@@ -11,7 +11,7 @@
 // Hello body. Laid out once, here, because every field in it is something the
 // two sides must agree on before a single turn is resolved.
 #define HB_PROTO 0
-#define HB_FLAGS 1        // bit0: I am offering to host
+#define HB_FLAGS 1        // bit0: I am offering to host; bits 1-2: my LINK_MARK_*
 #define HB_COUNT 2        // how many creatures my squad has
 #define HB_ID 3           // 2 bytes, breaks a two-host tie
 #define HB_BUILD 5        // 2 bytes, table compatibility
@@ -42,6 +42,7 @@ void linkMonFrom(LinkMon &out, const Combatant &c) {
   for (int i = 0; i < SI_COUNT; i++) out.base[i] = c.base[i];
   for (int i = 0; i < MOVE_SLOTS; i++) out.moves[i] = c.moves[i];
   out.shiny = c.shiny ? 1 : 0;
+  out.flags = c.cheated ? PMON_CHEATED : 0;
   snprintf(out.name, sizeof(out.name), "%s", c.name);
 }
 
@@ -58,6 +59,7 @@ void linkMonTo(Combatant &out, const LinkMon &m) {
   for (int i = 0; i < SI_COUNT; i++) out.base[i] = m.base[i] ? m.base[i] : 1;
   for (int i = 0; i < MOVE_SLOTS; i++) out.moves[i] = linkSafeMove(m.moves[i]);
   out.shiny = m.shiny != 0;
+  out.cheated = (m.flags & PMON_CHEATED) != 0;
   // NOT snprintf("%s"): a name off the wire need not be terminated, and reading
   // it as a C string would run off the end of the struct.
   uint8_t n = sizeof(out.name) - 1;
@@ -92,7 +94,7 @@ static void sendHello(Link &l) {
   uint8_t b[HB_LEN];
   memset(b, 0, sizeof(b));
   b[HB_PROTO] = LINK_PROTO;
-  b[HB_FLAGS] = l.isHost ? 1 : 0;
+  b[HB_FLAGS] = (uint8_t)((l.isHost ? 1 : 0) | (l.myMarks & 3) << 1);
   b[HB_COUNT] = l.mineN;
   b[HB_ID] = (uint8_t)(l.id & 0xFF);
   b[HB_ID + 1] = (uint8_t)(l.id >> 8);
@@ -124,6 +126,7 @@ static void sendSquad(Link &l, uint8_t rot = 0) {
 void Link::begin(bool host, const char *name) {
   state = LINK_LISTENING;
   isHost = host;
+  peerMarks = 0;
   protoTheirs = 0;
   buildTheirs = 0;
   peerId = 0;
@@ -293,6 +296,7 @@ void Link::onPacket(const uint8_t *buf, uint8_t len) {
       if (buildTheirs != linkBuildTag()) { state = LINK_REFUSED; return; }
       peerId = (uint16_t)body[HB_ID] | ((uint16_t)body[HB_ID + 1] << 8);
       bool theyHost = (body[HB_FLAGS] & 1) != 0;
+      peerMarks = (body[HB_FLAGS] >> 1) & 3;
       theirsExpected = body[HB_COUNT] > TRAINER_TEAM_MAX ? TRAINER_TEAM_MAX
                                                         : body[HB_COUNT];
       memcpy(peerName, body + HB_NAME, LINK_NAME_LEN);

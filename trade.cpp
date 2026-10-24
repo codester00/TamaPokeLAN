@@ -54,7 +54,7 @@ bool tradeMonValid(const PartyMon &m) {
   if (m.fullness > 100 || m.joy > 100 || m.energy > 100 || m.hygiene > 100 ||
       m.weight > 100 || m.bond > 100) return false;
   if (!m.uid.valid()) return false;
-  if (m.flags & ~PMON_TRADE_EVO) return false;   // a bit no build defines
+  if (m.flags & ~(PMON_TRADE_EVO | PMON_CHEATED)) return false;   // a bit no build defines
   for (uint8_t r : m.reserved) if (r) return false;
   return true;
 }

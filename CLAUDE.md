@@ -883,6 +883,43 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: CHEATS, the marks, and the marks over LAN (v3.60, on the branch, not merged)
+
+Phase 3 of `docs/build-plan.md`. DEVELOPERS ONLY, like the codes. The CHEATS
+code opens the same `SCR_CODES` screen with `codesCheats`; `cheatApply()` is
+the one place a cheat acts (the Master Ball and the legendary there, the rest
+in `Pet::applyCheat()`). `cheats.h` lists twelve, APPEND-ONLY (strings at
+`S_CHEAT_FIRST + id`).
+
+- **Trainer mark**: `Pet::cheatsUsed` (u32), a bit per cheat used, never
+  cleared; the player card reads "CHEATS USED" beside "MODIFIED RULES"
+  (`drawMarks()`). **Creature mark**: `PMON_CHEATED` (0x02 in
+  `PartyMon::flags`), `Pet::cheated` in RAM, `monFlags()`/`setMonFlags()` the
+  one conversion (toPartyMon, switchTo, reviveFrom, the checkpoint's flags
+  byte). Marked by max training, hatch now, the shiny egg (`CT_EGG_MARKED`,
+  spent by `hatch()`), a creature caught from the legendary cheat
+  (`wildCheated` -> `wildToPartyMon()`), and a move the picker teaches from a
+  TM only the cheat gave (`moveNeedsCheatedTm()`, `Pet::tmCheated`). Money,
+  coins and balls mark the trainer only. The sheet, the card and the battle
+  plates ("!") show it.
+- **Toggles** (`cheatToggles`, `cheatOn()`, read off while `settingsSuspended`
+  like the settings): unlimited PP sets `ppOn = false` in `buildSquad()`; all
+  areas opens `gateOpen()` in wild.cpp. All badges sets the masks directly
+  (`winBadge()` saves every call). The re-roll is `Pet::daySalt`, mixed into
+  `areaWeather()` and `martTmToday()` (0 = unchanged). The legendary is
+  `wildLegendForced()` for the next encounter (RAM only).
+- **Wire**: `LINK_PROTO` 7 -- the hello's flags byte carries `LINK_MARK_*` in
+  bits 1-2 (`Link::myMarks`/`peerMarks`; the pairing screen shows the rival's),
+  `LinkMon::flags` carries the creature mark in what was tail padding (size
+  still 34, asserted in the test). `TRADE_PROTO` 2, `tradeMonValid()` accepts
+  `PMON_CHEATED`.
+- Saved: player record v9 tail (cheatsUsed, toggles, salt, TM bits) and legacy
+  keys `chts`/`chtg`/`dslt`/`tmch`.
+- `cheats_test` (every cheat, the marks through reload/bank/switch/evolve/
+  trade/LinkMon), `link_test` (marks in the hello, proto 6 refused),
+  `swipe_test`. Negative-checked: `setMonFlags()` dropping the mark, trades
+  refusing it, PP cheat in LAN, the legacy key, LinkMon flags.
+
 ### Done: secret codes and the hidden SETTINGS (v3.59, on the branch, not merged)
 
 Phase 2 of `docs/build-plan.md`. **DEVELOPERS ONLY -- never in the README,

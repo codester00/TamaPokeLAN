@@ -129,6 +129,9 @@ uint8_t wildTimeBand(int hour);
 // evenly among the weathers the game gives it. The ONE answer the pick and the
 // area's state ask; the battle backgrounds will ask it too.
 int8_t wildAreaWeather(uint16_t area, const Pet &p);
+// The CHEAT's legendary (v3.60): the first of `region`'s not yet caught, gates
+// ignored, or -1. Only startWildBattle() asks, and only with the cheat armed.
+int wildLegendForced(uint8_t region, const Pet &p);
 // Its name for the serial console, in English ("" for -1). Not UI text: what
 // goes on the panel belongs in i18n.cpp.
 const char *wildWeatherName(int8_t w);
