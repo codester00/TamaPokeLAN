@@ -839,6 +839,10 @@ guard was negative-checked.
 
 ### TODO: agreed with the owner 2026-10-23, in this order (plans, nothing built)
 
+**THE BUILD PLAN IS `docs/build-plan.md`** (2026-10-24): six phases,
+v3.58-v3.63, with files, callers, tests and hardware checks per phase. It
+wins wherever it and the summary below differ.
+
 1. **Training scales with level, in battle only.** Training stays on its 0-100
    scale on the training screen and in the minigames; the CARD's stat numbers
    show the battle values (owner, 2026-10-23). Battle maths uses
@@ -873,7 +877,8 @@ guard was negative-checked.
 4. **Bill's PC**: Pokedex-shaped storage, up to 6 of each species (~6,150),
    on the unused internal FFat partition, with a jump-to-number search shared
    with the Pokedex. Dex states: SEEN and REGISTERED exactly as today, plus
-   OWNED = held in the PC or the party right now (releasing the last one
+   OWNED = held in the PC, the party or as the live pet right now (owner,
+   2026-10-24; releasing the last one
    removes it from the collection). Grid: coloured if the PC holds one,
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
