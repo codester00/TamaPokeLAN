@@ -29,6 +29,7 @@
 #include "avatars.h"
 #include <stdarg.h>
 #include "party.h"
+#include "pcstore.h"
 #include "save.h"
 #include "pet.h"
 #include "items.h"
@@ -154,11 +155,11 @@ uint8_t partyDetail = 0;   // 0 = the grid, else slot + 1
 bool boxOpen = false;
 uint8_t boxPage = 0;
 uint8_t boxSwapFrom = 0;   // party slot + 1, armed from the party side
-uint8_t boxSel = 0;        // box slot + 1, armed from the box side
+uint16_t boxSel = 0;       // box view index + 1, armed from the box side
 // The box gets the same detail sheet the party has. Tapping a box slot used to
 // yank the creature into the party immediately, which is a surprising amount to
 // happen from one tap -- and left nowhere to put a RELEASE button.
-uint8_t boxDetail = 0;        // box slot + 1 whose sheet is open
+uint16_t boxDetail = 0;       // box view index + 1 whose sheet is open
 // The RELEASE confirm, on whichever sheet is up. One flag rather than two,
 // because only one sheet can be open at a time and partyDetail/boxDetail
 // already say which.
@@ -335,6 +336,13 @@ void renderHall();
 void hallTap(int16_t x, int16_t y);
 void hallBack();
 void openHall(uint8_t h);
+// The box view over Bill's PC (v3.61), used by the party screen ~8000 lines
+// above where it is defined.
+uint16_t boxViewPages();
+bool boxViewAt(uint16_t idx, PartyMon &out);
+bool boxViewSwap(uint8_t partyIdx, uint16_t idx);
+bool boxViewRelease(uint16_t idx);
+uint8_t ownedCount(int16_t dex);
 // The hidden screens (v3.59), defined beside the halls but reached from the
 // gesture handlers and the Memory game well above and below them.
 extern bool codesOpen;
@@ -1199,6 +1207,8 @@ void setup() {
   ppLoad();          // before anything can run the clock: a rest refills it
   pet.begin();
   backfillUids();
+  if (!pcBegin()) Serial.println("pc: Bill's PC would not mount -- it reads as unavailable, not empty");
+  pcMigrateBox();
   sdBegin();
   thumbs.load();
 
@@ -1298,8 +1308,8 @@ void loop() {
   // With room it simply joins; with a full party the player is taken straight
   // to the party screen to choose who it replaces, or to let it go.
   if (pet.endedKind != CER_NONE && !partyPick) {
-    // party first, then the box; only a full box makes it your choice
-    if (party.add(pet.endedMon) || party.boxAdd(pet.endedMon)) {
+    // party first, then Bill's PC; only no room in either makes it your choice
+    if (storeNewCreature(pet.endedMon)) {
       snprintf(partyBannerName, sizeof(partyBannerName), "%s",
                pet.endedMon.nick[0] ? pet.endedMon.nick : DEX_TBL[pet.endedMon.dex].name);
       partyBannerUntil = now + 3500;
@@ -1677,28 +1687,30 @@ void handleSerial() {
     // Prints the whole save as a block of IMPORT commands. Pasting that block
     // back is the restore -- there is no separate format to get wrong, and no
     // single 2000-character line for a terminal to mangle.
-    static uint8_t buf[SAVE_TRANSFER_MAX];
-    size_t n = saveExport(buf, sizeof(buf));
+    // Streamed since v3.61: Bill's PC rides in the same backup and a full one
+    // (~400 KB) does not fit in RAM. The byte count is known before the first
+    // line, so the header still declares it -- the installer checks against it.
+    size_t n = saveExportStream(
+        [](size_t total) {
+          Serial.printf("# TamaPoke save, %u bytes. Paste this whole block back.\n", (unsigned)total);
+        },
+        [](const char *hex) { Serial.print("IMPORT "); Serial.println(hex); });
     if (!n) { Serial.println("EXPORT FAIL"); return; }
-    Serial.printf("# TamaPoke save, %u bytes. Paste this whole block back.\n",
-                  (unsigned)n);
-    for (size_t i = 0; i < n; i += 48) {
-      Serial.print("IMPORT ");
-      for (size_t j = i; j < i + 48 && j < n; j++) Serial.printf("%02X", buf[j]);
-      Serial.println();
-    }
     Serial.println("IMPORT");        // the empty one commits
   } else if (line.startsWith("IMPORT")) {
     // IMPORT <hex>   append a chunk
     // IMPORT         commit what has been appended
-    static uint8_t in[SAVE_TRANSFER_MAX];
+    // Big enough for a full PC, so it lives in PSRAM and only once asked for.
+    static uint8_t *in = nullptr;
     static size_t inN = 0;
+    if (!in) in = (uint8_t *)ps_malloc(SAVE_IMPORT_MAX);
+    if (!in) { Serial.println("IMPORT FULL"); return; }
     String hex = line.substring(6);
     hex.trim();
     if (hex.length()) {
       if (hex.length() & 1) { Serial.println("IMPORT ODD"); inN = 0; return; }
       for (size_t i = 0; i + 1 < (size_t)hex.length(); i += 2) {
-        if (inN >= sizeof(in)) { Serial.println("IMPORT FULL"); inN = 0; return; }
+        if (inN >= SAVE_IMPORT_MAX) { Serial.println("IMPORT FULL"); inN = 0; return; }
         auto nyb = [](char c) -> int {
           if (c >= '0' && c <= '9') return c - '0';
           if (c >= 'A' && c <= 'F') return c - 'A' + 10;
@@ -1735,6 +1747,9 @@ void handleSerial() {
       Serial.println("WIPE FAILED -- NVS would not clear; the save is untouched");
       return;
     }
+    // Bill's PC is part of the save: a new game must not open on the old
+    // collection. Its migration marker goes with it.
+    if (pcAvailable() && !pcWipe()) Serial.println("WIPE: Bill's PC did not clear completely");
     // Set BEFORE the restart, because the restart runs the shutdown handler, and
     // that handler's whole job is to flush a pending save. Without this it would
     // write the creature that was just deleted straight back into the empty NVS.
@@ -2213,13 +2228,14 @@ void renderPartyDetail() {
 }
 
 void renderBoxDetail() {
-  if (party.box[boxDetail - 1].empty()) {
+  PartyMon m;
+  if (!boxViewAt(boxDetail - 1, m)) {
     boxDetail = 0;
     releaseConfirm = false;
     renderBox();
     return;
   }
-  renderMonSheet(party.box[boxDetail - 1], true);
+  renderMonSheet(m, true);
 }
 
 // The two buttons' hit areas, so a test can prove they do not overlap without
@@ -2296,9 +2312,10 @@ bool monSheetConfirmTap(int16_t x, int16_t y, bool fromBox) {
   if (x < CONFIRM_BTN_X || x > CONFIRM_BTN_X + CONFIRM_BTN_W) return false;
   if (y >= c1t && y <= c1b) {            // YES -- and it does not come back
     // Promised to a trade: never released out from under it.
-    const PartyMon &gone = fromBox ? party.box[boxDetail - 1] : party.slots[partyDetail - 1];
+    PartyMon gone;
+    if (fromBox) boxViewAt(boxDetail - 1, gone); else gone = party.slots[partyDetail - 1];
     if (tradeLocked(gone)) { releaseConfirm = false; sfxPlay(SFX_DENY); return true; }
-    if (fromBox) { party.boxReleaseAt(boxDetail - 1); boxDetail = 0; }
+    if (fromBox) { boxViewRelease(boxDetail - 1); boxDetail = 0; }
     else { party.releaseAt(partyDetail - 1); partyDetail = 0; }
     // A half-finished swap named a slot that may now be empty, so disarm both
     // sides rather than leaving one pointing at a creature that is gone.
@@ -2411,7 +2428,7 @@ void partyTap(int16_t x, int16_t y) {
   for (int i = 0; i < PARTY_SLOTS; i++) {
     if (partySlotAt(x, y) != i) continue;
     if (boxSel) {                    // a box creature is waiting for a slot
-      party.swapPartyBox(i, boxSel - 1);
+      boxViewSwap((uint8_t)i, boxSel - 1);
       boxSel = 0;
       sfxPlay(SFX_MEDAL);
       return;
@@ -3148,7 +3165,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_AREA:    p = &areaPage;    n = areaPages(currentExploreRegion()); break;
     case SCR_CODES:   p = &codesPage;   n = codesPages(); break;
     case SCR_HALL:    if (hallMode == HM_PRIZES) { p = &hallPage; n = hallPrizePages(); } break;
-    case SCR_BOX:     p = &boxPage;     n = BOX_SLOTS / BOX_PER_PAGE; break;
+    case SCR_BOX:     p = &boxPage;     n = (uint8_t)boxViewPages(); break;
     case SCR_BAGSCR:  p = &bagPage;     n = bagPages(); break;
     case SCR_MART:    p = &martPage;    n = martPages(); break;
     case SCR_CARD:    p = &cardPage;    n = CARD_PAGES; break;
@@ -3796,7 +3813,8 @@ uint8_t hallPrizeState(uint8_t h, uint8_t i) {
     // a creature whose pack is missing would draw as a number forever
     if (!regionAvailable(regionOfDex((int16_t)pz.what)) || !speciesHasArt((int16_t)pz.what))
       return PZ_NO_PACK;
-    if (party.firstFree() < 0 && party.boxFirstFree() < 0) return PZ_NO_ROOM;
+    if (party.firstFree() < 0 && (!pcAvailable() || pcCount((int16_t)pz.what) >= PC_PER_SPECIES))
+      return PZ_NO_ROOM;
   }
   return pet.coins >= pz.price ? PZ_OK : PZ_DEAR;
 }
@@ -6084,13 +6102,14 @@ void wildGrantDrops() {   // not static: tm_test drives it
 // uses -- party, then box, then ask -- rather than growing a second copy of it.
 // CLAUDE.md's most repeated bug is a rule enforced in one path but not its
 // twin, and "which slot does a creature take" is exactly that shape.
-// A new creature into the party, else the box. False when both are full. The
+// A new creature into the party, else Bill's PC. False when neither has room
+// (a full party and six of its species, or no PC at all). The
 // Game Corner's prize creatures come in this way too.
 bool storeNewCreature(const PartyMon &m) {
   // NOT registered in the Pokedex here. Registration means "you raised this",
   // and switchTo() does it when the creature actually becomes the one you are
   // raising -- so catching one and leaving it in the box does not fill the dex.
-  return party.add(m) || party.boxAdd(m);
+  return party.add(m) || pcPut(m) >= 0;
 }
 
 static void wildStoreCaught() {
@@ -7830,29 +7849,43 @@ static bool tradePrefsReady() {
   return tradePrefsOpen;
 }
 
-// The firmware's TradeBoard: the party and the box ONLY, never the live pet.
-// Slots 0..5 are the party, 6.. the box.
+// The firmware's TradeBoard: the party, Bill's PC (v3.61) and the few left in
+// party.box[], NEVER the live pet. Every write says whether it LANDED: the
+// protocol retries a commit by looking for the creature, so claiming what the
+// flash does not hold would end the retry early and lose the trade on a reboot.
 struct FwTradeBoard : TradeBoard {
-  static PartyMon &slotAt(int w) {
-    return w < PARTY_SLOTS ? party.slots[w] : party.box[w - PARTY_SLOTS];
+  enum Where : uint8_t { W_NONE, W_PARTY, W_PC, W_LEFT };
+  static Where where(const CreatureUid &u, int *i, int16_t *dex) {
+    if (!u.valid()) return W_NONE;
+    for (int k = 0; k < PARTY_SLOTS; k++)
+      if (!party.slots[k].empty() && party.slots[k].uid == u) { *i = k; return W_PARTY; }
+    for (int k = 0; k < BOX_SLOTS; k++)
+      if (!party.box[k].empty() && party.box[k].uid == u) { *i = k; return W_LEFT; }
+    uint8_t s;
+    if (pcFind(u, dex, &s)) { *i = s; return W_PC; }
+    return W_NONE;
   }
-  static int where(const CreatureUid &u) {
-    if (!u.valid()) return -1;
-    for (int w = 0; w < PARTY_SLOTS + BOX_SLOTS; w++)
-      if (!slotAt(w).empty() && slotAt(w).uid == u) return w;
-    return -1;
+  static bool putParty(int k, const PartyMon &in) {
+    PartyMon was = party.slots[k];
+    party.slots[k] = in;
+    if (party.save()) return true;
+    party.slots[k] = was;
+    return false;
   }
-  // Writes one slot and says whether it LANDED. On a failed write the RAM copy
-  // is put back: the protocol retries a commit by looking for the creature, so
-  // a RAM slot claiming what NVS does not hold would end the retry early and
-  // a reboot would then lose the trade.
-  static bool put(int w, const PartyMon &in) {
-    PartyMon &slot = slotAt(w);
-    PartyMon was = slot;
-    slot = in;
-    bool ok = w < PARTY_SLOTS ? party.save() : party.boxSave();
-    if (!ok) slot = was;
-    return ok;
+  static bool remove(const CreatureUid &u) {
+    int i; int16_t dex;
+    switch (where(u, &i, &dex)) {
+      case W_PARTY: return putParty(i, PartyMon());
+      case W_PC: return pcTake(dex, (uint8_t)i, nullptr);
+      case W_LEFT: {
+        PartyMon was = party.box[i];
+        party.box[i] = PartyMon();
+        if (party.boxSave()) return true;
+        party.box[i] = was;
+        return false;
+      }
+      default: return true;   // already gone
+    }
   }
   void mac(uint8_t out[6]) override {
     uint64_t m = ESP.getEfuseMac();   // the same bytes Pet::mintUid() stamps
@@ -7860,20 +7893,32 @@ struct FwTradeBoard : TradeBoard {
   }
   uint32_t epoch() override { return rtcEpoch(); }
   bool findMon(const CreatureUid &u, PartyMon *out) override {
-    int w = where(u);
-    if (w < 0) return false;
-    if (out) *out = slotAt(w);
+    int i; int16_t dex;
+    Where w = where(u, &i, &dex);
+    if (w == W_NONE) return false;
+    if (out) {
+      if (w == W_PARTY) *out = party.slots[i];
+      else if (w == W_LEFT) *out = party.box[i];
+      else pcGet(dex, (uint8_t)i, *out);
+    }
     return true;
   }
+  // In a party slot it is one write, as before. In the PC the two creatures may
+  // be different species (different files), so it is two -- in an order that is
+  // safe to repeat: the incoming one is stored unless it already is, THEN the
+  // outgoing one removed. A cut between them leaves both, and the retry finishes.
   bool replaceMon(const CreatureUid &out, const PartyMon &in) override {
-    int w = where(out);
-    return w >= 0 && put(w, in);
+    int i; int16_t dex;
+    Where w = where(out, &i, &dex);
+    if (w == W_PARTY) return putParty(i, in);
+    if (w == W_PC && in.dex == dex) return pcReplace(dex, (uint8_t)i, in);
+    if (!findMon(in.uid, nullptr) && !storeNew(in)) return false;
+    return remove(out);
   }
   bool storeNew(const PartyMon &in) override {
     int i = party.firstFree();
-    if (i >= 0) return put(i, in);
-    i = party.boxFirstFree();
-    return i >= 0 && put(PARTY_SLOTS + i, in);
+    if (i >= 0) return putParty(i, in);
+    return pcPut(in) >= 0;
   }
   bool saveJournal(const uint8_t *buf, size_t n) override {
     return tradePrefsReady() && tradePrefs.putBytes("trade", buf, n) == n;
@@ -8041,8 +8086,9 @@ static void renderTradePick() {
   else snprintf(top, sizeof(top), "%s %u", T(S_BOX_BTN), (unsigned)tradePickSrc);
   drawPartyHub(top, T(S_TRADE_HUBHINT), false);
   for (int i = 0; i < PARTY_SLOTS; i++) {
-    const PartyMon &m = tradePickSrc == 0 ? party.slots[i]
-                                          : party.box[(tradePickSrc - 1) * BOX_PER_PAGE + i];
+    PartyMon m;
+    if (tradePickSrc == 0) m = party.slots[i];
+    else boxViewAt((uint16_t)((tradePickSrc - 1) * BOX_PER_PAGE + i), m);
     drawPartySlot(i, m);
   }
   gfx->fillRoundRect(PARTYCLOSE_X, PARTYCLOSE_Y, PARTYCLOSE_W, PARTYCLOSE_H, 12, UI_TRACK);
@@ -8196,8 +8242,8 @@ void renderTrade() {
 }
 
 static void tradePickTap(int16_t x, int16_t y) {
-  if (partyHubAt(x, y)) {   // party -> box 1 -> box 2 -> box 3 -> party
-    tradePickSrc = (uint8_t)((tradePickSrc + 1) % (1 + BOX_SLOTS / BOX_PER_PAGE));
+  if (partyHubAt(x, y)) {   // party -> each page of the PC -> party
+    tradePickSrc = (uint8_t)((tradePickSrc + 1) % (1 + boxViewPages()));
     sfxPlay(SFX_TAP);
     return;
   }
@@ -8208,8 +8254,9 @@ static void tradePickTap(int16_t x, int16_t y) {
   }
   int i = partySlotAt(x, y);
   if (i < 0) return;
-  const PartyMon &m = tradePickSrc == 0 ? party.slots[i]
-                                        : party.box[(tradePickSrc - 1) * BOX_PER_PAGE + i];
+  PartyMon m;
+  if (tradePickSrc == 0) m = party.slots[i];
+  else boxViewAt((uint16_t)((tradePickSrc - 1) * BOX_PER_PAGE + i), m);
   if (m.empty() || !trade.offer(m.uid)) { sfxPlay(SFX_DENY); return; }
   tradePicking = false;
   sfxPlay(SFX_TAP);
@@ -10494,6 +10541,133 @@ void renderMini() {
   gfx->flush();
 }
 
+// ---------- the box view over Bill's PC (v3.61) ----------
+// Until the PC has screens of its own (v3.62) the box screen pages over it:
+// one page per species the PC holds, its six slots on the ring, then pages of
+// whatever did not fit the PC when it took the box over (party.box[], usually
+// empty). An index is page * BOX_PER_PAGE + slot. Every box caller asks these.
+static uint16_t boxLeftPages() {
+  int last = -1;
+  for (int i = 0; i < BOX_SLOTS; i++) if (!party.box[i].empty()) last = i;
+  return (uint16_t)((last + BOX_PER_PAGE) / BOX_PER_PAGE);
+}
+
+uint16_t boxViewPages() {
+  uint32_t n = (uint32_t)pcSpeciesHeld() + boxLeftPages();
+  if (!n) n = 1;
+  return n > 255 ? 255 : (uint16_t)n;   // the page is a byte; v3.62 replaces this screen
+}
+
+// Where a view index points, pinned down. Resolve it BEFORE moving anything: a
+// deposit can add a species, which shifts every later page by one, so an index
+// read after it names somebody else (pcmig_test caught exactly that).
+struct BoxLoc { int16_t dex; uint8_t slot; int16_t left; };   // dex 0: a leftover
+static BoxLoc boxLoc(uint16_t idx) {
+  uint16_t page = idx / BOX_PER_PAGE, held = pcSpeciesHeld();
+  uint8_t slot = idx % BOX_PER_PAGE;
+  if (page < held) return { pcSpeciesAt(page), slot, -1 };
+  uint16_t k = (uint16_t)((page - held) * BOX_PER_PAGE + slot);
+  return { 0, slot, k < BOX_SLOTS ? (int16_t)k : (int16_t)-1 };
+}
+
+static bool boxLocAt(const BoxLoc &l, PartyMon &out) {
+  out = PartyMon();
+  if (l.dex) return pcGet(l.dex, l.slot, out);
+  if (l.left < 0) return false;
+  out = party.box[l.left];
+  return !out.empty();
+}
+
+bool boxViewAt(uint16_t idx, PartyMon &out) { return boxLocAt(boxLoc(idx), out); }
+
+// Empties the slot; true only if that LANDED.
+static bool boxLocTake(const BoxLoc &l, PartyMon *out) {
+  if (l.dex) return pcTake(l.dex, l.slot, out);
+  int16_t k = l.left;
+  if (k < 0 || party.box[k].empty()) return false;
+  PartyMon was = party.box[k];
+  party.box[k] = PartyMon();
+  if (!party.boxSave()) { party.box[k] = was; return false; }
+  if (out) *out = was;
+  return true;
+}
+
+bool boxViewRelease(uint16_t idx) { return boxLocTake(boxLoc(idx), nullptr); }
+
+// Undoes a deposit that landed in the PC when the party write after it did not.
+static void pcUndoPut(const PartyMon &m) {
+  int16_t d; uint8_t s;
+  if (pcFind(m.uid, &d, &s)) pcTake(d, s, nullptr);
+}
+
+// Deposit, withdraw or exchange between party slot `partyIdx` and view `idx`.
+// A deposit goes to the creature's OWN species in the PC, whatever page was
+// tapped. Ordered so a failure part-way leaves a creature in two places rather
+// than none, and then undone; false (nothing moved) when there is no room.
+bool boxViewSwap(uint8_t partyIdx, uint16_t idx) {
+  if (partyIdx >= PARTY_SLOTS) return false;
+  PartyMon p = party.slots[partyIdx], v;
+  const BoxLoc loc = boxLoc(idx);
+  bool has = boxLocAt(loc, v);
+  if (p.empty() && !has) return false;
+  if (has && tradeLocked(v)) return false;
+  if (!p.empty() && tradeLocked(p)) return false;
+  if (has && !p.empty() && p.dex == v.dex && loc.dex) {
+    // same species: one slot of the PC changes hands, so a full six is no bar
+    if (!pcReplace(v.dex, loc.slot, p)) return false;
+    party.slots[partyIdx] = v;
+    if (party.save()) return true;
+    party.slots[partyIdx] = p;
+    pcReplace(v.dex, loc.slot, v);
+    return false;
+  }
+  if (!p.empty() && pcPut(p) < 0) return false;          // deposit first: no room, no move
+  if (has) {
+    if (!boxLocTake(loc, nullptr)) { if (!p.empty()) pcUndoPut(p); return false; }
+    party.slots[partyIdx] = v;
+  } else {
+    party.slots[partyIdx] = PartyMon();
+  }
+  if (party.save()) return true;
+  party.slots[partyIdx] = p;                              // the party did not land: undo
+  if (has && pcPut(v) < 0) { party.slots[partyIdx] = v; party.save(); }
+  if (!p.empty()) pcUndoPut(p);
+  return false;
+}
+
+// How many of a species the player OWNS right now: in the PC, in the party, or
+// as the live pet (owner, 2026-10-24). The one answer the Pokedex will ask.
+uint8_t ownedCount(int16_t dex) {
+  uint16_t n = pcCount(dex);
+  for (auto &m : party.slots) if (!m.empty() && m.dex == dex) n++;
+  for (auto &m : party.box) if (!m.empty() && m.dex == dex) n++;
+  if (!pet.isEgg() && pet.speciesId == dex) n++;
+  return n > 255 ? 255 : (uint8_t)n;
+}
+
+// The first boot of v3.61 moves the NVS box into the PC, once. Each creature
+// already in the PC (a power cut part-way through an earlier attempt) is
+// skipped, so it cannot arrive twice. What does not fit -- more than six of a
+// species -- stays in party.box[] under the new key "boxl"; the old "box" key
+// is never written again, so a downgrade reads the box as it was today.
+void pcMigrateBox() {
+  if (!pcAvailable()) return;
+  if (pcMigrated()) { party.loadBox("boxl"); return; }
+  PartyMon left[BOX_SLOTS];
+  int nl = 0, moved = 0;
+  for (int i = 0; i < BOX_SLOTS; i++) {
+    const PartyMon &m = party.box[i];
+    if (m.empty()) continue;
+    if (pcFind(m.uid, nullptr, nullptr) || pcPut(m) >= 0) moved++;
+    else left[nl++] = m;
+  }
+  party.loadBox("boxl");
+  for (int i = 0; i < BOX_SLOTS; i++) party.box[i] = i < nl ? left[i] : PartyMon();
+  if (!party.boxSave()) return;            // try again next boot; nothing is lost
+  if (!pcSetMigrated()) return;
+  Serial.printf("pc: moved %d from the box, %d did not fit\n", moved, nl);
+}
+
 // ---------- the box ----------
 // Storage past the six that fight. A creature is moved by picking a party slot
 // and then a box slot, which swaps them -- so one gesture covers deposit,
@@ -10502,7 +10676,8 @@ void renderBox() {
   gfx->fillScreen(RGB565_BLACK);
   gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
   char head[32];
-  snprintf(head, sizeof(head), T(S_BOX_FMT), party.boxCount(), BOX_SLOTS);
+  snprintf(head, sizeof(head), T(S_BOX_FMT), (unsigned)(pcTotal() + party.boxCount()),
+           (unsigned)(DEX_COUNT * PC_PER_SPECIES));
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(2);
   gfx->setCursor(CX - (int)strlen(head) * 6, 40);
@@ -10518,14 +10693,13 @@ void renderBox() {
     gfx->print(sub);
   }
   for (uint8_t i = 0; i < BOX_PER_PAGE; i++) {
-    uint8_t idx = boxPage * BOX_PER_PAGE + i;
-    if (idx >= BOX_SLOTS) break;
-    drawPartySlot(i, party.box[idx]);
+    PartyMon m;
+    boxViewAt((uint16_t)(boxPage * BOX_PER_PAGE + i), m);
+    drawPartySlot(i, m);
   }
   {
     char pg[12];
-    snprintf(pg, sizeof(pg), "%u/%u", (unsigned)(boxPage + 1),
-             (unsigned)(BOX_SLOTS / BOX_PER_PAGE));
+    snprintf(pg, sizeof(pg), "%u/%u", (unsigned)(boxPage + 1), (unsigned)boxViewPages());
     drawPartyHub(pg, T(S_BOX_BTN), boxSwapFrom != 0);
   }
   gfx->setTextColor(UI_INK_SOFT);
@@ -10543,7 +10717,7 @@ void boxTap(int16_t x, int16_t y) {
     if (monSheetBtn(x, y, true)) {          // TO PARTY
       int free = party.firstFree();
       if (free < 0) { sfxPlay(SFX_DENY); return; }
-      party.swapPartyBox((uint8_t)free, boxDetail - 1);
+      if (!boxViewSwap((uint8_t)free, boxDetail - 1)) { sfxPlay(SFX_DENY); return; }
       boxDetail = 0;
       boxSel = 0;
       sfxPlay(SFX_MEDAL);
@@ -10560,15 +10734,15 @@ void boxTap(int16_t x, int16_t y) {
     return;
   }
   for (uint8_t i = 0; i < BOX_PER_PAGE; i++) {
-    uint8_t idx = boxPage * BOX_PER_PAGE + i;
-    if (idx >= BOX_SLOTS) break;
+    uint16_t idx = (uint16_t)(boxPage * BOX_PER_PAGE + i);
     if (partySlotAt(x, y) != (int)i) continue;
+    PartyMon here;
+    bool has = boxViewAt(idx, here);
     if (boxSwapFrom) {           // a party slot is waiting: complete the trade
-      if (party.slots[boxSwapFrom - 1].empty() && party.box[idx].empty()) {
+      if (!boxViewSwap(boxSwapFrom - 1, idx)) {   // nothing to move, or no room
         sfxPlay(SFX_DENY);
         return;
       }
-      party.swapPartyBox(boxSwapFrom - 1, idx);
       boxSwapFrom = 0;
       boxSel = 0;
       sfxPlay(SFX_MEDAL);
@@ -10577,7 +10751,7 @@ void boxTap(int16_t x, int16_t y) {
     // Otherwise open its SHEET. It used to go straight to the party, which is a
     // lot to happen from one tap and left nowhere to put RELEASE; the sheet
     // offers TO PARTY explicitly and shows what you are about to move.
-    if (party.box[idx].empty()) { sfxPlay(SFX_DENY); return; }
+    if (!has) { sfxPlay(SFX_DENY); return; }
     if (party.firstFree() < 0) {
       boxSel = idx + 1;          // party is full: go choose who steps out
       boxOpen = false;
@@ -10671,12 +10845,13 @@ void renderParty() {
   // full it is, so the player knows there is anything in there without opening
   if (!partyPick && !cordPick) {
     char bl[24];
-    snprintf(bl, sizeof(bl), "%u/%u", party.boxCount(), BOX_SLOTS);
+    snprintf(bl, sizeof(bl), "%u", (unsigned)(pcTotal() + party.boxCount()));
     drawPartyHub(bl, T(S_BOX_BTN), boxSwapFrom != 0);
   }
 
   if (boxSel) {
-    const PartyMon &b = party.box[boxSel - 1];
+    PartyMon b;
+    boxViewAt(boxSel - 1, b);
     char sw[44];
     snprintf(sw, sizeof(sw), T(S_BOX_SWAP),
              b.nick[0] ? b.nick : DEX_TBL[b.dex].name);
@@ -10944,7 +11119,9 @@ void drawBattery() {
 // EXPORT. The firmware could not say this at all before: the only symptom was a
 // line on a serial port no player has attached.
 void drawSaveWarning() {
-  if (pet.saveHealthy()) return;
+  // Bill's PC not mounting is the same warning (v3.61): it reads as
+  // unavailable rather than empty, and the player should know to EXPORT.
+  if (pet.saveHealthy() && pcAvailable()) return;
   const int x = CX - 40, y = 11, w = 13, h = 13;
   gfx->fillTriangle(x + w / 2, y, x, y + h, x + w, y + h, UI_BAR_BAD);
   gfx->fillRect(x + w / 2, y + 5, 2, 4, RGB565_BLACK);   // the "!"

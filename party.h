@@ -131,6 +131,9 @@ public:
   PartyMon box[BOX_SLOTS];
 
   void begin();                 // load from NVS
+  // Bill's PC holds the box since v3.61; box[] is now only what did not fit it
+  // on migration (more than six of a species), under its own key.
+  void loadBox(const char *key);
   uint8_t count() const;
   bool isFull() const { return count() >= PARTY_SLOTS; }
   int firstFree() const;        // index of the first empty slot, -1 if full
@@ -157,6 +160,7 @@ public:
 
 private:
   Preferences prefs;
+  const char *boxKey = "box";
 };
 
 extern Party party;

@@ -28,8 +28,8 @@ g++ -std=c++17 -O1 -w \
   -DSPRITE_DIR="\"$ROOT/tools/sdcard/mons\"" \
   $(sdl2-config --cflags) \
   -o tamapoke-emu \
-  sketch.cpp wavout.cpp "$ROOT/gbsynth.cpp" "$ROOT/musicplay.cpp" "$ROOT/pet.cpp" "$ROOT/i18n.cpp" "$ROOT/party.cpp" "$ROOT/battle.cpp" "$ROOT/link.cpp" "$ROOT/trade.cpp" "$ROOT/save.cpp" "$ROOT/inventory.cpp" "$ROOT/wild.cpp" "$ROOT/pp.cpp" "$ROOT/gamecorner.cpp" "$ROOT/surf.cpp" \
-  host_impl.cpp nvsinfo_stub.cpp font.cpp clock.cpp main_sdl.cpp \
+  sketch.cpp wavout.cpp "$ROOT/gbsynth.cpp" "$ROOT/musicplay.cpp" "$ROOT/pet.cpp" "$ROOT/i18n.cpp" "$ROOT/party.cpp" "$ROOT/battle.cpp" "$ROOT/link.cpp" "$ROOT/trade.cpp" "$ROOT/save.cpp" "$ROOT/inventory.cpp" "$ROOT/wild.cpp" "$ROOT/pp.cpp" "$ROOT/gamecorner.cpp" "$ROOT/surf.cpp" "$ROOT/pcstore.cpp" \
+  host_impl.cpp nvsinfo_stub.cpp pcfs_host.cpp font.cpp clock.cpp main_sdl.cpp \
   $(sdl2-config --libs)
 
 echo "built: $HERE/tamapoke-emu"

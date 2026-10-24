@@ -58,19 +58,28 @@ void Party::begin() {
     if (s.dex < 1 || s.dex > DEX_COUNT) s.dex = 0;
     s.nick[sizeof(s.nick) - 1] = 0;
   }
+  loadBox("box");
+}
+
+// The box from `key`: "box" until Bill's PC took it over (v3.61), then
+// "boxl", the few that did not fit the PC on the way (more than six of one
+// species). The old key is never written again, so a downgrade still reads the
+// box as it was on the day it moved.
+void Party::loadBox(const char *key) {
+  boxKey = key;
   // The box is a separate key and simply absent on an older save, which leaves
   // it zeroed -- exactly what an empty box is.
   for (auto &s : box) s = PartyMon();
-  size_t boxStored = prefs.getBytesLength("box");
+  size_t boxStored = prefs.getBytesLength(key);
   if (boxStored == sizeof(box)) {
-    prefs.getBytes("box", box, sizeof(box));
+    prefs.getBytes(key, box, sizeof(box));
   } else if (boxStored > sizeof(box) && boxStored % sizeof(PartyMon) == 0) {
     // Same as the party above: a later build with more box slots. Keep the
     // first BOX_SLOTS rather than dropping the whole box on the floor, which is
     // what happened before -- getBytes refuses an oversized blob outright.
     uint8_t *tmp = (uint8_t *)malloc(boxStored);
     if (tmp) {
-      if (prefs.getBytes("box", tmp, boxStored) == boxStored)
+      if (prefs.getBytes(key, tmp, boxStored) == boxStored)
         memcpy(box, tmp, sizeof(box));
       free(tmp);
     }
@@ -81,7 +90,7 @@ void Party::begin() {
     // overwritten by the next boxSave(). Same migration, same reasoning.
     size_t oldStride = boxStored / BOX_SLOTS;
     uint8_t old[sizeof(box)];
-    prefs.getBytes("box", old, boxStored);
+    prefs.getBytes(key, old, boxStored);
     for (int i = 0; i < BOX_SLOTS; i++)
       memcpy(&box[i], old + i * oldStride, oldStride);
     boxSave();   // rewrite in the current layout so this only happens once
@@ -99,8 +108,8 @@ bool Party::save() {
 }
 
 bool Party::boxSave() {
-  if (prefs.putBytes("box", box, sizeof(box)) == sizeof(box)) return true;
-  logKeyFailure("party", "box");
+  if (prefs.putBytes(boxKey, box, sizeof(box)) == sizeof(box)) return true;
+  logKeyFailure("party", boxKey);
   return false;
 }
 

@@ -639,9 +639,11 @@ async function captureSave() {
   readQueue = [];
   await writeLine('EXPORT');
   const lines = [];
-  const deadline = Date.now() + 20000;
-  while (Date.now() < deadline) {
-    const line = await readLine(deadline - Date.now());
+  // A deadline per LINE, not for the whole export: since v3.61 Bill's PC rides
+  // in the backup, and a full one is thousands of lines -- about a minute.
+  const giveUp = Date.now() + 15 * 60000;
+  while (Date.now() < giveUp) {
+    const line = await readLine(20000);
     if (line === null) throw new Error('the board did not finish the export');
     if (line === 'EXPORT FAIL') throw new Error('the firmware could not build a backup');
     if (line.startsWith('# TamaPoke save') || line.startsWith('IMPORT ')) lines.push(line);
@@ -663,7 +665,7 @@ async function backupSave() {
     await storeBackup(capture);
     downloadCapture(capture);
     log(`Save backup verified and downloaded (${capture.parsed.blob.length} bytes, `
-        + `${capture.parsed.fields} fields).`);
+        + `${capture.parsed.fields} fields, ${capture.parsed.pc ?? 0} in Bill's PC).`);
   } catch (error) {
     log(`Backup failed: ${error.message}`);
   } finally {

@@ -17,8 +17,13 @@
 //   off 4   version
 //   off 5   u16  field count
 //   off 7   0
-//   off 8   the fields
+//   off 8   the fields (exactly `field count` of them)
+//   v2 only: 'P','C', u16 record size, u16 count, then that many creatures --
+//            Bill's PC (firmware v3.61+), occupied slots only
 //   end-2   u16  CRC-16/CCITT-FALSE over everything before it
+//
+// Version 1 (before Bill's PC) is still accepted: the board restores it and
+// moves the box it holds into an empty PC.
 //
 // The same verifyBackup() runs on BOTH directions on purpose: the block we hand
 // a player is checked by the identical function that checks the block they hand
@@ -27,7 +32,8 @@
 // to protect may be long gone.
 
 export const SAVE_MAGIC = 'TKPS';
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
+export const SAVE_VERSIONS = [1, 2];
 export const SAVE_HEADER_BYTES = 8;
 export const SAVE_CRC_BYTES = 2;
 
@@ -108,8 +114,8 @@ export function verifyBackup(text) {
   }
   const magic = String.fromCharCode(...blob.slice(0, 4));
   if (magic !== SAVE_MAGIC) throw new Error('this is not a TamaPoke save');
-  if (blob[4] !== SAVE_VERSION) {
-    throw new Error(`save format version ${blob[4]}, this page understands ${SAVE_VERSION}`);
+  if (!SAVE_VERSIONS.includes(blob[4])) {
+    throw new Error(`save format version ${blob[4]}, this page understands ${SAVE_VERSIONS.join(' and ')}`);
   }
   const body = blob.subarray(0, blob.length - SAVE_CRC_BYTES);
   const want = blob[blob.length - 2] | (blob[blob.length - 1] << 8);
@@ -117,7 +123,40 @@ export function verifyBackup(text) {
   if (got !== want) {
     throw new Error(`checksum mismatch: the data says ${hex4(want)}, the bytes give ${hex4(got)}`);
   }
-  return { ...parsed, fields: blob[5] | (blob[6] << 8) };
+  const fields = blob[5] | (blob[6] << 8);
+  const layout = walkFields(blob, fields);
+  let pc = 0;
+  if (blob[4] >= 2) {
+    // The PC section has to account for every byte up to the checksum. The
+    // checksum alone cannot tell a well-formed backup from a mis-built one.
+    const at = layout.end;
+    const end = blob.length - SAVE_CRC_BYTES;
+    if (at + 6 > end || blob[at] !== 0x50 || blob[at + 1] !== 0x43) {
+      throw new Error("backup is missing its Bill's PC section");
+    }
+    const stride = blob[at + 2] | (blob[at + 3] << 8);
+    pc = blob[at + 4] | (blob[at + 5] << 8);
+    if (at + 6 + stride * pc !== end) {
+      throw new Error(`Bill's PC section holds ${end - at - 6} bytes, not ${pc} x ${stride}`);
+    }
+  } else if (layout.end !== blob.length - SAVE_CRC_BYTES) {
+    throw new Error('the fields do not fill the backup');
+  }
+  return { ...parsed, fields, pc, version: blob[4] };
+}
+
+// Where the `count` fields end. Throws if one runs past the checksum.
+function walkFields(blob, count) {
+  let at = SAVE_HEADER_BYTES;
+  const end = blob.length - SAVE_CRC_BYTES;
+  for (let k = 0; k < count; k++) {
+    if (at + 4 > end) throw new Error('backup ends in the middle of its fields');
+    const klen = blob[at];
+    const len = blob[at + 1 + klen + 1] | (blob[at + 1 + klen + 2] << 8);
+    at += 1 + klen + 3 + len;
+    if (at > end) throw new Error('a field runs past the end of the backup');
+  }
+  return { end: at };
 }
 
 function hex4(v) {
@@ -136,7 +175,8 @@ export function describeBackup(blob) {
   try {
     let at = SAVE_HEADER_BYTES;
     const end = blob.length - SAVE_CRC_BYTES;
-    while (at + 4 <= end) {
+    let left = blob[5] | (blob[6] << 8);     // the fields only, not Bill's PC after them
+    while (at + 4 <= end && left-- > 0) {
       const klen = blob[at];
       if (!klen || at + 1 + klen + 3 > end) break;
       const key = String.fromCharCode(...blob.subarray(at + 1, at + 1 + klen));

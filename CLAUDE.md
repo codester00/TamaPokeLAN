@@ -883,6 +883,63 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: Bill's PC, the storage layer (v3.61, on the branch, not merged, NOT YET ON A BOARD)
+
+Phase 4 of `docs/build-plan.md`. Six of every species on the board's unused
+`ffat` partition. **The board-only file (`pcfs_ffat.cpp`) has never run**: the
+emulator and every test use `tools/emu/pcfs_host.cpp`. Check `pc:` lines on the
+serial console at the first boot.
+
+- **`pcstore.h` is THE way in** (`pcPut/pcTake/pcGet/pcReplace/pcFind/pcCount`,
+  every write says whether it landed). 65 groups of 16 species, one record per
+  group (16-byte header, 96 PartyMons, CRC-16), alternating between
+  `/pc_gNNa.bin` and `/pc_gNNb.bin` by generation parity; the newest valid wins
+  (`readRec()` checks magic, group, parity, length and CRC). Each write is read
+  back. A RAM count index is built at boot; one group is cached whole.
+- **`pcfs.h`** is the file layer. `pcfsMount()` formats ONLY a partition whose
+  first 4 KB is still erased (never held a filesystem); any other mount failure
+  is `PCFS_FAILED` -> the PC reads unavailable (not empty) and the save-warning
+  triangle shows. The host stand-in has a blank/broken state and torn writes
+  (`pcfsHostFailWritesAfter()`); the emulator persists it beside the save
+  (`x.nvs.pc`, cleared by `--wipe`).
+- **Migration** (`pcMigrateBox()`, at boot after `backfillUids()`): the NVS
+  `box` moves in once; a creature already in the PC is skipped, so a power cut
+  part-way cannot double one. More than six of a species stay in `party.box[]`,
+  now saved under `boxl` (`Party::loadBox()`); `box` is never written again (a
+  downgrade sees the box as on migration day). The marker `/pc_migrated` lives
+  in the PC, so "Erase device" cannot leave one without the other.
+- **Every box caller moved**: `storeNewCreature()` (catches, prizes, the
+  farewell) is party then `pcPut()`; prizes read NO ROOM at six of the species;
+  release, the party screen, the box screen, the trade picker all go through
+  the box view (`boxLoc()`/`boxViewAt()`/`boxViewSwap()`/`boxViewRelease()`) --
+  one page per species held, then the leftovers. **Resolve a view index with
+  `boxLoc()` BEFORE moving anything**: a deposit can add a species and shift
+  every later page (pcmig_test caught the withdraw taking the creature just
+  deposited). `boxSel`/`boxDetail` are `uint16_t` now. `ownedCount(dex)` = PC +
+  party + leftovers + the live pet.
+- **The trade board** (`FwTradeBoard`) finds a creature in the party, the
+  leftovers or the PC. `replaceMon()` into the PC across species is two writes,
+  ordered to be safe to repeat: store the incoming one unless already stored,
+  THEN remove the outgoing. **Open:** an incoming creature with no room (six of
+  its species and a full party) cannot be stored and the trade stays pending --
+  v3.62's seventh-creature chooser should check before a trade commits.
+- **Backup: `SAVE_VERSION` 2.** After the fields: `'P','C'`, u16 stride, u16
+  count, the PC's occupied slots, all under the one CRC. `saveExportStream()`
+  streams it (EXPORT no longer needs the blob in RAM); IMPORT buffers up to
+  `SAVE_IMPORT_MAX` (~400 KB) in PSRAM and validates the PC (range, six a
+  species, `pcAvailable()`) before writing anything. A v1 backup restores and
+  empties the PC, marker included, so the restored box moves in at the reboot.
+  `web/savefile.js` reads both versions and checks the PC section fills the
+  backup; the installer's capture times out per line (a full PC is ~a minute).
+  `tools/debugger/tpsave.py` reads and writes v2 (`PC_KEY`). WIPE clears the PC.
+- Tests: `pc_test` (six and no more, A/B under torn writes, mount failure not a
+  format, boot index, the backup both ways, seven-of-a-species and v1 restores),
+  `pcmig_test` (migration once, overflow kept, a cut at every write, ownedCount,
+  catches to the PC, the box view). Negative-checked: one file instead of A/B, a
+  failed mount read as empty, a backup without its PC, the migration's
+  already-moved skip, the leftovers. NOT testable here: `pcfs_ffat.cpp`'s
+  never-format-over-a-filesystem rule.
+
 ### Done: CHEATS, the marks, and the marks over LAN (v3.60, on the branch, not merged)
 
 Phase 3 of `docs/build-plan.md`. DEVELOPERS ONLY, like the codes. The CHEATS

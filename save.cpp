@@ -1,4 +1,5 @@
 #include "save.h"
+#include "pcstore.h"
 #include <Arduino.h>
 #include <Preferences.h>
 #include <string.h>
@@ -59,6 +60,8 @@ const SaveField SAVE_FIELDS[] = {
   // the trade journal (trade.h): a pending trade, and the committed trades a
   // peer has not yet confirmed. A backup without it would forget both.
   { "trade", SK_BYTES },
+  // what did not fit Bill's PC when it took the box over (v3.61)
+  { "boxl", SK_BYTES },
   // settings, so a restored device plays the way it did
   { "lang", SK_U8 },    { "snd", SK_BOOL },   { "vol", SK_U8 },
   { "ghard", SK_BOOL },   // the gym list's last difficulty
@@ -72,13 +75,14 @@ const uint16_t SAVE_FIELD_COUNT = sizeof(SAVE_FIELDS) / sizeof(SAVE_FIELDS[0]);
 // partial is worse than none. save_test caught exactly that.
 #define MAX_VAL (sizeof(PartyMon) * BOX_SLOTS)
 
+static uint16_t crcStep(uint16_t c, uint8_t byte) {
+  c ^= (uint16_t)byte << 8;
+  for (int b = 0; b < 8; b++) c = (c & 0x8000) ? (uint16_t)((c << 1) ^ 0x1021) : (uint16_t)(c << 1);
+  return c;
+}
 static uint16_t crc16(const uint8_t *p, size_t n) {
   uint16_t c = 0xFFFF;
-  for (size_t i = 0; i < n; i++) {
-    c ^= (uint16_t)p[i] << 8;
-    for (int b = 0; b < 8; b++) c = (c & 0x8000) ? (uint16_t)((c << 1) ^ 0x1021)
-                                                : (uint16_t)(c << 1);
-  }
+  for (size_t i = 0; i < n; i++) c = crcStep(c, p[i]);
   return c;
 }
 
@@ -173,8 +177,9 @@ size_t saveExportSize() {
   return n + 1024;                   // the two big blobs
 }
 
-size_t saveExport(uint8_t *out, size_t cap) {
-  if (cap < SAVE_HDR + 2) return 0;
+// The NVS half: header and fields, no checksum. Its length, or 0.
+static size_t exportNvs(uint8_t *out, size_t cap) {
+  if (cap < SAVE_HDR) return 0;
   Preferences p;
   p.begin("tamapoke", true);
   size_t at = SAVE_HDR;
@@ -186,7 +191,7 @@ size_t saveExport(uint8_t *out, size_t cap) {
     if (n < 0) continue;             // absent: nothing to back up
     size_t klen = strlen(f.key);
     if (klen > 15) continue;         // NVS keys cannot be longer anyway
-    if (at + 1 + klen + 1 + 2 + (size_t)n + 2 > cap) { p.end(); return 0; }
+    if (at + 1 + klen + 1 + 2 + (size_t)n > cap) { p.end(); return 0; }
     out[at++] = (uint8_t)klen;
     memcpy(out + at, f.key, klen); at += klen;
     out[at++] = f.kind;
@@ -202,10 +207,68 @@ size_t saveExport(uint8_t *out, size_t cap) {
   out[5] = (uint8_t)(count & 0xFF);
   out[6] = (uint8_t)(count >> 8);
   out[7] = 0;
-  uint16_t c = crc16(out, at);
-  out[at++] = (uint8_t)(c & 0xFF);
-  out[at++] = (uint8_t)(c >> 8);
   return at;
+}
+
+// Where the backup's bytes go: a buffer, or hex lines on the console. Both
+// carry the running checksum, so the PC never has to be held whole.
+struct SaveSink {
+  uint8_t *buf; size_t cap, at;
+  void (*line)(const char *);
+  char hex[97]; int hn;
+  uint16_t crc;
+  bool bad;
+  void put(uint8_t b, bool crcToo = true) {
+    if (crcToo) crc = crcStep(crc, b);
+    if (buf) { if (at >= cap) { bad = true; return; } buf[at] = b; }
+    at++;
+    if (line) {
+      static const char H[] = "0123456789ABCDEF";
+      hex[hn++] = H[b >> 4]; hex[hn++] = H[b & 15];
+      if (hn == 96) flush();
+    }
+  }
+  void flush() { if (line && hn) { hex[hn] = 0; line(hex); hn = 0; } }
+};
+
+static void sinkMon(const PartyMon &m, void *ctx) {
+  SaveSink *s = (SaveSink *)ctx;
+  const uint8_t *b = (const uint8_t *)&m;
+  for (size_t i = 0; i < sizeof(PartyMon); i++) s->put(b[i]);
+}
+
+// v2: the NVS half, then 'P','C', u16 stride, u16 count, the PC's creatures
+// (occupied slots only), then the CRC over all of it.
+static size_t exportTo(SaveSink &s, void (*bytes)(size_t)) {
+  static uint8_t nvsBuf[SAVE_TRANSFER_MAX];
+  size_t nn = exportNvs(nvsBuf, sizeof(nvsBuf));
+  if (!nn) return 0;
+  uint16_t pcN = pcAvailable() ? pcTotal() : 0;
+  size_t total = nn + 6 + (size_t)pcN * sizeof(PartyMon) + 2;
+  if (bytes) bytes(total);
+  for (size_t i = 0; i < nn; i++) s.put(nvsBuf[i]);
+  const uint16_t stride = sizeof(PartyMon);
+  const uint8_t head[6] = { 'P', 'C', (uint8_t)(stride & 0xFF), (uint8_t)(stride >> 8),
+                            (uint8_t)(pcN & 0xFF), (uint8_t)(pcN >> 8) };
+  for (uint8_t b : head) s.put(b);
+  size_t before = s.at;
+  if (pcN) pcForEach(sinkMon, &s);
+  if (s.at - before != (size_t)pcN * sizeof(PartyMon)) return 0;   // the index and the files disagree
+  uint16_t c = s.crc;
+  s.put((uint8_t)(c & 0xFF), false);
+  s.put((uint8_t)(c >> 8), false);
+  s.flush();
+  return s.bad ? 0 : s.at;
+}
+
+size_t saveExport(uint8_t *out, size_t cap) {
+  SaveSink s = { out, cap, 0, nullptr, {0}, 0, 0xFFFF, false };
+  return exportTo(s, nullptr);
+}
+
+size_t saveExportStream(void (*bytes)(size_t total), void (*line)(const char *hex)) {
+  SaveSink s = { nullptr, 0, 0, line, {0}, 0, 0xFFFF, false };
+  return exportTo(s, bytes);
 }
 
 // Looks a key up in the table. An unknown key is skipped rather than trusted:
@@ -221,7 +284,8 @@ bool saveImport(const uint8_t *in, size_t n) {
   if (n < SAVE_HDR + 2) return false;
   if (in[0] != SAVE_MAGIC0 || in[1] != SAVE_MAGIC1 ||
       in[2] != SAVE_MAGIC2 || in[3] != SAVE_MAGIC3) return false;
-  if (in[4] != SAVE_VERSION) return false;
+  const uint8_t ver = in[4];
+  if (ver != 1 && ver != SAVE_VERSION) return false;   // 1: before Bill's PC
   uint16_t count = (uint16_t)in[5] | ((uint16_t)in[6] << 8);
   uint16_t want = (uint16_t)in[n - 2] | ((uint16_t)in[n - 1] << 8);
   if (crc16(in, n - 2) != want) return false;
@@ -231,7 +295,7 @@ bool saveImport(const uint8_t *in, size_t n) {
   // the old one nor the new one, which is the one outcome worse than no backup.
   size_t at = SAVE_HDR;
   uint16_t seen = 0;
-  while (at + 4 <= n - 2) {
+  while (at + 4 <= n - 2 && (ver == 1 || seen < count)) {
     uint8_t klen = in[at];
     if (!klen || klen > 15 || at + 1 + klen + 3 > n - 2) return false;
     size_t vat = at + 1 + klen;
@@ -244,7 +308,21 @@ bool saveImport(const uint8_t *in, size_t n) {
     at = vat + 3 + vlen;
     seen++;
   }
-  if (at != n - 2 || seen != count) return false;
+  if (seen != count) return false;
+  // v2: Bill's PC, checked whole BEFORE anything is written -- the same promise
+  // as the fields. A PC that cannot take what the backup holds refuses it.
+  const uint8_t *pcRecs = nullptr;
+  uint16_t pcN = 0, pcStride = 0;
+  if (ver >= 2) {
+    if (at + 6 > n - 2 || in[at] != 'P' || in[at + 1] != 'C') return false;
+    pcStride = (uint16_t)(in[at + 2] | in[at + 3] << 8);
+    pcN = (uint16_t)(in[at + 4] | in[at + 5] << 8);
+    pcRecs = in + at + 6;
+    at += 6 + (size_t)pcN * pcStride;
+    if (pcN && (!pcStride || !pcRestoreValid(pcRecs, pcN, pcStride))) return false;
+    if (pcN && !pcAvailable()) return false;
+  }
+  if (at != n - 2) return false;
 
   // PASS TWO: it parses, so commit. Cleared first, or keys the backup does not
   // contain would survive from whatever save happened to be on the device.
@@ -252,7 +330,7 @@ bool saveImport(const uint8_t *in, size_t n) {
   p.begin("tamapoke", false);
   p.clear();
   at = SAVE_HDR;
-  while (at + 4 <= n - 2) {
+  for (uint16_t k = 0; k < count; k++) {
     uint8_t klen = in[at];
     char key[16] = {0};
     memcpy(key, in + at + 1, klen);
@@ -264,5 +342,13 @@ bool saveImport(const uint8_t *in, size_t n) {
     at = vat + 3 + vlen;
   }
   p.end();
+  // The PC goes with the save it belongs to. A v1 backup has none: the PC is
+  // emptied, marker and all, so the next boot moves the restored NVS box in.
+  if (!pcAvailable()) return true;
+  if (ver == 1) return pcWipe();
+  if (!pcRestore(pcRecs, pcN, pcStride)) {
+    Serial.println("IMPORT: the save was restored but Bill's PC did not take it all");
+    return false;
+  }
   return true;
 }

@@ -3,6 +3,7 @@
 #include <SDL.h>   // sdl2-config puts the SDL2 dir on the include path
 #include "Arduino.h"
 #include "Arduino_GFX_Library.h"
+#include "pcfs_host.h"
 #include "Preferences.h"
 #include "pet.h"
 #include "items.h"
@@ -605,7 +606,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--iv") && i + 1 < argc) shotIv = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--dex") && i + 1 < argc) shotDex = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--sprites") && i + 1 < argc) emuSetSpriteDir(argv[++i]);
-    else if (!strcmp(argv[i], "--wipe")) { remove(save); }
+    else if (!strcmp(argv[i], "--wipe")) { remove(save); remove((std::string(save) + ".pc").c_str()); }
   }
   // Audio preview: no SDL, no board -- just a file you can listen to.
   if (wav) return wavMain(wav, demo);
@@ -613,6 +614,7 @@ int main(int argc, char **argv) {
   g_crashFile = std::string(save) + ".crash";
   crashRestore();     // a simulated panic left its breadcrumb here
   nvsLoad(save);
+  pcfsHostLoad((std::string(save) + ".pc").c_str());   // Bill's PC, beside the save
 
   if (SDL_Init(SDL_INIT_VIDEO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
   SDL_Window *win = SDL_CreateWindow("TamaPoke (emulator)", SDL_WINDOWPOS_CENTERED,
@@ -678,6 +680,7 @@ int main(int argc, char **argv) {
   }
 
   nvsSave(save);
+  pcfsHostSave((std::string(save) + ".pc").c_str());
   printf("\nemu: state saved to %s\n", save);
   SDL_DestroyTexture(tex);
   SDL_DestroyRenderer(ren);

@@ -19,7 +19,8 @@ from collections import OrderedDict
 # ---- the outer EXPORT/IMPORT wire format (save.cpp) -----------------------
 
 SAVE_MAGIC = b"TKPS"
-SAVE_VERSION = 1
+SAVE_VERSION = 2          # 2 (v3.61): Bill's PC follows the fields; 1 still reads
+PC_KEY = "__pc__"         # parse_export() puts the PC section here: (stride, records)
 SAVE_HDR = 8
 
 SK_U8, SK_I8, SK_BOOL, SK_U16, SK_I16, SK_U32, SK_BYTES, SK_STR = range(1, 9)
@@ -194,8 +195,9 @@ def parse_export(raw: bytes) -> "OrderedDict":
         raise SaveError("too short to hold a header")
     if raw[0:4] != SAVE_MAGIC:
         raise SaveError("bad magic (not a TamaPoke export)")
-    if raw[4] != SAVE_VERSION:
-        raise SaveError(f"unknown save version {raw[4]}")
+    ver = raw[4]
+    if ver not in (1, SAVE_VERSION):
+        raise SaveError(f"unknown save version {ver}")
     count = raw[5] | (raw[6] << 8)
     want = raw[-2] | (raw[-1] << 8)
     got = crc16(raw[:-2])
@@ -206,7 +208,7 @@ def parse_export(raw: bytes) -> "OrderedDict":
     at = SAVE_HDR
     end = len(raw) - 2
     seen = 0
-    while at + 4 <= end:
+    while at + 4 <= end and (ver == 1 or seen < count):
         klen = raw[at]
         if not klen or klen > 15 or at + 1 + klen + 3 > end:
             raise SaveError(f"malformed field at byte {at}")
@@ -219,14 +221,27 @@ def parse_export(raw: bytes) -> "OrderedDict":
         fields[key] = (kind, raw[vat + 3:vat + 3 + vlen])
         at = vat + 3 + vlen
         seen += 1
-    if at != end or seen != count:
+    if seen != count:
         raise SaveError(f"trailer mismatch: declared {count} fields, parsed {seen}")
+    if ver >= 2:   # Bill's PC: 'PC', u16 stride, u16 count, the records
+        if at + 6 > end or raw[at:at + 2] != b"PC":
+            raise SaveError("missing the Bill's PC section")
+        stride = raw[at + 2] | (raw[at + 3] << 8)
+        n = raw[at + 4] | (raw[at + 5] << 8)
+        if at + 6 + stride * n != end:
+            raise SaveError("the Bill's PC section does not fill the export")
+        fields[PC_KEY] = (stride, raw[at + 6:end])
+        at = end
+    if at != end:
+        raise SaveError("the fields do not fill the export")
     return fields
 
 
 def encode_export(fields: "OrderedDict") -> bytes:
     """Reverses parse_export(). fields is key -> (kind, value_bytes)."""
     out = bytearray(SAVE_HDR)
+    fields = OrderedDict(fields)
+    stride, recs = fields.pop(PC_KEY, (64, b""))
     for key, (kind, val) in fields.items():
         klen = len(key)
         if klen > 15:
@@ -242,6 +257,8 @@ def encode_export(fields: "OrderedDict") -> bytes:
     out[5] = len(fields) & 0xFF
     out[6] = (len(fields) >> 8) & 0xFF
     out[7] = 0
+    n = len(recs) // stride if stride else 0
+    out += b"PC" + bytes([stride & 0xFF, stride >> 8, n & 0xFF, n >> 8]) + recs
     c = crc16(bytes(out))
     out.append(c & 0xFF)
     out.append((c >> 8) & 0xFF)
@@ -678,6 +695,11 @@ def decode_save(raw: bytes, dex_h_path: str = None, items_h_path: str = None) ->
 
     result["party"] = decode_mon_list(fields["party"][1], 6) if "party" in fields else []
     result["box"] = decode_mon_list(fields["box"][1], 18) if "box" in fields else []
+    # Bill's PC (v3.61): the creatures it holds, and what did not fit it ("boxl")
+    if PC_KEY in fields:
+        stride, recs = fields[PC_KEY]
+        result["pc"] = decode_mon_list(recs, len(recs) // stride) if stride == 64 else []
+    result["box_left"] = decode_mon_list(fields["boxl"][1], 18) if "boxl" in fields else []
     result["bag"] = decode_bag(fields["bag"][1]) if "bag" in fields else []
     result["rivals"] = decode_rivals_blob(fields["rivals"][1]) if "rivals" in fields else []
 
