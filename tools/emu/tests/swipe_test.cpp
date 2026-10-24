@@ -29,6 +29,7 @@ extern bool cardOpen, galleryOpen, clockOpen, kbOpen, menuOpen, partyOpen, party
 extern bool trainOpen, movePickOpen, battleOpen, gymOpen, playerOpen, boxOpen, pickOpen;
 extern bool exploreOpen, areaListOpen; extern uint8_t areaPage, exploreRegion;
 extern bool codesOpen, codesCheats; extern uint8_t codesPage;
+extern bool pcOpen, pcPick; extern uint8_t pcPage, pcRegion; extern int16_t pcSpecies;
 extern uint8_t hallOpen, hallMode, hallPage;
 void exploreBtnRect(int *x, int *y, int *w, int *h);
 extern bool martOpen;
@@ -40,7 +41,7 @@ extern uint8_t galleryPage; extern bool galleryDirty; extern uint8_t galleryDeta
 extern uint8_t galleryRegion;
 extern uint8_t gymRegion;
 extern bool gymPick, galleryPick;
-extern uint8_t movePickSlot, movePickParty, boxSel, boxSwapFrom;
+extern uint8_t movePickSlot, movePickParty, boxSwapFrom; extern uint16_t boxSel;
 extern uint16_t squadMask;
 extern uint8_t pickTrainer; extern bool pickHard;
 extern bool bagOpen; extern uint8_t bagPage;
@@ -124,6 +125,10 @@ int main(){
   clearAll(); codesOpen=true; codesCheats=false;  check("settings", &codesOpen,    &codesPage);
   clearAll(); codesOpen=true; codesCheats=true;   check("cheats",   &codesOpen,    &codesPage);
   codesOpen=false; codesCheats=false;
+  // Bill's PC's grid (v3.62): Kanto is ten pages of sixteen.
+  clearAll(); partyOpen=true; pcOpen=true; pcPick=false; pcSpecies=0; pcRegion=0;
+                                                  check("pc grid",  &pcOpen,       &pcPage);
+  pcOpen=false;
   // A Game Corner's prize counter (v3.53): Celadon has 11 prizes, three a
   // page. hallOpen is the hall + 1, so the check watches a bool mirror of it.
   {

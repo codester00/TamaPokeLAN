@@ -197,9 +197,16 @@ while it keeps trying — see § Trading in the manual below.
 |---|---|---|
 | <img src="docs/screens/dexpick.png" width="240"> | <img src="docs/screens/gallery.png" width="240"> | <img src="docs/screens/gallery2.png" width="240"> |
 
-| Trainer card | Johto badges | The box |
-|---|---|---|
-| <img src="docs/screens/player.png" width="240"> | <img src="docs/screens/player2.png" width="240"> | <img src="docs/screens/box.png" width="240"> |
+| Trainer card | Johto badges |
+|---|---|
+| <img src="docs/screens/player.png" width="240"> | <img src="docs/screens/player2.png" width="240"> |
+
+| Bill's PC | A species' six |
+|---|---|
+| <img src="docs/screens/pc.png" width="240"> | <img src="docs/screens/pcring.png" width="240"> |
+
+Bill's PC holds six of every species. Coloured: it holds some (how many, in the
+corner). Outlined: only your party or the creature you are raising. Grey: none.
 
 | Choose your look | More trainers | Blacked out |
 |---|---|---|

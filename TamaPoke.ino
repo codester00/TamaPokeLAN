@@ -94,6 +94,9 @@ bool galleryDirty = false;
 // pages within it, so nothing is ever more than ten pages from the front.
 // ALL is deliberately not offered here -- it is the thing being replaced.
 #define GAL_PER_PAGE 16
+#define GAL_X 73       // the 4x4 grid, shared by the Pokedex and Bill's PC
+#define GAL_Y 84
+#define GAL_CELL 80
 #define GAL_REGIONS (REGION_COUNT - 1)          // the real regions, not ALL
 #define GAL_LO (REGIONS[galleryRegion % GAL_REGIONS].lo)
 #define GAL_HI (REGIONS[galleryRegion % GAL_REGIONS].hi)
@@ -153,6 +156,12 @@ uint8_t partyDetail = 0;   // 0 = the grid, else slot + 1
 // The box, reached from the party screen. `boxSwapFrom` is the party slot
 // waiting for something to trade with, 0 when nothing is pending.
 bool boxOpen = false;
+// Bill's PC (v3.62), behind the party screen's hub: its region chooser, the
+// species grid, and the ring of six for one species (pcSpecies != 0).
+bool pcOpen = false, pcPick = false;
+uint8_t pcRegion = 0, pcPage = 0;
+int16_t pcSpecies = 0;
+bool pcSeventh = false;    // the ring is choosing who makes room for pet.endedMon
 uint8_t boxPage = 0;
 uint8_t boxSwapFrom = 0;   // party slot + 1, armed from the party side
 uint16_t boxSel = 0;       // box view index + 1, armed from the box side
@@ -284,7 +293,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_PC, SCR_PCPICK, SCR_PCRING, SCR_JUMP, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[SCR_COUNT];   // const is internal linkage in C++
 
@@ -347,6 +356,11 @@ uint8_t ownedCount(int16_t dex);
 // The hidden screens (v3.59), defined beside the halls but reached from the
 // gesture handlers and the Memory game well above and below them.
 extern bool codesOpen;
+// GO TO # (v3.63): a number pad over the Pokedex or Bill's PC.
+extern bool jumpOpen;
+void renderJump();
+void jumpTap(int16_t x, int16_t y);
+void jumpOpenFor(bool forPc);
 extern uint8_t codesPage;
 uint8_t codesPages();
 void renderCodes();
@@ -481,6 +495,7 @@ int thumbCell();
 #define RPICK_FOR_GYMS  0
 #define RPICK_FOR_DEX   1
 #define RPICK_FOR_START 2
+#define RPICK_FOR_PC    3   // Bill's PC (v3.62): the Pokedex's regions
 // Three rows is what the round panel fits above the BACK label. The dex now
 // lists four regions and will list more, so the chooser PAGES rather than
 // growing -- and every paged screen in this sketch has to be driven by
@@ -2045,6 +2060,7 @@ void onSwipeV(int dir) {
   if (battleOpen) return;   // no swiping out of a fight
   const bool back = dir > 0;
   if (codesOpen) { if (back) codesOpen = false; return; }
+  if (jumpOpen) { if (back) jumpOpen = false; return; }
   if (tradeOpen) {          // down backs out one level; a pending trade cannot be left
     if (!back) return;
     if (tradePicking) tradePicking = false;
@@ -2059,6 +2075,7 @@ void onSwipeV(int dir) {
   if (trainOpen)    { if (back) trainOpen = false; return; }
   if (bagOpen)      { if (back) bagOpen = false; return; }
   if (movePickOpen) { if (back) movePickOpen = false; return; }
+  if (pcOpen && partyOpen) { if (back) pcBack(); return; }
   if (boxOpen)      { if (back) { boxOpen = false; boxSel = 0; } return; }
   // Either minigame exits on a swipe, keeping what was earned. A swipe cannot
   // be confused with a ball hit -- the gesture resolver separates them -- which
@@ -2391,6 +2408,7 @@ int uiButtonHitR() { return BTN_HIT; }
 
 void partyTap(int16_t x, int16_t y) {
   if (cordPick) { cordPickTap(x, y); return; }
+  if (pcOpen) { pcTap(x, y); return; }
   if (boxOpen) { boxTap(x, y); return; }
   // The SHEET IS CHECKED FIRST, and that is not cosmetic ordering. It covers the
   // whole screen, and its RELEASE button (x240..370, y336..384) lands inside the
@@ -2430,10 +2448,14 @@ void partyTap(int16_t x, int16_t y) {
     sfxPlay(SFX_TAP);
     return;
   }
-  if (!partyPick && partyHubAt(x, y)) {
-    boxOpen = true;                  // open the box, nothing picked yet
-    boxPage = 0;
-    boxSwapFrom = 0;
+  if (partyHubAt(x, y) && (!partyPick || pcSeventhDue())) {
+    if (partyPick) { pcOpenSeventh(); sfxPlay(SFX_TAP); return; }   // make room in the PC
+    if (boxSwapFrom && !party.slots[boxSwapFrom - 1].empty()) {    // an armed slot: deposit it
+      sfxPlay(pcDeposit(boxSwapFrom - 1) ? SFX_MEDAL : SFX_DENY);
+      boxSwapFrom = 0;
+      return;
+    }
+    pcOpenFresh();
     sfxPlay(SFX_TAP);
     return;
   }
@@ -2457,10 +2479,9 @@ void partyTap(int16_t x, int16_t y) {
       return;
     }
     if (!partyPick) {
-      if (boxSwapFrom == i + 1) {    // tapped again: take it to the box
-        boxOpen = true;
-        boxPage = 0;
-        sfxPlay(SFX_TAP);
+      if (boxSwapFrom == i + 1) {    // tapped again: into Bill's PC
+        sfxPlay(pcDeposit(i) ? SFX_MEDAL : SFX_DENY);
+        boxSwapFrom = 0;
         return;
       }
       if (party.slots[i].empty()) { boxSwapFrom = i + 1; sfxPlay(SFX_TAP); return; }
@@ -2498,6 +2519,7 @@ void onSwipe(int dir) {
   if (blackoutOpen) { blackoutDismiss(); return; }
   if (battleOpen || tradeOpen) return;   // no swiping out of a fight or a trade
   if (codesOpen) { codesOpen = false; return; }
+  if (jumpOpen) { jumpOpen = false; return; }
 
   int t = uiTileIndex();
   if (t >= 0) {
@@ -2523,6 +2545,7 @@ void onSwipe(int dir) {
   if (trainOpen) { trainOpen = false; return; }
   if (bagOpen) { bagOpen = false; return; }
   if (movePickOpen) { movePickOpen = false; return; }
+  if (pcOpen && partyOpen) { pcBack(); return; }
   if (boxOpen) { boxOpen = false; boxSel = 0; return; }
   if (gameOpen) { leaveGame(); return; }   // swipe out, keeping what you earned
   if (spdOpen) { leaveSpeed(); return; }
@@ -2557,6 +2580,10 @@ void onTap(int16_t x, int16_t y) {
   }
   if (codesOpen) {
     codesTap(x, y);
+    return;
+  }
+  if (jumpOpen) {
+    jumpTap(x, y);
     return;
   }
   if (blackoutOpen) {
@@ -3065,9 +3092,11 @@ uint8_t uiCurrentScreen() {
   if (pet.awaitingStarter()) return starterRegionDone ? SCR_STARTER : SCR_REGION;
   if (tradeOpen) return SCR_TRADE;
   if (codesOpen) return SCR_CODES;
+  if (jumpOpen) return SCR_JUMP;
   if (blackoutOpen) return SCR_BLACKOUT;
   if (galleryOpen) return galleryPick ? SCR_DEXPICK : SCR_GALLERY;
   if (movePickOpen) return SCR_MOVEPICK;
+  if (partyOpen && pcOpen) return pcPick ? SCR_PCPICK : pcSpecies ? SCR_PCRING : SCR_PC;
   if (partyOpen) return boxOpen ? SCR_BOX : SCR_PARTY;
   if (bagOpen) return SCR_BAGSCR;
   if (kbOpen) return SCR_KEYBOARD;
@@ -3189,6 +3218,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_CODES:   p = &codesPage;   n = codesPages(); break;
     case SCR_HALL:    if (hallMode == HM_PRIZES) { p = &hallPage; n = hallPrizePages(); } break;
     case SCR_BOX:     p = &boxPage;     n = (uint8_t)boxViewPages(); break;
+    case SCR_PC:      p = &pcPage;      n = pcPages(); break;
     case SCR_BAGSCR:  p = &bagPage;     n = bagPages(); break;
     case SCR_MART:    p = &martPage;    n = martPages(); break;
     case SCR_CARD:    p = &cardPage;    n = CARD_PAGES; break;
@@ -4531,6 +4561,10 @@ void render() {
     renderCodes();
     return;
   }
+  if (jumpOpen) {
+    renderJump();
+    return;
+  }
   if (blackoutOpen) {
     renderBlackout();
     return;
@@ -4545,7 +4579,8 @@ void render() {
     return;
   }
   if (partyOpen) {
-    if (boxOpen) {
+    if (pcOpen) renderPc();
+    else if (boxOpen) {
       if (boxDetail) renderBoxDetail();
       else renderBox();
     } else if (partyDetail) renderPartyDetail();
@@ -7967,6 +8002,18 @@ struct FwTradeBoard : TradeBoard {
 };
 static FwTradeBoard tradeBoard;
 
+// Would the creature on offer have somewhere to go if this trade went ahead
+// (v3.62)? It takes the place of the one I give: a party slot always fits, and
+// so does a PC slot of its own species. Otherwise it needs a free party slot or
+// room among its species in the PC -- without either the trade could never
+// finish, so ACCEPT refuses it and the screen says NO ROOM.
+bool tradeRoomFor(const PartyMon &in) {
+  if (party.firstFree() >= 0 || (pcAvailable() && pcCount(in.dex) < PC_PER_SPECIES)) return true;
+  int i; int16_t dex;
+  uint8_t w = FwTradeBoard::where(trade.mine.uid, &i, &dex);
+  return w == W_PARTY || (w == W_PC && dex == in.dex);
+}
+
 static void tradeRx(void *ctx, const uint8_t *buf, uint8_t len) {
   static_cast<Trade *>(ctx)->onPacket(buf, len);
 }
@@ -8232,6 +8279,7 @@ void renderTrade() {
     if (trade.theirsWhy == 1) why = T(S_TRADE_WHY_BAD);
     else if (trade.theirsWhy == 2) why = T(S_TRADE_WHY_PACK);
     else if (trade.theirsWhy == 3) why = T(S_TRADE_WHY_HAVE);
+    else if (!trade.theirs.empty() && !tradeRoomFor(trade.theirs)) why = T(S_GC_NO_ROOM);
     else if (trade.theirs.empty()) why = T(S_TRADE_WAIT);
     // An invalid offer is never drawn: its name need not even be terminated.
     if (trade.theirsWhy != 1 && !trade.theirs.empty())
@@ -8321,6 +8369,7 @@ void tradeTap(int16_t x, int16_t y) {
     }
     if (tradeAcceptHit(x, y)) {
       if (trade.iAccepted) { trade.unaccept(); sfxPlay(SFX_TAP); }
+      else if (!trade.theirs.empty() && !tradeRoomFor(trade.theirs)) sfxPlay(SFX_DENY);
       else if (trade.accept()) sfxPlay(SFX_TAP);
       else sfxPlay(SFX_DENY);
       return;
@@ -8519,6 +8568,7 @@ uint8_t rpickModeNow() {
   switch (uiCurrentScreen()) {
     case SCR_REGION:  return RPICK_FOR_START;
     case SCR_DEXPICK: return RPICK_FOR_DEX;
+    case SCR_PCPICK:  return RPICK_FOR_PC;
     case SCR_GYMPICK: return RPICK_FOR_GYMS;
     default: return 0xFF;
   }
@@ -8577,9 +8627,15 @@ static void renderRegionPick(uint8_t mode) {
       snprintf(sub, sizeof(sub), "%s", T(S_NEED_PACK));
     else if (mode == RPICK_FOR_GYMS)
       snprintf(sub, sizeof(sub), T(S_BADGES_FMT), pet.badgeCountIn(i, gymHard));
-    else if (mode == RPICK_FOR_DEX)
-      snprintf(sub, sizeof(sub), "%u/%u",
+    else if (mode == RPICK_FOR_DEX) {
+      char own[16];
+      snprintf(own, sizeof(own), T(S_OWNED_FMT), ownedIn(REGIONS[i].lo, REGIONS[i].hi));
+      snprintf(sub, sizeof(sub), "%u/%u  %s",
                pet.registeredCountIn(REGIONS[i].lo, REGIONS[i].hi),
+               (unsigned)(REGIONS[i].hi - REGIONS[i].lo + 1), own);
+    }
+    else if (mode == RPICK_FOR_PC)
+      snprintf(sub, sizeof(sub), "%u/%u", pcHeldIn(REGIONS[i].lo, REGIONS[i].hi),
                (unsigned)(REGIONS[i].hi - REGIONS[i].lo + 1));
     if (sub[0]) {
       gfx->setTextColor(UI_INK_SOFT);
@@ -8604,8 +8660,8 @@ static void renderRegionPick(uint8_t mode) {
       else gfx->drawCircle(cx, RPICK_DOTS_Y, RPICK_DOT_R, UI_TRACK);
     }
   }
-  // Drawn exactly where rpickBackHit() answers: the Pokedex chooser only.
-  if (mode == RPICK_FOR_DEX) {
+  // Drawn exactly where rpickBackHit() answers: the Pokedex's and the PC's.
+  if (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) {
     gfx->setTextColor(UI_INK_SOFT);
     gfx->setTextSize(2);
     gfx->setCursor(CX - strlen(T(S_BACK)) * 6, RPICK_BACK_LABEL_Y);
@@ -8651,7 +8707,7 @@ bool lanBtnHit(int16_t x, int16_t y) {
 // LAN BATTLE into "back to the pet screen". First boot has nowhere to go back to.
 bool rpickBackHit(int16_t x, int16_t y, uint8_t mode) {
   (void)x;
-  return mode == RPICK_FOR_DEX && y > RPICK_BACK_ZONE_Y;
+  return (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) && y > RPICK_BACK_ZONE_Y;
 }
 
 // Whether a gesture starting at (x,y) starts ON a tappable control. Such a
@@ -10698,6 +10754,366 @@ void pcMigrateBox() {
   Serial.printf("pc: moved %d from the box, %d did not fit\n", moved, nl);
 }
 
+// ---------- Bill's PC, the screens (v3.62) ----------
+// The party hub opens it: a region chooser (the Pokedex's), then that region's
+// species on the Pokedex's 4x4 grid -- COLOURED where the PC holds one (with how
+// many, 1-6), OUTLINED where only the party, the leftovers or the live pet does,
+// a grey silhouette otherwise -- then a species' ring of six: its sheet, TO
+// PARTY, RELEASE. A seventh of a species with a full party opens the same ring
+// to choose who makes room. Everything moves through the box view, so the
+// rules are the ones v3.61 tested.
+bool pcMissingOnly = false;   // v3.63: list only species not owned
+int16_t pcJumpMark = 0;       // v3.63: the cell GO TO # landed on, outlined
+
+#define PC_LO (REGIONS[pcRegion % GAL_REGIONS].lo)
+#define PC_HI (REGIONS[pcRegion % GAL_REGIONS].hi)
+#define PC_FOOT_Y (GAL_Y + 4 * GAL_CELL)   // below the grid: GO TO # and the filter
+
+// Species OWNED in a range (v3.63): the Pokedex chooser's count.
+uint16_t ownedIn(int16_t lo, int16_t hi) {
+  uint16_t n = 0;
+  for (int16_t d = lo; d <= hi && d <= DEX_COUNT; d++) n += ownedCount(d) ? 1 : 0;
+  return n;
+}
+
+uint16_t pcHeldIn(int16_t lo, int16_t hi) {
+  uint16_t n = 0;
+  for (int16_t d = lo; d <= hi && d <= DEX_COUNT; d++) n += pcCount(d) ? 1 : 0;
+  return n;
+}
+
+// The species the grid lists, in order: the region's, or only the ones not
+// owned. THE one list -- drawing, tapping and paging all walk it.
+static bool pcListed(int16_t d) { return !pcMissingOnly || !ownedCount(d); }
+uint16_t pcListCount() {
+  uint16_t n = 0;
+  for (int16_t d = PC_LO; d <= PC_HI && d <= DEX_COUNT; d++) n += pcListed(d) ? 1 : 0;
+  return n;
+}
+int16_t pcListAt(uint16_t k) {
+  for (int16_t d = PC_LO; d <= PC_HI && d <= DEX_COUNT; d++)
+    if (pcListed(d) && k-- == 0) return d;
+  return 0;
+}
+uint8_t pcPages() {
+  uint16_t n = (pcListCount() + GAL_PER_PAGE - 1) / GAL_PER_PAGE;
+  return (uint8_t)(n ? (n > 255 ? 255 : n) : 1);
+}
+
+// Cell i (0..15) of the grid, and the species under a tap (0 = none).
+void pcCellPos(uint8_t i, int *x, int *y) {
+  *x = GAL_X + (i % 4) * GAL_CELL;
+  *y = GAL_Y + (i / 4) * GAL_CELL;
+}
+int16_t pcGridAt(int16_t x, int16_t y) {
+  int c = (x - GAL_X) / GAL_CELL, r = (y - GAL_Y) / GAL_CELL;
+  if (x < GAL_X || y < GAL_Y || c > 3 || r > 3) return 0;
+  return pcListAt((uint16_t)(pcPage * GAL_PER_PAGE + r * 4 + c));
+}
+
+// The box-view index of a PC slot: the species' rank among those held, times
+// six, plus the slot. The sheet, TO PARTY and RELEASE all take one.
+uint16_t boxViewIndexOf(int16_t dex, uint8_t slot) {
+  uint16_t rank = 0;
+  for (int16_t d = 1; d < dex; d++) rank += pcCount(d) ? 1 : 0;
+  return (uint16_t)(rank * BOX_PER_PAGE + slot);
+}
+
+void pcOpenFresh() {
+  pcOpen = true;
+  pcPick = true;
+  pcSpecies = 0;
+  pcSeventh = false;
+  pcJumpMark = 0;
+  rpickPage = 0;
+  boxDetail = 0;
+  releaseConfirm = false;
+}
+
+// Is the newcomer waiting on the party screen a seventh of its species? Then
+// the hub offers its ring, to let one of the six go instead.
+bool pcSeventhDue() {
+  return partyPick && pcAvailable() && pet.endedKind != CER_NONE &&
+         pcCount(pet.endedMon.dex) >= PC_PER_SPECIES;
+}
+void pcOpenSeventh() {
+  pcOpenFresh();
+  pcPick = false;
+  pcSpecies = pet.endedMon.dex;
+  pcSeventh = true;
+}
+
+// A party creature into the PC, at its own species. False (nothing moved) with
+// six already, no PC, or a creature promised to a trade.
+bool pcDeposit(uint8_t partyIdx) {
+  PartyMon p = party.slots[partyIdx];
+  if (p.empty() || tradeLocked(p) || pcPut(p) < 0) return false;
+  party.slots[partyIdx] = PartyMon();
+  if (party.save()) return true;
+  party.slots[partyIdx] = p;
+  pcUndoPut(p);
+  return false;
+}
+
+// Down is one level up: the sheet, the ring, the grid, the chooser, the party.
+void pcBack() {
+  if (boxDetail) { boxDetail = 0; releaseConfirm = false; return; }
+  if (pcSpecies) {
+    pcSpecies = 0;
+    if (pcSeventh) { pcSeventh = false; pcOpen = false; }   // back to the waiting newcomer
+    return;
+  }
+  if (!pcPick) { pcPick = true; return; }
+  pcOpen = false;
+}
+
+static void pcRenderGrid() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  char head[36];
+  snprintf(head, sizeof(head), "%s %u", REGIONS[pcRegion % GAL_REGIONS].name, pcHeldIn(PC_LO, PC_HI));
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(3);
+  gfx->setCursor(CX - (int)strlen(head) * 9, 36);
+  gfx->print(head);
+  if (party.boxCount()) {             // what did not fit the PC: the old list
+    char more[20];
+    snprintf(more, sizeof(more), T(S_PC_MORE_FMT), (unsigned)party.boxCount());
+    gfx->setTextColor(UI_INK_SOFT);
+    gfx->setTextSize(1);
+    gfx->setCursor(CX - (int)strlen(more) * 3, 66);
+    gfx->print(more);
+  }
+  for (uint8_t i = 0; i < GAL_PER_PAGE; i++) {
+    int16_t dex = pcListAt((uint16_t)(pcPage * GAL_PER_PAGE + i));
+    if (!dex) break;
+    int x, y;
+    pcCellPos(i, &x, &y);
+    uint8_t held = pcCount(dex);
+    bool owned = ownedCount(dex) > 0;
+    const uint8_t *t = thumbs.get(dex);
+    if (t) {
+      if (held) drawThumb(t, x, y, 2, false);
+      else drawThumbInk(t, x, y, 2, owned ? INK_K : UI_TRACK);
+    } else {
+      char num[6];
+      snprintf(num, sizeof(num), "%d", dex);
+      gfx->setTextColor(held ? UI_INK : UI_INK_SOFT);
+      gfx->setTextSize(2);
+      gfx->setCursor(x + 24, y + 32);
+      gfx->print(num);
+    }
+    if (!held && owned) gfx->drawRoundRect(x + 2, y + 2, GAL_CELL - 4, GAL_CELL - 4, 10, UI_BAR_OK);
+    if (dex == pcJumpMark) gfx->drawRoundRect(x, y, GAL_CELL, GAL_CELL, 12, UI_BAR_WARN);
+    if (held) {
+      char n[3] = { (char)('0' + held), 0, 0 };
+      gfx->setTextColor(UI_INK);
+      gfx->setTextSize(2);
+      gfx->setCursor(x + GAL_CELL - 16, y + 4);
+      gfx->print(n);
+    }
+  }
+  char foot[40];
+  snprintf(foot, sizeof(foot), "%d/%d  %s", pcPage + 1, (int)pcPages(), T(S_GOTO));
+  gfx->setTextColor(UI_INK_SOFT);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(foot) * 6, PC_FOOT_Y + 6);
+  gfx->print(foot);
+  const char *flt = T(pcMissingOnly ? S_SHOW_ALL : S_MISSING_ONLY);
+  gfx->setTextSize(1);
+  gfx->setCursor(CX - (int)strlen(flt) * 3, PC_FOOT_Y + 28);
+  gfx->print(flt);
+  uiChrome();
+  gfx->flush();
+}
+
+static void pcRenderRing() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  char head[32];
+  snprintf(head, sizeof(head), "%s %u/%u", DEX_TBL[pcSpecies].name, pcCount(pcSpecies), PC_PER_SPECIES);
+  gfx->setTextColor(DEX_TBL[pcSpecies].accent);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(head) * 6, 40);
+  gfx->print(head);
+  if (pcSeventh) {
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(1);
+    gfx->setCursor(CX - (int)strlen(T(S_PC_SEVENTH)) * 3, PSLOT_PROMPT_Y);
+    gfx->print(T(S_PC_SEVENTH));
+  }
+  for (uint8_t i = 0; i < PC_PER_SPECIES; i++) {
+    PartyMon m;
+    pcGet(pcSpecies, i, m);
+    drawPartySlot(i, m);
+  }
+  drawPartyHub(T(S_PC_BTN), T(S_BACK), false);
+  uiChrome();
+  gfx->flush();
+}
+
+void renderPc() {
+  if (pcPick) { renderRegionPick(RPICK_FOR_PC); return; }
+  if (pcSpecies && !boxDetail && !pcSeventh && !pcCount(pcSpecies)) pcSpecies = 0;   // its last one left
+  if (pcSpecies && boxDetail) { renderBoxDetail(); return; }
+  if (pcSpecies) { pcRenderRing(); return; }
+  pcRenderGrid();
+}
+
+static void pcRingTap(int16_t x, int16_t y) {
+  if (boxDetail) {                         // the sheet, as the box's
+    if (releaseConfirm) { monSheetConfirmTap(x, y, true); return; }
+    if (monSheetBtn(x, y, true)) {         // TO PARTY: a free slot, or choose who steps out
+      int free = party.firstFree();
+      if (free < 0) {
+        boxSel = boxDetail;
+        boxDetail = 0;
+        pcOpen = false;
+        sfxPlay(SFX_TAP);
+        return;
+      }
+      sfxPlay(boxViewSwap((uint8_t)free, boxDetail - 1) ? SFX_MEDAL : SFX_DENY);
+      boxDetail = 0;
+      if (!pcCount(pcSpecies)) pcSpecies = 0;
+      return;
+    }
+    if (monSheetBtn(x, y, false)) { releaseConfirm = true; sfxPlay(SFX_TAP); return; }
+    boxDetail = 0;
+    releaseConfirm = false;
+    return;
+  }
+  if (partyHubAt(x, y)) { pcBack(); sfxPlay(SFX_TAP); return; }
+  int i = partySlotAt(x, y);
+  if (i < 0 || i >= PC_PER_SPECIES) return;
+  PartyMon m;
+  if (!pcGet(pcSpecies, (uint8_t)i, m)) { sfxPlay(SFX_DENY); return; }
+  if (pcSeventh) {                         // this one goes; the newcomer takes its slot
+    if (tradeLocked(m) || !pcReplace(pcSpecies, (uint8_t)i, pet.endedMon)) { sfxPlay(SFX_DENY); return; }
+    snprintf(partyBannerName, sizeof(partyBannerName), "%s",
+             pet.endedMon.nick[0] ? pet.endedMon.nick : DEX_TBL[pet.endedMon.dex].name);
+    partyBannerUntil = millis() + 3500;
+    pet.clearEnded();
+    partyPick = false;
+    pcSeventh = false;
+    pcSpecies = 0;
+    pcOpen = false;
+    partyOpen = false;
+    sfxPlay(SFX_MEDAL);
+    return;
+  }
+  boxDetail = boxViewIndexOf(pcSpecies, (uint8_t)i) + 1;
+  releaseConfirm = false;
+  sfxPlay(SFX_TAP);
+}
+
+void pcTap(int16_t x, int16_t y) {
+  if (pcPick) {
+    int r = regionPickTap(x, y, RPICK_FOR_PC);
+    if (r >= 0) { pcRegion = (uint8_t)r; pcPage = 0; pcPick = false; pcJumpMark = 0; sfxPlay(SFX_TAP); }
+    else if (rpickBackHit(x, y, RPICK_FOR_PC)) pcOpen = false;
+    return;
+  }
+  if (pcSpecies) { pcRingTap(x, y); return; }
+  if (y < GAL_Y) {                          // the header: the list of what did not fit
+    if (party.boxCount()) { pcOpen = false; boxOpen = true; boxPage = 0; sfxPlay(SFX_TAP); }
+    return;
+  }
+  if (y >= PC_FOOT_Y) {                     // the footer: GO TO #, or the filter below it
+    if (y >= PC_FOOT_Y + 24) { pcMissingOnly = !pcMissingOnly; pcPage = 0; pcJumpMark = 0; }
+    else jumpOpenFor(true);
+    sfxPlay(SFX_TAP);
+    return;
+  }
+  int16_t dex = pcGridAt(x, y);
+  if (!dex || !pcCount(dex)) { sfxPlay(SFX_DENY); return; }
+  pcSpecies = dex;
+  pcJumpMark = 0;
+  sfxPlay(SFX_TAP);
+}
+
+// ---------- GO TO # (v3.63) ----------
+// A number pad shared by the Pokedex and Bill's PC. dexJump() is the ONE answer
+// for where a number lands -- region, page and the outlined cell -- on either.
+bool jumpOpen = false;
+bool jumpForPc = false;
+char jumpBuf[5] = "";
+int16_t galleryJumpMark = 0;   // the Pokedex cell GO TO # landed on
+#define JUMP_KEY 74
+#define JUMP_X (CX - 3 * JUMP_KEY / 2)
+#define JUMP_Y 118
+
+void jumpOpenFor(bool forPc) {
+  jumpOpen = true;
+  jumpForPc = forPc;
+  jumpBuf[0] = 0;
+}
+
+// Key k: 0-8 are 1-9, then DEL, 0, GO.
+void jumpKeyRect(uint8_t k, int *x, int *y) {
+  *x = JUMP_X + (k % 3) * JUMP_KEY;
+  *y = JUMP_Y + (k / 3) * JUMP_KEY;
+}
+int jumpKeyAt(int16_t x, int16_t y) {
+  if (x < JUMP_X || y < JUMP_Y) return -1;
+  int c = (x - JUMP_X) / JUMP_KEY, r = (y - JUMP_Y) / JUMP_KEY;
+  return (c < 3 && r < 4) ? r * 3 + c : -1;
+}
+
+bool dexJump(int16_t n, bool forPc) {
+  if (n < 1 || n > DEX_COUNT) return false;
+  uint8_t r = regionOfDex(n);
+  if (r >= GAL_REGIONS || !regionAvailable(r)) return false;   // no pack: nothing to show
+  uint8_t page = (uint8_t)((n - REGIONS[r].lo) / GAL_PER_PAGE);
+  if (forPc) {
+    pcMissingOnly = false;          // the number asked for must be on the grid
+    pcRegion = r; pcPick = false; pcSpecies = 0; pcPage = page; pcJumpMark = n;
+  } else {
+    galleryRegion = r; galleryPick = false; galleryDetail = 0; galleryPage = page;
+    galleryJumpMark = n; galleryDirty = true;
+  }
+  return true;
+}
+
+void renderJump() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  char shown[12];
+  snprintf(shown, sizeof(shown), "#%s_", jumpBuf);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(3);
+  gfx->setCursor(CX - (int)strlen(shown) * 9, 72);
+  gfx->print(shown);
+  static const char *const KEYS[12] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "<", "0", "GO" };
+  for (uint8_t k = 0; k < 12; k++) {
+    int x, y;
+    jumpKeyRect(k, &x, &y);
+    gfx->fillRoundRect(x + 3, y + 3, JUMP_KEY - 6, JUMP_KEY - 6, 12, k == 11 ? UI_BAR_OK : UI_WHITE);
+    gfx->drawRoundRect(x + 3, y + 3, JUMP_KEY - 6, JUMP_KEY - 6, 12, UI_INK);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(3);
+    gfx->setCursor(x + JUMP_KEY / 2 - (int)strlen(KEYS[k]) * 9, y + JUMP_KEY / 2 - 11);
+    gfx->print(KEYS[k]);
+  }
+  uiChrome();
+  gfx->flush();
+}
+
+void jumpTap(int16_t x, int16_t y) {
+  int k = jumpKeyAt(x, y);
+  if (k < 0) { if (y < JUMP_Y - 10) jumpOpen = false; return; }   // above the pad: back
+  size_t len = strlen(jumpBuf);
+  if (k == 9) { if (len) jumpBuf[len - 1] = 0; sfxPlay(SFX_TAP); return; }
+  if (k == 11) {
+    if (len && dexJump((int16_t)atoi(jumpBuf), jumpForPc)) { jumpOpen = false; sfxPlay(SFX_TAP); }
+    else sfxPlay(SFX_DENY);
+    return;
+  }
+  if (len >= 4) { sfxPlay(SFX_DENY); return; }
+  jumpBuf[len] = (char)(k == 10 ? '0' : '1' + k);
+  jumpBuf[len + 1] = 0;
+  sfxPlay(SFX_TAP);
+}
+
 // ---------- the box ----------
 // Storage past the six that fight. A creature is moved by picking a party slot
 // and then a box slot, which swaps them -- so one gesture covers deposit,
@@ -10873,10 +11289,10 @@ void renderParty() {
 
   // the box lives behind the hub in the middle of the ring; it also shows how
   // full it is, so the player knows there is anything in there without opening
-  if (!partyPick && !cordPick) {
+  if ((!partyPick && !cordPick) || pcSeventhDue()) {
     char bl[24];
     snprintf(bl, sizeof(bl), "%u", (unsigned)(pcTotal() + party.boxCount()));
-    drawPartyHub(bl, T(S_BOX_BTN), boxSwapFrom != 0);
+    drawPartyHub(bl, T(S_PC_BTN), boxSwapFrom != 0 || partyPick);
   }
 
   if (boxSel) {
@@ -10989,9 +11405,6 @@ void keyboardTap(int16_t x, int16_t y) {
 
 // ---------- galeria pokedex ----------
 
-#define GAL_X 73
-#define GAL_Y 84
-#define GAL_CELL 80
 
 // The box drawThumb() centres a sprite in, for callers defined above GAL_CELL.
 int thumbCell() { return GAL_CELL; }
@@ -11011,6 +11424,18 @@ void drawThumb(const uint8_t *b, int x, int y, int s, bool sil) {
       gfx->fillRect(ox + c * s, oy + r * s, s, s, col);
     }
   }
+}
+
+// A thumbnail as a solid silhouette in `col`: Bill's PC draws the owned-but-not-
+// stored ones in ink and the rest in the track grey.
+void drawThumbInk(const uint8_t *b, int x, int y, int s, uint16_t col) {
+  uint8_t w = b[0], h = b[1], n = b[2];
+  const uint8_t *d = b + 3 + n * 2;
+  int ox = x + (GAL_CELL - w * s) / 2;
+  int oy = y + (GAL_CELL - h * s) / 2;
+  for (int r = 0; r < h; r++)
+    for (int c = 0; c < w; c++)
+      if (d[r * w + c] != 0xFF) gfx->fillRect(ox + c * s, oy + r * s, s, s, col);
 }
 
 void renderGallery() {
@@ -11066,6 +11491,9 @@ void renderGallery() {
       if (dex > GAL_HI || dex > DEX_COUNT) break;
       int x = GAL_X + c * GAL_CELL, y = GAL_Y + r * GAL_CELL;
       const uint8_t *t = thumbs.get(dex);
+      // OWNED (v3.63): one in the PC, the party or the live pet right now
+      if (ownedCount(dex)) gfx->fillCircle(x + 9, y + 9, 5, UI_BAR_OK);
+      if (dex == galleryJumpMark) gfx->drawRoundRect(x, y, GAL_CELL, GAL_CELL, 12, UI_BAR_WARN);
       if (t) {
         drawThumb(t, x, y, 2, !pet.isRegistered(dex));
         if (pet.isShinyRegistered(dex)) {
@@ -11088,11 +11516,12 @@ void renderGallery() {
   // a round panel -- the chord at that height is only ~228 px -- and counting
   // them to find where you are is worse than reading the number.
   char pg[12];
-  snprintf(pg, sizeof(pg), "%d/%d", galleryPage + 1, (int)GAL_PAGES);
+  char pgl[32];
+  snprintf(pgl, sizeof(pgl), "%s  %s", pg, T(S_GOTO));   // the footer opens GO TO #
   gfx->setTextColor(UI_INK_SOFT);
   gfx->setTextSize(2);
-  gfx->setCursor(CX - (int)strlen(pg) * 6, 410);
-  gfx->print(pg);
+  gfx->setCursor(CX - (int)strlen(pgl) * 6, 410);
+  gfx->print(pgl);
   uiChrome();
   gfx->flush();
 }
@@ -11109,10 +11538,12 @@ void galleryTap(int16_t x, int16_t y) {
     galleryPmd.unload();
     return;
   }
+  if (y >= GAL_Y + 4 * GAL_CELL) { jumpOpenFor(false); return; }   // GO TO #
   int c = (x - GAL_X) / GAL_CELL, r = (y - GAL_Y) / GAL_CELL;
   if (c < 0 || c > 3 || r < 0 || r > 3) return;
   int16_t dex = GAL_LO + galleryPage * GAL_PER_PAGE + r * 4 + c;
   if (dex > GAL_HI || dex > DEX_COUNT) return;
+  galleryJumpMark = 0;
   galleryDetail = dex;
   galleryPmd.load(dex, pet.isShinyRegistered(dex));
 }

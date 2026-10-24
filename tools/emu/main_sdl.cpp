@@ -4,6 +4,7 @@
 #include "Arduino.h"
 #include "Arduino_GFX_Library.h"
 #include "pcfs_host.h"
+#include "pcstore.h"
 #include "Preferences.h"
 #include "pet.h"
 #include "items.h"
@@ -224,6 +225,7 @@ extern uint8_t playerPage;
 extern bool gymHard, pickOpen;
 extern uint8_t partyDetail;
 extern bool boxOpen; extern uint8_t boxSwapFrom;
+extern bool pcOpen, pcPick; extern uint8_t pcRegion, pcPage; extern int16_t pcSpecies;
 extern bool btlNewBadge; extern uint32_t btlWinUntil;
 extern uint8_t pickTrainer, pickPage;
 void pickDefault(uint8_t cap);
@@ -464,16 +466,17 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
     }
     else lanOpen = true;
   }
-  else if (!strcmp(screen, "box")) {
-    static const int f[]={9,25,143,94,131,3};
-    for(int i=0;i<6;i++){ PartyMon m; m.dex=f[i]; m.level=40+i*5;
+  else if (!strcmp(screen, "pc") || !strcmp(screen, "pcring")) {
+    // Bill's PC (v3.62): held species coloured with their count, the party's
+    // outlined, the rest grey -- and Pikachu's ring of six
+    static const int f[]={9,5,14};
+    for(int i=0;i<3;i++){ PartyMon m; m.dex=f[i]; m.level=40+i*5;
       m.ivAtk=m.ivDef=m.ivSpe=m.ivHp=25; party.replaceAt(i,m); }
-    static const int b[]={6,65,68,143,12,131,94,25};
-    for(int i=0;i<8;i++){ PartyMon m; m.dex=b[i]; m.level=30+i*4;
-      m.ivAtk=m.ivDef=m.ivSpe=m.ivHp=20; m.shiny=(i==3);
-      party.box[i]=m; }
-    party.boxSave();
-    partyOpen=true; boxOpen=true; boxSwapFrom=1;
+    static const int b[]={1,1,4,7,10,13,16,16,16,6,12,25,25,25};
+    for(int i=0;i<14;i++){ PartyMon m; m.dex=b[i]; m.level=20+i*3;
+      m.ivAtk=m.ivDef=m.ivSpe=m.ivHp=20; m.shiny=(i==12); m.uid.serial=900+i; pcPut(m); }
+    partyOpen=true; pcOpen=true; pcPick=false; pcRegion=0; pcPage=0;
+    if (!strcmp(screen, "pcring")) pcSpecies=25;
   }
   else if (!strcmp(screen, "win")) {
     startTrainerBattle(2, true);

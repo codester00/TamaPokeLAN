@@ -30,12 +30,14 @@ void startPush(); void startSimon(); void startSeek();
 extern uint8_t miniGame; extern uint32_t mgOverUntil;
 void emuSetTilt(float, float);
 extern uint8_t cardPage;
-extern uint8_t partyDetail, boxDetail;
+extern uint8_t partyDetail; extern uint16_t boxDetail;
 extern bool boxOpen, releaseConfirm;
+extern bool pcOpen, pcPick, jumpOpen; extern int16_t pcSpecies;
 extern bool bagOpen;
 extern Party party;
 void startBattle(int16_t dex, uint8_t lvl);
 #include "trade.h"
+#include "pcstore.h"
 extern Trade trade;
 extern bool tradeOpen, tradePicking;
 extern uint8_t tradeAsk;
@@ -48,6 +50,7 @@ static void clearAll(){
   exploreOpen=false; areaListOpen=false;
   trainOpen=false; trainPage=0; catchOpen=false; miniGame=0;
   boxOpen=releaseConfirm=false;
+  pcOpen=pcPick=jumpOpen=false; pcSpecies=0;
   bagOpen=false;
   partyDetail=boxDetail=0;
   tradeOpen=tradePicking=false; tradeAsk=0;
@@ -111,6 +114,11 @@ int main(){
   clearAll(); playerOpen=true;   check("player");
   clearAll(); menuOpen=true;     check("menu");
   clearAll(); partyOpen=true;    check("party");
+  clearAll(); partyOpen=true; pcOpen=true; pcPick=true;  check("pc chooser");
+  clearAll(); partyOpen=true; pcOpen=true;               check("pc grid");
+  { PartyMon m; m.dex=19; m.level=9; m.uid.serial=4242; pcPut(m); }
+  clearAll(); partyOpen=true; pcOpen=true; pcSpecies=19; check("pc ring");
+  clearAll(); jumpOpen=true;                             check("go to #");
   clearAll(); bagOpen=true;      check("bag");
   clearAll(); clockOpen=true;    check("clock");
   for (uint8_t p=0;p<4;p++){ clearAll(); cardOpen=true; cardPage=p;

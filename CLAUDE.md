@@ -852,6 +852,10 @@ wins wherever it and the summary below differ.
    story leaders have no EVs), hard = full training on the same scale, IVs
    16/31 as now. Bump `LINK_PROTO`. Re-measure the ladder win rates and update
    the tables in README/here before shipping.
+2b. **An "owned" marker in Explore battles** (owner, 2026-10-24): the wild
+   creature's plate shows whether the player already owns one of its species
+   (`ownedCount()` -- PC, party, leftovers or the live pet), like the games'
+   caught-ball icon. Not built.
 2. **A post-game battle league** (owner, later): fully trained teams, like the
    games' Battle Tower/Frontier/PWT/Battle Tree. Not designed yet.
 3. **Secret codes, entered in the Memory game** (taps in the watch phase, which
