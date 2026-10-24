@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.60-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.61-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -969,8 +969,15 @@ nothing to act on. Vitamins respect the same **IV-bound training ceiling**
 (`trMaxFor`) as the punching bag and a gym reward — an item that could push past it
 would make the IV roll decorative.
 
-A caught creature takes a party slot, then a box slot, then asks — the same path a
-farewell already uses. It is **not** added to the Pokédex on capture: registration
+A caught creature takes a party slot, then a place in **Bill's PC**, then asks —
+the same path a farewell already uses.
+
+**Bill's PC** (since v3.61) replaced the 18-slot box: it holds up to **6 of every
+species** (6,150 creatures), on the board's own flash. A seventh of a species
+needs a free party slot. Until the PC gets its own screens it uses the box screen,
+**one page per species**. The first boot on v3.61 moves the old box in; more than
+six of one species stay put and are listed after the PC's pages. Backups carry the
+PC; one taken before v3.61 still restores, and its box moves into the PC again. It is **not** added to the Pokédex on capture: registration
 means "you raised this", so it happens when you actually make it the one you raise.
 
 **Losing.** When a gym or wild fight is lost, the screen goes dark: you have
@@ -1022,7 +1029,7 @@ They find each other on their own (no host or join).
 
 - **What can be traded:** any creature in your **party or box**, never the
   one you are raising. One for one. Tap **YOU GIVE** to choose (the middle of
-  the ring flips between your party and the three box pages); the other
+  the ring flips between your party and each page of Bill's PC); the other
   player's offer appears under **YOU GET**.
 - **Both players tap ACCEPT** on the same two creatures. Changing either offer
   takes both acceptances back, so nobody can be switched out at the last

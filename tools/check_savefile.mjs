@@ -31,6 +31,9 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const golden = readFileSync(join(root, 'tools/fixtures/golden.tpsave'), 'utf8');
+// A backup taken before Bill's PC (format 1), also from the firmware: it must
+// keep verifying, because players hold them.
+const goldenV1 = readFileSync(join(root, 'tools/fixtures/golden-v1.tpsave'), 'utf8');
 
 let bad = 0;
 function ck(ok, what) {
@@ -62,7 +65,26 @@ ckThrows(() => hexToBytes('ZZ'), 'non-hex', 'non-hex digits are refused');
 
 // ---- the golden fixture, produced by the firmware itself
 const parsed = verifyBackup(golden);
-ck(parsed.blob.length === 2128, `the firmware's own export verifies (${parsed.blob.length} bytes)`);
+ck(parsed.blob.length === 4158, `the firmware's own export verifies (${parsed.blob.length} bytes)`);
+ck(parsed.version === 2 && parsed.pc === 3, `it is format 2 and carries Bill's PC (${parsed.pc} creatures)`);
+{
+  const v1 = verifyBackup(goldenV1);
+  ck(v1.version === 1 && v1.pc === 0 && v1.blob.length === 2128, 'a format 1 backup from before the PC still verifies');
+  ck(describeBackup(v1.blob).dex === 6, 'and is still labelled');
+}
+// Bill's PC section must account for every byte: a record dropped from the
+// middle, with the checksum made right again, is refused for its length.
+{
+  const b = parsed.blob;
+  const cut = new Uint8Array(b.length - 64);
+  cut.set(b.subarray(0, b.length - 2 - 64));
+  const c = crc16(cut.subarray(0, cut.length - SAVE_CRC_BYTES));
+  cut[cut.length - 2] = c & 0xff;
+  cut[cut.length - 1] = c >> 8;
+  const hex = [...cut].map((x) => x.toString(16).padStart(2, '0')).join('');
+  ckThrows(() => verifyBackup(`IMPORT ${hex}\nIMPORT`), "Bill's PC section",
+           "a PC section one creature short is refused, checksum or not");
+}
 ck(parsed.declared === parsed.blob.length,
    'and the declared byte count matches the hex that arrived');
 ck(parsed.commands.at(-1) === 'IMPORT', 'the commit line is last');

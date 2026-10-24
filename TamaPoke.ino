@@ -55,7 +55,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.60"
+#define FW_VERSION "3.61"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -338,6 +338,7 @@ void hallBack();
 void openHall(uint8_t h);
 // The box view over Bill's PC (v3.61), used by the party screen ~8000 lines
 // above where it is defined.
+struct BoxLoc { int16_t dex; uint8_t slot; int16_t left; };   // dex 0: a leftover
 uint16_t boxViewPages();
 bool boxViewAt(uint16_t idx, PartyMon &out);
 bool boxViewSwap(uint8_t partyIdx, uint16_t idx);
@@ -1785,6 +1786,28 @@ void handleSerial() {
                          (unsigned long)m.uid.serial);
     }
     Serial.println();
+    Serial.println("DONE");
+  } else if (line.startsWith("PC")) {
+    // PC          what Bill's PC holds
+    // PC <dex>    put a level-30 specimen in it (testing, and the golden backup)
+    String arg = line.substring(2);
+    arg.trim();
+    if (arg.length()) {
+      int d = arg.toInt();
+      if (d >= 1 && d <= DEX_COUNT) {
+        PartyMon m;
+        m.dex = d;
+        m.level = 30;
+        m.ivAtk = m.ivDef = m.ivSpe = m.ivHp = 20;
+        m.stateVersion = 1;
+        m.ageMinutes = 29UL * MINUTES_PER_LEVEL;
+        m.uid = pet.mintUid();
+        int r = pcPut(m);
+        Serial.println(r >= 0 ? "added" : r == PC_FULL ? "six already" : "PC unavailable");
+      }
+    }
+    Serial.printf("pc %s: %u creatures, %u species\n", pcAvailable() ? "ok" : "UNAVAILABLE",
+                  pcTotal(), pcSpeciesHeld());
     Serial.println("DONE");
   } else if (line == "REG") {
     Serial.printf("pokedex %u/%u:", pet.registeredCount(), DEX_COUNT);
@@ -7853,9 +7876,11 @@ static bool tradePrefsReady() {
 // party.box[], NEVER the live pet. Every write says whether it LANDED: the
 // protocol retries a commit by looking for the creature, so claiming what the
 // flash does not hold would end the retry early and lose the trade on a reboot.
+// Where FwTradeBoard found a creature. At file scope: arduino-cli's prototype
+// generator stops reading the sketch at an enum declared inside a struct.
+enum : uint8_t { W_NONE, W_PARTY, W_PC, W_LEFT };
 struct FwTradeBoard : TradeBoard {
-  enum Where : uint8_t { W_NONE, W_PARTY, W_PC, W_LEFT };
-  static Where where(const CreatureUid &u, int *i, int16_t *dex) {
+  static uint8_t where(const CreatureUid &u, int *i, int16_t *dex) {   // W_*
     if (!u.valid()) return W_NONE;
     for (int k = 0; k < PARTY_SLOTS; k++)
       if (!party.slots[k].empty() && party.slots[k].uid == u) { *i = k; return W_PARTY; }
@@ -7894,7 +7919,7 @@ struct FwTradeBoard : TradeBoard {
   uint32_t epoch() override { return rtcEpoch(); }
   bool findMon(const CreatureUid &u, PartyMon *out) override {
     int i; int16_t dex;
-    Where w = where(u, &i, &dex);
+    uint8_t w = where(u, &i, &dex);
     if (w == W_NONE) return false;
     if (out) {
       if (w == W_PARTY) *out = party.slots[i];
@@ -7909,7 +7934,7 @@ struct FwTradeBoard : TradeBoard {
   // outgoing one removed. A cut between them leaves both, and the retry finishes.
   bool replaceMon(const CreatureUid &out, const PartyMon &in) override {
     int i; int16_t dex;
-    Where w = where(out, &i, &dex);
+    uint8_t w = where(out, &i, &dex);
     if (w == W_PARTY) return putParty(i, in);
     if (w == W_PC && in.dex == dex) return pcReplace(dex, (uint8_t)i, in);
     if (!findMon(in.uid, nullptr) && !storeNew(in)) return false;
@@ -10561,7 +10586,7 @@ uint16_t boxViewPages() {
 // Where a view index points, pinned down. Resolve it BEFORE moving anything: a
 // deposit can add a species, which shifts every later page by one, so an index
 // read after it names somebody else (pcmig_test caught exactly that).
-struct BoxLoc { int16_t dex; uint8_t slot; int16_t left; };   // dex 0: a leftover
+// (struct BoxLoc is declared at the top: arduino-cli hoists these prototypes)
 static BoxLoc boxLoc(uint16_t idx) {
   uint16_t page = idx / BOX_PER_PAGE, held = pcSpeciesHeld();
   uint8_t slot = idx % BOX_PER_PAGE;
