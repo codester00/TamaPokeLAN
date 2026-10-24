@@ -55,7 +55,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.63"
+#define FW_VERSION "3.64"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -890,6 +890,11 @@ uint8_t btlMenu = 0;
 #define BTL_HIT_MS 420
 char btlMsg[8][40];   // a turn now narrates stat changes too
 uint8_t btlMsgCount = 0;   // queued lines; a tap shows the next
+// Both sides' HP at the moment each queued line was said (v3.64). The bars
+// drain to the HP of the line on screen, so a hit shows with its own text and a
+// poison tick with its own -- as the games do -- not all at once when the
+// moves are picked.
+uint16_t btlMsgHp[8][2];
 #define BTL_CELL_W 160
 #define BTL_CELL_H 54
 #define BTL_GRID_X 69
@@ -5710,6 +5715,8 @@ static void btlSay(const char *fmt, ...) {
   va_start(ap, fmt);
   vsnprintf(btlMsg[btlMsgCount], sizeof(btlMsg[0]), fmt, ap);
   va_end(ap);
+  btlMsgHp[btlMsgCount][0] = btlYou.hp;
+  btlMsgHp[btlMsgCount][1] = btlFoe.hp;
   btlMsgCount++;
 }
 
@@ -5760,6 +5767,56 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
     if (!who.fainted()) btlSay(T(fmt), who.name, T(stat));
   }
   if (lg.targetFainted) btlSay(T(S_BTL_FAINT), target.name);
+}
+
+// An end-of-turn tick: poison or a burn, with its own line so the bar's drop
+// reads as the status and not as the last attack (v3.64).
+static void btlNarrateTick(const Combatant &c, const TurnLog &lg) {
+  if (!lg.damage) return;
+  btlSay(T(lg.inflicted == AIL_BURN ? S_BTL_HURT_BRN : S_BTL_HURT_PSN), c.name);
+  if (lg.targetFainted) btlSay(T(S_BTL_FAINT), c.name);
+}
+
+static_assert(1 + sizeof(LinkResult) <= LINK_MAX_PAYLOAD, "a turn's result must fit one packet");
+
+// The host's record of this turn's beats, shipped in the LinkResult (v3.64).
+LinkBeat btlBeats[LINK_BEATS];
+uint8_t btlBeatN = 0;
+static void btlBeat(bool hostActed, uint8_t kind, const TurnLog &lg) {
+  if (!btlLink || btlBeatN >= LINK_BEATS || lg.skipped) return;
+  LinkBeat &b = btlBeats[btlBeatN++];
+  b.who = hostActed ? 0 : 1;
+  b.kind = kind;
+  b.move = lg.move;
+  b.flags = (lg.missed ? LB_MISSED : 0) | (lg.crit ? LB_CRIT : 0) | (lg.immune ? LB_IMMUNE : 0) |
+            (lg.hurtSelf ? LB_HURTSELF : 0) | (lg.charged ? LB_CHARGED : 0) |
+            (lg.targetFainted ? LB_FAINTED : 0) | (lg.stageOnUser ? LB_STAGE_USER : 0);
+  b.eff = !lg.damage ? 0 : lg.effPct > 100 ? 1 : lg.effPct < 100 ? 2 : 3;
+  b.inflicted = lg.inflicted;
+  b.stageMask = lg.stageMask;
+  b.stageDelta = lg.stageDelta;
+  b.hostHp = btlYou.hp;      // only the host records: its side is btlYou
+  b.guestHp = btlFoe.hp;
+}
+
+// A beat back into a TurnLog, for the guest's narration -- the same function
+// the host used, so the two boards cannot word a turn differently.
+static TurnLog btlBeatLog(const LinkBeat &b) {
+  TurnLog lg;
+  lg.move = b.move;
+  lg.missed = b.flags & LB_MISSED;
+  lg.crit = b.flags & LB_CRIT;
+  lg.immune = b.flags & LB_IMMUNE;
+  lg.hurtSelf = b.flags & LB_HURTSELF;
+  lg.charged = b.flags & LB_CHARGED;
+  lg.targetFainted = b.flags & LB_FAINTED;
+  lg.stageOnUser = b.flags & LB_STAGE_USER;
+  lg.effPct = b.eff == 1 ? 200 : b.eff == 2 ? 50 : 100;
+  lg.damage = b.eff ? 1 : 0;
+  lg.inflicted = b.inflicted < 7 ? b.inflicted : 0;
+  lg.stageMask = b.stageMask;
+  lg.stageDelta = b.stageDelta;
+  return lg;
 }
 
 // Builds one LEADER's creature through Pet, so it gets the same stat formula
@@ -6023,18 +6080,31 @@ static void btlApplyResult() {
   if (youIn) btlHpShown[0] = btlYou.hp;
   if (foeIn) btlHpShown[1] = btlFoe.hp;
 
-  if (r.hostMove) btlSay(T(S_BTL_USED), btlFoe.name, moveName(r.hostMove));
-  if (r.guestMove) btlSay(T(S_BTL_USED), btlYou.name, moveName(r.guestMove));
-  if (r.guestDmg) { btlHitUntil[0] = now + BTL_HIT_MS; sfxPlay(SFX_HIT); }
-  if (r.hostDmg) { btlHitUntil[1] = now + BTL_HIT_MS; sfxPlay(SFX_HIT); }
-  if (btlYou.fainted()) {
-    btlFaintUntil[0] = now + BTL_FAINT_MS;
-    btlSay(T(S_BTL_FAINT), btlYou.name);
+  // The turn, beat by beat, through the host's own narration: each line is
+  // said with the HP the host had right after that beat, so the bars drain
+  // line by line here too. The absolute state is put back after.
+  const uint16_t finalYou = btlYou.hp, finalFoe = btlFoe.hp;
+  uint8_t n = r.beatN > LINK_BEATS ? LINK_BEATS : r.beatN;
+  bool faintSaid[2] = { false, false };   // [0] ours, [1] theirs
+  for (uint8_t k = 0; k < n; k++) {
+    const LinkBeat &b = r.beats[k];
+    if (b.flags & LB_FAINTED) faintSaid[(b.kind == 1) == (b.who == 0) ? 1 : 0] = true;
+    btlYou.hp = b.guestHp > btlYou.maxHp ? btlYou.maxHp : b.guestHp;
+    btlFoe.hp = b.hostHp > btlFoe.maxHp ? btlFoe.maxHp : b.hostHp;
+    TurnLog lg = btlBeatLog(b);
+    Combatant &actor = b.who == 0 ? btlFoe : btlYou;
+    Combatant &target = b.who == 0 ? btlYou : btlFoe;
+    if (b.kind == 1) btlNarrateTick(actor, lg);
+    else btlNarrate(actor, target, lg);
   }
-  if (btlFoe.fainted()) {
-    btlFaintUntil[1] = now + BTL_FAINT_MS;
-    btlSay(T(S_BTL_FAINT), btlFoe.name);
-  }
+  btlYou.hp = finalYou;
+  btlFoe.hp = finalFoe;
+  if (r.guestDmg) btlHitUntil[0] = now + BTL_HIT_MS;
+  if (r.hostDmg) btlHitUntil[1] = now + BTL_HIT_MS;
+  // A faint is normally a beat's own line; one the beats did not carry is still
+  // said, since dismissing that line is what brings the replacement on.
+  if (btlYou.fainted()) { btlFaintUntil[0] = now + BTL_FAINT_MS; if (!faintSaid[0]) btlSay(T(S_BTL_FAINT), btlYou.name); }
+  if (btlFoe.fainted()) { btlFaintUntil[1] = now + BTL_FAINT_MS; if (!faintSaid[1]) btlSay(T(S_BTL_FAINT), btlFoe.name); }
   // Who comes on for a fainted side: the host's decision, never this board's.
   // btlDoSwap() brings them on when the faint message is dismissed -- and until
   // then the guest cannot act, so its next move is always chosen from the
@@ -6119,6 +6189,8 @@ static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
   r.hostIdx = btlSquadAt; r.guestIdx = btlFoeAt;
   if (btlYou.fainted() || btlFoe.fainted()) r.flags |= 0x04;
   for (int i = 0; i < MOVE_SLOTS; i++) r.guestPp[i] = btlFoe.pp[i];
+  r.beatN = btlBeatN;
+  memcpy(r.beats, btlBeats, sizeof(LinkBeat) * btlBeatN);
   r.hostNext = nYou < 0 ? LINK_NO_NEXT : (uint8_t)nYou;
   r.guestNext = nFoe < 0 ? LINK_NO_NEXT : (uint8_t)nFoe;
   if (nYou >= 0) { r.hostNextHp = btlSquad[nYou].hp; r.hostNextAil = btlSquad[nYou].ailment; }
@@ -6243,6 +6315,7 @@ static void btlUseItem(ItemKey k) {
 // One exchange: both sides act in speed order, then burn/poison chip.
 static void btlResolve(uint8_t yourMove) {
   TurnLog lg;
+  btlBeatN = 0;
   // Against another device the opponent's move comes off the wire, never from
   // the AI -- and the host is the only side that runs this at all.
   uint8_t foeMove;
@@ -6297,11 +6370,13 @@ static void btlResolve(uint8_t yourMove) {
   uint8_t usedYou = yourMove, usedFoe = foeMove;
   if (a == &btlYou) usedYou = lg.move; else usedFoe = lg.move;
   btlNarrate(*a, *b, lg);
+  btlBeat(a == &btlYou, 0, lg);
   if (lg.damage && !lg.hurtSelf) btlLungeUntil[a == &btlYou ? 0 : 1] = now + BTL_LUNGE_MS;
   if (!b->fainted()) {
     battleAct(*b, *a, mb, lg);
     if (b == &btlYou) usedYou = lg.move; else usedFoe = lg.move;
     btlNarrate(*b, *a, lg);
+    btlBeat(b == &btlYou, 0, lg);
     if (lg.damage && !lg.hurtSelf)
       btlLungeUntil[b == &btlYou ? 0 : 1] = now + BTL_LUNGE_MS + BTL_LUNGE_MS;
   }
@@ -6311,9 +6386,9 @@ static void btlResolve(uint8_t yourMove) {
   btlRecordPp();
   if (!btlYou.fainted() && !btlFoe.fainted()) {
     battleEndTurn(btlYou, lg);
-    if (lg.damage) btlNarrate(btlYou, btlYou, lg);
+    if (lg.damage) { btlNarrateTick(btlYou, lg); btlBeat(true, 1, lg); }
     battleEndTurn(btlFoe, lg);
-    if (lg.damage) btlNarrate(btlFoe, btlFoe, lg);
+    if (lg.damage) { btlNarrateTick(btlFoe, lg); btlBeat(false, 1, lg); }
   }
   // Who comes on for whoever went down -- decided NOW, once, for both sides,
   // and shipped with the turn. By standing, not by index: after a switch the
@@ -6417,6 +6492,22 @@ static void btlHpBar(int x, int y, int w, const Combatant &c, uint16_t shown) {
   gfx->drawRoundRect(x, y, w, 14, 4, UI_INK);
 }
 
+// The wild creature's CAUGHT mark (v3.64): you own one of its species right
+// now (ownedCount(): the PC, the party, the leftovers or the live pet). Wild
+// fights only, as in the games; a trainer's creature is never yours to catch.
+bool btlFoeCaught() { return btlWild && !btlLink && ownedCount(btlFoe.dex) > 0; }
+
+// A tiny ball: red over white, ink rim and band -- the games' "caught" icon.
+static void drawCaughtBall(int cx, int cy) {
+  for (int dy = -5; dy <= 5; dy++)
+    for (int dx = -5; dx <= 5; dx++) {
+      int d = dx * dx + dy * dy;
+      if (d > 25) continue;
+      uint16_t col = (d > 16 || dy == 0 || d <= 1) ? UI_INK : dy < 0 ? UI_BAR_BAD : UI_WHITE;
+      gfx->fillRect(cx + dx, cy + dy, 1, 1, col);
+    }
+}
+
 static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t who) {
   // the scenes are busy, so the name and bar sit on their own plate rather
   // than fighting the artwork for contrast
@@ -6429,6 +6520,9 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
   gfx->setTextSize(1);
   gfx->setCursor(tx, ty);
   gfx->print(l);
+  if (who == 1 && btlFoeCaught()) {   // CAUGHT (v3.64): you own one already
+    drawCaughtBall(tx + 128, ty + 3);
+  }
   if (c.cheated) {                // the creature mark (v3.60): a cheat changed it
     gfx->setTextColor(UI_BAR_BAD);
     gfx->setCursor(tx + 138, ty);
@@ -6503,7 +6597,12 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
 // Bars drain rather than snap: a hit that removes half your health should be
 // visible as it happens, not as a value that was already different.
 static void btlEaseBars() {
-  const uint16_t real[2] = { btlYou.hp, btlFoe.hp };
+  // the HP as of the line on screen, else the real thing (btlMsgHp)
+  uint16_t real[2] = { btlYou.hp, btlFoe.hp };
+  if (btlMsgCount) {
+    real[0] = btlMsgHp[0][0] > btlYou.maxHp ? btlYou.maxHp : btlMsgHp[0][0];
+    real[1] = btlMsgHp[0][1] > btlFoe.maxHp ? btlFoe.maxHp : btlMsgHp[0][1];
+  }
   for (int i = 0; i < 2; i++) {
     int diff = (int)real[i] - (int)btlHpShown[i];
     if (!diff) continue;
@@ -6967,8 +7066,11 @@ void battleTap(int16_t x, int16_t y) {
     return;
   }
   if (btlMsgCount) {          // one readable event per tap; never skip queued text
-    for (uint8_t i = 1; i < btlMsgCount; i++)
+    for (uint8_t i = 1; i < btlMsgCount; i++) {
       memcpy(btlMsg[i - 1], btlMsg[i], sizeof(btlMsg[0]));
+      btlMsgHp[i - 1][0] = btlMsgHp[i][0];
+      btlMsgHp[i - 1][1] = btlMsgHp[i][1];
+    }
     btlMsgCount--;
     if (btlMsgCount) return;
     if (btlOver && btlWinPending) {        // the last turn has been read: the badge

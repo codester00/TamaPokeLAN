@@ -36,6 +36,11 @@ extern uint8_t btlSwapDue, btlNextAt[2];
 extern uint16_t btlNextHp[2];
 extern int16_t btlSceneDex;
 extern char btlMsg[8][40];
+extern uint16_t btlMsgHp[8][2];
+extern uint16_t btlHpShown[2];
+extern bool btlWild;
+bool btlFoeCaught();
+uint8_t ownedCount(int16_t dex);
 extern uint16_t squadMask;
 
 static int bad = 0;
@@ -267,6 +272,97 @@ int main() {
     } else {
       ck(false, "(could not reach the last slot)");
     }
+    battleOpen = false;
+  }
+
+  // --- 7. the guest reads the turn the host read, line for line (v3.64) -----------------
+  {
+    lan.begin(true, "HOST");
+    snprintf(lan.peerName, sizeof(lan.peerName), "%s", "GUEST");
+    lan.addMon(mon(143, 50, "SNORE"));
+    lan.theirs[0] = mon(131, 50, "LAPRA");
+    lan.theirsN = 1;
+    lan.state = LINK_READY;
+    lan.send = capture;
+    startLinkBattle();
+    btlFoe.ailment = AIL_POISON;          // the guest's creature ticks at the end
+    btlMenu = 1; btlMsgCount = 0; btlSwapDue = 0; btlMyAct = 0;
+    battleTap(69 + 80, 270 + 27);
+    lan.pendingAct = LINK_ACT_MOVE(0);
+    render();
+    char hostLines[8][40]; uint16_t hostHp[8][2]; uint8_t hostN = btlMsgCount;
+    for (uint8_t i = 0; i < hostN; i++) {
+      memcpy(hostLines[i], btlMsg[i], 40);
+      hostHp[i][0] = btlMsgHp[i][0]; hostHp[i][1] = btlMsgHp[i][1];
+    }
+    bool tick = false;
+    for (uint8_t i = 0; i < hostN; i++) tick |= strstr(hostLines[i], "poison") != nullptr;
+    ck(hostN >= 3 && tick, "(the host narrated both moves and the poison tick)");
+    LinkResult r{};
+    ck(lastResult(r) && r.beatN >= 3, "the result carries the turn's beats");
+    battleOpen = false;
+
+    lan.begin(false, "GUEST");
+    snprintf(lan.peerName, sizeof(lan.peerName), "%s", "HOST");
+    lan.addMon(mon(131, 50, "LAPRA"));
+    lan.theirs[0] = mon(143, 50, "SNORE");
+    lan.theirsN = 1;
+    lan.state = LINK_READY;
+    startLinkBattle();
+    btlMsgCount = 0;
+    memcpy(lan.result, &r, sizeof(r)); lan.resultN = sizeof(r); lan.resultNew = true;
+    render();
+    bool same = btlMsgCount == hostN;
+    for (uint8_t i = 0; same && i < hostN; i++) same = !strcmp(btlMsg[i], hostLines[i]);
+    ck(same, "the guest is told exactly the lines the host was");
+    bool hpSame = same;
+    for (uint8_t i = 0; hpSame && i < hostN; i++)
+      hpSame = btlMsgHp[i][0] == hostHp[i][1] && btlMsgHp[i][1] == hostHp[i][0];
+    ck(hpSame, "and each line drains the bars to the same HP on both boards");
+    battleOpen = false;
+  }
+
+  // --- 8. every fight: HP falls with the line that caused it (v3.64) ---------------------
+  {
+    strongPet();
+    pet.dbgHatchAs(143, false);          // SNORLAX against SNORLAX: both outlast a turn
+    pet.ageMinutes = 39UL * MINUTES_PER_LEVEL;
+    pet.relearnFromLevel();
+    while (pet.hasLearnOffer()) pet.declineLearn();
+    squadMask = 1;
+    startBattle(143, 40);                // a SNORLAX with plenty of HP
+    btlFoe.ailment = AIL_POISON;
+    uint16_t before = btlFoe.hp;
+    btlMenu = 1; btlMsgCount = 0;
+    battleTap(69 + 80, 270 + 27);        // our first move; the turn resolves
+    int tickAt = -1;
+    for (uint8_t i = 0; i < btlMsgCount; i++) if (strstr(btlMsg[i], "poison")) tickAt = i;
+    ck(tickAt > 0, "the poison tick has a line of its own");
+    if (tickAt > 0) {
+      ck(btlMsgHp[tickAt][1] < btlMsgHp[tickAt - 1][1], "and the HP it takes belongs to that line");
+      for (int k = 0; k < 40; k++) render();
+      ck(btlHpShown[1] == btlMsgHp[0][1] && btlHpShown[1] > btlFoe.hp && btlHpShown[1] <= before,
+         "while the first line is up, the bar has not yet fallen to the end of the turn");
+      clearMsgs();
+      for (int k = 0; k < 40; k++) render();
+      ck(btlHpShown[1] == btlFoe.hp, "and after the last line it rests on the real HP");
+    }
+    battleOpen = false;
+  }
+
+  // --- 9. the CAUGHT mark on a wild creature (v3.64) ----------------------------------
+  {
+    strongPet();
+    startBattle(19, 10);                 // a one-off fight: not wild
+    ck(!btlFoeCaught(), "a creature that is not wild never shows CAUGHT");
+    btlWild = true;
+    int16_t never = 0;
+    for (int16_t d = 1; d <= 151 && !never; d++) if (!ownedCount(d)) never = d;
+    btlFoe.dex = never;
+    ck(never && !btlFoeCaught(), "a wild species you do not own shows nothing");
+    btlFoe.dex = pet.speciesId;          // the live pet's own species
+    ck(btlFoeCaught(), "a wild species you own shows CAUGHT");
+    btlWild = false;
     battleOpen = false;
   }
 

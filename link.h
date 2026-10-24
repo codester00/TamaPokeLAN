@@ -39,7 +39,8 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 7        // bump on ANY wire change; a mismatch is refused
+#define LINK_PROTO 8        // bump on ANY wire change; a mismatch is refused
+                            // (8, v3.64: LinkResult carries the turn's beats)
                             // (6, v3.58: the stats a LinkMon carries scale
                             // training with level; 7, v3.60: the trainer marks
                             // in the hello, the creature mark in LinkMon::flags)
@@ -128,6 +129,32 @@ struct LinkMon {
 //
 // Every field is ABSOLUTE, not a delta. That is what lets a guest which missed
 // a turn recover from the next one instead of drifting.
+// One narrated beat of a turn (v3.64): an action or an end-of-turn tick, as the
+// host's engine resolved it, with both sides' HP right after. The guest replays
+// them through the SAME narration the host used, so the two boards read the
+// same lines -- it used to see moves and faints only -- and each line's HP is
+// the HP the bars drain to while it is shown.
+#define LINK_BEATS 5
+#define LB_MISSED 0x01
+#define LB_CRIT 0x02
+#define LB_IMMUNE 0x04
+#define LB_SKIPPED 0x08
+#define LB_HURTSELF 0x10
+#define LB_CHARGED 0x20
+#define LB_FAINTED 0x40
+#define LB_STAGE_USER 0x80
+struct LinkBeat {
+  uint8_t who;          // 0 the host's creature acted (or ticked), 1 the guest's
+  uint8_t kind;         // 0 an action, 1 an end-of-turn tick
+  uint8_t move;
+  uint8_t flags;        // LB_*
+  uint8_t eff;          // 0 no damage, 1 super effective, 2 not very, 3 neutral damage
+  uint8_t inflicted;
+  uint8_t stageMask;
+  int8_t stageDelta;
+  uint16_t hostHp, guestHp;
+};
+
 struct LinkResult {
   uint16_t hostHp, guestHp;
   uint8_t hostAil, guestAil;
@@ -149,6 +176,8 @@ struct LinkResult {
   uint8_t hostNext, guestNext;
   uint16_t hostNextHp, guestNextHp;
   uint8_t hostNextAil, guestNextAil;
+  uint8_t beatN;               // v3.64
+  LinkBeat beats[LINK_BEATS];
 };
 #define LINK_NO_NEXT 0xFF
 

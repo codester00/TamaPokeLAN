@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.63-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.64-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -567,6 +567,15 @@ either direction, independently of the region chosen for the current egg.
 Below it, the **area row** names where the next encounter comes from; tap it for
 the region's list of areas. Then the normal/hard pill and one large action.
 (The mixed ALL region is switched off in Explore for now.)
+
+**CAUGHT** (v3.64): a small ball on the wild creature's name plate means you
+already own one of its species — in Bill's PC, your party, or as the creature you
+are raising.
+
+**In every fight, health falls with the line that explains it** (v3.64): the bar
+drains while "X used Y!" is shown, not the moment the moves are picked, and poison
+and burns have their own line ("X is hurt by poison!") with their own drop. In LAN
+battles both boards now read the same lines.
 
 **Kanto's areas (v3.39).** 36 areas built from FireRed and LeafGreen's own
 encounter tables (the `pret/pokefirered` disassembly), both versions combined so

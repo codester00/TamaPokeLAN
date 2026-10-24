@@ -852,10 +852,7 @@ wins wherever it and the summary below differ.
    story leaders have no EVs), hard = full training on the same scale, IVs
    16/31 as now. Bump `LINK_PROTO`. Re-measure the ladder win rates and update
    the tables in README/here before shipping.
-2b. **An "owned" marker in Explore battles** (owner, 2026-10-24): the wild
-   creature's plate shows whether the player already owns one of its species
-   (`ownedCount()` -- PC, party, leftovers or the live pet), like the games'
-   caught-ball icon. Not built.
+2b. ~~An "owned" marker in Explore battles~~ **done in v3.64** (`btlFoeCaught()`).
 2. **A post-game battle league** (owner, later): fully trained teams, like the
    games' Battle Tower/Frontier/PWT/Battle Tree. Not designed yet.
 3. **Secret codes, entered in the Memory game** (taps in the watch phase, which
@@ -886,6 +883,33 @@ wins wherever it and the summary below differ.
    removes it from the collection). Grid: coloured if the PC holds one,
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
+
+### Done: HP falls with its line, LAN narration, the CAUGHT mark (v3.64, on the branch, not merged)
+
+Reported after a night of LAN battles (2026-10-24), plus the owner's wild mark.
+
+- **Each queued line remembers both sides' HP** (`btlMsgHp`, filled by
+  `btlSay()`, shifted with the queue in `battleTap()`); `btlEaseBars()` drains to
+  the HP of the line on screen and to the real HP only once the queue is empty.
+  It works because narration is queued right after each `battleAct()`, never
+  after the whole turn -- keep it that way. End-of-turn ticks have their own line
+  now (`btlNarrateTick()`, `S_BTL_HURT_PSN/BRN`); they used to be silent.
+- **LAN: the guest reads the host's own narration.** The host records each
+  action and tick as a `LinkBeat` (`btlBeat()`: the TurnLog's fields plus both
+  sides' HP after it) and ships up to `LINK_BEATS` 5 in `LinkResult`
+  (`LINK_PROTO` 8; a `static_assert` keeps the result inside one packet). The
+  guest rebuilds each TurnLog (`btlBeatLog()`) and narrates it with the same
+  `btlNarrate()`/`btlNarrateTick()`, setting HP to the beat's before each so the
+  lines carry the host's HP; the absolute state is applied after. A faint the
+  beats did not carry is still said (dismissing it brings the replacement on).
+  Before, the guest got moves and faints only -- the "extra scripting" the owner
+  saw on the host.
+- **CAUGHT**: `btlFoeCaught()` (wild, not LAN, `ownedCount()` > 0) draws a small
+  ball on the foe's plate (`drawCaughtBall()`).
+- `lanfight_test` sections 7-9: guest lines == host lines with mirrored HP; in a
+  plain fight the tick has its own line and HP, the bar waits on the first line
+  and settles on the real HP after the last; the CAUGHT rule. Negative-checked:
+  the guest replay, the per-line HP, the tick line, the ownership test.
 
 ### Done: Bill's PC screens, OWNED, GO TO #, missing-only (v3.62 + v3.63 together, on the branch, not merged)
 

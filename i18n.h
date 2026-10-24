@@ -287,6 +287,8 @@ enum StrId : uint16_t {
   S_CHEAT_FIRST, S_CHEAT_1, S_CHEAT_2, S_CHEAT_3, S_CHEAT_4, S_CHEAT_5, S_CHEAT_6, S_CHEAT_7, S_CHEAT_8, S_CHEAT_9, S_CHEAT_10, S_CHEAT_LAST,
   // Bill's PC screens (v3.62) and the Pokedex's OWNED, GO TO # and filter (v3.63)
   S_PC_TITLE, S_PC_BTN, S_PC_MORE_FMT, S_PC_SEVENTH, S_OWNED_FMT, S_GOTO, S_MISSING_ONLY, S_SHOW_ALL,
+  // end-of-turn damage, narrated (v3.64): the bar drains with its own line
+  S_BTL_HURT_PSN, S_BTL_HURT_BRN,
   STR_COUNT
 };
 
