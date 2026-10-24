@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.61-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.63-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -981,10 +981,25 @@ the same path a farewell already uses.
 
 **Bill's PC** (since v3.61) replaced the 18-slot box: it holds up to **6 of every
 species** (6,150 creatures), on the board's own flash. A seventh of a species
-needs a free party slot. Until the PC gets its own screens it uses the box screen,
-**one page per species**. The first boot on v3.61 moves the old box in; more than
-six of one species stay put and are listed after the PC's pages. Backups carry the
-PC; one taken before v3.61 still restores, and its box moves into the PC again. It is **not** added to the Pokédex on capture: registration
+needs a free party slot, or makes room: the party screen's **PC** button opens that
+species' six, and the one you tap goes in favour of the newcomer. A trade that
+would bring in a seventh with a full party is refused at **ACCEPT** ("NO ROOM").
+
+- **Opening it:** the middle of the party ring. Tap a party creature, then the
+  middle, to deposit it; it goes to its own species.
+- **The grid** is the Pokédex's, region by region: **coloured** with a count (1–6)
+  where the PC holds that species, **outlined** where only your party or the
+  creature you are raising does, **grey** otherwise. Tap a species for its ring of
+  six: a creature's sheet offers **TO PARTY** and **RELEASE**.
+- **GO TO #** (the footer, in the PC and the Pokédex) jumps to any number.
+  **MISSING ONLY** lists just the species you do not own.
+- The first boot on v3.61 moved the old box in; more than six of one species stay
+  put, reached from the grid's header (**+N MORE**). Backups carry the PC; one taken
+  before v3.61 still restores, and its box moves into the PC again.
+
+**OWNED** (v3.63): a species you have right now — in the PC, the party, or as the
+creature you are raising. The Pokédex marks it with a green dot, and its region
+chooser counts it beside REGISTERED. Releasing the last one takes it off again. It is **not** added to the Pokédex on capture: registration
 means "you raised this", so it happens when you actually make it the one you raise.
 
 **Losing.** When a gym or wild fight is lost, the screen goes dark: you have

@@ -887,6 +887,47 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: Bill's PC screens, OWNED, GO TO #, missing-only (v3.62 + v3.63 together, on the branch, not merged)
+
+Phases 5 and 6 of `docs/build-plan.md`, built and shipped as ONE version,
+`FW_VERSION` 3.63 (there is no separate 3.62 build; `docs/release-notes/v3.63.md`
+covers both).
+
+- **Screens** (`pcOpen`, behind the party hub): `SCR_PCPICK` (the shared region
+  chooser in a new mode `RPICK_FOR_PC` -- its subtitle counts species held, and
+  it has the Pokedex's BACK zone), `SCR_PC` (the Pokedex's 4x4 grid geometry,
+  `GAL_X/GAL_Y/GAL_CELL` moved to the top for both), `SCR_PCRING` (six slots on
+  the party ring; the sheet is the box's, via `boxDetail` = a box-view index from
+  `boxViewIndexOf()`). Down backs out one level (`pcBack()`). Rim pages the grid
+  (`uiRimTarget`, `swipe_test`). Cell states: coloured + count if held,
+  `drawThumbInk()` ink + green outline if only owned elsewhere, track grey else.
+- **THE grid list is `pcListAt()`/`pcListCount()`** (the region, or only species
+  not owned with `pcMissingOnly`); drawing, tapping (`pcGridAt()`) and paging all
+  walk it.
+- **Deposit** = an armed party slot + the hub, or tapping the armed slot again
+  (`pcDeposit()`; the old "tap twice opens the box" is gone). Withdraw = the
+  ring's sheet TO PARTY (a free slot, or `boxSel` to choose who steps out, the
+  box's old flow). The old box screen survives only for the leftovers (`+N MORE`
+  in the grid header).
+- **The seventh**: `pcSeventhDue()` (a waiting newcomer with six of its species in
+  the PC) draws the hub on the full-party chooser; `pcOpenSeventh()` opens that
+  ring and the tapped creature is replaced by the newcomer (`pcReplace`).
+- **Trades with no room**: `tradeRoomFor()` -- a party creature out always has
+  room (the incoming takes its slot), so does a PC creature of the same species;
+  otherwise a free party slot or PC room is needed. ACCEPT refuses and the card
+  reads NO ROOM. This closes v3.61's open stuck-trade case.
+- **v3.63**: `ownedIn()` on the Pokedex chooser (`S_OWNED_FMT`), a green dot on
+  owned cells, and **GO TO #** (`SCR_JUMP`, a 3x4 pad, `jumpKeyRect()`/
+  `jumpKeyAt()`), opened by the footer of either grid. **`dexJump(n, forPc)` is
+  the one answer** for where a number lands (region, page, outlined cell); it
+  refuses a number past the dex or in a region without its pack, and turns the
+  missing-only filter off so the cell asked for is on the grid.
+- Tests: `pcui_test` (hub -> chooser -> grid -> ring -> TO PARTY, RELEASE, deposit,
+  the seventh, the trade room check, GO TO # in both, the filter, OWNED),
+  `flush_test` (four new screens), `swipe_test` (the grid). Negative-checked: the
+  trade room check, the filter, `dexJump()`'s filter reset, the seventh's hub.
+  Screenshots `pc`/`pcring` replaced `box`.
+
 ### Done: Bill's PC, the storage layer (v3.61, on the branch, not merged, NOT YET ON A BOARD)
 
 Phase 4 of `docs/build-plan.md`. Six of every species on the board's unused
