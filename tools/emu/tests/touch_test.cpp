@@ -49,6 +49,7 @@ void startBattle(int16_t dex, uint8_t lvl);
 void startTrainerBattle(uint8_t idx, bool hard);
 extern uint8_t btlFoeAt, btlSquadN, btlSquadAt, btlMenu;
 extern Combatant btlSquad[7];
+uint8_t btlSwitchOpts(uint8_t out[6]); void btlSwitchCell(uint8_t k, int *x, int *y);
 extern uint8_t btlSwapDue; extern uint8_t btlNextAt[2];
 extern bool btlHard;
 extern bool gymOpen, gymHard; extern uint8_t gymPage, gymRegion, btlRegion;
@@ -534,12 +535,17 @@ int main(int argc, char **argv) {
 
   uint8_t was = btlSquadAt;
   uint16_t swFoeHp0 = btlFoe.hp;
-  click(69 + 40, 286 + 22);             // slot 0 = the one already out: inert
-  if (btlSquadAt != was) { printf("FAIL: switching to the active creature was allowed\n"); return 1; }
+  // the one already out is not offered at all (v3.57: the screen lists the
+  // others, so the last of six is reachable)
+  uint8_t swOpt[6];
+  uint8_t swN = btlSwitchOpts(swOpt);
+  bool listsActive = false;
+  for (uint8_t k = 0; k < swN; k++) if (swOpt[k] == was) listsActive = true;
+  if (listsActive || swN != btlSquadN - 1) { printf("FAIL: the switch list offers the active creature\n"); return 1; }
   printf("PASS: you cannot switch to the one already out\n");
 
   btlMenu = 2;
-  click(69 + 168 + 40, 286 + 22);       // slot 1
+  { int cx, cy; btlSwitchCell(0, &cx, &cy); click(cx + 40, cy + 22); }   // the first option
   if (btlSquadAt == was) { printf("FAIL: the switch did not happen\n"); return 1; }
   printf("PASS: switching brings on another creature (slot %u -> %u)\n", was, btlSquadAt);
   bool costTurn = (btlYou.hp < btlYou.maxHp) || (btlFoe.hp == swFoeHp0);

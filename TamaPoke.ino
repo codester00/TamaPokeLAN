@@ -5788,6 +5788,18 @@ static void btlApplyResult() {
     btlNextHp[1] = r.hostNextHp;
     btlNextAil[1] = r.hostNextAil;
   }
+  // A side down with nobody left is the end, and the result already says so.
+  // The host's END is sent once and never resent (tick() stops at LINK_DONE),
+  // so a lost END used to leave this board waiting until the link timed out
+  // and reported the rival gone instead of the result. The END, if it does
+  // land, says the same thing.
+  bool guestOut = btlYou.fainted() && r.guestNext == LINK_NO_NEXT;
+  bool hostOut = btlFoe.fainted() && r.hostNext == LINK_NO_NEXT;
+  if ((guestOut || hostOut) && lan.state != LINK_DONE) {
+    lan.youWon = hostOut;      // the host's side empty -- both at once: the host's win
+    if (guestOut && hostOut) lan.youWon = false;
+    lan.state = LINK_DONE;     // btlLinkPoll() narrates it right after this
+  }
 }
 
 // Radio packets land on another task, so the guest picks them up here, once a

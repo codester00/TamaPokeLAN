@@ -916,6 +916,15 @@ which had not been touched since it was written. `LINK_PROTO` 4 -> 5.
 - **The scene is fixed per fight** (`btlFixScene()`, called by all four battle
   starts): it was the current foe's biome looked up every frame. LAN: the
   host's lead on both boards.
+- **A lost END no longer strands the guest.** `sendEnd()` is never resent
+  (`tick()` stops at `LINK_DONE`), so a dropped END left the guest waiting for
+  the timeout and "the rival left". The result already carries a side with
+  nobody left (`LINK_NO_NEXT` on a fainted side), so `btlApplyResult()` ends
+  the fight itself; the END, if it lands, agrees.
+- **Still open: `sendRematch()` is not resent either** -- a lost REMATCH leaves
+  the guest at DONE while the host waits, until the idle bye. Making it a kept
+  packet is not enough on its own: a stale REMATCH resent into the new fight
+  would rearm it at turn 0. Needs a rematch counter in the message; not done.
 - Guest narration names switches the host made ("Go X" / "RIVAL sends out Y");
   the guest's foe on a switch comes from its live `btlFoeSquad`, as on the host.
 - Found alongside: `startBattle()` (console `BATTLE`) kept the last gym's

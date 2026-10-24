@@ -234,6 +234,17 @@ int main() {
   clearMsgs();
   ck(btlSquadAt == 2 && btlYou.hp == 9 && btlYou.ailment == AIL_PARA,
      "then brings on the host's choice, with the host's numbers");
+  // the last one down, and the host's END lost on the way: the result alone ends it
+  memset(&r, 0, sizeof(r));
+  r.hostHp = btlFoe.maxHp; r.guestHp = 0; r.hostMove = btlFoe.moves[0];
+  r.hostIdx = 0; r.guestIdx = btlSquadAt;
+  r.hostNext = LINK_NO_NEXT; r.guestNext = LINK_NO_NEXT;
+  btlSquad[0].hp = 0; btlSquad[1].hp = 0;
+  lan.state = LINK_READY;
+  memcpy(lan.result, &r, sizeof(r)); lan.resultN = sizeof(r); lan.resultNew = true;
+  render();
+  ck(btlOver && !btlWon && lan.state == LINK_DONE,
+     "a result with nobody left ends the fight even if the END packet is lost");
   battleOpen = false;
 
   // --- 6. not LAN only: after a switch, the next standing one, not the next index -----
