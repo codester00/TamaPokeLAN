@@ -14,6 +14,7 @@
 #include "Preferences.h"
 #include "pet.h"
 #include "party.h"
+#include "pcstore.h"
 #include "trade.h"
 #include "save.h"
 #include "dex.h"
@@ -65,6 +66,7 @@ void emuRadioDeliver(const uint8_t *b, uint8_t n);
 void emuSetTimeScale(uint32_t s);
 void linkNowEnd();
 extern Pet pet;
+uint16_t boxViewPages();
 extern Trade trade;
 extern bool tradeOpen, tradePicking, lanOpen, tradeNoRadio;
 extern uint8_t tradeAsk, tradePickSrc;
@@ -274,11 +276,12 @@ int main() {
   ck(tapHit(tradeGiveHit) && tradePicking, "tapping YOU GIVE opens the picker");
   tapHit(hubHit);
   tapHit(hubHit);
-  ck(tradePickSrc == 2, "the hub pages party -> box 1 -> box 2");
+  ck(tradePickSrc == 2, "the hub pages party -> page 1 -> page 2");
   tapSlot(1);
   ck(!tradePicking && trade.mine.uid == pik.uid, "a box creature can be offered");
   tapHit(tradeGiveHit);
-  tapHit(hubHit); tapHit(hubHit); tapHit(hubHit); tapHit(hubHit);
+  // the party plus one stop per page of Bill's PC (v3.61): ask, never count
+  for (uint16_t k = 0; k < boxViewPages() + 1; k++) tapHit(hubHit);
   ck(tradePickSrc == 0, "and round again to the party");
   tapSlot(0);
   ck(trade.mine.uid == kad.uid, "the offer can be changed before accepting");
@@ -301,6 +304,34 @@ int main() {
   ck(!trade.hasOpenEntries() && !tb.hasOpenEntries(), "both boards confirmed it");
   render();
   ck(tapHit(tradeCloseHit) && !tradeOpen, "CLOSE leaves the finished trade");
+
+  // --- 2b. a trade out of Bill's PC, for another species (v3.61): the PC's
+  //         replace is then two writes, and both must land
+  {
+    bootB();
+    PartyMon eev = mkMon(133, 20); eev.uid = pet.mintUid();
+    ck(pcPut(eev) >= 0, "(an Eevee in Bill's PC)");
+    PartyMon geo = mkMon(74, 20);
+    memcpy(geo.uid.mac, bm, 6); geo.uid.serial = 77;
+    B.slots[4] = geo;
+    openTradeFromLan();
+    pumpUntil([] { return trade.state == TRADE_CHOOSING && tb.state == TRADE_CHOOSING; });
+    ck(trade.offer(eev.uid), "a creature in the PC can be offered");
+    tb.offer(geo.uid);
+    pumpUntil([] { return trade.theirsOk; });
+    tapHit(tradeAcceptHit);
+    tb.accept();
+    ck(pumpUntil([] { return trade.state == TRADE_DONE && tb.state == TRADE_DONE; }), "traded out of the PC");
+    int16_t d; uint8_t sl;
+    ck(!pcFind(eev.uid, &d, &sl) && pcFind(geo.uid, &d, &sl) && d == 74,
+       "the Eevee left the PC and the Geodude arrived there");
+    ck(B.where(eev.uid) >= 0 && B.where(geo.uid) < 0, "and B holds the Eevee");
+    pcBegin();
+    ck(pcFind(geo.uid, &d, &sl) && !pcFind(eev.uid, &d, &sl), "both writes are on the flash, not just in RAM");
+    pump(60);
+    render();
+    tapHit(tradeCloseHit);
+  }
 
   // --- 3. the art gate: a creature this board could only draw as a number
   {

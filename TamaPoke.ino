@@ -7937,7 +7937,12 @@ struct FwTradeBoard : TradeBoard {
     uint8_t w = where(out, &i, &dex);
     if (w == W_PARTY) return putParty(i, in);
     if (w == W_PC && in.dex == dex) return pcReplace(dex, (uint8_t)i, in);
-    if (!findMon(in.uid, nullptr) && !storeNew(in)) return false;
+    if (!findMon(in.uid, nullptr)) {
+      // it takes the outgoing one's place: the PC for a PC creature (a party
+      // slot only if its species is already six deep), else wherever there is room
+      bool stored = (w == W_PC && pcPut(in) >= 0) || storeNew(in);
+      if (!stored) return false;
+    }
     return remove(out);
   }
   bool storeNew(const PartyMon &in) override {
