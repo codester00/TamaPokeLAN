@@ -832,7 +832,18 @@ int16_t btlPmdDex[2] = { 0, 0 };
 // in only once the player dismisses that message.
 uint32_t btlFaintUntil[2] = { 0, 0 };
 uint32_t btlEnterUntil[2] = { 0, 0 };
-int8_t btlSwapWho = -1;        // 0 = your side, 1 = the foe's, -1 = nothing due
+// Replacements due after a faint: bit 0 your side, bit 1 the foe's -- both can
+// fall in one turn (recoil, a poison tick). btlNextAt/Hp/Ail say who comes on.
+// The HOST decides them at resolution and ships them in the result, so in a LAN
+// fight both boards bring on the same creature (v3.57); before, the host chose
+// after its own faint message was dismissed and never told the guest.
+uint8_t btlSwapDue = 0;
+uint8_t btlNextAt[2] = { 0, 0 };
+uint16_t btlNextHp[2] = { 0, 0 };
+uint8_t btlNextAil[2] = { 0, 0 };
+// The scene, chosen once when the fight starts (btlFixScene()). It used to be
+// the foe's biome looked up every frame, so every replacement changed it.
+int16_t btlSceneDex = 0;
 #define BTL_FAINT_MS 700
 #define BTL_ENTER_MS 420
 // battle menu: 0 = FIGHT/POKEMON, 1 = the moves, 2 = the switch list
@@ -5416,15 +5427,24 @@ static void drawBack(const BackScene &b, int y0) {
   }
 }
 
-// Which scene: the FOE's biome, since a battle happens where it lives, and the
-// same day/night split the main screen already uses.
+// Which scene: the opponent's biome, since a battle happens where it lives, and
+// the same day/night split the main screen already uses. Fixed for the whole
+// fight by btlFixScene(): a trainer's second creature does not move the fight.
 static void drawBattleBack() {
-  int16_t dex = btlFoe.dex;
+  int16_t dex = btlSceneDex;
   if (dex < 1 || dex > DEX_COUNT) { gfx->fillCircle(CX, CY, 231, UI_BG_DAY); return; }
   uint8_t bi = DEX_TBL[dex].biome;
   if (bi >= BACK_BIOMES) bi = 0;
   bool night = sceneHour() < 6 || sceneHour() >= 20;
   drawBack(BACKS[bi][night ? 1 : 0], 30);
+}
+
+// Every battle start calls this once, just before it opens the screen: the
+// lead opponent's biome, and in a LAN fight the HOST's lead on both boards, so
+// the two players see the same place.
+static void btlFixScene() {
+  if (btlLink) btlSceneDex = btlLinkHost ? btlSquad[0].dex : btlFoeSquad[0].dex;
+  else btlSceneDex = btlFoe.dex;
 }
 
 // Streams a side's sprite if it is not already the one loaded. Called whenever
@@ -5598,7 +5618,7 @@ void startLinkBattle() {
   btlWinUntil = 0;
   btlWinPending = false;
   btlLost = false;
-  btlSwapWho = -1;
+  btlSwapDue = 0;
   lanWaitSince = 0;      // a rematch reuses this screen; the old wait is over
   lanQuitConfirm = false;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
@@ -5608,6 +5628,7 @@ void startLinkBattle() {
   btlSyncSprite(0, btlYou);
   btlSyncSprite(1, btlFoe);
   audioMusic(btlMusic(false));
+  btlFixScene();
   battleOpen = true;
 }
 
@@ -5627,6 +5648,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlRegion = region;
   btlHard = hard;
   btlWild = false;
+  btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlFoeAt = 0;
   foeFromSpecies(btlFoe, tr.team[0].dex, tr.team[0].level, hard ? HARD_IV : EASY_IV);
   btlMsgCount = 0;
@@ -5636,7 +5658,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlWinUntil = 0;
   btlWinPending = false;
   btlLost = false;
-  btlSwapWho = -1;
+  btlSwapDue = 0;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
   btlHpShown[0] = btlYou.maxHp;
@@ -5646,6 +5668,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   audioMusic(btlMusic(false));
   btlLungeUntil[0] = btlLungeUntil[1] = 0;
   btlHitUntil[0] = btlHitUntil[1] = 0;
+  btlFixScene();
   battleOpen = true;
 }
 
@@ -5664,6 +5687,9 @@ void startBattle(int16_t dex, uint8_t lvl) {
   foe.relearnFromLevel();
   combatantFromPet(btlFoe, foe);
   btlWild = false;
+  btlLink = false;   // never a leftover from a LAN fight that closed some other way
+  btlTrainer = -1;   // a one-off: never the last gym's leader, badge and all
+  btlHard = false;
   btlMsgCount = 0;
   btlOver = false;
   btlWon = false;
@@ -5671,7 +5697,7 @@ void startBattle(int16_t dex, uint8_t lvl) {
   btlWinUntil = 0;
   btlWinPending = false;
   btlLost = false;
-  btlSwapWho = -1;
+  btlSwapDue = 0;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
   btlHpShown[0] = btlYou.maxHp;
@@ -5681,6 +5707,7 @@ void startBattle(int16_t dex, uint8_t lvl) {
   audioMusic(btlMusic(false));
   btlLungeUntil[0] = btlLungeUntil[1] = 0;
   btlHitUntil[0] = btlHitUntil[1] = 0;
+  btlFixScene();
   battleOpen = true;
 }
 
@@ -5696,6 +5723,10 @@ static void btlApplyResult() {
   // The wire says "host"/"guest"; here we are always the guest, so their fields
   // are the foe's and ours are ours.
   uint32_t now = millis();
+  btlMsgCount = 0;
+  // Who is out. A switch the host made for either side this turn shows up here
+  // as an index change, and is announced the way the host announces it.
+  bool youIn = false, foeIn = false;
   if (r.guestIdx < btlSquadN && r.guestIdx != btlSquadAt) {
     btlSquad[btlSquadAt] = btlYou;
     btlSquadAt = r.guestIdx;
@@ -5703,14 +5734,20 @@ static void btlApplyResult() {
     btlSyncSprite(0, btlYou);
     btlLungeUntil[0] = btlHitUntil[0] = btlFaintUntil[0] = 0;
     btlEnterUntil[0] = now + BTL_ENTER_MS;
+    btlSay(T(S_BTL_GO), btlYou.name);
+    youIn = true;
   }
-  if (r.hostIdx != btlFoeAt && r.hostIdx < lan.theirsN) {
+  if (r.hostIdx < btlFoeSquadN && r.hostIdx != btlFoeAt) {
+    // the same live squad the host keeps, not a fresh copy off lan.theirs: a
+    // creature that comes back keeps its PP and anything this board knew
+    btlFoeSquad[btlFoeAt] = btlFoe;
     btlFoeAt = r.hostIdx;
-    linkMonTo(btlFoe, lan.theirs[btlFoeAt]);
-    btlHpShown[1] = btlFoe.maxHp;
+    btlFoe = btlFoeSquad[btlFoeAt];
     btlSyncSprite(1, btlFoe);
     btlLungeUntil[1] = btlHitUntil[1] = btlFaintUntil[1] = 0;
     btlEnterUntil[1] = now + BTL_ENTER_MS;
+    btlSay(T(S_BTL_SENDS), lan.peerName, btlFoe.name);
+    foeIn = true;
   }
   btlYou.hp = r.guestHp > btlYou.maxHp ? btlYou.maxHp : r.guestHp;
   btlFoe.hp = r.hostHp > btlFoe.maxHp ? btlFoe.maxHp : r.hostHp;
@@ -5720,8 +5757,9 @@ static void btlApplyResult() {
     uint8_t mx = ppMax(btlYou.moves[i]);
     btlYou.pp[i] = r.guestPp[i] > mx ? mx : r.guestPp[i];
   }
+  if (youIn) btlHpShown[0] = btlYou.hp;
+  if (foeIn) btlHpShown[1] = btlFoe.hp;
 
-  btlMsgCount = 0;
   if (r.hostMove) btlSay(T(S_BTL_USED), btlFoe.name, moveName(r.hostMove));
   if (r.guestMove) btlSay(T(S_BTL_USED), btlYou.name, moveName(r.guestMove));
   if (r.guestDmg) { btlHitUntil[0] = now + BTL_HIT_MS; sfxPlay(SFX_HIT); }
@@ -5733,6 +5771,22 @@ static void btlApplyResult() {
   if (btlFoe.fainted()) {
     btlFaintUntil[1] = now + BTL_FAINT_MS;
     btlSay(T(S_BTL_FAINT), btlFoe.name);
+  }
+  // Who comes on for a fainted side: the host's decision, never this board's.
+  // btlDoSwap() brings them on when the faint message is dismissed -- and until
+  // then the guest cannot act, so its next move is always chosen from the
+  // creature the host will resolve it for.
+  if (btlYou.fainted() && r.guestNext < btlSquadN) {
+    btlSwapDue |= 1;
+    btlNextAt[0] = r.guestNext;
+    btlNextHp[0] = r.guestNextHp;
+    btlNextAil[0] = r.guestNextAil;
+  }
+  if (btlFoe.fainted() && r.hostNext < btlFoeSquadN) {
+    btlSwapDue |= 2;
+    btlNextAt[1] = r.hostNext;
+    btlNextHp[1] = r.hostNextHp;
+    btlNextAil[1] = r.hostNextAil;
   }
 }
 
@@ -5757,11 +5811,11 @@ static void btlLinkPoll() {
     // Our own action was latched when it was tapped; theirs arrives whenever
     // the radio manages it. Whichever is second sets the turn going.
     if (btlMyAct && lan.hasPeerAct() && !btlOver && !btlMsgCount &&
-        btlSwapWho < 0) {
+        !btlSwapDue) {
       uint8_t act = btlMyAct;
       btlMyAct = 0;
       if (LINK_ACT_IS_SWITCH(act)) btlSwitchTo(LINK_ACT_SLOT(act));
-      else btlResolve(btlYou.moves[LINK_ACT_SLOT(act) % MOVE_SLOTS]);
+      else btlResolve(battleMoveForSlot(btlYou, LINK_ACT_SLOT(act)));
     }
     return;
   }
@@ -5780,7 +5834,7 @@ static void btlLinkPoll() {
 
 // Packs the outcome for the guest. Only the host ever calls this.
 static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
-                          uint16_t hp0You, uint16_t hp0Foe) {
+                          uint16_t hp0You, uint16_t hp0Foe, int8_t nYou, int8_t nFoe) {
   LinkResult r = {};
   r.hostHp = btlYou.hp;   r.guestHp = btlFoe.hp;
   r.hostAil = btlYou.ailment; r.guestAil = btlFoe.ailment;
@@ -5790,6 +5844,10 @@ static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
   r.hostIdx = btlSquadAt; r.guestIdx = btlFoeAt;
   if (btlYou.fainted() || btlFoe.fainted()) r.flags |= 0x04;
   for (int i = 0; i < MOVE_SLOTS; i++) r.guestPp[i] = btlFoe.pp[i];
+  r.hostNext = nYou < 0 ? LINK_NO_NEXT : (uint8_t)nYou;
+  r.guestNext = nFoe < 0 ? LINK_NO_NEXT : (uint8_t)nFoe;
+  if (nYou >= 0) { r.hostNextHp = btlSquad[nYou].hp; r.hostNextAil = btlSquad[nYou].ailment; }
+  if (nFoe >= 0) { r.guestNextHp = btlFoeSquad[nFoe].hp; r.guestNextAil = btlFoeSquad[nFoe].ailment; }
   lan.sendResult((const uint8_t *)&r, (uint8_t)sizeof(r));
 }
 
@@ -5933,7 +5991,7 @@ static void btlResolve(uint8_t yourMove) {
       }
       foeMove = 0;
     } else {
-      foeMove = btlFoe.moves[LINK_ACT_SLOT(act) % MOVE_SLOTS];
+      foeMove = battleMoveForSlot(btlFoe, LINK_ACT_SLOT(act));   // STRUGGLE if nothing can be chosen
     }
     lan.pendingAct = 0;
   } else {
@@ -5974,7 +6032,6 @@ static void btlResolve(uint8_t yourMove) {
   // whoever actually lost health flinches, whichever side dealt it
   if (btlYou.hp < hp0You) btlHitUntil[0] = now + BTL_HIT_MS;
   if (btlFoe.hp < hp0Foe) btlHitUntil[1] = now + BTL_HIT_MS;
-  if (btlLink && btlLinkHost) btlShipResult(usedYou, usedFoe, hp0You, hp0Foe);
   btlRecordPp();
   if (!btlYou.fainted() && !btlFoe.fainted()) {
     battleEndTurn(btlYou, lg);
@@ -5982,27 +6039,45 @@ static void btlResolve(uint8_t yourMove) {
     battleEndTurn(btlFoe, lg);
     if (lg.damage) btlNarrate(btlFoe, btlFoe, lg);
   }
+  // Who comes on for whoever went down -- decided NOW, once, for both sides,
+  // and shipped with the turn. By standing, not by index: after a switch the
+  // next index may already have fainted while an earlier one has not.
+  int8_t nYou = btlYou.fainted() ? battleNextStanding(btlSquad, btlSquadN, btlSquadAt) : -1;
+  int8_t nFoe = -1;
+  if (btlFoe.fainted()) {
+    if (btlLink) nFoe = battleNextStanding(btlFoeSquad, btlFoeSquadN, btlFoeAt);
+    else if (btlTrainer >= 0 && btlFoeAt + 1 < BTL_TRAINERS[btlTrainer].count)
+      nFoe = (int8_t)(btlFoeAt + 1);   // a trainer sends its team in order
+  }
+  // AFTER the end of the turn: a poison or burn tick is part of the turn, and
+  // shipping before it left the guest a turn behind -- and a creature that
+  // fainted to the tick never fainted on the guest's screen.
+  if (btlLink && btlLinkHost) btlShipResult(usedYou, usedFoe, hp0You, hp0Foe, nYou, nFoe);
   // Someone went down. The replacement is NOT swapped in here -- that made the
   // change instant and read as a jump cut. Flag it, let the sprite drop out of
-  // frame, and swap when the player dismisses the message.
-  if (btlFoe.fainted() && btlLink && btlFoeAt + 1 < btlFoeSquadN) {
-    btlFaintUntil[1] = millis() + BTL_FAINT_MS;
-    btlSwapWho = 1;
+  // frame, and swap when the player dismisses the message. A side with nobody
+  // left ends the fight below instead.
+  bool youOut = btlYou.fainted() && nYou < 0, foeOut = btlFoe.fainted() && nFoe < 0;
+  if (!youOut && !foeOut && (nYou >= 0 || nFoe >= 0)) {
+    if (nFoe >= 0) {
+      btlSwapDue |= 2;
+      btlNextAt[1] = (uint8_t)nFoe;
+      btlNextHp[1] = btlLink ? btlFoeSquad[nFoe].hp : 0;
+      btlNextAil[1] = btlLink ? btlFoeSquad[nFoe].ailment : 0;
+      btlFaintUntil[1] = millis() + BTL_FAINT_MS;
+    }
+    if (nYou >= 0) {
+      btlSwapDue |= 1;
+      btlNextAt[0] = (uint8_t)nYou;
+      btlNextHp[0] = btlSquad[nYou].hp;
+      btlNextAil[0] = btlSquad[nYou].ailment;
+      btlFaintUntil[0] = millis() + BTL_FAINT_MS;
+    }
     return;
   }
-  if (btlFoe.fainted() && btlTrainer >= 0 && btlFoeAt + 1 < BTL_TRAINERS[btlTrainer].count) {
-    btlFaintUntil[1] = millis() + BTL_FAINT_MS;
-    btlSwapWho = 1;
-    return;
-  }
-  if (btlYou.fainted() && btlSquadAt + 1 < btlSquadN) {
-    btlFaintUntil[0] = millis() + BTL_FAINT_MS;
-    btlSwapWho = 0;
-    return;
-  }
-  if (btlFoe.fainted() || btlYou.fainted()) {
+  if (youOut || foeOut) {
     btlOver = true;
-    btlWon = btlFoe.fainted();
+    btlWon = foeOut;   // their side has nobody left (both empty at once: yours)
     // the last one down drops out of frame like every other, rather than the
     // fight cutting away with it still standing
     if (btlFoe.fainted()) btlFaintUntil[1] = millis() + BTL_FAINT_MS;
@@ -6104,7 +6179,7 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
   if (now < btlFaintUntil[who]) {          // sinks out of frame as it faints
     uint32_t left = btlFaintUntil[who] - now;
     oy += (int)((BTL_FAINT_MS - left) * 70 / BTL_FAINT_MS);
-  } else if (c.fainted() && btlSwapWho == (int8_t)who) {
+  } else if (c.fainted() && (btlSwapDue & (1 << who))) {
     return;                                // gone, waiting to be replaced
   }
   if (now < btlEnterUntil[who]) {          // and the next one rises into place
@@ -6373,11 +6448,15 @@ void renderBattle() {
     }
   } else if (btlMenu == 2) {
     drawBtlBack();
-    // who to bring on instead; the current one and anything fainted is inert
-    for (uint8_t i = 0; i < btlSquadN && i < 4; i++) {
-      int x = BTL_CELL_X(i), y = BTL_CELL_Y(i);
-      const Combatant &m = (i == btlSquadAt) ? btlYou : btlSquad[i];
-      bool usable = (i != btlSquadAt) && !m.fainted();
+    // who to bring on instead: everyone but the one out (btlSwitchOpts()),
+    // anything fainted inert
+    uint8_t opt[TRAINER_TEAM_MAX];
+    uint8_t nOpt = btlSwitchOpts(opt);
+    for (uint8_t k = 0; k < nOpt; k++) {
+      int x, y;
+      btlSwitchCell(k, &x, &y);
+      const Combatant &m = btlSquad[opt[k]];
+      bool usable = !m.fainted();
       gfx->fillRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, usable ? UI_BG_DAY : UI_TRACK);
       gfx->drawRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, usable ? UI_INK : 0x8410);
       gfx->setTextColor(usable ? UI_INK : 0x8410);
@@ -6395,8 +6474,19 @@ void renderBattle() {
     for (int i = 0; i < MOVE_SLOTS; i++) {
       int x = BTL_CELL_X(i), y = BTL_CELL_Y(i);
       uint8_t mv = btlYou.moves[i];
-      gfx->fillRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, mv ? UI_BG_DAY : UI_TRACK);
+      // knows no move at all: the first cell offers STRUGGLE, which is what any
+      // cell does now (battleTap)
+      bool strugCell = !mv && i == 0 && battleMustStruggle(btlYou);
+      gfx->fillRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, (mv || strugCell) ? UI_BG_DAY : UI_TRACK);
       gfx->drawRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, UI_INK);
+      if (strugCell) {
+        gfx->setTextColor(UI_INK);
+        gfx->setTextSize(2);
+        gfx->setCursor(x + 10, y + 7);
+        gfx->print(moveName(MV_STRUGGLE));
+        drawTypeChip(x + 10, y + 34, MOVE_TBL[MV_STRUGGLE].type);
+        continue;
+      }
       if (!mv) continue;
       const char *name = moveName(mv);
       gfx->setTextColor(UI_INK);
@@ -6428,43 +6518,46 @@ void renderBattle() {
   gfx->flush();
 }
 
-// Brings on the flagged replacement and starts its entrance.
+// Brings on the flagged replacements and starts their entrances. WHO comes on
+// was decided when the turn resolved (btlNextAt), on the host, and travelled to
+// the guest in the result -- this only shows it. The HP and ailment it comes on
+// with are applied here too, so the guest, whose copy of a benched creature has
+// not seen what happened to it, shows the same numbers as the host.
 static void btlDoSwap() {
   uint32_t now = millis();
-  if (btlSwapWho == 1 && btlLink) {
-    btlFoeSquad[btlFoeAt] = btlFoe;
-    // the next one still standing, not simply the next index
-    uint8_t nxt = btlFoeAt;
-    while (++nxt < btlFoeSquadN && btlFoeSquad[nxt].fainted()) {}
-    if (nxt >= btlFoeSquadN) { btlSwapWho = -1; return; }
-    btlFoeAt = nxt;
-    btlFoe = btlFoeSquad[btlFoeAt];
+  if (btlSwapDue & 2) {
+    if (btlLink) {
+      btlFoeSquad[btlFoeAt] = btlFoe;            // remember how battered it was
+      btlFoeAt = btlNextAt[1];
+      btlFoe = btlFoeSquad[btlFoeAt];
+      btlFoe.hp = btlNextHp[1] > btlFoe.maxHp ? btlFoe.maxHp : btlNextHp[1];
+      btlFoe.ailment = btlNextAil[1];
+      btlSay(T(S_BTL_SENDS), lan.peerName, btlFoe.name);
+    } else {
+      const Trainer &t = BTL_TRAINERS[btlTrainer];
+      btlFoeAt = btlNextAt[1];
+      foeFromSpecies(btlFoe, t.team[btlFoeAt].dex, t.team[btlFoeAt].level,
+                     btlHard ? HARD_IV : EASY_IV);
+      btlSay(T(S_BTL_SENDS), t.name, btlFoe.name);
+    }
     btlHpShown[1] = btlFoe.hp;
     btlSyncSprite(1, btlFoe);
     btlLungeUntil[1] = btlHitUntil[1] = btlFaintUntil[1] = 0;
     btlEnterUntil[1] = now + BTL_ENTER_MS;
-    btlSay(T(S_BTL_SENDS), lan.peerName, btlFoe.name);
-  } else if (btlSwapWho == 1) {
-    const Trainer &t = BTL_TRAINERS[btlTrainer];
-    btlFoeAt++;
-    foeFromSpecies(btlFoe, t.team[btlFoeAt].dex, t.team[btlFoeAt].level,
-                   btlHard ? HARD_IV : EASY_IV);
-    btlHpShown[1] = btlFoe.maxHp;
-    btlSyncSprite(1, btlFoe);
-    btlLungeUntil[1] = btlHitUntil[1] = btlFaintUntil[1] = 0;
-    btlEnterUntil[1] = now + BTL_ENTER_MS;
-    btlSay(T(S_BTL_SENDS), t.name, btlFoe.name);
-  } else if (btlSwapWho == 0) {
-    btlSquad[btlSquadAt] = btlYou;     // remember how battered it was
-    btlSquadAt++;
+  }
+  if (btlSwapDue & 1) {
+    btlSquad[btlSquadAt] = btlYou;               // remember how battered it was
+    btlSquadAt = btlNextAt[0];
     btlYou = btlSquad[btlSquadAt];
+    btlYou.hp = btlNextHp[0] > btlYou.maxHp ? btlYou.maxHp : btlNextHp[0];
+    btlYou.ailment = btlNextAil[0];
     btlHpShown[0] = btlYou.hp;
     btlSyncSprite(0, btlYou);
     btlLungeUntil[0] = btlHitUntil[0] = btlFaintUntil[0] = 0;
     btlEnterUntil[0] = now + BTL_ENTER_MS;
     btlSay(T(S_BTL_GO), btlYou.name);
   }
-  btlSwapWho = -1;
+  btlSwapDue = 0;
 }
 
 // Switching spends your turn: the opponent still acts. That is what stops it
@@ -6481,6 +6574,40 @@ static void btlSwitchTo(uint8_t i) {
   btlMenu = 0;
   btlSay(T(S_BTL_GO), btlYou.name);
   btlResolve(0);          // move 0 = no attack, so only the foe acts
+}
+
+// The POKEMON screen. Up to six come to a fight and one is already out, so
+// there are up to five to choose from: every squad member but the active one,
+// in squad order. Options 0-3 sit on the move grid; a fifth sits centred just
+// above it (owner's layout, 2026-10-24). It used to show the grid's four cells
+// only -- the active creature taking one of them -- so the last two of a full
+// squad could never be switched to.
+uint8_t btlSwitchOpts(uint8_t out[TRAINER_TEAM_MAX]) {
+  uint8_t n = 0;
+  for (uint8_t i = 0; i < btlSquadN && n < TRAINER_TEAM_MAX; i++)
+    if (i != btlSquadAt) out[n++] = i;
+  return n;
+}
+void btlSwitchCell(uint8_t k, int *x, int *y) {
+  if (k < 4) { *x = BTL_CELL_X(k); *y = BTL_CELL_Y(k); return; }
+  *x = CX - BTL_CELL_W / 2;
+  *y = BTL_GRID_Y - BTL_CELL_H - 8;
+}
+// Which option a tap lands on, or -1. The grid's four keep their padded hit
+// areas; the fifth gets the same padding except at its foot, which stops short
+// of the grid's own padding so no pixel answers for two cells.
+int btlSwitchAt(int16_t x, int16_t y) {
+  uint8_t opt[TRAINER_TEAM_MAX];
+  uint8_t n = btlSwitchOpts(opt);
+  for (uint8_t k = 0; k < n && k < 4; k++)
+    if (btlCellHit(k, x, y)) return k;
+  if (n > 4) {
+    int cx, cy;
+    btlSwitchCell(4, &cx, &cy);
+    if (x >= cx - BTL_HIT_PAD && x <= cx + BTL_CELL_W + BTL_HIT_PAD - 1 &&
+        y >= cy - BTL_HIT_PAD && y < BTL_GRID_Y - BTL_HIT_PAD) return 4;
+  }
+  return -1;
 }
 
 int btlCellIndexAt(int16_t x, int16_t y) {
@@ -6593,7 +6720,7 @@ void battleTap(int16_t x, int16_t y) {
       if (btlLink) { lanLeave(); btlLink = false; lanOpen = true; }
       return;
     }
-    if (btlSwapWho >= 0) btlDoSwap();   // the replacement arrives on this beat
+    if (btlSwapDue) btlDoSwap();        // the replacement arrives on this beat
     return;
   }
   if (lanQuitConfirm) {
@@ -6662,10 +6789,12 @@ void battleTap(int16_t x, int16_t y) {
   }
   if (btlMenu == 2) {
     if (btlBackTap(x, y)) return;
-    for (uint8_t i = 0; i < btlSquadN && i < 4; i++) {
-      if (!btlCellHit(i, x, y)) continue;
-      const Combatant &m = (i == btlSquadAt) ? btlYou : btlSquad[i];
-      if (i == btlSquadAt || m.fainted()) { sfxPlay(SFX_DENY); return; }
+    uint8_t opt[TRAINER_TEAM_MAX];
+    uint8_t nOpt = btlSwitchOpts(opt);
+    int k = btlSwitchAt(x, y);
+    if (k >= 0 && k < nOpt) {
+      uint8_t i = opt[k];
+      if (btlSquad[i].fainted()) { sfxPlay(SFX_DENY); return; }
       sfxPlay(SFX_TAP);
       if (btlLink && !btlLinkHost) {
         // The guest asks; it never switches on its own. A switch rides the same
@@ -6688,8 +6817,12 @@ void battleTap(int16_t x, int16_t y) {
     return;
   }
   if (btlBackTap(x, y)) return;
+  // A creature that can choose nothing -- every move out of PP, or none known
+  // at all, like an Abra -- still has STRUGGLE, from any cell (as in the
+  // games). It used to have no tappable cell at all, so the fight could not go on.
+  bool struggle = battleMustStruggle(btlYou);
   for (int i = 0; i < MOVE_SLOTS; i++) {
-    if (!btlYou.moves[i]) continue;
+    if (!btlYou.moves[i] && !struggle) continue;
     if (!btlCellHit(i, x, y)) continue;
     if (!battleSlotReady(btlYou, i)) {
       if (!battleMustStruggle(btlYou)) {    // another move still has PP
@@ -6722,7 +6855,7 @@ void battleTap(int16_t x, int16_t y) {
       if (!lan.hasPeerAct()) return;   // resolved by btlLinkPoll when it lands
       btlMyAct = 0;
     }
-    btlResolve(btlYou.moves[i]);
+    btlResolve(battleMoveForSlot(btlYou, i));
     return;
   }
   btlMenu = 0;        // a tap off the grid goes back to FIGHT/POKEMON
@@ -8926,6 +9059,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlFoe.shiny = wildShiny;
 
   btlWild = true;
+  btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlLink = false;
   btlTrainer = -1;
   btlHard = hard;
@@ -8939,7 +9073,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlWinUntil = 0;
   btlWinPending = false;
   btlLost = false;
-  btlSwapWho = -1;
+  btlSwapDue = 0;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
   btlHpShown[0] = btlYou.maxHp;
@@ -8949,6 +9083,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   audioMusic(btlMusic(false));
   btlLungeUntil[0] = btlLungeUntil[1] = 0;
   btlHitUntil[0] = btlHitUntil[1] = 0;
+  btlFixScene();
   battleOpen = true;
   btlSay(T(S_WILD_MET), DEX_TBL[dex].name);
   return true;

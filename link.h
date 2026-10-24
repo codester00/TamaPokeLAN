@@ -39,7 +39,7 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 4        // bump on ANY wire change; a mismatch is refused
+#define LINK_PROTO 5        // bump on ANY wire change; a mismatch is refused
 #define LINK_MAX_PAYLOAD 200
 #define LINK_NAME_LEN 12
 
@@ -132,7 +132,19 @@ struct LinkResult {
   // v3.55: the PP the guest's creature out now has left, ABSOLUTE like the
   // rest (rule 3). Only the host spends PP; the guest shows these.
   uint8_t guestPp[MOVE_SLOTS];
+  // v3.57 (LINK_PROTO 5): who comes on when a side's creature fainted this turn,
+  // decided by the HOST at resolution (battleNextStanding()) and shipped with
+  // the turn, never worked out by the guest. Before this the host chose the
+  // replacement locally after its own faint message was dismissed and nothing
+  // told the guest, so the guest picked its next move from a creature that was
+  // no longer out. LINK_NO_NEXT = no faint, or nobody left. The incoming one's
+  // HP and ailment travel too, being absolute state (rule 3): a creature that
+  // was hurt before it was switched out comes back hurt on both boards.
+  uint8_t hostNext, guestNext;
+  uint16_t hostNextHp, guestNextHp;
+  uint8_t hostNextAil, guestNextAil;
 };
+#define LINK_NO_NEXT 0xFF
 
 struct Link {
   uint8_t state = LINK_OFF;

@@ -49,7 +49,7 @@ void startBattle(int16_t dex, uint8_t lvl);
 void startTrainerBattle(uint8_t idx, bool hard);
 extern uint8_t btlFoeAt, btlSquadN, btlSquadAt, btlMenu;
 extern Combatant btlSquad[7];
-extern int8_t btlSwapWho;
+extern uint8_t btlSwapDue; extern uint8_t btlNextAt[2];
 extern bool btlHard;
 extern bool gymOpen, gymHard; extern uint8_t gymPage, gymRegion, btlRegion;
 extern bool gymPick;
@@ -429,7 +429,7 @@ int main(int argc, char **argv) {
       return 1;
     }
     btlFoe.hp = 0;
-    btlSwapWho = 1;
+    btlSwapDue = 2; btlNextAt[1] = 1;   // the foe's next, as btlResolve decides it
     btlMsgCount = 1;
     click(233, 320);  // dismiss the faint message; the real replacement arrives
     if (btlFoeAt != 1 || btlFoe.dex != leader.team[1].dex) {

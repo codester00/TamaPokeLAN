@@ -168,13 +168,24 @@ bool battleSlotReady(const Combatant &c, int slot) {
 }
 
 bool battleMustStruggle(const Combatant &c) {
-  bool any = false;
-  for (int i = 0; i < MOVE_SLOTS; i++) {
-    if (!c.moves[i] || c.moves[i] >= MOVE_COUNT) continue;
-    any = true;
+  for (int i = 0; i < MOVE_SLOTS; i++)
     if (battleSlotReady(c, i)) return false;
+  return true;
+}
+
+uint8_t battleMoveForSlot(const Combatant &c, int slot) {
+  if (battleMustStruggle(c)) return MV_STRUGGLE;
+  if (slot < 0 || slot >= MOVE_SLOTS) return 0;
+  uint8_t mv = c.moves[slot];
+  return mv < MOVE_COUNT ? mv : 0;
+}
+
+int8_t battleNextStanding(const Combatant *squad, uint8_t n, uint8_t at) {
+  for (uint8_t k = 1; k < n; k++) {
+    uint8_t i = (uint8_t)((at + k) % n);
+    if (!squad[i].fainted()) return (int8_t)i;
   }
-  return any && c.ppOn;
+  return -1;
 }
 
 // The ONE place PP is spent, and the one place a move with none left is

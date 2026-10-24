@@ -883,6 +883,50 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: LAN battle fixes from the first two-board fights (v3.57, on the branch, not merged)
+
+Reported from boards (2026-10-24) and found reviewing the LAN battle code,
+which had not been touched since it was written. `LINK_PROTO` 4 -> 5.
+`lanfight_test` covers each; all negative-checked.
+
+- **Replacement after a faint is decided by the host and SHIPPED.** It used to
+  be picked on the host when the host's own faint message was dismissed, and
+  nothing told the guest -- so the guest chose its next move from a creature
+  that was no longer out, and the host resolved that slot for a different one.
+  `btlResolve()` now decides both sides' replacements once, at resolution, with
+  `battleNextStanding()`; `LinkResult` carries `hostNext/guestNext` (+ HP and
+  ailment, absolute state); `btlDoSwap()` on either board only SHOWS it.
+  `btlSwapWho` became the mask `btlSwapDue` (both sides can faint in one turn)
+  with `btlNextAt/Hp/Ail`.
+- **The result is shipped AFTER the end-of-turn ticks.** It went before
+  `battleEndTurn()`, so poison/burn damage arrived a turn late and a faint to
+  a tick never happened on the guest.
+- **Next standing, not next index**, in every fight: after a switch, a faint of
+  the last slot ended the fight with teammates standing, and `btlSquadAt++`
+  could bring on a fainted one. `battleNextStanding()` is the one rule.
+- **Struggle for a creature that can choose nothing.** `battleMustStruggle()`
+  demanded at least one known move, so an ABRA (TELEPORT is not in our list)
+  had no tappable cell in any fight, and a moveless guest's action reached the
+  host as move 0 (= no action). `battleMoveForSlot()` is the one answer for the
+  screen, the host reading the guest's action, and the host's latched action.
+- **The POKEMON screen shows all five others** (`btlSwitchOpts/Cell/At`): the
+  grid's four plus a fifth centred above it (owner's layout). It drew the
+  grid's four squad slots, the active one included, so slots 5-6 were never
+  reachable.
+- **The scene is fixed per fight** (`btlFixScene()`, called by all four battle
+  starts): it was the current foe's biome looked up every frame. LAN: the
+  host's lead on both boards.
+- Guest narration names switches the host made ("Go X" / "RIVAL sends out Y");
+  the guest's foe on a switch comes from its live `btlFoeSquad`, as on the host.
+- Found alongside: `startBattle()` (console `BATTLE`) kept the last gym's
+  `btlTrainer`, so a one-off fight after a gym could award that badge; and the
+  non-LAN starts now clear `btlLink`.
+- **Not changed, for the owner:** the guest cannot CHOOSE its replacement (both
+  sides get the next standing one; the games let the player pick), and the
+  guest's narration is thin (moves and faints only -- no effectiveness, crits,
+  misses or stat changes, which `LinkResult` does not carry). The bag stays off
+  in LAN fights, as in the games' link battles.
+
 ### Done: the gym win plays its last turn (v3.57, on the branch, not merged)
 
 Reported from a board: a gym win cut to the badge screen the moment the winning

@@ -43,8 +43,21 @@ struct Combatant {
 void battleFullPp(Combatant &c);
 // PP: can slot i be chosen? (a real move with PP left, or PP not counted)
 bool battleSlotReady(const Combatant &c, int slot);
-// Every move is out of PP, so the only thing left is STRUGGLE.
+// No move can be chosen -- every one is out of PP, or the creature knows none
+// at all (an Abra: TELEPORT is not in our move list) -- so the only thing left
+// is STRUGGLE.
 bool battleMustStruggle(const Combatant &c);
+// THE move a chosen slot means, for every side that picks one: the screen, the
+// host reading the guest's action off the wire, a test. STRUGGLE when nothing
+// can be chosen, else the move in that slot (spendPp() still turns an empty one
+// into STRUGGLE). One answer, so a moveless creature cannot be stuck on one
+// path and fighting on another.
+uint8_t battleMoveForSlot(const Combatant &c, int slot);
+// The squad member to send in when `at` faints: the first one still standing
+// after it, wrapping round, never `at` itself; -1 when nobody is left. By
+// standing, not by index -- after a switch the next index can be fainted while
+// an earlier one is not.
+int8_t battleNextStanding(const Combatant *squad, uint8_t n, uint8_t at);
 
 void combatantFromPet(Combatant &c, const Pet &p);
 void combatantFromParty(Combatant &c, const PartyMon &m);

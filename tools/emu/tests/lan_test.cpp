@@ -40,6 +40,7 @@ void pickTap(int16_t x, int16_t y);
 void pickDefault(uint8_t cap);
 uint8_t squadCap(uint8_t, bool);
 uint8_t pickChosen();
+void btlSwitchCell(uint8_t k, int *x, int *y);
 #define PICK_LAN 0xFF
 
 // The sketch never sets a transport itself -- linkNowBegin does, and there is
@@ -107,7 +108,7 @@ int main(){
   btlMenu = 2;                       // the POKEMON list
   uint8_t was = btlSquadAt;
   sent = 0;
-  battleTap(69 + 168 + 10, 286 + 10);   // cell 1 of the switch grid
+  { int cx, cy; btlSwitchCell(0, &cx, &cy); battleTap(cx + 10, cy + 10); }   // the first option: squad slot 1
   ck(btlSquadAt==was, "the guest does not switch locally");
   ck(sent==1 && lastPkt[0]==LM_ACT, "it sends the request instead");
   ck(LINK_ACT_IS_SWITCH(lastPkt[3]) && LINK_ACT_SLOT(lastPkt[3])==1,
