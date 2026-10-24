@@ -24,6 +24,12 @@ String FakeSerial::readStringUntil(char) { return String(""); }
 
 void setup();
 void codeApply(uint8_t id);
+void startSimon();
+void simonBerryPos(uint8_t i, int *x, int *y);
+void mgPress(int16_t x, int16_t y, uint32_t now);
+void onRim(int dir);
+void onTap(int16_t x, int16_t y);
+void render();
 bool cheatApply(uint8_t id);
 void startTrainerBattle(uint8_t idx, bool hard);
 bool startWildBattle(uint8_t region, bool hard);
@@ -41,9 +47,28 @@ int main() {
   pet.dbgHatchAs(4, false);
   pet.ageMinutes = 20UL * MINUTES_PER_LEVEL;
 
+  // Entering the code and looking around the menu marks nothing: only a cheat
+  // that actually runs does (owner, 2026-10-24).
+  startSimon();
+  for (int i = 0; i < CODE_LEN; i++) {
+    int x, y; simonBerryPos(CODES[CODE_CHEATS].seq[i], &x, &y); mgPress(x, y, millis());
+  }
+  ck(codesOpen && codesCheats, "the CHEATS code, tapped in Memory, opens the cheat list");
+  for (int i = 0; i < 5; i++) { onRim(1); render(); }
+  for (int i = 0; i < 5; i++) { onRim(-1); render(); }
+  onTap(233, 30);                       // the title, not a row
+  ck(codesOpen && pet.cheatsUsed == 0 && pet.rulesUsed == 0 && !pet.cheated,
+     "opening, paging and missing every row marks nothing");
+  codesOpen = false;
+  codeApply(CODE_SETTINGS);
+  for (int i = 0; i < 5; i++) { onRim(1); render(); }
+  ck(pet.rulesUsed == 0 && pet.cheatsUsed == 0, "nor does opening the hidden SETTINGS");
+  codesOpen = false;
   codeApply(CODE_CHEATS);
   ck(codesOpen && codesCheats, "CHEATS opens the cheat list");
-  ck(pet.cheatsUsed == 0 && !pet.cheated, "a fresh save carries no cheats mark");
+  ck(!cheatApply(CHEAT_HATCH) && pet.cheatsUsed == 0, "a cheat that does nothing (no egg) marks nothing");
+  cheatApply(CHEAT_COINS);
+  ck(pet.cheatsUsed == (1ul << CHEAT_COINS), "the first cheat used sets the mark, and only its bit");
 
   // --- the grants
   uint16_t c0 = pet.coins; cheatApply(CHEAT_COINS);

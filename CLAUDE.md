@@ -892,7 +892,9 @@ in `Pet::applyCheat()`). `cheats.h` lists twelve, APPEND-ONLY (strings at
 `S_CHEAT_FIRST + id`).
 
 - **Trainer mark**: `Pet::cheatsUsed` (u32), a bit per cheat used, never
-  cleared; the player card reads "CHEATS USED" beside "MODIFIED RULES"
+  cleared. Set ONLY when a cheat actually runs -- entering the code, paging
+  the menu, or a cheat that does nothing (no egg to hatch) marks nothing
+  (owner, 2026-10-24; `cheats_test` checks it); the player card reads "CHEATS USED" beside "MODIFIED RULES"
   (`drawMarks()`). **Creature mark**: `PMON_CHEATED` (0x02 in
   `PartyMon::flags`), `Pet::cheated` in RAM, `monFlags()`/`setMonFlags()` the
   one conversion (toPartyMon, switchTo, reviveFrom, the checkpoint's flags
