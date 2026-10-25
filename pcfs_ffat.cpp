@@ -6,10 +6,8 @@
 #include <FFat.h>
 #include <esp_partition.h>
 
-// Never formatted = the first 4 KB still erased. Only then may a failed mount
-// be answered with a format: formatting on ANY failure would wipe a whole
-// collection over a transient error.
-static bool partitionBlank() {
+// Never written = the first 4 KB still erased.
+bool pcfsBlank() {
   const esp_partition_t *p = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
                                                       ESP_PARTITION_SUBTYPE_DATA_FAT, "ffat");
   if (!p) return false;
@@ -21,11 +19,14 @@ static bool partitionBlank() {
   return true;
 }
 
-PcfsMount pcfsMount() {
-  if (FFat.begin(false)) return PCFS_OK;
-  if (!partitionBlank()) return PCFS_FAILED;
-  if (!FFat.format()) return PCFS_FAILED;
-  return FFat.begin(false) ? PCFS_FORMATTED : PCFS_FAILED;
+bool pcfsTryMount() { return FFat.begin(false); }
+
+// FFat.format() reports false when the old contents were not wear-levelled
+// (leftovers of other firmware) even though it formats anyway, so the mount
+// after it is the answer, not its return value.
+bool pcfsFormat() {
+  FFat.format();
+  return FFat.begin(false);
 }
 
 long pcfsRead(const char *path, uint8_t *buf, size_t cap) {

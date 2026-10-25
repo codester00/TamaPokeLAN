@@ -18,7 +18,10 @@
 #define PC_GROUP_SPECIES 16
 enum : int { PC_FULL = -1, PC_FAILED = -2 };
 
-bool pcBegin();                        // mount and index; false = unavailable
+// Mount and index; false = unavailable. A partition that will not mount is
+// formatted only when blank, or when `neverHeld` -- this board has never had a
+// working PC, so nothing of ours can be on it (leftovers of other firmware).
+bool pcBegin(bool neverHeld = false);
 bool pcAvailable();
 uint8_t pcCount(int16_t dex);          // how many of the species it holds
 uint16_t pcTotal();                    // creatures, all species

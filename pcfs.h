@@ -8,10 +8,13 @@
 
 enum PcfsMount : uint8_t {
   PCFS_OK,          // mounted what was there
-  PCFS_FORMATTED,   // the partition had never held a filesystem: formatted, empty
-  PCFS_FAILED,      // would not mount and HAS held one: never formatted over
+  PCFS_FORMATTED,   // nothing of ours could be there: formatted, empty
+  PCFS_FAILED,      // would not mount and may hold a collection: never formatted over
 };
-PcfsMount pcfsMount();
+// The platform half. pcstore.cpp's pcBegin() decides when a format is safe.
+bool pcfsTryMount();   // mount what is there, never formatting
+bool pcfsBlank();      // the partition was never written (its first 4 KB erased)
+bool pcfsFormat();     // a fresh, empty filesystem; true if it now mounts
 // The whole file into buf. Its length, or -1 when absent, unreadable or > cap.
 long pcfsRead(const char *path, uint8_t *buf, size_t cap);
 // The whole file, replacing it. True only if every byte landed.

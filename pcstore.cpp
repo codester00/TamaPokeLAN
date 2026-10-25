@@ -116,11 +116,19 @@ static bool writeGroup(uint8_t g) {
   return true;
 }
 
-bool pcBegin() {
+// When a format is safe: never over a partition that may hold a collection,
+// because formatting on any failure would wipe one over a bad mount.
+static PcfsMount pcfsMountFor(bool neverHeld) {
+  if (pcfsTryMount()) return PCFS_OK;
+  if (!pcfsBlank() && !neverHeld) return PCFS_FAILED;
+  return pcfsFormat() ? PCFS_FORMATTED : PCFS_FAILED;
+}
+
+bool pcBegin(bool neverHeld) {
   memset(counts, 0, sizeof(counts));
   memset(gens, 0, sizeof(gens));
   openGroup = -1;
-  PcfsMount m = pcfsMount();
+  PcfsMount m = pcfsMountFor(neverHeld);
   avail = m != PCFS_FAILED;
   if (!avail) return false;
   for (uint8_t g = 0; g < PC_GROUPS; g++) {

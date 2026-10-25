@@ -901,11 +901,37 @@ diamond pattern -- the game's data, not a bug. +184 KB flash (79 % of the app
 partition). `indoor_test` (every seat, pixels on the panel, outdoors) and
 `lanfight_test` (both boards in the Frontier); negative-checked.
 
-**Open: Berry Catch's whole-screen black flicker** (owner, sound always off, so
-not the amp). Ruled out from code: `flush()` is blocking (polled SPI, the
-library copies into its own buffer), nothing draws black, brightness only moves
-on idle. The 85 ms game frame comment blaming DMA overlap is stale. Needs
-measurement on a board.
+**Open: a whole-screen black flicker** (owner, sound always off, so not the
+amp). Seen while swiping and scrolling pages too, worst in Berry Catch's
+constant drag -- so either the touch controller being read (finger down) or
+the frame changing. Ruled out from code: `flush()` is blocking (polled SPI,
+the library copies into its own buffer), nothing draws black, brightness only
+moves on idle, the CST92xx read path has no reset or long delay. The 85 ms game
+frame comment blaming DMA overlap is stale. Next: a finger held still on a
+static screen vs Berry Catch watched without touching, on a board.
+
+### Done: Bill's PC on a real board (v3.66, on the branch, not merged)
+
+The first board on v3.61+ (owner, 2026-10-25) showed the red triangle: the
+`ffat` partition held another firmware's leftovers, so it neither mounted nor
+read blank, and v3.61's rule never formatted it -- the PC was unavailable for
+good, and a farewell with a full party offered only a release though the old
+box had room. Fixed three ways, `pcdown_test`, every guard negative-checked:
+
+- **The format decision is shared** (`pcfsMountFor()` in pcstore.cpp over
+  `pcfsTryMount/pcfsBlank/pcfsFormat`): format when blank OR when this board
+  has never had a working PC (`pcBegin(neverHeld)`; NVS `pcok`, set by
+  `pcMarkHeld()` on every good mount, in `SAVE_FIELDS`). A board that has held
+  a PC still never formats over a bad mount. `pcfsFormat()` trusts the mount
+  after `FFat.format()`, which returns false over non-wear-levelled leftovers
+  even though it formats.
+- **While the PC is down the old box stands in**: `roomFor(dex)` is THE room
+  rule (party, else PC below six, else -- PC down -- the old box), asked by the
+  prize counter and `tradeRoomFor()`; `storeNewCreature()`, the trade board's
+  `storeNew()` and `pcDeposit()` store in that order (`boxStore()`); the hub
+  opens the old box screen. `pcMigrateBox()` with the PC down reads `boxl` if
+  it exists, never migration day's stale `box`.
+- The PC chooser was titled with the Pokedex count; it reads BILL'S PC.
 
 ### Done: HP falls with its line, LAN narration, the CAUGHT mark (v3.64, on the branch, not merged)
 

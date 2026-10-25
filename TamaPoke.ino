@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.65"
+#define FW_VERSION "3.66"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -1234,7 +1234,8 @@ void setup() {
   ppLoad();          // before anything can run the clock: a rest refills it
   pet.begin();
   backfillUids();
-  if (!pcBegin()) Serial.println("pc: Bill's PC would not mount -- it reads as unavailable, not empty");
+  if (pcBegin(!pcEverHeld())) pcMarkHeld();
+  else Serial.println("pc: Bill's PC would not mount -- it reads as unavailable, not empty");
   pcMigrateBox();
   sdBegin();
   thumbs.load();
@@ -2466,7 +2467,10 @@ void partyTap(int16_t x, int16_t y) {
       boxSwapFrom = 0;
       return;
     }
-    pcOpenFresh();
+    // With the PC unavailable the hub is the old box again, so what it holds
+    // (and the room a farewell can use) is never out of reach.
+    if (!pcAvailable()) { boxOpen = true; boxPage = 0; boxDetail = 0; }
+    else pcOpenFresh();
     sfxPlay(SFX_TAP);
     return;
   }
@@ -3877,8 +3881,7 @@ uint8_t hallPrizeState(uint8_t h, uint8_t i) {
     // a creature whose pack is missing would draw as a number forever
     if (!regionAvailable(regionOfDex((int16_t)pz.what)) || !speciesHasArt((int16_t)pz.what))
       return PZ_NO_PACK;
-    if (party.firstFree() < 0 && (!pcAvailable() || pcCount((int16_t)pz.what) >= PC_PER_SPECIES))
-      return PZ_NO_ROOM;
+    if (!roomFor((int16_t)pz.what)) return PZ_NO_ROOM;
   }
   return pet.coins >= pz.price ? PZ_OK : PZ_DEAR;
 }
@@ -6271,11 +6274,50 @@ void wildGrantDrops() {   // not static: tm_test drives it
 // A new creature into the party, else Bill's PC. False when neither has room
 // (a full party and six of its species, or no PC at all). The
 // Game Corner's prize creatures come in this way too.
+// Has this board ever had a working PC (v3.66)? Until it has, nothing of ours
+// can be on the partition, so pcBegin() may format leftovers of other firmware
+// rather than refuse to mount them. Set on every good mount; in SAVE_FIELDS.
+bool pcEverHeld() {
+  Preferences p;
+  if (!p.begin("tamapoke", true)) return false;
+  bool held = p.getUChar("pcok", 0) != 0;
+  p.end();
+  return held;
+}
+void pcMarkHeld() {
+  Preferences p;
+  if (!p.begin("tamapoke", false)) return;
+  if (!p.getUChar("pcok", 0) && !p.putUChar("pcok", 1)) logKeyFailure("pc", "pcok");
+  p.end();
+}
+
+// Into the old box (party.box[]), the store while the PC is unavailable. The
+// RAM slot is put back if the write does not land, as the trade board needs.
+bool boxStore(const PartyMon &m) {
+  int i = party.boxFirstFree();
+  if (i < 0) return false;
+  party.box[i] = m;
+  if (party.boxSave()) return true;
+  party.box[i] = PartyMon();
+  return false;
+}
+
+// THE answer to "is there room for a new creature of this species" (v3.66): a
+// free party slot, else the PC below six of it -- or, while the PC is
+// unavailable, the old box. storeNewCreature(), the prize counter, trades and
+// the trade board all ask this or store by the same order.
+bool roomFor(int16_t dex) {
+  if (party.firstFree() >= 0) return true;
+  if (pcAvailable()) return pcCount(dex) < PC_PER_SPECIES;
+  return party.boxFirstFree() >= 0;
+}
+
 bool storeNewCreature(const PartyMon &m) {
   // NOT registered in the Pokedex here. Registration means "you raised this",
   // and switchTo() does it when the creature actually becomes the one you are
   // raising -- so catching one and leaving it in the box does not fill the dex.
-  return party.add(m) || pcPut(m) >= 0;
+  if (party.add(m)) return true;
+  return pcAvailable() ? pcPut(m) >= 0 : boxStore(m);
 }
 
 static void wildStoreCaught() {
@@ -8121,7 +8163,7 @@ struct FwTradeBoard : TradeBoard {
   bool storeNew(const PartyMon &in) override {
     int i = party.firstFree();
     if (i >= 0) return putParty(i, in);
-    return pcPut(in) >= 0;
+    return pcAvailable() ? pcPut(in) >= 0 : boxStore(in);
   }
   bool saveJournal(const uint8_t *buf, size_t n) override {
     return tradePrefsReady() && tradePrefs.putBytes("trade", buf, n) == n;
@@ -8146,7 +8188,7 @@ static FwTradeBoard tradeBoard;
 // room among its species in the PC -- without either the trade could never
 // finish, so ACCEPT refuses it and the screen says NO ROOM.
 bool tradeRoomFor(const PartyMon &in) {
-  if (party.firstFree() >= 0 || (pcAvailable() && pcCount(in.dex) < PC_PER_SPECIES)) return true;
+  if (roomFor(in.dex)) return true;
   int i; int16_t dex;
   uint8_t w = FwTradeBoard::where(trade.mine.uid, &i, &dex);
   return w == W_PARTY || (w == W_PC && dex == in.dex);
@@ -8735,6 +8777,7 @@ static void renderRegionPick(uint8_t mode) {
   char ttl[40];
   if (mode == RPICK_FOR_START) snprintf(ttl, sizeof(ttl), "%s", T(S_CHOOSE_REGION));
   else if (forGyms) snprintf(ttl, sizeof(ttl), "%s", T(S_GYMS));
+  else if (mode == RPICK_FOR_PC) snprintf(ttl, sizeof(ttl), "%s", T(S_PC_TITLE));
   else snprintf(ttl, sizeof(ttl), T(S_POKEDEX_FMT), pet.registeredCount(), DEX_COUNT);
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(2);
@@ -10875,7 +10918,10 @@ uint8_t ownedCount(int16_t dex) {
 // species -- stays in party.box[] under the new key "boxl"; the old "box" key
 // is never written again, so a downgrade reads the box as it was today.
 void pcMigrateBox() {
-  if (!pcAvailable()) return;
+  // PC unavailable: the old box stands in. If it had already moved ("boxl"
+  // exists), "box" is migration day's copy of creatures now in the PC, so
+  // read what did not fit instead -- never the stale copy.
+  if (!pcAvailable()) { if (party.boxKeyStored("boxl")) party.loadBox("boxl"); return; }
   if (pcMigrated()) { party.loadBox("boxl"); return; }
   PartyMon left[BOX_SLOTS];
   int nl = 0, moved = 0;
@@ -10985,7 +11031,17 @@ void pcOpenSeventh() {
 // six already, no PC, or a creature promised to a trade.
 bool pcDeposit(uint8_t partyIdx) {
   PartyMon p = party.slots[partyIdx];
-  if (p.empty() || tradeLocked(p) || pcPut(p) < 0) return false;
+  if (p.empty() || tradeLocked(p)) return false;
+  if (!pcAvailable()) {                       // the old box stands in (v3.66)
+    if (!boxStore(p)) return false;
+    party.slots[partyIdx] = PartyMon();
+    if (party.save()) return true;
+    party.slots[partyIdx] = p;
+    for (auto &b : party.box) if (!b.empty() && b.uid == p.uid) b = PartyMon();
+    party.boxSave();
+    return false;
+  }
+  if (pcPut(p) < 0) return false;
   party.slots[partyIdx] = PartyMon();
   if (party.save()) return true;
   party.slots[partyIdx] = p;

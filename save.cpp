@@ -62,6 +62,7 @@ const SaveField SAVE_FIELDS[] = {
   { "trade", SK_BYTES },
   // what did not fit Bill's PC when it took the box over (v3.61)
   { "boxl", SK_BYTES },
+  { "pcok", SK_U8 },      // this board has had a working PC (v3.66)
   // settings, so a restored device plays the way it did
   { "lang", SK_U8 },    { "snd", SK_BOOL },   { "vol", SK_U8 },
   { "ghard", SK_BOOL },   // the gym list's last difficulty

@@ -22,11 +22,11 @@ void pcfsHostFailWritesAfter(int n, bool torn) { g_budget = n; g_torn = torn; }
 void pcfsHostResumeWrites() { g_budget = -1; }
 int pcfsHostFormats() { return g_formats; }
 
-PcfsMount pcfsMount() {
-  if (g_state == PCFS_HOST_BROKEN) return PCFS_FAILED;
-  if (g_state == PCFS_HOST_BLANK) { g_files.clear(); g_state = PCFS_HOST_OK; g_formats++; return PCFS_FORMATTED; }
-  return PCFS_OK;
-}
+// BROKEN is a partition that will not mount and is not blank: another
+// firmware's leftovers, or a damaged collection -- the store decides which.
+bool pcfsTryMount() { return g_state == PCFS_HOST_OK; }
+bool pcfsBlank() { return g_state == PCFS_HOST_BLANK; }
+bool pcfsFormat() { g_files.clear(); g_state = PCFS_HOST_OK; g_formats++; return true; }
 
 long pcfsRead(const char *path, uint8_t *buf, size_t cap) {
   auto it = g_files.find(path);
