@@ -95,6 +95,43 @@ export function parseBackup(text) {
   return { commands, declared, blob: hexToBytes(hex) };
 }
 
+// The board prints the backup 48 bytes to a line, always in the same order, and
+// before v3.68 its USB link DROPPED bytes whenever its send buffer filled -- so
+// a large backup (Bill's PC) could arrive damaged on every read. This builds one
+// whole backup out of several damaged reads of the SAME save: line i is taken
+// from any read whose line i arrived intact. A read is only used if it has the
+// right number of lines (a dropped newline merges two and shifts every later
+// one). Returns the text, or null while some line has not arrived whole yet.
+// The result goes through verifyBackup() like any capture: the declared length
+// and the checksum are what prove the pieces belong together.
+export const EXPORT_LINE_BYTES = 48;
+export function assembleCaptures(captures) {
+  let declared = null;
+  for (const lines of captures) {
+    for (const line of lines) {
+      const match = HEADER_RE.exec(line.trim());
+      if (match) declared = Number.parseInt(match[1], 10);
+    }
+  }
+  if (!declared) return null;
+  const count = Math.ceil(declared / EXPORT_LINE_BYTES);
+  const want = (i) => 2 * (i < count - 1 ? EXPORT_LINE_BYTES : declared - EXPORT_LINE_BYTES * (count - 1));
+  const slots = new Array(count).fill(null);
+  for (const lines of captures) {
+    // the data lines: everything that looks like one, damaged or not, so a
+    // damaged line still holds its place; console chatter has other characters
+    const body = lines.map((line) => line.trim())
+      .filter((line) => line !== 'IMPORT' && /^(IMPORT [0-9A-F]*|[A-Z ]*[0-9A-F]{8,})$/.test(line));
+    if (body.length !== count) continue;
+    body.forEach((line, i) => {
+      const hex = /^IMPORT ([0-9A-F]+)$/.exec(line)?.[1];
+      if (!slots[i] && hex && hex.length === want(i)) slots[i] = line;
+    });
+  }
+  if (slots.some((line) => !line)) return null;
+  return `# TamaPoke save, ${declared} bytes. Paste this whole block back.\n${slots.join('\n')}\nIMPORT\n`;
+}
+
 // Everything parseBackup() checks, plus the parts that decide whether the bytes
 // are actually a sound save: the declared length, the magic, the version and the
 // checksum. Throws with a specific reason; returns what a caller needs.

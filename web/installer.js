@@ -1,4 +1,4 @@
-import { verifyBackup, describeBackup, sendBackup } from './savefile.js?v=52ab8990094d0aa9';
+import { verifyBackup, describeBackup, sendBackup, assembleCaptures } from './savefile.js?v=c25f139b7d1351ad';
 
 const byId = (id) => document.getElementById(id);
 const enc = new TextEncoder();
@@ -638,51 +638,59 @@ function downloadText(name, text) {
 // Throws with a reason. A caller must never treat an unverified capture as a
 // backup: that is the one failure mode a backup feature cannot recover from.
 async function captureSave() {
-  // A capture that ARRIVED but does not verify is retried: the board's USB
-  // link dropped bytes when its send buffer filled (firmware before v3.68
-  // sent with no wait), and a larger save -- Bill's PC -- made that likely.
-  // A board that never answers, or says EXPORT FAIL, is not retried.
-  for (let attempt = 1; ; attempt++) {
+  // Since v3.66 a backup with Bill's PC in it is big enough that the board's
+  // USB link drops bytes (firmware before v3.68 sent with no wait), so a read
+  // can arrive damaged -- every time, on some computers. Each read is kept and
+  // assembleCaptures() builds one whole backup from the lines that arrived
+  // intact; verifyBackup() then proves it. A board that never answers, or says
+  // EXPORT FAIL, is not retried.
+  const captures = [];
+  let lastError = null;
+  for (let attempt = 1; attempt <= CAPTURE_TRIES; attempt++) {
+    if (attempt > 1) log(`Backup arrived damaged (${lastError.message}); reading it again (${attempt}/${CAPTURE_TRIES})...`);
+    const lines = await captureOnce();
+    captures.push(lines);
+    const text = assembleCaptures(captures);
+    if (!text) {
+      lastError = new Error('some lines arrived damaged');
+      try { verifyBackup(`${lines.join('\n')}\n`); } catch (error) { lastError = error; }
+      continue;
+    }
     try {
-      return await captureOnce();
+      const parsed = verifyBackup(text);
+      return { text, parsed, describe: describeBackup(parsed.blob) };
     } catch (error) {
-      if (!error.retry || attempt >= CAPTURE_TRIES) throw error;
-      log(`Backup arrived damaged (${error.message}); reading it again...`);
+      // pieces of two different saves (it changed between reads): start over
+      // from this read alone
+      lastError = error;
+      captures.splice(0, captures.length - 1);
     }
   }
+  throw lastError;
 }
 
-const CAPTURE_TRIES = 4;
+const CAPTURE_TRIES = 8;
 
+// One EXPORT, as the lines that arrived. Throws only when the board did not
+// answer at all or refused; damage is for captureSave() to judge.
 async function captureOnce() {
   readQueue = [];
   await writeLine('EXPORT');
   const lines = [];
-  let started = false;
-  const damaged = (error) => Object.assign(error, { retry: started });
   // A deadline per LINE, not for the whole export: since v3.61 Bill's PC rides
   // in the backup, and a full one is thousands of lines -- about a minute.
   const giveUp = Date.now() + 15 * 60000;
   while (Date.now() < giveUp) {
     const line = await readLine(20000);
-    if (line === null) throw damaged(new Error('the board did not finish the export'));
-    if (line === 'EXPORT FAIL') throw new Error('the firmware could not build a backup');
-    if (line.startsWith('# TamaPoke save')) started = true;
-    if (line.startsWith('# TamaPoke save') || line.startsWith('IMPORT ')) lines.push(line);
-    if (line === 'IMPORT') {
-      lines.push(line);
-      break;
+    if (line === null) {
+      if (!lines.length) throw new Error('the board did not answer the export');
+      return lines;                          // the end went missing: damaged
     }
+    if (line === 'EXPORT FAIL') throw new Error('the firmware could not build a backup');
+    lines.push(line);
+    if (line === 'IMPORT') return lines;
   }
-  if (lines.at(-1) !== 'IMPORT') throw damaged(new Error('the export stopped before the end'));
-  const text = `${lines.join('\n')}\n`;
-  let parsed;
-  try {
-    parsed = verifyBackup(text);               // throws if it is not sound
-  } catch (error) {
-    throw damaged(error);
-  }
-  return { text, parsed, describe: describeBackup(parsed.blob) };
+  return lines;
 }
 
 async function backupSave() {

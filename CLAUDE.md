@@ -166,8 +166,13 @@ Things that have already bitten, or nearly:
   Bill's PC in it lost 45 bytes and the length check refused it -- the check
   doing its job. Since v3.68 `handleSerial()` holds a `ConsoleReply` (a 50 ms
   wait) while it answers, `console_test` fails if any EXPORT line is written
-  with no wait (the emulator's `Serial.txUnwaited`), and `captureSave()` re-reads
-  a capture that arrived but does not verify, up to four times.
+  with no wait (the emulator's `Serial.txUnwaited`). A v3.66 board on a
+  Windows PC damaged EVERY read, so re-reading alone could not help:
+  `assembleCaptures()` (savefile.js, tested in `check_savefile.mjs`) builds one
+  backup from up to eight damaged reads, taking line i from any read whose
+  line i arrived intact (only reads with the right line count, so a merged line
+  cannot shift the rest); the length and CRC then prove the pieces fit. Checked
+  in headless Chromium with a fake port that damages every read.
 - **"Erase device" is inside their dialog, not ours.** We cannot see it or veto
   it. Backup-then-install narrows the window; it cannot close it.
 - **No remote storage, deliberately.** Pages is static so there is nowhere to

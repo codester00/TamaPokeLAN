@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   crc16, hexToBytes, parseBackup, verifyBackup, describeBackup, sendBackup,
+  assembleCaptures,
   SAVE_CRC_BYTES,
 } from '../web/savefile.js';
 
@@ -278,6 +279,37 @@ async function ckResolves(fn, what) {
   try { await sendBackup(['IMPORT AA'], fakeBoard({})); } catch (e) { message = e.message; }
   ck(message !== null && message.includes('verifyBackup'),
      'a command list that is not from verifyBackup() is refused');
+}
+
+// --- assembling damaged reads (a real board, v3.66, lost bytes on every read
+// of a backup with Bill's PC in it: "5777 bytes but declares 5822", then "a
+// data line has an odd number of hex digits")
+{
+  const whole = golden.trim().split('\n');           // header, data..., IMPORT
+  // drop n characters out of the middle of line i, as the board's USB did
+  const hurt = (lines, i, n) => lines.map((l, k) => (k === i ? l.slice(0, 40) + l.slice(40 + n) : l));
+  const a = hurt(whole, 3, 45);                         // odd: a short data line
+  const b = hurt(hurt(whole, 0, 9), 7, 90);             // the header too, and line 7
+  ck(assembleCaptures([a]) === null && assembleCaptures([b]) === null,
+     'no single damaged read is taken as a backup');
+  const text = assembleCaptures([a, b]);
+  ck(text === golden, 'two reads damaged in different lines make the exact backup');
+  ck(text !== null && verifyBackup(text).blob.length === verifyBackup(golden).blob.length,
+     '(and it verifies)');
+  ck(assembleCaptures([a, hurt(whole, 3, 2)]) === null,
+     'a line damaged in every read is still missing');
+  // console chatter in the middle does not move the lines after it
+  const chatter = [...b.slice(0, 5), 'pc: group 3 cached heap=201344', ...b.slice(5)];
+  ck(assembleCaptures([a, chatter]) === golden, 'a log line inside a read is ignored');
+  // a lost newline merges two lines: that read cannot say which line is which
+  const merged = [...whole.slice(0, 3), whole[3] + whole[4], ...whole.slice(5)];
+  ck(assembleCaptures([a, merged]) === null, 'a read with two lines run together is not used');
+  // pieces of two different saves: the checksum must refuse the mix
+  const other = whole.map((l, k) => (k === 3 ? l.slice(0, 20) + (l[20] === '0' ? '1' : '0') + l.slice(21) : l));
+  const mix = assembleCaptures([a, other]);
+  let refused = false;
+  try { verifyBackup(mix); } catch { refused = true; }
+  ck(mix !== null && refused, 'lines from a save that changed between reads fail the checksum');
 }
 
 console.log(bad ? `\n${bad} FAILURE(S)` : '\nall good');
