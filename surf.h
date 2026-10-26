@@ -3,15 +3,20 @@
 // no sensor, so surf_test can play whole runs with a hand-held clock.
 //
 // After Pokemon Yellow's Summer Beach House minigame, simplified for a round
-// panel and a tilt sensor. Pikachu rides a sea whose surface scrolls in from
-// the right; the player tilts the board to set its ANGLE:
-//   - matching the slope of the wave under it builds speed, fighting it loses
-//     speed;
+// panel. Pikachu travels right to left, as in Yellow (the screen mirrors the
+// sea; these rules only know "ahead"). The player leans the board -- holding a
+// side of the screen, or tilting it -- to set its ANGLE:
+//   - leaning with the wave builds speed (forward going down a face, back
+//     going up one), against it loses speed;
 //   - fast over a crest, it leaves the water. In the air every swing of the
 //     board from one side to the other is a TRICK;
 //   - it must land at roughly the slope it lands on: a clean landing banks the
 //     jump's points, a bad one is a wipeout ("Oh no...") that loses them and
 //     most of the speed.
+// v3.67 made it playable by hand: the v3.54 sea flipped its slope several
+// times a second (only a perfect slope-follower could build speed, and the
+// air was too short for a trick). surf_test now plays it as a person would --
+// late, with three inputs -- not as a robot.
 // The run lasts SURF_RUN_MS, Start to Goal, as Yellow's course does.
 #include <stdint.h>
 
@@ -21,7 +26,13 @@
 #define SURF_SPEED_MIN 60.0f      // px a second
 #define SURF_SPEED_MAX 260.0f
 #define SURF_JUMP_SPEED 150.0f    // fast enough over a crest to take off
-#define SURF_LAND_OK 0.55f        // radians off the slope a landing may be
+#define SURF_LAND_OK 0.6f         // radians off the slope a landing may be
+#define SURF_WAVE_FULL 0.35f      // a slope this steep (radians) counts as a full face
+#define SURF_ACCEL 170.0f         // px/s^2 for leaning fully with a full face
+#define SURF_DRAG 0.12f           // what riding level costs, in the same units
+#define SURF_TRICK_ANGLE 0.3f     // radians past level that counts as a swing
+#define SURF_GRAVITY 380.0f       // px/s^2 in the air
+#define SURF_LEAN 0.45f           // the input a held side gives (of +-1)
 #define SURF_WIPE_MS 1200         // how long a wipeout lasts
 
 struct SurfGame {
@@ -39,6 +50,8 @@ struct SurfGame {
   uint32_t score = 0;
   uint16_t jumps = 0, cleanLandings = 0, wipeouts = 0;
   uint32_t lastBank = 0;    // what the last landing was worth, for the screen
+  uint8_t lastTricks = 0;   // and the tricks in it
+  uint32_t lastLandAt = 0;  // elapsed time of the last landing
   float prevSlope = 0;
 
   void start();

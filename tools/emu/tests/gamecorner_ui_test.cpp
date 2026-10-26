@@ -32,6 +32,8 @@ void areaRowRect(int i, int *x, int *y, int *w, int *h);
 void hallBtnRect(int i, int *x, int *y, int *w, int *h);
 void hallActionRect(int *x, int *y, int *w, int *h);
 void hallSelRect(int i, int *x, int *y, int *w, int *h);
+void hallCardsLayout(int *cardY, int *cardH, int *leftY, int *msgY);
+extern char hallMsg[];
 void slotBtnRect(int i, int *x, int *y, int *w, int *h);
 void uiConfirmRects(int *b1Top, int *b1Bot, int *b2Top, int *b2Bot);
 void openAreaList();
@@ -211,6 +213,31 @@ int main() {
   shot("gc_cards");
   tapRect(hallSelRect, 1);       // and a number
   shot("gc_cards_both");
+
+  // the result line is SEEN (v3.67): v3.53 drew it at y 246, under the guess
+  // boxes from 232, so a win or a miss never showed. Asked of the layout, and
+  // read off the panel: dark text pixels in the band, none before a result.
+  {
+    int cardY, cardH, leftY, msgY, sx, sy, sw, sh;
+    hallCardsLayout(&cardY, &cardH, &leftY, &msgY);
+    hallSelRect(0, &sx, &sy, &sw, &sh);
+    ck(cardY + cardH <= leftY && leftY + 8 <= msgY && msgY + 16 <= sy,
+       "card, cards-left line and result line stack above the guess boxes");
+    auto inkIn = [&](int y0) {
+      render();
+      const uint16_t *fb = gfx->buffer();
+      int n = 0;
+      for (int y = y0; y < y0 + 16; y++)
+        for (int x = 120; x < 346; x++) {
+          uint16_t c = fb[y * 466 + x];
+          if (((c >> 11) << 3) + (((c >> 5) & 63) << 2) + ((c & 31) << 3) < 300) n++;
+        }
+      return n;
+    };
+    ck(inkIn(msgY) > 20, "the result of the flip is drawn where it can be read");
+    hallMsg[0] = 0;
+    ck(inkIn(msgY) == 0, "(and that band is empty with no result)");
+  }
 
   printf(bad ? "\n%d FAILED\n" : "\nall passed\n", bad);
   return bad ? 1 : 0;

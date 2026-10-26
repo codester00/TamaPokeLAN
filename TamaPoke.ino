@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.66"
+#define FW_VERSION "3.67"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -768,7 +768,7 @@ SurfGame surfRun;
 uint32_t surfLast = 0;
 float surfTilt0x = 0, surfTilt0y = 0;
 bool surfSensor = false;
-float surfTouch = 0;            // the no-sensor fallback: a tap leans the board
+float surfTouch = 0;            // a held side of the screen leans the board
 uint32_t surfTouchUntil = 0;
 bool surfPaid = false;
 bool surfNewBest = false;
@@ -1928,6 +1928,12 @@ void handleTouch() {
   int16_t x, y;
   bool pressed = touch.getPoint(&x, &y, 1) > 0;
 
+  // Surfing Pikachu: the board leans while a side is held (v3.67).
+  if (exploreOpen && hallOpen && hallMode == HM_SURF) {
+    surfHold(pressed, pressed && !wasPressed, x, y);
+    wasPressed = pressed;
+    return;
+  }
   // Berry Catch: the basket follows the finger for as long as it is down; a
   // press in the top strip leaves, keeping what was caught (same as the bag).
   if (catchOpen) {
@@ -4022,13 +4028,25 @@ static void slotsTap(uint8_t h, int16_t tx, int16_t ty) {
   }
 }
 
+// Card flip's column above the guess boxes (v3.67): the card, the cards-left
+// line, the result line. One answer, because v3.53 drew the result at y 246,
+// UNDER the guess boxes that start at 232, so a win or a miss was never seen.
+void hallCardsLayout(int *cardY, int *cardH, int *leftY, int *msgY) {
+  if (cardY) *cardY = 84;
+  if (cardH) *cardH = 106;
+  if (leftY) *leftY = 84 + 106 + 4;
+  if (msgY) *msgY = 84 + 106 + 4 + 8 + 6;
+}
+
 static void renderHallCards() {
   // the card just turned over, or the back of the deck
-  int cx = CX - 54, cy = 88;
-  gfx->fillRoundRect(cx, cy, 108, 132, 12, cardShown >= 0 ? UI_WHITE : UI_BAR_BAD);
-  gfx->drawRoundRect(cx, cy, 108, 132, 12, UI_INK);
+  int cy, ch, leftY, msgY;
+  hallCardsLayout(&cy, &ch, &leftY, &msgY);
+  int cx = CX - 54;
+  gfx->fillRoundRect(cx, cy, 108, ch, 12, cardShown >= 0 ? UI_WHITE : UI_BAR_BAD);
+  gfx->drawRoundRect(cx, cy, 108, ch, 12, UI_INK);
   if (cardShown >= 0) {
-    drawGcArt(GC_CARD[cardCreature((uint8_t)cardShown)], GC_CARD_PAL, GC_CARD_PX, cx + 18, cy + 30, 3);
+    drawGcArt(GC_CARD[cardCreature((uint8_t)cardShown)], GC_CARD_PAL, GC_CARD_PX, cx + 18, cy + 28, 3);
     gfx->setTextColor(UI_INK);
     gfx->setTextSize(3);
     gfx->setCursor(cx + 8, cy + 6);
@@ -4040,33 +4058,39 @@ static void renderHallCards() {
   snprintf(left, sizeof(left), T(S_GC_LEFT_FMT), cardDeck.left ? cardDeck.left : CARD_DECK);
   gfx->setTextColor(UI_INK_SOFT);
   gfx->setTextSize(1);
-  gfx->setCursor(CX - (int)strlen(left) * 3, cy + 138);
+  gfx->setCursor(CX - (int)strlen(left) * 3, leftY);
   gfx->print(left);
-  hallMsgLine(cy + 150 - 4 + 12);
+  hallMsgLine(msgY);
 
   int x, y, w, hh;
-  // the creature guess: ANY or a picture; the number guess: ANY or 1-6
+  // the creature guess: ANY or a picture; the number guess: ANY or 1-6. Each
+  // box says which it is: tapping one steps through its choices.
+  static const StrId CAPTION[2] = { S_GC_PICK_MON, S_GC_PICK_NUM };
+  for (int i = 0; i < 2; i++) {
+    hallSelRect(i, &x, &y, &w, &hh);
+    gfx->fillRoundRect(x, y, w, hh, 14, UI_BG_DAY);
+    gfx->drawRoundRect(x, y, w, hh, 14, UI_INK);
+    gfx->setTextColor(UI_INK_SOFT); gfx->setTextSize(1);
+    gfx->setCursor(x + w / 2 - (int)strlen(T(CAPTION[i])) * 3, y + 6);
+    gfx->print(T(CAPTION[i]));
+  }
   hallSelRect(0, &x, &y, &w, &hh);
-  gfx->fillRoundRect(x, y, w, hh, 14, UI_BG_DAY);
-  gfx->drawRoundRect(x, y, w, hh, 14, UI_INK);
   if (cardGuessC == CARD_ANY) {
     gfx->setTextColor(UI_INK); gfx->setTextSize(2);
-    gfx->setCursor(x + w / 2 - (int)strlen(T(S_GC_ANY)) * 6, y + hh / 2 - 8);
+    gfx->setCursor(x + w / 2 - (int)strlen(T(S_GC_ANY)) * 6, y + hh / 2 - 4);
     gfx->print(T(S_GC_ANY));
   } else {
-    drawGcArt(GC_CARD[cardGuessC], GC_CARD_PAL, GC_CARD_PX, x + w / 2 - 36, y + hh / 2 - 36, 3);
+    drawGcArt(GC_CARD[cardGuessC], GC_CARD_PAL, GC_CARD_PX, x + w / 2 - 36, y + hh / 2 - 30, 3);
   }
   hallSelRect(1, &x, &y, &w, &hh);
-  gfx->fillRoundRect(x, y, w, hh, 14, UI_BG_DAY);
-  gfx->drawRoundRect(x, y, w, hh, 14, UI_INK);
   gfx->setTextColor(UI_INK);
   if (cardGuessN == CARD_ANY) {
     gfx->setTextSize(2);
-    gfx->setCursor(x + w / 2 - (int)strlen(T(S_GC_ANY)) * 6, y + hh / 2 - 8);
+    gfx->setCursor(x + w / 2 - (int)strlen(T(S_GC_ANY)) * 6, y + hh / 2 - 4);
     gfx->print(T(S_GC_ANY));
   } else {
     gfx->setTextSize(5);
-    gfx->setCursor(x + w / 2 - 15, y + hh / 2 - 20);
+    gfx->setCursor(x + w / 2 - 15, y + hh / 2 - 14);
     char num[4];
     snprintf(num, sizeof(num), "%d", cardGuessN);
     gfx->print(num);
@@ -4257,18 +4281,27 @@ void surfStart() {
   surfSensor = tiltLevel(&surfTilt0x, &surfTilt0y);   // Tilt Maze's calibration: as held = level
 }
 
-// The board's input, -1..1, positive = nose up. Tilting the panel to the right
-// (the way Pikachu travels) puts the nose down.
+// The board's input, -1..1, positive = nose up. Pikachu travels right to left
+// (v3.67, as in Yellow), so the LEFT side is forward: holding it, or tilting
+// the panel that way, puts the nose down. A held side wins over the sensor --
+// on v3.54 a board with a sensor ignored every touch.
 float surfInput(uint32_t now) {
+  if (now < surfTouchUntil) return surfTouch;
   if (surfSensor) {
     float ax, ay;
     if (tiltRead(surfTilt0x, surfTilt0y, &ax, &ay)) {
-      float v = -ax * 2.0f;
+      float v = ax * 2.0f;
       return v > 1 ? 1 : v < -1 ? -1 : v;
     }
   }
-  return now < surfTouchUntil ? surfTouch : 0;
+  return 0;
 }
+
+// THE lean a touch at x gives: the left (forward) half nose down, the right
+// half nose up. The held finger and the tap both ask this.
+float surfLeanAt(int16_t x) { return x < CX ? -SURF_LEAN : SURF_LEAN; }
+// Where the sea and Pikachu are drawn: the rules' "ahead" is to the LEFT.
+int surfScreenX(float aheadPx) { return 465 - (int)aheadPx; }
 
 // What the run earned, paid ONCE: at the Goal, or on leaving early (the
 // training games' rule -- nothing earned is ever thrown away).
@@ -4298,8 +4331,20 @@ void surfFrame(uint32_t now) {
 
 void surfTap(int16_t x, int16_t) {
   if (surfRun.over()) { hallOpen = 0; return; }   // the result screen: back to the list
-  surfTouch = x < CX ? 1.0f : -1.0f;               // left: nose up, right: nose down
+  surfTouch = surfLeanAt(x);
   surfTouchUntil = millis() + 400;
+}
+
+// The finger on the ride (v3.67), read every poll like Berry Catch's basket:
+// held on a side, the board leans that way; a press in the top strip leaves,
+// keeping what was earned; at the Goal any press goes back to the list.
+void surfHold(bool pressed, bool fresh, int16_t x, int16_t y) {
+  if (!pressed) return;
+  lastInteract = millis();
+  if (fresh && surfRun.over()) { hallOpen = 0; return; }
+  if (fresh && y < 72) { hallBack(); return; }
+  surfTouch = surfLeanAt(x);
+  surfTouchUntil = millis() + 150;   // a poll every 20 ms keeps it held
 }
 
 static void renderSurf() {
@@ -4309,7 +4354,7 @@ static void renderSurf() {
   gfx->fillScreen(RGB565_BLACK);
   gfx->fillCircle(CX, CY, 231, 0x9EDF);
   for (int x = 0; x < 466; x += 2) {
-    int sy = (int)(SURF_SEA_Y - surfHeight(surfRun.worldX + x));
+    int sy = (int)(SURF_SEA_Y - surfHeight(surfRun.worldX + (465 - x)));
     if (sy < 0) sy = 0;
     gfx->fillRect(x, sy, 2, 466 - sy, 0x2B5F);
     gfx->fillRect(x, sy, 2, 3, UI_WHITE);           // the foam on the crest
@@ -4318,7 +4363,7 @@ static void renderSurf() {
   int fr = 2 - (int)lroundf(surfRun.angle / 0.45f);
   if (fr < 0) fr = 0;
   if (fr > GC_SURF_FRAMES - 1) fr = GC_SURF_FRAMES - 1;
-  int px = SURF_PIKA_X - 36, py = (int)surfRun.y - 60;
+  int px = surfScreenX(SURF_PIKA_X) - 36, py = (int)surfRun.y - 60;
   drawGcArt(GC_SURF[fr], GC_SURF_PAL, GC_SURF_PX, px, py, 3);
   // the score and the clock in the title pill
   char t[40];
@@ -4331,8 +4376,16 @@ static void renderSurf() {
   gfx->setCursor(CX - (int)strlen(tm) * 6, 88);
   gfx->print(tm);
   const char *line = nullptr;
+  char landed[40];
   if (surfRun.wipeUntil && surfRun.elapsed < surfRun.wipeUntil) line = T(S_SURF_OHNO);
-  else if (surfRun.elapsed < 2500) line = T(S_SURF_TILT);
+  else if (surfRun.lastLandAt && surfRun.lastBank && surfRun.elapsed - surfRun.lastLandAt < 1500) {
+    // what the landing banked, and its tricks: the feedback v3.54 never gave
+    if (surfRun.lastTricks)
+      snprintf(landed, sizeof(landed), T(S_SURF_TRICKS_FMT), (unsigned)surfRun.lastBank, (unsigned)surfRun.lastTricks);
+    else
+      snprintf(landed, sizeof(landed), T(S_SURF_PLUS_FMT), (unsigned)surfRun.lastBank);
+    line = landed;
+  } else if (surfRun.elapsed < 4000) line = T(S_SURF_TILT);
   if (line) {
     gfx->setTextSize(2);
     gfx->setCursor(CX - (int)strlen(line) * 6, 116);

@@ -4,12 +4,12 @@
 
 static const float TWO_PI_F = 6.2831853f;
 
-// Two swells of different lengths, so the sea never repeats in a way a player
-// can learn by rote, and a gentle third that keeps the crests uneven.
+// One long swell a person can read and lean into, and a gentle second one
+// that keeps the crests uneven. The v3.54 sea added a 77 px ripple and a
+// 170 px swell, so the slope under Pikachu flipped several times a second.
 float surfHeight(float x) {
-  return 46.0f * sinf(x * TWO_PI_F / 420.0f) +
-         20.0f * sinf(x * TWO_PI_F / 170.0f + 1.3f) +
-         8.0f * sinf(x * TWO_PI_F / 77.0f + 0.4f);
+  return 58.0f * sinf(x * TWO_PI_F / 900.0f) +
+         16.0f * sinf(x * TWO_PI_F / 360.0f + 1.3f);
 }
 
 float surfSlopeAngle(float x) {
@@ -43,9 +43,9 @@ void SurfGame::step(uint32_t dt, float tilt) {
 
   if (air) {
     airMs += dt;
-    vy += 600.0f * s;                        // gravity, px/s^2
+    vy += SURF_GRAVITY * s;
     y += vy * s;
-    int8_t side = angle > 0.6f ? 1 : angle < -0.6f ? -1 : 0;
+    int8_t side = angle > SURF_TRICK_ANGLE ? 1 : angle < -SURF_TRICK_ANGLE ? -1 : 0;
     if (side && side != lastSide) {
       if (lastSide) tricks++;                // a full swing across
       lastSide = side;
@@ -54,6 +54,8 @@ void SurfGame::step(uint32_t dt, float tilt) {
       air = false;
       y = surfaceY;
       vy = 0;
+      lastLandAt = elapsed;
+      lastTricks = tricks;
       if (fabsf(angle - slope) <= SURF_LAND_OK) {
         lastBank = 10 + airMs / 50 + 50UL * tricks;
         score += lastBank;
@@ -69,15 +71,23 @@ void SurfGame::step(uint32_t dt, float tilt) {
     return;
   }
 
-  // on the water: riding the face builds speed, fighting it costs speed, and
-  // running down a face (the surface falling away ahead) is free speed
+  // on the water: leaning WITH the wave builds speed -- forward (nose down)
+  // going down a face, back going up one -- and against it costs speed. It
+  // rewards the direction of the lean, not an exact angle: a person holds a
+  // side or tilts roughly, and v3.54's exact-angle rule made a held lean worse
+  // than doing nothing on every gentle slope. Riding level slowly loses speed.
   y = surfaceY;
-  float miss = fabsf(angle - slope);
-  float q = 1.0f - (miss > 0.6f ? 1.0f : miss / 0.6f);   // 1 = matched
-  speed += (q - 0.35f) * 220.0f * s - slope * 60.0f * s;
+  float lean = angle / (SURF_LEAN * 1.1f);
+  float wave = slope / SURF_WAVE_FULL;
+  if (lean > 1) lean = 1;
+  if (lean < -1) lean = -1;
+  if (wave > 1) wave = 1;
+  if (wave < -1) wave = -1;
+  float agree = lean * wave;                              // +1 with it, -1 against
+  speed += (agree - SURF_DRAG) * SURF_ACCEL * s;
   if (speed < SURF_SPEED_MIN) speed = SURF_SPEED_MIN;
   if (speed > SURF_SPEED_MAX) speed = SURF_SPEED_MAX;
-  if (q > 0.7f) score += (uint32_t)(speed * s / 10.0f + 0.5f);   // riding well
+  if (agree > 0.3f) score += (uint32_t)(speed * s / 10.0f + 0.5f);   // riding well
 
   // over a crest (the slope turns from rising to falling) fast enough: airborne
   if (prevSlope > 0.05f && slope <= 0.05f && speed >= SURF_JUMP_SPEED) {
@@ -85,7 +95,7 @@ void SurfGame::step(uint32_t dt, float tilt) {
     airMs = 0;
     tricks = 0;
     lastSide = 0;
-    vy = -speed * 0.9f;
+    vy = -speed;
     jumps++;
   }
   prevSlope = slope;

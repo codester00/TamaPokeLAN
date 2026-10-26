@@ -289,6 +289,7 @@ enum StrId : uint16_t {
   S_PC_TITLE, S_PC_BTN, S_PC_MORE_FMT, S_PC_SEVENTH, S_OWNED_FMT, S_GOTO, S_MISSING_ONLY, S_SHOW_ALL,
   // end-of-turn damage, narrated (v3.64): the bar drains with its own line
   S_BTL_HURT_PSN, S_BTL_HURT_BRN,
+  S_SURF_PLUS_FMT, S_SURF_TRICKS_FMT, S_GC_PICK_MON, S_GC_PICK_NUM,   // v3.67
   STR_COUNT
 };
 

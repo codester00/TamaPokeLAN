@@ -910,6 +910,39 @@ moves on idle, the CST92xx read path has no reset or long delay. The 85 ms game
 frame comment blaming DMA overlap is stale. Next: a finger held still on a
 static screen vs Berry Catch watched without touching, on a board.
 
+### Done: the halls, reviewed on a board (v3.67, on the branch, not merged)
+
+Owner, 2026-10-26, after playing them. `gamecorner_ui_test`, `surf_test`,
+`surfui_test`; every guard negative-checked.
+
+- **Card flip's result line was hidden** under the guess boxes (drawn at y 246,
+  boxes from 232). `hallCardsLayout()` is the one answer for the card, the
+  cards-left line and the result line; the test checks the stack AND reads the
+  band off the panel. The boxes are captioned POKEMON / NUMBER
+  (`S_GC_PICK_MON/NUM`). The slots were never affected (own layout).
+- **Surfing Pikachu was unplayable by hand and rode backwards.** The art faces
+  left (Yellow rides right to left), the sea scrolled the other way. Now the
+  screen mirrors the sea (`surfScreenX()`; the rules in surf.cpp only know
+  "ahead") and Pikachu rides on the right. The v3.54 sea flipped its slope
+  several times a second (a 77 px ripple), speed came from matching the exact
+  angle, the air lasted < 0.5 s: no person got a jump, and surf_test passed
+  only because its player followed the slope perfectly every frame (trap 3).
+  Now: one long swell (900 px + a gentle 360 px), speed from lean-wave
+  AGREEMENT (`SURF_WAVE_FULL`, `SURF_ACCEL`, `SURF_DRAG` -- level riding loses
+  speed), `SURF_GRAVITY` 380 and take-off at `vy = -speed` (~1 s of air), a
+  trick at `SURF_TRICK_ANGLE` 0.3. surf_test plays a PERSON (0.3 s late, three
+  inputs) and checks level riding never jumps and a wrong lean scores nothing;
+  negative-checked against the exact-angle rule and the old sea.
+- **Controls**: hold the LEFT (forward) side to lean nose down, the right side
+  nose up (`surfLeanAt()`, the one answer for taps and holds); `surfHold()` reads
+  the finger every poll from `handleTouch()`, like Berry Catch, and a press in
+  the top strip leaves (paid). A held side wins over the sensor -- on v3.54 a
+  board with a sensor ignored every touch. Tilt is mirrored with the sea. A clean
+  landing shows what it banked and its tricks (`S_SURF_PLUS_FMT/TRICKS_FMT`).
+- **Not changed, for the owner:** the Dratini prizes keep the games' own prices
+  (Celadon L18 2,800 from FireRed/LeafGreen, Goldenrod L10 2,100 from
+  Gold/Silver -- different levels, different prices).
+
 ### Done: Bill's PC on a real board (v3.66, on the branch, not merged)
 
 The first board on v3.61+ (owner, 2026-10-25) showed the red triangle: the

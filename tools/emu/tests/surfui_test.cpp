@@ -40,6 +40,11 @@ static int hallRowOf(uint8_t region, uint8_t hall) {
 uint8_t areaHallCount(uint8_t region);
 void surfFrame(uint32_t now);
 void hallBack();
+void surfHold(bool pressed, bool fresh, int16_t x, int16_t y);
+float surfInput(uint32_t now);
+float surfLeanAt(int16_t x);
+extern float surfTouch;
+extern uint32_t surfTouchUntil;
 extern Pet pet;
 extern bool exploreOpen, areaListOpen;
 extern uint8_t exploreRegion, areaPage, hallOpen, hallMode;
@@ -124,11 +129,18 @@ int main() {
   uint8_t joy0 = pet.joy, bond0 = pet.bond;
   pet.joy = 10; joy0 = 10;
   uint32_t t = surfLast;
-  for (int i = 0; i < 400; i++) { t += 85; surfFrame(t); }
+  // a player who holds the side the wave asks for (forward going down a face);
+  // the frames run on their own clock, so the hold is stamped on that clock
+  auto ride = [&](uint32_t &tt) {
+    float sl = surfSlopeAngle(surfRun.worldX + SURF_PIKA_X);
+    if (sl < -0.08f || sl > 0.08f) { surfTouch = surfLeanAt(sl < 0 ? 60 : 400); surfTouchUntil = tt + 150; }
+    tt += 85; surfFrame(tt);
+  };
+  for (int i = 0; i < 400; i++) ride(t);
   render();
   shot("surf_ride");
   ck(!surfRun.over(), "(mid-run)");
-  for (int i = 0; i < 800 && !surfRun.over(); i++) { t += 85; surfFrame(t); }
+  for (int i = 0; i < 800 && !surfRun.over(); i++) ride(t);
   ck(surfRun.over(), "the ride ends at the Goal");
   render();
   shot("surf_goal");
@@ -150,12 +162,40 @@ int main() {
   areaPage = (uint8_t)(beachRow / 3);
   areaRowRect(beachRow % 3, &x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
   t = surfLast;
-  for (int i = 0; i < 60; i++) { t += 85; surfFrame(t); }
+  for (int i = 0; i < 60; i++) ride(t);
   uint32_t part = surfRun.score;
   uint16_t c2 = pet.coins;
   onSwipeV(1);
   ck(!hallOpen && pet.coins == c2 + surfCoins(part), "backing out mid-ride pays what was earned");
   ck(pet.surfHi == sc, "and a shorter run does not lower the best");
+
+  // --- 6. which way he rides, and the finger that steers (v3.67)
+  areaPage = (uint8_t)(beachRow / 3);
+  areaRowRect(beachRow % 3, &x, &y, &w, &h); onTap(x + w / 2, y + h / 2);
+  ck(hallOpen && hallMode == 4, "(back on the ride)");
+  render();
+  {
+    // Pikachu is the yellow on the screen: right to left, as in Yellow, means
+    // he rides on the RIGHT with the sea coming at him from the left
+    const uint16_t *fb = gfx->buffer();
+    long sum = 0, n = 0;
+    for (int yy = 100; yy < 420; yy++)
+      for (int xx = 0; xx < 466; xx++) {
+        uint16_t c = fb[yy * 466 + xx];
+        if ((c >> 11) > 26 && ((c >> 5) & 63) > 48 && (c & 31) < 12) { sum += xx; n++; }
+      }
+    ck(n > 50 && sum / n > 233, "Pikachu rides on the right, travelling right to left");
+  }
+  uint32_t now = millis();
+  surfHold(true, true, 60, 300);            // the left (forward) side, held
+  ck(surfInput(millis()) < 0, "holding the left side leans him forward (nose down)");
+  surfHold(true, false, 400, 300);
+  ck(surfInput(millis()) > 0, "holding the right side leans him back (nose up)");
+  (void)now;
+  uint16_t c3 = pet.coins;
+  uint32_t part3 = surfRun.score;
+  surfHold(true, true, 233, 40);           // a press in the top strip
+  ck(!hallOpen && pet.coins == c3 + surfCoins(part3), "a press at the top leaves the ride, paid");
 
   printf(bad ? "\n%d FAILED\n" : "\nall passed\n", bad);
   return bad ? 1 : 0;

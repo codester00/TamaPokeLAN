@@ -9,58 +9,73 @@
 static int bad = 0;
 static void ck(bool ok, const char *w) { printf("%s  %s\n", ok ? "PASS" : "FAIL", w); if (!ok) bad++; }
 
-// Policies the player might follow. `trick` swings the board while airborne;
-// `land` lines it up with the sea just before touching down.
-static float play(const SurfGame &g, bool ride, bool trick, bool land) {
-  float px = g.worldX + SURF_PIKA_X;
-  float sl = surfSlopeAngle(px);
-  if (!ride) return 0;
-  if (g.air) {
-    float surface = SURF_SEA_Y - surfHeight(px);
-    if (land && g.vy > 0 && surface - g.y < 60) return sl / 1.1f;
-    if (trick) return (g.airMs / 250) % 2 ? 1.0f : -1.0f;
-    return land ? sl / 1.1f : 1.0f;    // no landing care: nose up all the way
+// A PERSON, not a robot (v3.67): they see the slope about 0.3 s late and have
+// three inputs -- hold the front side (lean forward), nothing, or hold the
+// back side (lean back). v3.54's test followed the slope exactly every frame,
+// so it proved a robot could play while no person could: the sea flipped its
+// slope several times a second and the air was too short for a trick.
+enum Style { PERSON, LEVEL, WRONG };
+struct Player {
+  Style style; bool tricks; float seen[4] = { 0, 0, 0, 0 };   // 4 frames of 85 ms
+  float input(const SurfGame &g) {
+    float px = g.worldX + SURF_PIKA_X;
+    float now = surfSlopeAngle(px);
+    float late = seen[0];
+    for (int i = 0; i < 3; i++) seen[i] = seen[i + 1];
+    seen[3] = now;
+    if (style == LEVEL) return 0;
+    float lean = late < -0.08f ? -SURF_LEAN : late > 0.08f ? SURF_LEAN : 0;
+    if (style == WRONG) return -lean;
+    if (g.air) {
+      float surface = SURF_SEA_Y - surfHeight(px);
+      if (g.vy > 0 && surface - g.y < 50) return now < -0.08f ? -SURF_LEAN : now > 0.08f ? SURF_LEAN : 0;
+      if (tricks) return (g.airMs / 255) % 2 ? SURF_LEAN : -SURF_LEAN;   // rock it side to side
+      return 0;
+    }
+    return lean;
   }
-  return sl / 1.1f;
-}
+};
 
-static SurfGame run(bool ride, bool trick, bool land) {
-  SurfGame g;
-  g.start();
-  while (!g.over()) g.step(85, play(g, ride, trick, land));
+static SurfGame run(Style st, bool tricks, uint32_t *bestBank = nullptr, uint8_t *bestTricks = nullptr) {
+  SurfGame g; g.start();
+  Player p{ st, tricks };
+  uint32_t landSeen = 0;
+  while (!g.over()) {
+    g.step(85, p.input(g));
+    if (g.lastLandAt != landSeen) {
+      landSeen = g.lastLandAt;
+      if (bestBank && g.lastBank > *bestBank) *bestBank = g.lastBank;
+      if (bestTricks && g.lastBank && g.lastTricks > *bestTricks) *bestTricks = g.lastTricks;
+    }
+  }
   return g;
 }
 
 int main() {
-  SurfGame good = run(true, true, true), plain = run(true, false, true),
-           careless = run(true, false, false), flat = run(false, false, false);
-  printf("     good %u (jumps %u clean %u wipe %u), plain %u, careless %u (wipe %u), flat %u\n",
-         good.score, good.jumps, good.cleanLandings, good.wipeouts, plain.score,
-         careless.score, careless.wipeouts, flat.score);
+  uint32_t bank = 0; uint8_t tr = 0;
+  SurfGame good = run(PERSON, true, &bank, &tr), plain = run(PERSON, false),
+           level = run(LEVEL, false), wrong = run(WRONG, false);
+  printf("     person %u (jumps %u clean %u wipe %u, best landing %u with %u tricks), plain %u, level %u (jumps %u), wrong %u\n",
+         good.score, good.jumps, good.cleanLandings, good.wipeouts, bank, tr, plain.score,
+         level.score, level.jumps, wrong.score);
   ck(good.over() && good.elapsed >= SURF_RUN_MS, "a run ends at the Goal");
-  ck(flat.jumps == 0, "never leaving the flat (not riding the waves) never jumps");
-  ck(good.jumps >= 5 && good.cleanLandings >= 5, "riding the faces builds the speed to jump");
-  ck(good.score > 3 * flat.score, "skill pays: riding well scores far more than not");
+  ck(good.jumps >= 5 && good.cleanLandings >= 4, "a person leaning with the waves, late, gets airborne again and again");
+  ck(tr >= 2, "and rocking the board in the air lands tricks");
   ck(good.score > plain.score, "tricks are worth more than plain air");
-  ck(careless.wipeouts > careless.cleanLandings, "landing nose-up is mostly wipeouts");
-  ck(plain.score > careless.score, "and costs the points");
+  ck(level.jumps == 0, "doing nothing never builds the speed to jump");
+  ck(good.score > 3 * level.score, "skill pays: riding well scores far more than not");
+  ck(wrong.jumps == 0 && wrong.score * 20 < good.score, "leaning against the waves never jumps and scores next to nothing");
 
-  // one jump in detail: the board swung side to side in the air counts tricks
+  // a careless landing (the board left nose up) is a wipeout
   {
     SurfGame g; g.start();
+    Player p{ PERSON, false };
     uint32_t guard = 0;
-    while (!g.air && !g.over() && guard++ < 2000) g.step(85, play(g, true, true, true));
-    ck(g.air, "(a jump happens)");
-    float atTakeoff = g.speed;
-    ck(atTakeoff >= SURF_JUMP_SPEED, "only at take-off speed");
-    // over the next jumps, one with a trick in it banks the trick
-    uint32_t best = 0;
-    for (int j = 0; j < 10 && !g.over(); j++) {
-      while (g.air && !g.over()) g.step(85, play(g, true, true, true));
-      if (g.lastBank > best) best = g.lastBank;
-      while (!g.air && !g.over()) g.step(85, play(g, true, true, true));
-    }
-    ck(best >= 10 + 50, "a jump with a trick in it banks the trick");
+    while (!g.air && !g.over() && guard++ < 2000) g.step(85, p.input(g));
+    ck(g.air && g.speed >= SURF_JUMP_SPEED, "(a jump, at take-off speed)");
+    uint16_t w0 = g.wipeouts;
+    while (g.air && !g.over()) g.step(85, 1.0f);
+    ck(g.wipeouts == w0 + 1 && g.lastBank == 0, "landing nose-up all the way is a wipeout that banks nothing");
   }
 
   // a stalled frame cannot skip the Goal or teleport through the sea

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.66-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.67-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -521,9 +521,13 @@ opens the hall, never a fight. Swipe down to back out, one level at a time.
   slots the machine draws its odds, between **0.88 and 1.10 coins back per
   coin** (since v3.55; it was a flat 0.88). Walk away and sit down again for a
   new machine.
-- **Card flip** (Goldenrod): bet 3 coins on a creature (pays 12), a number
-  (18) or both (72) — Crystal's odds, which are exactly fair. The deck of 24
-  runs down before it is shuffled again.
+- **Card flip** (Goldenrod): the deck is 24 cards, four creatures (PIKACHU,
+  JIGGLYPUFF, POLIWAG, ODDISH) each numbered 1-6. Tap the **POKEMON** box to step
+  through ANY and the four creatures, the **NUMBER** box for ANY and 1-6, then
+  FLIP: 3 coins a flip, paying 12 if you named the creature, 18 the number, 72
+  both — Crystal's odds, which are exactly fair. The deck runs down before it
+  is shuffled again, so the CARDS LEFT count is worth watching. (Before v3.67
+  the result line was hidden behind the two boxes.)
 - **Prizes**: Celadon (FireRed's counter) ABRA Lv.9 180, CLEFAIRY Lv.8 500,
   DRATINI Lv.18 2,800, SCYTHER Lv.25 5,500, PINSIR Lv.18 2,500 (LeafGreen's),
   PORYGON Lv.26 9,999, and TMs: SURF
@@ -546,12 +550,19 @@ four** hold, and nothing hints at it before:
 4. **every species that area offers** is registered in the Pokédex — raised
    from any source; species with no art are not counted.
 
-Tapping it starts a **60-second ride**. Tilt the board (the Tilt Maze sensor, held level the same way Tilt Maze calibrates it; a
-tap on the left or right half leans it when there is no sensor) to match the
-waves: riding a face builds speed, fighting it loses speed. Fast over a crest
-Pikachu jumps; every swing of the board from side to side in the air is a
-**trick**. Land at the slope of the sea to bank the jump — 10 + 1 per 50 ms in
-the air + 50 per trick — or wipe out and lose it and most of the speed.
+Tapping it starts a **60-second ride**, **right to left as in Yellow** (v3.67;
+it went the other way, Pikachu riding backwards). **Hold the left side** of the
+screen to lean forward (nose down), **the right side** to lean back (nose up) —
+or tilt the board the same way (the Tilt Maze sensor, held level the same way
+Tilt Maze calibrates it); a held side wins over the tilt. **Lean with the
+wave**: forward going down a face, back going up one. That builds speed;
+leaning against it, or riding level, loses it. Fast over a crest Pikachu jumps;
+in the air every **swing of the board from one side to the other** — rock left,
+right, left — is a **trick**. Land roughly level with the sea to bank the jump —
+10 + 1 per 50 ms in the air + 50 per trick, shown as it lands — or wipe out and
+lose it and most of the speed. A press in the top strip leaves, keeping what was
+earned. (v3.54's sea was too choppy to lean into and its jumps too short for a
+trick; v3.67 has one long swell and longer air.)
 
 The ride plays **Yellow's own Surfing Pikachu theme** (v3.56).
 
