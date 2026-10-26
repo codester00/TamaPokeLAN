@@ -650,12 +650,19 @@ async function captureSave() {
     if (attempt > 1) log(`Backup arrived damaged (${lastError.message}); reading it again (${attempt}/${CAPTURE_TRIES})...`);
     const lines = await captureOnce();
     captures.push(lines);
-    const text = assembleCaptures(captures);
-    if (!text) {
-      lastError = new Error('some lines arrived damaged');
-      try { verifyBackup(`${lines.join('\n')}\n`); } catch (error) { lastError = error; }
-      continue;
+    // a read that verifies on its own is the backup, exactly as before; only a
+    // damaged one is pieced together (and a firmware too old to declare its
+    // length can only ever take the first path)
+    const raw = lines.filter((l) => l.startsWith('# TamaPoke save') || l.startsWith('IMPORT'));
+    const rawText = `${raw.join('\n')}\n`;
+    try {
+      const parsed = verifyBackup(rawText);
+      return { text: rawText, parsed, describe: describeBackup(parsed.blob) };
+    } catch (error) {
+      lastError = error;
     }
+    const text = assembleCaptures(captures);
+    if (!text) continue;
     try {
       const parsed = verifyBackup(text);
       return { text, parsed, describe: describeBackup(parsed.blob) };
