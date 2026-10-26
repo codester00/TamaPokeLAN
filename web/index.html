@@ -59,6 +59,10 @@
           <i data-lucide="shield-check" aria-hidden="true"></i>
           <span id="backup-flash-label">Backup, then install</span>
         </button>
+        <button class="button button-secondary" id="backup-save" hidden>
+          <i data-lucide="download" aria-hidden="true"></i>
+          Save backup file
+        </button>
         <esp-web-install-button id="flash-button" manifest="manifest.json">
           <button class="button button-primary" slot="activate" id="install-step2" hidden>
             <i data-lucide="cpu" aria-hidden="true"></i>
@@ -70,7 +74,7 @@
         <button class="button button-quiet button-small" id="install-skip">Install without backup</button>
         <p class="action-copy" id="edition-summary">The standard edition includes every game feature and loads region art from microSD.</p>
       </div>
-      <p class="action-copy"><strong>Backup, then install</strong> reads the save off the board, checks it, downloads it and keeps a copy in this browser. Once it's done, the button reads <strong>Backup complete, now →</strong> and <strong>Install update</strong> appears next to it -- click that to flash. Your browser will ask which board to use twice: once to read the save, once to flash. A brand-new board has nothing to back up and goes straight there. Prefer to skip the backup entirely? Use <strong>Install without backup</strong> instead.</p>
+      <p class="action-copy"><strong>Backup, then install</strong> reads the save off the board, checks it, downloads it and keeps a copy in this browser. Once it's done, the button reads <strong>Backup complete, now →</strong> and <strong>Install update</strong> appears next to it -- click that to flash. If the file did not land in your downloads (some browsers block a download that does not come straight from a click), click <strong>Save backup file</strong> first. If the button reads <strong>No backup taken</strong> instead, the Activity log below says why. Your browser will ask which board to use twice: once to read the save, once to flash. A brand-new board has nothing to back up and goes straight there. Prefer to skip the backup entirely? Use <strong>Install without backup</strong> instead.</p>
 
       <section class="release-notes" aria-labelledby="release-notes-title">
         <header>
@@ -218,6 +222,6 @@
 
   <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
-  <script type="module" src="installer.js?v=e7f020c5c3d543f9"></script>
+  <script type="module" src="installer.js?v=827198838e7d0c73"></script>
 </body>
 </html>

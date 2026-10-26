@@ -152,6 +152,14 @@ Things that have already bitten, or nearly:
   so the order has to be: our connection reads the save, release, then trigger
   theirs. That also means the browser may prompt for the board twice, and the
   page says so rather than surprising anyone.
+- **The label must say what happened** (2026-10-26). `promptInstall()` read
+  "Backup complete" even when the export failed, so a board that answered
+  nothing looked like a download that never arrived. It takes `captured` now.
+  And the automatic download comes seconds after the click (once the export
+  ends), which a browser may block silently, so a successful backup also shows
+  **Save backup file** (`lastCapture`, a real click). `downloadText()` revokes
+  its blob URL after a minute, not on the spot. Checked in headless Chromium
+  with a fake port that answers EXPORT with an emulator export.
 - **"Erase device" is inside their dialog, not ours.** We cannot see it or veto
   it. Backup-then-install narrows the window; it cannot close it.
 - **No remote storage, deliberately.** Pages is static so there is nowhere to

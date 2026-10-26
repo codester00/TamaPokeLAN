@@ -621,7 +621,9 @@ function downloadText(name, text) {
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  // Not revoked on the spot: a browser that has not started reading the blob
+  // yet can fail the download ("no file") if its URL is already gone.
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 // Reads the save off the board and VERIFIES it before handing it back.
@@ -879,6 +881,12 @@ async function renderHistory() {
 // exactly like a hang. So this stops at the backup and hands the actual click
 // back to the player: promptInstall() reveals the real "Install update"
 // button, and a genuine click on THAT is what starts the flash.
+// The last backup this page took, for the "Save backup file" button. The file
+// is downloaded automatically too, but that happens seconds after the click --
+// once the export is done -- and a browser may block a download that is not
+// tied to a click, silently. A real click on that button always works.
+let lastCapture = null;
+
 async function backupThenFlash() {
   resetInstallPrompt();
   setBusy(true);
@@ -898,9 +906,12 @@ async function backupThenFlash() {
     try {
       const capture = await captureSave();
       await storeBackup(capture);
+      lastCapture = capture;
       downloadCapture(capture);
       captured = true;
-      log(`Backup verified (${capture.parsed.blob.length} bytes) and downloaded. Click Install update to flash.`);
+      log(`Backup verified (${capture.parsed.blob.length} bytes). `
+          + `If ${backupFileName(capture)} is not in your downloads, click Save backup file. `
+          + 'Then click Install update to flash.');
     } catch (error) {
       // A board with nothing to back up is the normal case for a NEW one, and a
       // board in download mode is not running firmware at all so nothing answers
@@ -914,7 +925,7 @@ async function backupThenFlash() {
     await releasePort(captured ? 'Backed up; Install update is ready' : 'Install update is ready');
     setBusy(false);
   }
-  promptInstall();
+  promptInstall(captured);
 }
 
 // Reveals the real "Install update" button rather than trying to click it for
@@ -922,13 +933,19 @@ async function backupThenFlash() {
 // not work. The backup button dims (not disabled -- running it again resets
 // both, for a second board) and its label changes entirely, pointing at the
 // button that just appeared.
-function promptInstall() {
+//
+// The label says what HAPPENED: before v3.67's installer it read "Backup
+// complete" even when no backup was taken, so a failed export looked like a
+// download that never arrived.
+function promptInstall(captured) {
   const step2 = byId('install-step2');
   if (step2) step2.hidden = false;
+  const save = byId('backup-save');
+  if (save) save.hidden = !captured;
   const step1 = byId('backup-flash');
   const label = byId('backup-flash-label');
   if (step1) step1.classList.add('button-dim');
-  if (label) label.textContent = 'Backup complete, now →';
+  if (label) label.textContent = captured ? 'Backup complete, now →' : 'No backup taken (see Activity), now →';
   if (window.lucide) lucide.createIcons();
 }
 
@@ -937,6 +954,8 @@ function promptInstall() {
 function resetInstallPrompt() {
   const step2 = byId('install-step2');
   if (step2) step2.hidden = true;
+  const save = byId('backup-save');
+  if (save) save.hidden = true;
   const step1 = byId('backup-flash');
   const label = byId('backup-flash-label');
   if (step1) step1.classList.remove('button-dim');
@@ -1069,6 +1088,9 @@ byId('restore').addEventListener('change', (event) => {
   event.target.value = '';
 });
 byId('backup-flash').addEventListener('click', backupThenFlash);
+byId('backup-save').addEventListener('click', () => {
+  if (lastCapture) downloadCapture(lastCapture);   // a real click: never blocked
+});
 // Forwards SYNCHRONOUSLY, with no await in between -- that is what makes this
 // different from backupThenFlash()'s old, broken auto-click. A real, direct
 // click's transient activation survives a same-tick synthetic click just fine;
