@@ -638,25 +638,50 @@ function downloadText(name, text) {
 // Throws with a reason. A caller must never treat an unverified capture as a
 // backup: that is the one failure mode a backup feature cannot recover from.
 async function captureSave() {
+  // A capture that ARRIVED but does not verify is retried: the board's USB
+  // link dropped bytes when its send buffer filled (firmware before v3.68
+  // sent with no wait), and a larger save -- Bill's PC -- made that likely.
+  // A board that never answers, or says EXPORT FAIL, is not retried.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await captureOnce();
+    } catch (error) {
+      if (!error.retry || attempt >= CAPTURE_TRIES) throw error;
+      log(`Backup arrived damaged (${error.message}); reading it again...`);
+    }
+  }
+}
+
+const CAPTURE_TRIES = 4;
+
+async function captureOnce() {
   readQueue = [];
   await writeLine('EXPORT');
   const lines = [];
+  let started = false;
+  const damaged = (error) => Object.assign(error, { retry: started });
   // A deadline per LINE, not for the whole export: since v3.61 Bill's PC rides
   // in the backup, and a full one is thousands of lines -- about a minute.
   const giveUp = Date.now() + 15 * 60000;
   while (Date.now() < giveUp) {
     const line = await readLine(20000);
-    if (line === null) throw new Error('the board did not finish the export');
+    if (line === null) throw damaged(new Error('the board did not finish the export'));
     if (line === 'EXPORT FAIL') throw new Error('the firmware could not build a backup');
+    if (line.startsWith('# TamaPoke save')) started = true;
     if (line.startsWith('# TamaPoke save') || line.startsWith('IMPORT ')) lines.push(line);
     if (line === 'IMPORT') {
       lines.push(line);
       break;
     }
   }
-  if (lines.at(-1) !== 'IMPORT') throw new Error('the export stopped before the end');
+  if (lines.at(-1) !== 'IMPORT') throw damaged(new Error('the export stopped before the end'));
   const text = `${lines.join('\n')}\n`;
-  const parsed = verifyBackup(text);           // throws if it is not sound
+  let parsed;
+  try {
+    parsed = verifyBackup(text);               // throws if it is not sound
+  } catch (error) {
+    throw damaged(error);
+  }
   return { text, parsed, describe: describeBackup(parsed.blob) };
 }
 

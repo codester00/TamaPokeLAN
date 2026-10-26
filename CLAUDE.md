@@ -160,6 +160,14 @@ Things that have already bitten, or nearly:
   **Save backup file** (`lastCapture`, a real click). `downloadText()` revokes
   its blob URL after a minute, not on the spot. Checked in headless Chromium
   with a fake port that answers EXPORT with an emulator export.
+- **The board DROPS serial output when its USB buffer is full** (2026-10-26).
+  `setup()` sets `Serial.setTxTimeoutMs(0)` so nobody reading cannot stall the
+  game, and HWCDC then throws away what does not fit. v3.66's first backup with
+  Bill's PC in it lost 45 bytes and the length check refused it -- the check
+  doing its job. Since v3.68 `handleSerial()` holds a `ConsoleReply` (a 50 ms
+  wait) while it answers, `console_test` fails if any EXPORT line is written
+  with no wait (the emulator's `Serial.txUnwaited`), and `captureSave()` re-reads
+  a capture that arrived but does not verify, up to four times.
 - **"Erase device" is inside their dialog, not ours.** We cannot see it or veto
   it. Backup-then-install narrows the window; it cannot close it.
 - **No remote storage, deliberately.** Pages is static so there is nowhere to

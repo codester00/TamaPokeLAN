@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.67"
+#define FW_VERSION "3.68"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -1452,11 +1452,23 @@ void updateBrightness(uint32_t now) {
 
 // ---------- consola serie (provision de SD + depuracion) ----------
 
+// setup() sends with no wait (timeout 0) so a board with nobody reading never
+// stalls on a full USB buffer -- but then a full buffer DROPS bytes. A reply to
+// a console command has a reader by definition, so while one is being answered
+// the send waits for the host instead. Before v3.68 a backup with Bill's PC in
+// it lost 45 bytes this way and the installer refused it as short.
+static const uint32_t CONSOLE_TX_WAIT_MS = 50;
+struct ConsoleReply {
+  ConsoleReply() { Serial.setTxTimeoutMs(CONSOLE_TX_WAIT_MS); }
+  ~ConsoleReply() { Serial.setTxTimeoutMs(0); }
+};
+
 void handleSerial() {
   if (!Serial.available()) return;
   String line = Serial.readStringUntil('\n');
   line.trim();
   if (line.length() == 0) return;
+  ConsoleReply waitForHost;
   if (sdSerialCommand(line)) return;
 
   if (line == "HATCH") {

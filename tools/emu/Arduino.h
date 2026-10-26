@@ -93,15 +93,22 @@ inline String operator+(const char *a, const String &b) { return String(std::str
 struct FakeSerial {
   void begin(unsigned long) {}
   void setRxBufferSize(int) {}
-  void setTxTimeoutMs(int) {}
+  // The board's USB serial DROPS what does not fit its send buffer while the
+  // timeout is 0 (setup()'s choice, so nobody reading cannot stall the game).
+  // Nothing is dropped here, so instead every write made with no wait is
+  // counted: a test can require that a reply to the console waited.
+  int txTimeoutMs = 0;
+  unsigned long txUnwaited = 0;
+  void setTxTimeoutMs(int ms) { txTimeoutMs = ms; }
+  void noteTx() { if (!txTimeoutMs) txUnwaited++; }
   void setTimeout(unsigned long) {}
   int available();
   String readStringUntil(char);
   size_t readBytes(uint8_t *, size_t) { return 0; }
-  template <typename... A> void printf(const char *f, A... a) { std::printf(f, a...); fflush(stdout); }
-  void println(const char *s = "") { std::printf("%s\n", s); fflush(stdout); }
-  void println(int v) { std::printf("%d\n", v); fflush(stdout); }
-  void print(const char *s) { std::printf("%s", s); fflush(stdout); }
+  template <typename... A> void printf(const char *f, A... a) { noteTx(); std::printf(f, a...); fflush(stdout); }
+  void println(const char *s = "") { noteTx(); std::printf("%s\n", s); fflush(stdout); }
+  void println(int v) { noteTx(); std::printf("%d\n", v); fflush(stdout); }
+  void print(const char *s) { noteTx(); std::printf("%s", s); fflush(stdout); }
 };
 extern FakeSerial Serial;
 

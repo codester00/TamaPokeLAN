@@ -76,8 +76,14 @@ int main(){
     m.ivAtk=m.ivDef=m.ivSpe=m.ivHp=17; party.replaceAt(i,m); }
   pet.renameTrainer("ASH");        // persists everything above
 
+  unsigned long unwaited = Serial.txUnwaited;
   std::string out = runConsole({"EXPORT"});
   ck(out.find("# TamaPoke save") != std::string::npos, "EXPORT says what it is");
+  // On the board a write with no wait is DROPPED when the USB buffer is full:
+  // v3.66 lost 45 bytes of a backup that way. A reply must wait for the host,
+  // and go back to not waiting once it is sent.
+  ck(Serial.txUnwaited == unwaited, "every line of the reply waits for the host");
+  ck(Serial.txTimeoutMs == 0, "(and the console stops waiting once it has answered)");
 
   // every IMPORT line it printed, in order
   std::vector<std::string> back;
