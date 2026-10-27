@@ -61,6 +61,12 @@ METHODS = ('level-up', 'machine')
 # from Kanto would silently drop every gate for two thirds of the dex.
 # Each is the last game of its own generation, where the gates are properly
 # spread and not yet flattened by later rebalancing.
+# Moves a species is taught AGAIN at later levels, which the games do for one
+# move only: SKETCH, at 1, 11, 21 ... 91 (it is copied away each time it is
+# used, so each row is a fresh Sketch). Every other move keeps its first level.
+REPEATED = {'sketch'}
+
+
 def level_vg(num):
     if num <= 151:
         return 'firered-leafgreen'
@@ -135,6 +141,10 @@ def main():
             is_tm = any(meth == 'machine' for meth, _lvl, _vg in m['details'])
             has_lvl1 = any(meth == 'level-up' and lvl <= 1
                            for meth, lvl, _vg in m['details'])
+            if m['name'] in REPEATED and lvlup:
+                # learned again at every one of its levels: a row each (v3.69)
+                rows.extend((m['name'], l) for l in sorted(set(lvlup)))
+                continue
             if lvlup:
                 lv = min(lvlup)
             elif has_lvl1:

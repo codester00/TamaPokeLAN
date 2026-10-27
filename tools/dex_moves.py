@@ -377,9 +377,9 @@ MOVES = [
 
     # --- v3.69: SKETCH, Smeargle's whole movepool ------------------------
     # It copies the target's last move into its own slot for good (battle.cpp,
-    # EF_SKETCH; kept by the sketch's sketchKeep()). Smeargle learns it at 1,
-    # 11, 21 ... 91 in every game, so the learnset holds one row at level 1 and
-    # sketchSlotsAt() gives the extra slots by level.
+    # EF_SKETCH; kept by the sketch's sketchKeep()). Smeargle learns it again at
+    # 1, 11, 21 ... 91 (a row each, fetch_pokeapi.py's REPEATED), and like any
+    # move it is never learned while already known.
     ("SKETCH", "sketch", 'normal', MC_STATUS, 0, 0, EF_SKETCH, 0, 0, 0, TG_FOE),
 ]
 

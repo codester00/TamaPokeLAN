@@ -478,17 +478,18 @@ attack by level-up except the ones that cannot in the games either (METAPOD,
 KAKUNA, ABRA, DITTO...) and five whose only real attacks need effects
 this game does not have (UNOWN, WOBBUFFET, WYNAUT, PYUKUMUKU, APPLIN).
 
-**SKETCH** (since v3.69) is SMEARGLE's whole movepool, as in the games. It learns
-it at levels 1, 11, 21 and 31, so it holds up to four (one more slot every ten
-levels, filled by itself while a slot is empty; the move picker allows as many
-as the level does). Used in a fight, SKETCH turns into the move the opponent
-used last, with that move's full PP, **for good**: the creature keeps it after
-the fight, saved on the spot, and its other moves are untouched. It fails --
-and still spends its 1 PP -- if the opponent has not moved yet, used STRUGGLE or
-SKETCH, or the move is one SMEARGLE already knows. Each SKETCH slot keeps its own
-PP. It works in LAN battles too: the host resolves it and the guest's board keeps
-the move. A wild SMEARGLE meets you with four random moves from the whole list
-(at least one attack) and keeps them if caught; no trainer uses one.
+**SKETCH** (since v3.69) is SMEARGLE's whole movepool, as in the games. It
+learns SKETCH at levels 1, 11, 21 ... 91 like any level-up move: into an empty
+slot by itself, or, with all four full, the "forget a move?" offer -- and not at
+all while it still knows SKETCH, since no creature learns a move it knows. Used
+in a fight, SKETCH turns into the move the opponent used last, with that move's
+full PP, **for good**: the creature keeps it after the fight, saved on the spot,
+and its other moves are untouched. It fails -- and still spends its 1 PP -- if
+the opponent has not moved yet, used STRUGGLE or SKETCH, or the move is one
+SMEARGLE already knows. It works in LAN battles too: the host resolves it and the
+guest's board keeps the move. A wild SMEARGLE meets you with four random moves
+from the whole list (at least one attack) and keeps them if caught; no trainer
+uses one.
 
 **PP** (since v3.52). Every move has the games' own PP — TACKLE 35, SURF 15,
 RECOVER 5 — shown on each move button in a fight and on the creature's move

@@ -118,27 +118,61 @@ int main() {
     ck(sk == 0, "the smart AI never SKETCHes when the foe has not moved");
   }
 
-  // --- 2. how many SKETCH slots, by level -----------------------------------------
-  ck(sketchSlotsAt(1) == 1 && sketchSlotsAt(10) == 1 && sketchSlotsAt(11) == 2 &&
-     sketchSlotsAt(21) == 3 && sketchSlotsAt(31) == 4 && sketchSlotsAt(100) == 4,
-     "SKETCH at 1, 11, 21, 31: four slots from level 31");
+  // --- 2. learning SKETCH by level, as the games do ----------------------------------
+  // A SKETCH row at 1, 11 ... 91. At each: nothing if it still knows SKETCH (no
+  // creature learns a move it knows), into an empty slot if there is one, and
+  // otherwise the "forget a move?" offer -- the same rule as every level-up move.
   ck(learnsSketch(235) && !learnsSketch(19), "only Smeargle learns it");
   {
-    uint8_t mv[MOVE_SLOTS] = { 0, 0, 0, 0 };
-    ck(fillSketchSlots(235, 35, mv) && mv[0] == MV_SKETCH && mv[3] == MV_SKETCH,
-       "an empty level 35 Smeargle fills all four");
-    uint8_t m2[MOVE_SLOTS] = { MV_SURF, 0, 0, 0 };
-    fillSketchSlots(235, 15, m2);
-    ck(m2[0] == MV_SURF && m2[1] == MV_SKETCH && m2[2] == MV_SKETCH && m2[3] == 0,
-       "at 15, two -- and never over a move it has");
-    uint8_t m3[MOVE_SLOTS] = { 0, 0, 0, 0 };
-    ck(!fillSketchSlots(19, 35, m3) && !m3[0], "a Rattata gets none");
+    uint8_t rows = 0;
+    for (uint8_t i = 0; i < learnCount(235); i++)
+      if (learnMove(235, i) == MV_SKETCH && learnLevel(235, i) == 1 + 10 * rows) rows++;
+    ck(rows == 10, "Smeargle's learnset has SKETCH at 1, 11, 21 ... 91");
   }
-  // a Smeargle from before v3.69: no moves, past every gate
+  auto toLevel = [](uint8_t lvl) {
+    pet.ageMinutes = (uint32_t)(lvl - 1) * MINUTES_PER_LEVEL;
+    pet.checkLearnGates();
+  };
+  smeargle(10, MV_SKETCH, 0, 0, 0);
+  toLevel(11);
+  ck(pet.moves[0] == MV_SKETCH && !pet.moves[1] && !pet.hasLearnOffer(),
+     "at 11, still knowing SKETCH, it learns nothing (one SKETCH at a time)");
+  smeargle(20, MV_FLAMETHROWER, 0, 0, 0);
+  toLevel(21);
+  ck(pet.moves[1] == MV_SKETCH && !pet.hasLearnOffer(),
+     "at 21, its SKETCH used, a new one goes into an empty slot by itself");
+  smeargle(30, MV_FLAMETHROWER, MV_SURF, MV_THUNDERBOLT, MV_ICE_BEAM);
+  toLevel(31);
+  ck(pet.hasLearnOffer() && pet.learnOffer() == MV_SKETCH,
+     "at 31 with all four slots full, the trainer is offered SKETCH");
+  pet.acceptLearn(2);
+  ck(pet.moves[2] == MV_SKETCH && pet.moves[0] == MV_FLAMETHROWER, "and forgets the move chosen for it");
+  smeargle(40, MV_FLAMETHROWER, MV_SURF, MV_THUNDERBOLT, MV_ICE_BEAM);
+  toLevel(41);
+  pet.declineLearn();
+  ck(!pet.hasLearnOffer() && pet.moves[3] == MV_ICE_BEAM, "or declines and keeps all four");
+  // a Smeargle from before v3.69: nothing, past every gate
   smeargle(35, 0, 0, 0, 0);
   pet.checkLearnGates();
-  ck(pet.moves[0] == MV_SKETCH && pet.moves[1] == MV_SKETCH && pet.moves[2] == MV_SKETCH &&
-     pet.moves[3] == MV_SKETCH, "a moveless level 35 Smeargle gets its four SKETCH at once");
+  ck(pet.moves[0] == MV_SKETCH && !pet.moves[1], "a moveless level 35 Smeargle gets its one SKETCH");
+  // the same rule for every creature: Charmander's own first two gates
+  {
+    uint8_t g[2] = { 0, 0 }, mv[2] = { 0, 0 }, k = 0;
+    for (uint8_t i = 0; i < learnCount(4) && k < 2; i++)
+      if (learnLevel(4, i) > 1) { g[k] = learnLevel(4, i); mv[k++] = learnMove(4, i); }
+    pet.dbgHatchAs(4, false);
+    pet.ageMinutes = (uint32_t)(g[0] - 2) * MINUTES_PER_LEVEL;
+    pet.lastLearnLevel = (uint8_t)(g[0] - 1);
+    while (pet.hasLearnOffer()) pet.declineLearn();   // what hatching at the old age queued
+    for (int i = 0; i < MOVE_SLOTS; i++) pet.moves[i] = 0;
+    pet.moves[0] = MV_SURF;
+    toLevel(g[0]);
+    ck(pet.moves[1] == mv[0] && !pet.hasLearnOffer(), "any creature: a new move fills an empty slot by itself");
+    pet.moves[2] = MV_THUNDERBOLT; pet.moves[3] = MV_ICE_BEAM;
+    toLevel(g[1]);
+    ck(pet.hasLearnOffer() && pet.learnOffer() == mv[1], "and with no slot free, the trainer is asked");
+    pet.declineLearn();
+  }
 
   // --- 3. PP is kept per slot ---------------------------------------------------------
   {
@@ -184,9 +218,9 @@ int main() {
     party.replaceAt(0, PartyMon());
   }
 
-  // --- 6. the picker: SKETCH in as many slots as the level allows ---------------------
+  // --- 6. the picker: SKETCH is one move like any other -------------------------------
   {
-    smeargle(35, MV_FLAMETHROWER, MV_SKETCH, MV_SKETCH, MV_SKETCH);
+    smeargle(35, MV_FLAMETHROWER, MV_SKETCH, 0, 0);
     uint8_t all[64]; uint8_t n = learnableList(all, sizeof(all));
     int at = -1;
     for (uint8_t i = 0; i < n; i++) if (all[i] == MV_SKETCH) at = i;
@@ -194,14 +228,8 @@ int main() {
     cardOpen = true; movePickOpen = true; movePickParty = 0; movePickSlot = 0;
     movePickPage = (uint8_t)(at / 5);
     onTap(233, movePickRowY(at % 5) + 25);
-    ck(pet.moves[0] == MV_SKETCH && pet.moves[1] == MV_SKETCH && pet.moves[2] == MV_SKETCH &&
-       pet.moves[3] == MV_SKETCH, "at level 35 a fourth SKETCH fits: no swap");
-    smeargle(15, MV_FLAMETHROWER, MV_SKETCH, MV_SKETCH, MV_SURF);
-    cardOpen = true; movePickOpen = true; movePickParty = 0; movePickSlot = 0;
-    onTap(233, movePickRowY(at % 5) + 25);
-    uint8_t sk = 0, fl = 0;
-    for (int i = 0; i < MOVE_SLOTS; i++) { sk += pet.moves[i] == MV_SKETCH; fl += pet.moves[i] == MV_FLAMETHROWER; }
-    ck(sk == 2 && fl == 1, "at level 15 a third does not: the picker swaps, as for any move");
+    ck(pet.moves[0] == MV_SKETCH && pet.moves[1] == MV_FLAMETHROWER,
+       "picking SKETCH where it already sits elsewhere swaps the two, never two SKETCH");
     cardOpen = false; movePickOpen = false;
   }
 

@@ -910,27 +910,30 @@ wins wherever it and the summary below differ.
 
 Owner, 2026-10-27: a level 35 Smeargle knew nothing (its learnset was empty --
 SKETCH was never in the move list). SKETCH is move 240, appended (MOVE_COUNT
-241); `dex_learnsets.py` 235 is `[('sketch', 1)]`, hand-patched to exactly what
+241); `dex_learnsets.py` 235 is SKETCH at 1, 11 ... 91, hand-patched to exactly what
 `fetch_pokeapi.py` emits (its cache is gone; only Smeargle learns Sketch).
-`sketch_test`; nine guards negative-checked.
+`sketch_test`; twelve guards negative-checked.
 
 - **Engine**: `Combatant::lastMove` (set in `battleAct()` for any move used,
   hit or miss; not on a skipped turn). `EF_SKETCH` turns the slot it was used
   from into `battleSketchTarget()` -- THE rule: fails when the foe has not
   moved, used STRUGGLE or SKETCH, or the move is already known. `spendPp()`
-  now spends a slot WITH PP left and says which (a move can sit in four slots).
+  now spends a slot WITH PP left and says which (a move a picker or trade could duplicate).
   The AI scores a SKETCH with nothing to copy at -100.
 - **`sketchKeep(uid, slot, to)` is THE one way a fight changes a creature**:
   by ID over the live pet and the party, only over a slot still holding SKETCH
   (so it cannot hit another creature or apply twice), saved on the spot.
   `btlSketched()` calls it after each of our actions and keeps LAN's exchanged
   squads (`lan.mine`/`lan.theirs`) in step for a rematch.
-- **Slots**: `sketchSlotsAt(lvl)` = 1 + (lvl-1)/10, max 4 (the games' 1, 11,
-  21, 31). `fillSketchSlots()` fills EMPTY slots only, from `checkLearnGates()`
-  before its early return, so a pre-3.69 moveless Smeargle gets its four at once.
-  The picker allows SKETCH duplicates up to that count; otherwise it swaps ONE
-  slot (it used to rewrite every copy -- the test caught it). PP is per slot
-  (`ppLeftSlot()`), or one failed SKETCH emptied all four.
+- **Learning it, as the games do** (owner, 2026-10-27): a SKETCH row at 1,
+  11 ... 91 (`fetch_pokeapi.py`'s `REPEATED`; every other move keeps one row),
+  through the ordinary `checkLearnGates()` -- an empty slot fills by itself, a
+  full set gets the "forget a move?" offer, and a move already KNOWN is never
+  learned, so Smeargle holds one SKETCH at a time. A moveless Smeargle (pre-3.69)
+  gets its one SKETCH from `relearnFromLevel()` in `checkLearnGates()`; Smeargle
+  only, since relearn is the opponents' TM rule. A first version gave four
+  SKETCH slots by level; the owner asked for the games' rule instead. PP is
+  per slot anyway (`ppLeftSlot()`, `spendPp()` picks a slot with PP left).
 - **LAN (`LINK_PROTO` 9)**: `LinkBeat::sketch` (the copied move or
   `LB_SKETCH_FAILED`) for narration, and `LinkResult::guestMoves` (absolute).
   The guest keeps a change ONLY over its own SKETCH slot. The guest's combatants

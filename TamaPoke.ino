@@ -2800,19 +2800,12 @@ void onTap(int16_t x, int16_t y) {
       if (x < 70 || x > 396 || y < ry || y > ry + 50) continue;
       sfxPlay(SFX_TAP);
       // Swapping for a move already in another slot would silently duplicate
-      // it, so trade the two slots instead of overwriting -- except SKETCH,
-      // which a Smeargle may hold in as many slots as its level allows (v3.69).
+      // it, so trade the two slots instead of overwriting.
       uint8_t *tgt = pickTargetMoves();
-      PartyMon *pm = movePickParty ? &party.slots[movePickParty - 1] : nullptr;
-      uint8_t pickLvl = pm ? (uint8_t)pm->level : pet.level();
-      uint8_t others = 0;
       for (int s = 0; s < MOVE_SLOTS; s++)
-        if (tgt[s] == all[idx] && s != movePickSlot) others++;
-      bool dupOk = all[idx] == MV_SKETCH && others + 1 <= sketchSlotsAt(pickLvl);
-      if (!dupOk)                         // one slot gives way, never every copy
-        for (int s = 0; s < MOVE_SLOTS; s++)
-          if (tgt[s] == all[idx] && s != movePickSlot) { tgt[s] = tgt[movePickSlot]; break; }
+        if (tgt[s] == all[idx] && s != movePickSlot) tgt[s] = tgt[movePickSlot];
       tgt[movePickSlot] = all[idx];
+      PartyMon *pm = movePickParty ? &party.slots[movePickParty - 1] : nullptr;
       if (moveNeedsCheatedTm(pet, pickTargetDex(), pm ? (uint8_t)pm->level : pet.level(), all[idx])) {
         if (pm) pm->flags |= PMON_CHEATED; else pet.cheated = true;   // a cheat's TM marks it
       }

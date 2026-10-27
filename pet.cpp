@@ -1517,26 +1517,6 @@ bool learnsSketch(int16_t dex) {
   return false;
 }
 
-uint8_t sketchSlotsAt(uint8_t lvl) {
-  if (!lvl) return 0;
-  uint8_t n = (uint8_t)(1 + (lvl - 1) / 10);
-  return n > MOVE_SLOTS ? MOVE_SLOTS : n;
-}
-
-bool fillSketchSlots(int16_t dex, uint8_t lvl, uint8_t moves[MOVE_SLOTS]) {
-  if (!learnsSketch(dex)) return false;
-  uint8_t have = 0;
-  for (int i = 0; i < MOVE_SLOTS; i++) if (moves[i] == MV_SKETCH) have++;
-  bool changed = false;
-  for (int i = 0; i < MOVE_SLOTS && have < sketchSlotsAt(lvl); i++) {
-    if (moves[i]) continue;
-    moves[i] = MV_SKETCH;
-    have++;
-    changed = true;
-  }
-  return changed;
-}
-
 uint8_t moveUnlockLevelFor(const Pet &owner, int16_t dex, uint8_t idx) {
   uint8_t at = learnLevel(dex, idx);
   if (at > 0) return at;                 // a real level-up move: its own gate
@@ -1724,10 +1704,14 @@ void Pet::relearnFromLevel() {
 void Pet::checkLearnGates() {
   if (isEgg() || ceremony != CER_NONE) return;
   uint8_t lvl = level();
-  // SKETCH's extra slots come by level and fill empty slots silently, as a
-  // level-up move does; checked every time, so a Smeargle from before v3.69
-  // gets its slots at once rather than at its next gate.
-  if (fillSketchSlots(speciesId, lvl, moves)) pendingSave = true;
+  // A Smeargle from before v3.69, when SKETCH did not exist, knows nothing at
+  // all: it gets the one SKETCH it would have from level 1, not a replay of
+  // every gate. Smeargle only -- relearnFromLevel() is the opponents' rule for
+  // TMs, and no other creature of the player's can reach here moveless.
+  if (moveCount() == 0 && learnsSketch(speciesId)) {
+    relearnFromLevel();
+    if (moveCount()) pendingSave = true;
+  }
   if (lvl <= lastLearnLevel) return;
   uint8_t n = learnCount(speciesId);
   for (uint8_t i = 0; i < n; i++) {
