@@ -119,6 +119,7 @@ def main():
              '  EF_HEAL,        // param = % de vitalidad maxima curada\n'
              '  EF_RECHARGE,    // pierde el turno siguiente, expuesto\n'
              '  EF_CHARGE,      // turno 1 carga; param 1 = invulnerable mientras\n'
+             '  EF_SKETCH,      // v3.69: replaces itself with the target\'s last move\n'
              '};\n\n')
 
     o.append('// Mascara de stats para EF_STAGE: un solo delta se aplica a\n'
@@ -173,7 +174,7 @@ def main():
 
     EFN = {0: 'EF_NONE', 1: 'EF_STAGE', 2: 'EF_RECOIL', 3: 'EF_DRAIN', 4: 'EF_FIXED_LVL',
            5: 'EF_FIXED', 6: 'EF_PRIORITY', 7: 'EF_NEVER_MISS', 8: 'EF_MULTI',
-           9: 'EF_HEAL', 10: 'EF_RECHARGE', 11: 'EF_CHARGE'}
+           9: 'EF_HEAL', 10: 'EF_RECHARGE', 11: 'EF_CHARGE', 12: 'EF_SKETCH'}
 
     o.append('static const MoveEntry MOVE_TBL[MOVE_COUNT] = {\n')
     o.append('  { "-", T_NORMAL, MC_STATUS, 0, 0, EF_NONE, 0, 0, 0, TG_SELF, AIL_NONE, 0, 0, 0, TG_FOE, 0, 0 },  // 0: sin usar\n')

@@ -247,6 +247,7 @@ static const char *const MOVE_NAME_TBL[MOVE_NAME_LANG_COUNT][MOVE_COUNT] = {
     "ONDA VACIO",  // 237 MV_VACUUM_WAVE
     "RESPLANDOR",  // 238 MV_LUSTER_PURGE
     "BOLA NEBLINA",  // 239 MV_MIST_BALL
+    "ESQUEMA",  // 240 MV_SKETCH
   },
   {  // EN
     "-",  // 0 MV_NONE
@@ -489,6 +490,7 @@ static const char *const MOVE_NAME_TBL[MOVE_NAME_LANG_COUNT][MOVE_COUNT] = {
     "VACUUM WAVE",  // 237 MV_VACUUM_WAVE
     "LUSTER PURGE",  // 238 MV_LUSTER_PURGE
     "MIST BALL",  // 239 MV_MIST_BALL
+    "SKETCH",  // 240 MV_SKETCH
   },
   {  // FR
     "-",  // 0 MV_NONE
@@ -731,6 +733,7 @@ static const char *const MOVE_NAME_TBL[MOVE_NAME_LANG_COUNT][MOVE_COUNT] = {
     "ONDE VIDE",  // 237 MV_VACUUM_WAVE
     "LUMI-ECLAT",  // 238 MV_LUSTER_PURGE
     "BALL'BRUME",  // 239 MV_MIST_BALL
+    "GRIBOUILLE",  // 240 MV_SKETCH
   },
   {  // DE
     "-",  // 0 MV_NONE
@@ -973,6 +976,7 @@ static const char *const MOVE_NAME_TBL[MOVE_NAME_LANG_COUNT][MOVE_COUNT] = {
     "VAKUUMWELLE",  // 237 MV_VACUUM_WAVE
     "SCHEINWERFER",  // 238 MV_LUSTER_PURGE
     "NEBELBALL",  // 239 MV_MIST_BALL
+    "NACHAHMER",  // 240 MV_SKETCH
   },
   {  // IT
     "-",  // 0 MV_NONE
@@ -1215,6 +1219,7 @@ static const char *const MOVE_NAME_TBL[MOVE_NAME_LANG_COUNT][MOVE_COUNT] = {
     "VUOTONDA",  // 237 MV_VACUUM_WAVE
     "ABBAGLIANTE",  // 238 MV_LUSTER_PURGE
     "FOSCHISFERA",  // 239 MV_MIST_BALL
+    "SCHIZZO",  // 240 MV_SKETCH
   },
   {  // PT
     "-",  // 0 MV_NONE
@@ -1457,5 +1462,6 @@ static const char *const MOVE_NAME_TBL[MOVE_NAME_LANG_COUNT][MOVE_COUNT] = {
     "ONDA DE VACUO",  // 237 MV_VACUUM_WAVE
     "PURGA DE ESPLENDOR",  // 238 MV_LUSTER_PURGE
     "BOLA DE NEVOA",  // 239 MV_MIST_BALL
+    "ESBOCO",  // 240 MV_SKETCH
   },
 };

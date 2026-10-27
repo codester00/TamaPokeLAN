@@ -57,6 +57,7 @@ EF_MULTI = 8        # hits 2-5 times, power is per hit
 EF_HEAL = 9         # param = percent of max VIT restored
 EF_RECHARGE = 10    # user loses the following turn, exposed
 EF_CHARGE = 11      # turn 1 charges; param 1 = invulnerable while charging
+EF_SKETCH = 12      # replaces itself, for good, with the target's last move
 
 # Stat bitmask for EF_STAGE. One delta applies to every bit set, which is how
 # DRAGON DANCE (ATK+SPE) and BULK UP (ATK+DEF) get to be one table row.
@@ -373,6 +374,13 @@ MOVES = [
     ("VACUUM WAVE", "vacuum-wave", 'fighting', MC_SPEC, 40, 100, EF_PRIORITY, 1, 0, 0, TG_FOE),
     ("LUSTER PURGE", "luster-purge", 'psychic', MC_SPEC, 95, 100, EF_NONE, 0, 0, 0, TG_FOE),
     ("MIST BALL", "mist-ball", 'psychic', MC_SPEC, 95, 100, EF_NONE, 0, 0, 0, TG_FOE),
+
+    # --- v3.69: SKETCH, Smeargle's whole movepool ------------------------
+    # It copies the target's last move into its own slot for good (battle.cpp,
+    # EF_SKETCH; kept by the sketch's sketchKeep()). Smeargle learns it at 1,
+    # 11, 21 ... 91 in every game, so the learnset holds one row at level 1 and
+    # sketchSlotsAt() gives the extra slots by level.
+    ("SKETCH", "sketch", 'normal', MC_STATUS, 0, 0, EF_SKETCH, 0, 0, 0, TG_FOE),
 ]
 
 # Accuracy drops (SAND ATTACK, SMOKESCREEN, FLASH) are deliberately left out:
@@ -444,6 +452,7 @@ HIT_STATS = {
 # out, and it is never spent. Read by gen_moves.py into MoveEntry::pp.
 MOVE_PP = {
     "tackle": 35,
+    "sketch": 1,
     "scratch": 35,
     "pound": 35,
     "fury-attack": 20,

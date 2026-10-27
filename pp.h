@@ -40,6 +40,10 @@ uint8_t ppMax(uint8_t move);
 // What is left of `move` for creature `uid`. An invalid uid (an egg, a foe)
 // is always full.
 uint8_t ppLeft(const CreatureUid &uid, uint8_t move);
+// The same for the move in one SLOT: a move held in several slots (SKETCH, up
+// to four, v3.69) keeps a count per slot. Falls back to ppLeft() when the
+// book's entry has another move in that slot.
+uint8_t ppLeftSlot(const CreatureUid &uid, uint8_t slot, uint8_t move);
 
 // Records what a battle left: `moves` and the PP still LEFT on each. Called
 // after every turn, so no ending path can lose it -- but only in RAM: a turn

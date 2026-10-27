@@ -62,6 +62,13 @@ uint8_t ppLeft(const CreatureUid &uid, uint8_t move) {
   return mx;
 }
 
+uint8_t ppLeftSlot(const CreatureUid &uid, uint8_t slot, uint8_t move) {
+  int i = find(uid);
+  if (i < 0 || slot >= MOVE_SLOTS || gBook[i].move[slot] != move) return ppLeft(uid, move);
+  uint8_t mx = ppMax(move);
+  return gBook[i].used[slot] >= mx ? 0 : (uint8_t)(mx - gBook[i].used[slot]);
+}
+
 void ppRecord(const CreatureUid &uid, const uint8_t moves[MOVE_SLOTS],
               const uint8_t left[MOVE_SLOTS]) {
   if (!uid.valid()) return;

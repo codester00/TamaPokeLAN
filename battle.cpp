@@ -194,15 +194,28 @@ int8_t battleNextStanding(const Combatant *squad, uint8_t n, uint8_t at) {
 // refused: whatever chose it (the screen, the AI, a test), a move at 0 PP
 // becomes STRUGGLE here. A move the creature does not know (STRUGGLE itself)
 // costs nothing.
-static uint8_t spendPp(Combatant &c, uint8_t mv) {
-  if (!c.ppOn || !mv) return mv;
+//
+// A move can sit in more than one slot -- SKETCH, up to four (v3.69) -- so the
+// slot spent is one with PP left, and `slot` says which (-1: none of its own).
+static uint8_t spendPp(Combatant &c, uint8_t mv, int8_t &slot) {
+  slot = -1;
+  if (!mv) return mv;
   for (int i = 0; i < MOVE_SLOTS; i++) {
     if (c.moves[i] != mv) continue;
-    if (!c.pp[i]) return MV_STRUGGLE;
-    c.pp[i]--;
-    return mv;
+    if (slot < 0) slot = (int8_t)i;
+    if (!c.ppOn || c.pp[i]) { slot = (int8_t)i; break; }
   }
+  if (!c.ppOn || slot < 0) return mv;
+  if (!c.pp[slot]) return MV_STRUGGLE;
+  c.pp[slot]--;
   return mv;
+}
+
+uint8_t battleSketchTarget(const Combatant &atk, const Combatant &def) {
+  uint8_t t = def.lastMove;
+  if (!t || t >= MOVE_COUNT || t == MV_STRUGGLE || t == MV_SKETCH) return 0;
+  for (int i = 0; i < MOVE_SLOTS; i++) if (atk.moves[i] == t) return 0;
+  return t;
 }
 
 void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
@@ -236,9 +249,10 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
 
   // a wound-up EF_CHARGE move fires this turn instead of whatever was picked,
   // and costs nothing more: its PP went when it was wound up
+  int8_t slot = -1;
   if (atk.charging) { mv = atk.charging; atk.charging = 0; }
   else {
-    mv = spendPp(atk, mv);
+    mv = spendPp(atk, mv, slot);
     if (mv && mv < MOVE_COUNT && MOVE_TBL[mv].effect == EF_CHARGE) {
       atk.charging = mv;
       log.move = mv;
@@ -250,6 +264,21 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   if (!mv || mv >= MOVE_COUNT) { log.skipped = true; return; }
   const MoveEntry &m = MOVE_TBL[mv];
   log.move = mv;
+
+  // SKETCH: the slot it was used from becomes the foe's last move, with full
+  // PP. Read before this turn's own move is recorded, so it copies what the
+  // foe did, never itself.
+  if (m.effect == EF_SKETCH) {
+    uint8_t t = battleSketchTarget(atk, def);
+    atk.lastMove = mv;
+    if (!t || slot < 0) { log.failed = true; return; }
+    atk.moves[slot] = t;
+    atk.pp[slot] = ppMax(t);
+    log.sketched = t;
+    log.sketchSlot = slot;
+    return;
+  }
+  atk.lastMove = mv;   // what a SKETCH facing it copies, hit or miss
 
   // --- accuracy. acc 0 means it cannot miss (SWIFT, and every status move)
   if (m.acc && m.effect != EF_NEVER_MISS && random(100) >= m.acc) {
@@ -396,6 +425,8 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
         sc = 26 - (stacked * 12 / hit);
         // and never set up when one more hit would finish you
         if (self.hp * 3 < self.maxHp) sc -= 40;
+      } else if (m.effect == EF_SKETCH) {
+        sc = battleSketchTarget(self, foe) ? 40 : -100;   // nothing to copy: wasted
       } else {
         sc = 5;
       }

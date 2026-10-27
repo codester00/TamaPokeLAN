@@ -1510,6 +1510,33 @@ bool moveNeedsCheatedTm(const Pet &owner, int16_t dex, uint8_t lvl, uint8_t mv) 
   return true;
 }
 
+bool learnsSketch(int16_t dex) {
+  if (dex < 1 || dex > DEX_COUNT) return false;
+  uint8_t n = learnCount(dex);
+  for (uint8_t i = 0; i < n; i++) if (learnMove(dex, i) == MV_SKETCH) return true;
+  return false;
+}
+
+uint8_t sketchSlotsAt(uint8_t lvl) {
+  if (!lvl) return 0;
+  uint8_t n = (uint8_t)(1 + (lvl - 1) / 10);
+  return n > MOVE_SLOTS ? MOVE_SLOTS : n;
+}
+
+bool fillSketchSlots(int16_t dex, uint8_t lvl, uint8_t moves[MOVE_SLOTS]) {
+  if (!learnsSketch(dex)) return false;
+  uint8_t have = 0;
+  for (int i = 0; i < MOVE_SLOTS; i++) if (moves[i] == MV_SKETCH) have++;
+  bool changed = false;
+  for (int i = 0; i < MOVE_SLOTS && have < sketchSlotsAt(lvl); i++) {
+    if (moves[i]) continue;
+    moves[i] = MV_SKETCH;
+    have++;
+    changed = true;
+  }
+  return changed;
+}
+
 uint8_t moveUnlockLevelFor(const Pet &owner, int16_t dex, uint8_t idx) {
   uint8_t at = learnLevel(dex, idx);
   if (at > 0) return at;                 // a real level-up move: its own gate
@@ -1579,6 +1606,14 @@ void Pet::rollWildMoves() {
   uint8_t lvl = level(), n = learnCount(speciesId);
   uint8_t pool[255];
   uint8_t k = 0;
+  // A wild SKETCH learner (Smeargle) meets you with what it has already
+  // sketched: four from the whole move list, never SKETCH or STRUGGLE (owner,
+  // 2026-10-27). Caught, it keeps them, as in the games.
+  if (learnsSketch(speciesId)) {
+    for (uint16_t mv = 1; mv < MOVE_COUNT; mv++)
+      if (mv != MV_SKETCH && mv != MV_STRUGGLE) pool[k++] = (uint8_t)mv;
+    n = 0;
+  }
   for (uint8_t i = 0; i < n; i++) {
     if (moveUnlockLevel(speciesId, i) > lvl) continue;
     uint8_t mv = learnMove(speciesId, i);
@@ -1689,6 +1724,10 @@ void Pet::relearnFromLevel() {
 void Pet::checkLearnGates() {
   if (isEgg() || ceremony != CER_NONE) return;
   uint8_t lvl = level();
+  // SKETCH's extra slots come by level and fill empty slots silently, as a
+  // level-up move does; checked every time, so a Smeargle from before v3.69
+  // gets its slots at once rather than at its next gate.
+  if (fillSketchSlots(speciesId, lvl, moves)) pendingSave = true;
   if (lvl <= lastLearnLevel) return;
   uint8_t n = learnCount(speciesId);
   for (uint8_t i = 0; i < n; i++) {

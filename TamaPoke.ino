@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.68"
+#define FW_VERSION "3.69"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -684,6 +684,7 @@ uint8_t pickRegion = 0;
 #define PICK_TRAINERS (TRAINER_SETS[pickRegion % GYM_REGIONS].list)
 bool lanWantHost = true;   // which button opened the picker
 uint16_t squadMask = 0xFFFF;   // everything, until the player says otherwise
+CreatureUid lanMineUid[TRAINER_TEAM_MAX];   // lan.mine's IDs, this board only (v3.69)
 uint8_t pickPage = 0;
 #define PICK_PER_PAGE 6
 #define PICK_CELL_W 150
@@ -2221,7 +2222,7 @@ void renderMonSheet(const PartyMon &m, bool fromBox) {
 
   for (int i = 0; i < MOVE_SLOTS; i++) {
     drawMoveRow(78 + i * 52, m.moves[i], false, m.dex);
-    drawMovePp(78 + i * 52, m.uid, m.moves[i]);
+    drawMovePp(78 + i * 52, m.uid, i, m.moves[i]);
   }
 
   char st[40];
@@ -2799,12 +2800,19 @@ void onTap(int16_t x, int16_t y) {
       if (x < 70 || x > 396 || y < ry || y > ry + 50) continue;
       sfxPlay(SFX_TAP);
       // Swapping for a move already in another slot would silently duplicate
-      // it, so trade the two slots instead of overwriting.
+      // it, so trade the two slots instead of overwriting -- except SKETCH,
+      // which a Smeargle may hold in as many slots as its level allows (v3.69).
       uint8_t *tgt = pickTargetMoves();
-      for (int s = 0; s < MOVE_SLOTS; s++)
-        if (tgt[s] == all[idx] && s != movePickSlot) tgt[s] = tgt[movePickSlot];
-      tgt[movePickSlot] = all[idx];
       PartyMon *pm = movePickParty ? &party.slots[movePickParty - 1] : nullptr;
+      uint8_t pickLvl = pm ? (uint8_t)pm->level : pet.level();
+      uint8_t others = 0;
+      for (int s = 0; s < MOVE_SLOTS; s++)
+        if (tgt[s] == all[idx] && s != movePickSlot) others++;
+      bool dupOk = all[idx] == MV_SKETCH && others + 1 <= sketchSlotsAt(pickLvl);
+      if (!dupOk)                         // one slot gives way, never every copy
+        for (int s = 0; s < MOVE_SLOTS; s++)
+          if (tgt[s] == all[idx] && s != movePickSlot) { tgt[s] = tgt[movePickSlot]; break; }
+      tgt[movePickSlot] = all[idx];
       if (moveNeedsCheatedTm(pet, pickTargetDex(), pm ? (uint8_t)pm->level : pet.level(), all[idx])) {
         if (pm) pm->flags |= PMON_CHEATED; else pet.cheated = true;   // a cheat's TM marks it
       }
@@ -5620,9 +5628,9 @@ void drawMoveRow(int y, uint8_t mv, bool highlight, int16_t dex) {
 
 // PP left on one of a creature's moves, top right of its drawMoveRow() row.
 // Red at zero. Read from the PP book, so it is what the next fight starts with.
-void drawMovePp(int y, const CreatureUid &uid, uint8_t mv) {
+void drawMovePp(int y, const CreatureUid &uid, uint8_t slot, uint8_t mv) {
   if (!mv || mv >= MOVE_COUNT) return;
-  uint8_t left = ppLeft(uid, mv);
+  uint8_t left = ppLeftSlot(uid, slot, mv);
   char pp[12];
   snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), left, ppMax(mv));
   gfx->setTextSize(1);
@@ -5639,7 +5647,7 @@ void renderCardMoves() {
   gfx->print(T(S_MOVES));
   for (int i = 0; i < MOVE_SLOTS; i++) {
     drawMoveRow(MOVE_ROW_Y(i), pet.moves[i], false, pet.speciesId);
-    drawMovePp(MOVE_ROW_Y(i), pet.uid, pet.moves[i]);
+    drawMovePp(MOVE_ROW_Y(i), pet.uid, i, pet.moves[i]);
   }
   gfx->setTextColor(UI_INK_SOFT);
   gfx->setTextSize(1);
@@ -5679,6 +5687,9 @@ uint8_t learnableList(uint8_t *out, uint8_t max) {
   }
   return pet.isEgg() ? 0 : learnableFor(pet.speciesId, pet.level(), out, max);
 }
+
+// Where the picker's row i sits, for a test to aim at (not a number to retype).
+int movePickRowY(int i) { return MOVE_PICK_Y(i); }
 
 uint8_t *pickTargetMoves() {
   return movePickParty ? party.slots[movePickParty - 1].moves : pet.moves;
@@ -5846,6 +5857,8 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
   if (lg.charged) { btlSay(T(S_BTL_USED), actor.name, moveName(lg.move)); return; }
   if (lg.move) btlSay(T(S_BTL_USED), actor.name, moveName(lg.move));
   if (lg.missed) { btlSay(T(S_BTL_MISS), actor.name); return; }
+  if (lg.failed) { btlSay(T(S_BTL_FAILED)); return; }
+  if (lg.sketched) { btlSay(T(S_BTL_SKETCHED), actor.name, moveName(lg.sketched)); return; }
   if (lg.immune) { btlSay(T(S_BTL_IMMUNE)); return; }
   if (lg.crit) btlSay(T(S_BTL_CRIT));
   if (lg.damage && lg.effPct > 100) btlSay(T(S_BTL_SUPER));
@@ -5899,6 +5912,7 @@ static void btlBeat(bool hostActed, uint8_t kind, const TurnLog &lg) {
   b.inflicted = lg.inflicted;
   b.stageMask = lg.stageMask;
   b.stageDelta = lg.stageDelta;
+  b.sketch = lg.failed ? LB_SKETCH_FAILED : lg.sketched;
   b.hostHp = btlYou.hp;      // only the host records: its side is btlYou
   b.guestHp = btlFoe.hp;
 }
@@ -5920,6 +5934,8 @@ static TurnLog btlBeatLog(const LinkBeat &b) {
   lg.inflicted = b.inflicted < 7 ? b.inflicted : 0;
   lg.stageMask = b.stageMask;
   lg.stageDelta = b.stageDelta;
+  if (b.sketch == LB_SKETCH_FAILED) lg.failed = true;
+  else if (b.sketch < MOVE_COUNT) lg.sketched = b.sketch;
   return lg;
 }
 
@@ -5943,7 +5959,45 @@ static void foeFromSpecies(Combatant &c, int16_t dex, uint8_t lvl, bool hard) {
 // Your creatures carry their PP from fight to fight (pp.h); an opponent's
 // stays full.
 static void btlLoadPp(Combatant &c) {
-  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppLeft(c.uid, c.moves[i]);
+  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppLeftSlot(c.uid, (uint8_t)i, c.moves[i]);
+}
+
+// THE one way a fight changes a creature's moves (v3.69): SKETCH turned slot
+// `slot` into `to`, and that is for good, as in the games -- saved on the spot,
+// so no way a fight ends (or the power going) can lose it. Found by ID among
+// the live pet and the party, and only over a slot that still holds SKETCH, so
+// it can neither change some other creature nor be applied twice. A creature
+// that is nobody's (a wild foe, a LAN rival on this board) has no ID here.
+bool sketchKeep(const CreatureUid &uid, uint8_t slot, uint8_t to) {
+  if (!uid.valid() || slot >= MOVE_SLOTS || !to || to >= MOVE_COUNT ||
+      to == MV_SKETCH || to == MV_STRUGGLE) return false;
+  if (!pet.isEgg() && pet.uid == uid) {
+    if (pet.moves[slot] != MV_SKETCH) return false;
+    pet.moves[slot] = to;
+    pet.saveNow();
+    return true;
+  }
+  for (int i = 0; i < PARTY_SLOTS; i++) {
+    PartyMon &m = party.slots[i];
+    if (m.empty() || !(m.uid == uid)) continue;
+    if (m.moves[slot] != MV_SKETCH) return false;
+    m.moves[slot] = to;
+    return party.save();
+  }
+  return false;
+}
+
+// After an action: a SKETCH by our side is kept on the creature, and in a LAN
+// fight the squads exchanged at pairing learn it too, since a rematch is built
+// from them (the host keeps the guest's copy in step; the guest its own, in
+// btlApplyResult()).
+static void btlSketched(bool ours, const TurnLog &lg) {
+  if (!lg.sketched || lg.sketchSlot < 0) return;
+  uint8_t s = (uint8_t)lg.sketchSlot;
+  if (ours) sketchKeep(btlYou.uid, s, lg.sketched);
+  if (!btlLink) return;
+  if (ours && btlSquadAt < lan.mineN) lan.mine[btlSquadAt].moves[s] = lg.sketched;
+  if (!ours && btlFoeAt < lan.theirsN) lan.theirs[btlFoeAt].moves[s] = lg.sketched;
 }
 
 // What the fight has left of your active creature's PP, into the book. Every
@@ -6021,7 +6075,10 @@ void startLinkBattle() {
   btlSquadAt = 0;
   for (uint8_t i = 0; i < lan.mineN && i < TRAINER_TEAM_MAX; i++) {
     linkMonTo(btlSquad[btlSquadN], lan.mine[i]);
-    battleFullPp(btlSquad[btlSquadN++]);   // LAN counts PP from full, never the saved book
+    battleFullPp(btlSquad[btlSquadN]);   // LAN counts PP from full, never the saved book
+    // whose it is, so a SKETCH can be kept (sketchKeep()); btlRecordPp() never
+    // writes the book in a LAN fight, so the ID touches nothing else here
+    btlSquad[btlSquadN++].uid = lanMineUid[i];
   }
   if (!btlSquadN) return;
   btlYou = btlSquad[0];
@@ -6177,6 +6234,15 @@ static void btlApplyResult() {
   btlFoe.hp = r.hostHp > btlFoe.maxHp ? btlFoe.maxHp : r.hostHp;
   btlYou.ailment = r.guestAil;
   btlFoe.ailment = r.hostAil;
+  // A SKETCH the host resolved for us: kept, over a SKETCH slot only (v3.69).
+  for (int i = 0; i < MOVE_SLOTS; i++) {
+    uint8_t to = r.guestMoves[i];
+    if (btlYou.moves[i] != MV_SKETCH || to == MV_SKETCH || !to || to >= MOVE_COUNT ||
+        to == MV_STRUGGLE) continue;
+    btlYou.moves[i] = to;
+    sketchKeep(btlYou.uid, (uint8_t)i, to);
+    if (btlSquadAt < lan.mineN) lan.mine[btlSquadAt].moves[i] = to;   // for a rematch
+  }
   for (int i = 0; i < MOVE_SLOTS; i++) {   // the host spends PP; we show it
     uint8_t mx = ppMax(btlYou.moves[i]);
     btlYou.pp[i] = r.guestPp[i] > mx ? mx : r.guestPp[i];
@@ -6293,6 +6359,7 @@ static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
   r.hostIdx = btlSquadAt; r.guestIdx = btlFoeAt;
   if (btlYou.fainted() || btlFoe.fainted()) r.flags |= 0x04;
   for (int i = 0; i < MOVE_SLOTS; i++) r.guestPp[i] = btlFoe.pp[i];
+  for (int i = 0; i < MOVE_SLOTS; i++) r.guestMoves[i] = btlFoe.moves[i];
   r.beatN = btlBeatN;
   memcpy(r.beats, btlBeats, sizeof(LinkBeat) * btlBeatN);
   r.hostNext = nYou < 0 ? LINK_NO_NEXT : (uint8_t)nYou;
@@ -6509,6 +6576,7 @@ static void btlResolve(uint8_t yourMove) {
 
   uint16_t hp0You = btlYou.hp, hp0Foe = btlFoe.hp;
   battleAct(*a, *b, ma, lg);
+  btlSketched(a == &btlYou, lg);
   // what was really used (an empty move becomes STRUGGLE), for the guest
   uint8_t usedYou = yourMove, usedFoe = foeMove;
   if (a == &btlYou) usedYou = lg.move; else usedFoe = lg.move;
@@ -6517,6 +6585,7 @@ static void btlResolve(uint8_t yourMove) {
   if (lg.damage && !lg.hurtSelf) btlLungeUntil[a == &btlYou ? 0 : 1] = now + BTL_LUNGE_MS;
   if (!b->fainted()) {
     battleAct(*b, *a, mb, lg);
+    btlSketched(b == &btlYou, lg);
     if (b == &btlYou) usedYou = lg.move; else usedFoe = lg.move;
     btlNarrate(*b, *a, lg);
     btlBeat(b == &btlYou, 0, lg);
@@ -8076,6 +8145,7 @@ static void lanOffer(bool host) {
     LinkMon m;
     linkMonFrom(m, btlSquad[i]);
     lan.addMon(m);
+    lanMineUid[i] = btlSquad[i].uid;   // this board's own; never on the wire
   }
   if (!linkNowBegin(&lan)) {          // no radio: say so rather than hanging
     lan.state = LINK_REFUSED;

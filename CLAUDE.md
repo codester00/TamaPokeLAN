@@ -906,6 +906,42 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: SKETCH, and a fight that changes a creature (v3.69, on the branch)
+
+Owner, 2026-10-27: a level 35 Smeargle knew nothing (its learnset was empty --
+SKETCH was never in the move list). SKETCH is move 240, appended (MOVE_COUNT
+241); `dex_learnsets.py` 235 is `[('sketch', 1)]`, hand-patched to exactly what
+`fetch_pokeapi.py` emits (its cache is gone; only Smeargle learns Sketch).
+`sketch_test`; nine guards negative-checked.
+
+- **Engine**: `Combatant::lastMove` (set in `battleAct()` for any move used,
+  hit or miss; not on a skipped turn). `EF_SKETCH` turns the slot it was used
+  from into `battleSketchTarget()` -- THE rule: fails when the foe has not
+  moved, used STRUGGLE or SKETCH, or the move is already known. `spendPp()`
+  now spends a slot WITH PP left and says which (a move can sit in four slots).
+  The AI scores a SKETCH with nothing to copy at -100.
+- **`sketchKeep(uid, slot, to)` is THE one way a fight changes a creature**:
+  by ID over the live pet and the party, only over a slot still holding SKETCH
+  (so it cannot hit another creature or apply twice), saved on the spot.
+  `btlSketched()` calls it after each of our actions and keeps LAN's exchanged
+  squads (`lan.mine`/`lan.theirs`) in step for a rematch.
+- **Slots**: `sketchSlotsAt(lvl)` = 1 + (lvl-1)/10, max 4 (the games' 1, 11,
+  21, 31). `fillSketchSlots()` fills EMPTY slots only, from `checkLearnGates()`
+  before its early return, so a pre-3.69 moveless Smeargle gets its four at once.
+  The picker allows SKETCH duplicates up to that count; otherwise it swaps ONE
+  slot (it used to rewrite every copy -- the test caught it). PP is per slot
+  (`ppLeftSlot()`), or one failed SKETCH emptied all four.
+- **LAN (`LINK_PROTO` 9)**: `LinkBeat::sketch` (the copied move or
+  `LB_SKETCH_FAILED`) for narration, and `LinkResult::guestMoves` (absolute).
+  The guest keeps a change ONLY over its own SKETCH slot. The guest's combatants
+  get their IDs from `lanMineUid[]`, filled in `lanOffer()`, never sent.
+- **Wild**: `rollWildMoves()` gives a SKETCH learner four distinct moves from
+  the whole list (never SKETCH/STRUGGLE, at least one attack); caught, it keeps
+  them (`wildToPartyMon()` copies the foe's moves). No trainer has a Smeargle.
+- Not done: `lastMove` lasts the whole fight per creature (the games clear it
+  on a switch), so a creature switched back in can be copied from its earlier
+  turn. Transform (Ditto) is still absent.
+
 ### Done: indoor battle backgrounds (v3.65, on the branch, not merged)
 
 Owner, 2026-10-24: trainer, gym and LAN fights indoors, every region.

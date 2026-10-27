@@ -35,6 +35,9 @@ struct Combatant {
   uint8_t pp[MOVE_SLOTS] = { 0, 0, 0, 0 };
   bool ppOn = false;
   CreatureUid uid;           // whose PP book entry; invalid for an opponent
+  // The last move this creature used in the fight, for the foe's SKETCH to
+  // copy (v3.69). Per creature for the whole fight; 0 = none yet.
+  uint8_t lastMove = 0;
 
   bool fainted() const { return hp == 0; }
 };
@@ -81,7 +84,16 @@ struct TurnLog {
   bool charged = false;    // spent the turn winding up
   bool healed = false;
   bool targetFainted = false;
+  // SKETCH (v3.69): the move it copied, into which slot -- the caller keeps it
+  // on the creature for good (sketchKeep() in the sketch) -- or that it failed.
+  uint8_t sketched = 0;
+  int8_t sketchSlot = -1;
+  bool failed = false;
 };
+
+// SKETCH's one rule: what it copies from `def` into `atk`, or 0 when it fails
+// (the foe has not moved, used STRUGGLE or SKETCH, or `atk` already knows it).
+uint8_t battleSketchTarget(const Combatant &atk, const Combatant &def);
 
 uint16_t stagedStat(uint16_t base, int8_t stage);
 uint16_t battleDamage(const Combatant &atk, const Combatant &def, uint8_t mv,

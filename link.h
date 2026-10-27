@@ -39,8 +39,9 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 8        // bump on ANY wire change; a mismatch is refused
-                            // (8, v3.64: LinkResult carries the turn's beats)
+#define LINK_PROTO 9        // bump on ANY wire change; a mismatch is refused
+                            // (8, v3.64: LinkResult carries the turn's beats;
+                            // 9, v3.69: SKETCH in the beats, the guest's moves)
                             // (6, v3.58: the stats a LinkMon carries scale
                             // training with level; 7, v3.60: the trainer marks
                             // in the hello, the creature mark in LinkMon::flags)
@@ -153,7 +154,9 @@ struct LinkBeat {
   uint8_t stageMask;
   int8_t stageDelta;
   uint16_t hostHp, guestHp;
+  uint8_t sketch;       // v3.69: the move SKETCH copied, LB_SKETCH_FAILED, or 0
 };
+#define LB_SKETCH_FAILED 0xFF
 
 struct LinkResult {
   uint16_t hostHp, guestHp;
@@ -178,6 +181,11 @@ struct LinkResult {
   uint8_t hostNextAil, guestNextAil;
   uint8_t beatN;               // v3.64
   LinkBeat beats[LINK_BEATS];
+  // v3.69 (LINK_PROTO 9): the guest's creature out now's moves, ABSOLUTE like
+  // its PP. A SKETCH the host resolved for it shows up here, and the guest
+  // keeps it -- but only over a slot it really holds SKETCH in, so a host can
+  // never rewrite any other move.
+  uint8_t guestMoves[MOVE_SLOTS];
 };
 #define LINK_NO_NEXT 0xFF
 

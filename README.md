@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.68-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.69-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -475,8 +475,20 @@ user's ATTACK, CLOSE COMBAT and OVERHEAT lower the user's own stats. 48 attacks
 carry one, including PSYCHIC, CRUNCH, SHADOW BALL and ACID, which used to ignore
 theirs. Accuracy and evasion stages are deliberately left out. Every species can
 attack by level-up except the ones that cannot in the games either (METAPOD,
-KAKUNA, ABRA, DITTO, SMEARGLE...) and five whose only real attacks need effects
+KAKUNA, ABRA, DITTO...) and five whose only real attacks need effects
 this game does not have (UNOWN, WOBBUFFET, WYNAUT, PYUKUMUKU, APPLIN).
+
+**SKETCH** (since v3.69) is SMEARGLE's whole movepool, as in the games. It learns
+it at levels 1, 11, 21 and 31, so it holds up to four (one more slot every ten
+levels, filled by itself while a slot is empty; the move picker allows as many
+as the level does). Used in a fight, SKETCH turns into the move the opponent
+used last, with that move's full PP, **for good**: the creature keeps it after
+the fight, saved on the spot, and its other moves are untouched. It fails --
+and still spends its 1 PP -- if the opponent has not moved yet, used STRUGGLE or
+SKETCH, or the move is one SMEARGLE already knows. Each SKETCH slot keeps its own
+PP. It works in LAN battles too: the host resolves it and the guest's board keeps
+the move. A wild SMEARGLE meets you with four random moves from the whole list
+(at least one attack) and keeps them if caught; no trainer uses one.
 
 **PP** (since v3.52). Every move has the games' own PP — TACKLE 35, SURF 15,
 RECOVER 5 — shown on each move button in a fight and on the creature's move

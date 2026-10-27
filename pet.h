@@ -150,6 +150,14 @@ uint8_t moveUnlockLevelFor(const Pet &owner, int16_t dex, uint8_t idx);
 // Would teaching `mv` to `dex` at `lvl` lean on a TM only the cheat gave? The
 // move picker marks the creature when it does (cheats.h). v3.60.
 bool moveNeedsCheatedTm(const Pet &owner, int16_t dex, uint8_t lvl, uint8_t mv);
+// SKETCH (v3.69). Smeargle learns it at 1, 11, 21 ... in every game, so a
+// species that learns it may hold this many by `lvl` (four from 31). THE rule
+// for the move picker and for filling empty slots (fillSketchSlots()).
+bool learnsSketch(int16_t dex);
+uint8_t sketchSlotsAt(uint8_t lvl);
+// Puts SKETCH into empty slots up to sketchSlotsAt(lvl) in all; never over a
+// move it knows (a sketched move is a move). True if anything changed.
+bool fillSketchSlots(int16_t dex, uint8_t lvl, uint8_t moves[MOVE_SLOTS]);
 
 // ---------------------------------------------------------------------------
 // Which regions have their sprite pack on the microSD.
