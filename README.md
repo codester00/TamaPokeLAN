@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.70-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.71-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -960,7 +960,9 @@ Explore keeps switched off:
 - Ordinary IVs roll **8–31**, independently.
 
 **Catching.** Pick a ball from the battle **BAG**. It spends your turn either way,
-so throwing is never free.
+so throwing is never free. The battle bag shows four items a page, balls first;
+drag along the right edge to reach the rest (since v3.71 -- before, only the
+first four could be reached).
 
 `chance = base × hpFactor × statusFactor × ball / 10000`, capped at **95 %** — a
 ball is always a gamble. The Master Ball is the one exception and never rolls.

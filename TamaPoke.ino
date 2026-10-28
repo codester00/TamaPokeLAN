@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.70"
+#define FW_VERSION "3.71"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -863,6 +863,13 @@ bool wildCaught = false;
 ItemKey wildDrops[4] = { ITEM_NONE, ITEM_NONE, ITEM_NONE, ITEM_NONE };
 uint8_t wildDropN = 0;
 uint8_t btlBagPage = 0;
+// The battle bag's list: what may be used in a fight (itemUsableInBattle()),
+// four to a page, paged along the rim (v3.71). Drawing, tapping and the rim
+// all ask these two, so the list cannot be cut short in one place again --
+// v3.70 and earlier drew only the first four and had no way to page.
+#define BTL_BAG_PER_PAGE 4
+static uint8_t btlBagCount();
+static bool btlBagAt(uint8_t i, ItemKey *out);
 
 // Animation. Deliberately built on the thumbnails the screen already draws
 // rather than on PmdMon: three PmdMon blobs are live already, and the battle
@@ -913,6 +920,11 @@ uint8_t btlMsgCount = 0;   // queued lines; a tap shows the next
 // poison tick with its own -- as the games do -- not all at once when the
 // moves are picked.
 uint16_t btlMsgHp[8][2];
+// Which side's faint each queued line announces (bit 0 ours, bit 1 theirs).
+// The sprite drops out of frame when that line comes on screen (v3.71), with
+// the text and the empty bar -- not when the moves resolve, which hid a foe
+// while "X used Y" was still being read.
+uint8_t btlMsgFaint[8];
 #define BTL_CELL_W 160
 #define BTL_CELL_H 54
 #define BTL_GRID_X 69
@@ -3275,6 +3287,13 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
       n = k ? (uint8_t)((k + MOVE_PICK_PER_PAGE - 1) / MOVE_PICK_PER_PAGE) : 1;
       break;
     }
+    case SCR_BATTLE:
+      if (btlMenu == 3 && !btlMsgCount) {
+        uint8_t k = btlBagCount();
+        p = &btlBagPage;
+        n = k ? (uint8_t)((k + BTL_BAG_PER_PAGE - 1) / BTL_BAG_PER_PAGE) : 1;
+      }
+      break;
     case SCR_PICK: {
       uint8_t k = pickCandidates();
       p = &pickPage;
@@ -5836,7 +5855,39 @@ static void btlSay(const char *fmt, ...) {
   va_end(ap);
   btlMsgHp[btlMsgCount][0] = btlYou.hp;
   btlMsgHp[btlMsgCount][1] = btlFoe.hp;
+  btlMsgFaint[btlMsgCount] = 0;
   btlMsgCount++;
+}
+
+static inline uint8_t btlSideOf(const Combatant &c) { return &c == &btlYou ? 0 : 1; }
+
+// "X fainted!", marked so its sprite drops with it.
+static void btlSayFaint(const Combatant &c) {
+  uint8_t n = btlMsgCount;
+  btlSay(T(S_BTL_FAINT), c.name);
+  if (btlMsgCount > n) btlMsgFaint[n] |= (uint8_t)(1 << btlSideOf(c));
+}
+
+// THE one way a faint is staged: the drop waits for the side's faint line,
+// saying one if the turn's narration did not (a recoil faint), and starts on
+// the spot only if the queue was too full to hold it.
+static void btlFaintArm(uint8_t who) {
+  uint8_t bit = (uint8_t)(1 << who);
+  for (uint8_t i = 0; i < btlMsgCount; i++)
+    if (btlMsgFaint[i] & bit) return;
+  btlSayFaint(who == 0 ? btlYou : btlFoe);
+  for (uint8_t i = 0; i < btlMsgCount; i++)
+    if (btlMsgFaint[i] & bit) return;
+  btlFaintUntil[who] = millis() + BTL_FAINT_MS;
+}
+
+// The line on screen announces a faint: start that drop (once -- the bit is
+// spent). Called every frame and after every dismiss.
+void btlFaintFromHead() {
+  if (!btlMsgCount || !btlMsgFaint[0]) return;
+  for (uint8_t who = 0; who < 2; who++)
+    if (btlMsgFaint[0] & (1 << who)) btlFaintUntil[who] = millis() + BTL_FAINT_MS;
+  btlMsgFaint[0] = 0;
 }
 
 // Turns a TurnLog into narration. Everything here was already decided by the
@@ -5887,7 +5938,7 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
     const Combatant &who = lg.stageOnUser ? actor : target;
     if (!who.fainted()) btlSay(T(fmt), who.name, T(stat));
   }
-  if (lg.targetFainted) btlSay(T(S_BTL_FAINT), target.name);
+  if (lg.targetFainted) btlSayFaint(target);
 }
 
 // An end-of-turn tick: poison or a burn, with its own line so the bar's drop
@@ -5895,7 +5946,7 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
 static void btlNarrateTick(const Combatant &c, const TurnLog &lg) {
   if (!lg.damage) return;
   btlSay(T(lg.inflicted == AIL_BURN ? S_BTL_HURT_BRN : S_BTL_HURT_PSN), c.name);
-  if (lg.targetFainted) btlSay(T(S_BTL_FAINT), c.name);
+  if (lg.targetFainted) btlSayFaint(c);
 }
 
 static_assert(1 + sizeof(LinkResult) <= LINK_MAX_PAYLOAD, "a turn's result must fit one packet");
@@ -6263,10 +6314,8 @@ static void btlApplyResult() {
   // line by line here too. The absolute state is put back after.
   const uint16_t finalYou = btlYou.hp, finalFoe = btlFoe.hp;
   uint8_t n = r.beatN > LINK_BEATS ? LINK_BEATS : r.beatN;
-  bool faintSaid[2] = { false, false };   // [0] ours, [1] theirs
   for (uint8_t k = 0; k < n; k++) {
     const LinkBeat &b = r.beats[k];
-    if (b.flags & LB_FAINTED) faintSaid[(b.kind == 1) == (b.who == 0) ? 1 : 0] = true;
     btlYou.hp = b.guestHp > btlYou.maxHp ? btlYou.maxHp : b.guestHp;
     btlFoe.hp = b.hostHp > btlFoe.maxHp ? btlFoe.maxHp : b.hostHp;
     TurnLog lg = btlBeatLog(b);
@@ -6281,8 +6330,8 @@ static void btlApplyResult() {
   if (r.hostDmg) btlHitUntil[1] = now + BTL_HIT_MS;
   // A faint is normally a beat's own line; one the beats did not carry is still
   // said, since dismissing that line is what brings the replacement on.
-  if (btlYou.fainted()) { btlFaintUntil[0] = now + BTL_FAINT_MS; if (!faintSaid[0]) btlSay(T(S_BTL_FAINT), btlYou.name); }
-  if (btlFoe.fainted()) { btlFaintUntil[1] = now + BTL_FAINT_MS; if (!faintSaid[1]) btlSay(T(S_BTL_FAINT), btlFoe.name); }
+  if (btlYou.fainted()) btlFaintArm(0);
+  if (btlFoe.fainted()) btlFaintArm(1);
   // Who comes on for a fainted side: the host's decision, never this board's.
   // btlDoSwap() brings them on when the faint message is dismissed -- and until
   // then the guest cannot act, so its next move is always chosen from the
@@ -6509,6 +6558,24 @@ static void btlThrowBall(ItemKey k) {
 
 // A potion or a full heal, on whichever creature is out. It works on the
 // Combatant, so like every ailment it is battle-only and is never written back.
+static uint8_t btlBagCount() {
+  uint8_t n = 0, d = bag.distinctCount();
+  for (uint8_t idx = 0; idx < d; idx++)
+    if (itemUsableInBattle(bag.keyAt(idx))) n++;
+  return n;
+}
+
+// The i-th usable item, in bag order. False past the end.
+static bool btlBagAt(uint8_t i, ItemKey *out) {
+  uint8_t d = bag.distinctCount();
+  for (uint8_t idx = 0; idx < d; idx++) {
+    ItemKey k = bag.keyAt(idx);
+    if (!itemUsableInBattle(k)) continue;
+    if (!i--) { *out = k; return true; }
+  }
+  return false;
+}
+
 static void btlUseItem(ItemKey k) {
   const ItemEntry &e = itemEntry(k);
   bool useful = (e.category == IC_HEAL) ? btlYou.hp < btlYou.maxHp
@@ -6635,14 +6702,14 @@ static void btlResolve(uint8_t yourMove) {
       btlNextAt[1] = (uint8_t)nFoe;
       btlNextHp[1] = btlLink ? btlFoeSquad[nFoe].hp : 0;
       btlNextAil[1] = btlLink ? btlFoeSquad[nFoe].ailment : 0;
-      btlFaintUntil[1] = millis() + BTL_FAINT_MS;
+      btlFaintArm(1);
     }
     if (nYou >= 0) {
       btlSwapDue |= 1;
       btlNextAt[0] = (uint8_t)nYou;
       btlNextHp[0] = btlSquad[nYou].hp;
       btlNextAil[0] = btlSquad[nYou].ailment;
-      btlFaintUntil[0] = millis() + BTL_FAINT_MS;
+      btlFaintArm(0);
     }
     return;
   }
@@ -6651,8 +6718,8 @@ static void btlResolve(uint8_t yourMove) {
     btlWon = foeOut;   // their side has nobody left (both empty at once: yours)
     // the last one down drops out of frame like every other, rather than the
     // fight cutting away with it still standing
-    if (btlFoe.fainted()) btlFaintUntil[1] = millis() + BTL_FAINT_MS;
-    if (btlYou.fainted()) btlFaintUntil[0] = millis() + BTL_FAINT_MS;
+    if (btlFoe.fainted()) btlFaintArm(1);
+    if (btlYou.fainted()) btlFaintArm(0);
     btlNewBadge = false;
     btlTrainGain = 0;
     if (btlWon && btlTrainer >= 0 && !pet.hasBadge(btlRegion, btlTrainer, btlHard)) {
@@ -6774,8 +6841,8 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
   if (now < btlFaintUntil[who]) {          // sinks out of frame as it faints
     uint32_t left = btlFaintUntil[who] - now;
     oy += (int)((BTL_FAINT_MS - left) * 70 / BTL_FAINT_MS);
-  } else if (c.fainted() && (btlSwapDue & (1 << who))) {
-    return;                                // gone, waiting to be replaced
+  } else if (c.fainted() && btlFaintUntil[who]) {
+    return;                                // dropped out: gone until replaced
   }
   if (now < btlEnterUntil[who]) {          // and the next one rises into place
     uint32_t left = btlEnterUntil[who] - now;
@@ -6918,6 +6985,7 @@ void renderWin() {
 
 void renderBattle() {
   if (btlWinUntil) { renderWin(); return; }
+  btlFaintFromHead();
   btlEaseBars();
   gfx->fillScreen(RGB565_BLACK);
   drawBattleBack();
@@ -7018,13 +7086,9 @@ void renderBattle() {
     // The battle bag: balls and medicine, never vitamins -- training is
     // permanent and belongs to the care sim.
     uint8_t shown = 0;
-    uint8_t n = bag.distinctCount();
-    for (uint8_t idx = 0; idx < n && shown < 4; idx++) {
-      ItemKey k = bag.keyAt(idx);
-      if (!itemUsableInBattle(k)) continue;
-      if (shown < btlBagPage * 4) { shown++; continue; }
-      int cell = shown - btlBagPage * 4;
-      if (cell >= 4) break;
+    for (uint8_t cell = 0; cell < BTL_BAG_PER_PAGE; cell++) {
+      ItemKey k;
+      if (!btlBagAt(btlBagPage * BTL_BAG_PER_PAGE + cell, &k)) break;
       int x = BTL_CELL_X(cell), y = BTL_CELL_Y(cell);
       bool live = !itemIsBall(k) || btlWild;   // a ball needs a wild target
       gfx->fillRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, live ? UI_BG_DAY : UI_TRACK);
@@ -7040,6 +7104,7 @@ void renderBattle() {
       gfx->print(cnt);
       shown++;
     }
+    uiDrawRimBar();
     if (!shown) {
       gfx->setTextColor(UI_INK_SOFT);
       gfx->setTextSize(1);
@@ -7290,8 +7355,10 @@ void battleTap(int16_t x, int16_t y) {
       memcpy(btlMsg[i - 1], btlMsg[i], sizeof(btlMsg[0]));
       btlMsgHp[i - 1][0] = btlMsgHp[i][0];
       btlMsgHp[i - 1][1] = btlMsgHp[i][1];
+      btlMsgFaint[i - 1] = btlMsgFaint[i];
     }
     btlMsgCount--;
+    btlFaintFromHead();
     if (btlMsgCount) return;
     if (btlOver && btlWinPending) {        // the last turn has been read: the badge
       btlWinPending = false;
@@ -7365,15 +7432,9 @@ void battleTap(int16_t x, int16_t y) {
   }
   if (btlMenu == 3) {
     if (btlBackTap(x, y)) return;
-    uint8_t shown = 0;
-    uint8_t n = bag.distinctCount();
-    for (uint8_t idx = 0; idx < n; idx++) {
-      ItemKey k = bag.keyAt(idx);
-      if (!itemUsableInBattle(k)) continue;
-      if (shown < btlBagPage * 4) { shown++; continue; }
-      int cell = shown - btlBagPage * 4;
-      if (cell >= 4) break;
-      shown++;
+    for (uint8_t cell = 0; cell < BTL_BAG_PER_PAGE; cell++) {
+      ItemKey k;
+      if (!btlBagAt(btlBagPage * BTL_BAG_PER_PAGE + cell, &k)) break;
       if (!btlCellHit(cell, x, y)) continue;
       // ONE predicate decides whether a ball may be thrown, and the draw above
       // asks the same one -- a greyed cell that still worked is the exact fault

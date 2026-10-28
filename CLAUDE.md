@@ -906,6 +906,28 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: the battle bag pages, a faint drops with its line (v3.71, on the branch)
+
+Owner, 2026-10-28: the battle bag showed the first four usable items and nothing
+else (no page control at all -- `btlBagPage` existed but nothing moved it, and
+the draw loop stopped at four), and the foe's sprite dropped out of frame while
+"X used Y" was still being read.
+
+- **`btlBagCount()`/`btlBagAt(i)` are THE battle bag list** (balls first, bag
+  order); drawing, tapping and the rim all ask them. `SCR_BATTLE` is in
+  `uiRimTarget()` while the bag is open (`btlMenu == 3`, no message queued), so
+  the rim pages it and the bag draws `uiDrawRimBar()`.
+- **A faint drops with its own line.** `btlMsgFaint[]` marks which side's faint
+  each queued line announces (`btlSayFaint()`, shifted with the queue);
+  `btlFaintFromHead()` (every frame and after each dismiss) starts the drop when
+  that line comes on screen. `btlFaintArm(who)` is the one way a faint is staged
+  -- every resolution site and the LAN guest call it; it says a faint line the
+  narration did not (a recoil faint) and starts on the spot only if the queue is
+  full. A fainted creature whose drop has run is not drawn (it used to be hidden
+  only while a swap was due).
+- `battlebag_test`; `blackout_test`'s last-faint check reads up to the line.
+  Negative-checked: no rim paging, the drop started at resolution.
+
 ### Done: the team picker sets the battle order (v3.70, on the branch)
 
 Owner, 2026-10-28: a Smeargle kept leading (and fainting) because the squad was

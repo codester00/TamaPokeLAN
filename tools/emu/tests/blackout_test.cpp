@@ -134,8 +134,10 @@ int main() {
     ck(btlOver && btlWon, "(Mewtwo beat Brock)");
     ck(btlMsgCount > 0 && !btlWinUntil && on("battle"),
        "the final turn's messages are on screen, not the badge yet");
-    ck(btlFaintUntil[1] > millis(), "and the last of his team drops out of frame");
+    // the drop waits for its own line (v3.71): read up to it, then it runs
     int taps = 0;
+    while (btlMsgCount > 1 && !btlFaintUntil[1] && taps < 50) { onTap(233, 233); taps++; }
+    ck(btlFaintUntil[1] > millis(), "and the last of his team drops out of frame with its line");
     while (btlMsgCount && taps < 50) { onTap(233, 233); taps++; }
     ck(btlWinUntil && on("win"), "clearing the last message opens the badge screen");
     onTap(233, 233);
