@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.69"
+#define FW_VERSION "3.70"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -684,6 +684,17 @@ uint8_t pickRegion = 0;
 #define PICK_TRAINERS (TRAINER_SETS[pickRegion % GYM_REGIONS].list)
 bool lanWantHost = true;   // which button opened the picker
 uint16_t squadMask = 0xFFFF;   // everything, until the player says otherwise
+// The ORDER the player picked them in (v3.70): candidate numbers, the first
+// leads. squadMask says who is in; squadSequence() is the one answer for in
+// what order, so a mask set without an order (a test, the console) still
+// fights in pool order. The last team picked is remembered by creature ID, so
+// a slot swapped in the party between fights cannot change who it means.
+uint8_t squadOrder[PARTY_SLOTS + 1];
+uint8_t squadOrderN = 0;
+CreatureUid pickMemory[TRAINER_TEAM_MAX];
+uint8_t pickMemoryN = 0;
+bool pickExists(uint8_t n);
+uint8_t squadSequence(uint16_t mask, uint8_t *out);
 CreatureUid lanMineUid[TRAINER_TEAM_MAX];   // lan.mine's IDs, this board only (v3.69)
 uint8_t pickPage = 0;
 #define PICK_PER_PAGE 6
@@ -6013,17 +6024,21 @@ static void buildSquad(uint8_t maxLvl, uint8_t maxCount, uint16_t mask) {
   btlSquadAt = 0;
   btlPetIn = false;
   if (maxCount > TRAINER_TEAM_MAX) maxCount = TRAINER_TEAM_MAX;
-  if (!pet.isEgg() && btlSquadN < maxCount && (mask & 1)) {
-    Pet tmp = pet;                       // a copy: the real pet is untouched
-    if (maxLvl && tmp.level() > maxLvl)
-      tmp.ageMinutes = (uint32_t)(maxLvl - 1) * MINUTES_PER_LEVEL;
-    combatantFromPet(btlSquad[btlSquadN], tmp);
-    btlSquad[btlSquadN].ppOn = !cheatOn(CT_UNLIMITED_PP);
-    btlLoadPp(btlSquad[btlSquadN++]);
-    btlPetIn = true;      // the training reward goes to whoever fought for it
-  }
-  for (int i = 0; i < PARTY_SLOTS && btlSquadN < maxCount; i++) {
-    if (party.slots[i].empty() || !(mask & (1 << (i + 1)))) continue;
+  uint8_t seq[PARTY_SLOTS + 1];
+  uint8_t seqN = squadSequence(mask, seq);   // in the order picked: the first leads
+  for (uint8_t k = 0; k < seqN && btlSquadN < maxCount; k++) {
+    uint8_t n = seq[k];
+    if (n == 0) {
+      Pet tmp = pet;                       // a copy: the real pet is untouched
+      if (maxLvl && tmp.level() > maxLvl)
+        tmp.ageMinutes = (uint32_t)(maxLvl - 1) * MINUTES_PER_LEVEL;
+      combatantFromPet(btlSquad[btlSquadN], tmp);
+      btlSquad[btlSquadN].ppOn = !cheatOn(CT_UNLIMITED_PP);
+      btlLoadPp(btlSquad[btlSquadN++]);
+      btlPetIn = true;      // the training reward goes to whoever fought for it
+      continue;
+    }
+    int i = n - 1;
     PartyMon m = party.slots[i];
     if (maxLvl && m.level > maxLvl) m.level = maxLvl;
     combatantFromParty(btlSquad[btlSquadN], m);
@@ -7848,14 +7863,78 @@ uint8_t pickCandidates() {
     if (pickExists(n)) c++;
   return c;
 }
-// Trims the selection to the first `cap` candidates. The default used to be
-// "everything", which with a live pet plus six banked is seven against a cap of
-// six -- so the screen opened already invalid.
+// THE battle order (v3.70): the candidates in `mask`, those the player picked
+// first in the order they picked them, then any others in pool order (a mask
+// set with no order behind it). Returns how many; the first leads.
+uint8_t squadSequence(uint16_t mask, uint8_t *out) {
+  uint8_t k = 0;
+  uint16_t done = 0;
+  for (uint8_t i = 0; i < squadOrderN; i++) {
+    uint8_t n = squadOrder[i];
+    if (n > PARTY_SLOTS || !(mask & (1 << n)) || (done & (1 << n)) || !pickExists(n)) continue;
+    out[k++] = n; done |= (uint16_t)(1 << n);
+  }
+  for (uint8_t n = 0; n <= PARTY_SLOTS; n++)
+    if ((mask & (1 << n)) && !(done & (1 << n)) && pickExists(n)) { out[k++] = n; done |= (uint16_t)(1 << n); }
+  return k;
+}
+
+static CreatureUid pickUid(uint8_t n) {
+  return n == 0 ? pet.uid : party.slots[n - 1].uid;
+}
+
+// Where a candidate sits in the battle order, 1 = the lead; 0 = not picked.
+uint8_t pickPosition(uint8_t n) {
+  uint8_t seq[PARTY_SLOTS + 1];
+  uint8_t k = squadSequence(squadMask, seq);
+  for (uint8_t i = 0; i < k; i++) if (seq[i] == n) return (uint8_t)(i + 1);
+  return 0;
+}
+
+// Where the picker draws its i-th cell on the page, and its FIGHT button, for a
+// test to aim at (not numbers to retype).
+void pickCellPos(uint8_t i, int *x, int *y) { *x = PICK_X(i); *y = PICK_Y(i); }
+void pickGoPos(int *x, int *y) { *x = PICK_GO_X + PICK_BTN_W / 2; *y = PICK_GO_Y + PICK_BTN_H / 2; }
+
+// A tap on a candidate: in at the back of the order, or out of it.
+void pickToggle(uint8_t n) {
+  if (!pickExists(n)) return;
+  uint8_t seq[PARTY_SLOTS + 1];
+  uint8_t k = squadSequence(squadMask, seq);   // the order as shown, made explicit
+  squadOrderN = 0;
+  bool was = (squadMask & (1 << n)) != 0;
+  for (uint8_t i = 0; i < k; i++) if (seq[i] != n) squadOrder[squadOrderN++] = seq[i];
+  if (!was) squadOrder[squadOrderN++] = n;
+  squadMask ^= (uint16_t)(1 << n);
+}
+
+// Kept for the next time the picker opens: the team just sent into a fight,
+// in its order, by creature ID.
+void pickRemember() {
+  uint8_t seq[PARTY_SLOTS + 1];
+  uint8_t k = squadSequence(squadMask, seq);
+  pickMemoryN = 0;
+  for (uint8_t i = 0; i < k && pickMemoryN < TRAINER_TEAM_MAX; i++)
+    pickMemory[pickMemoryN++] = pickUid(seq[i]);
+}
+
+// What the picker opens with: the last team picked, in its order, as far as
+// those creatures are still here and the cap allows; else the first `cap`
+// candidates. The default used to be "everything", which with a live pet plus
+// six banked is seven against a cap of six -- so the screen opened invalid.
 void pickDefault(uint8_t cap) {
   squadMask = 0;
-  uint8_t taken = 0;
-  for (uint8_t n = 0; n <= PARTY_SLOTS && taken < cap; n++)
-    if (pickExists(n)) { squadMask |= (1 << n); taken++; }
+  squadOrderN = 0;
+  for (uint8_t i = 0; i < pickMemoryN && squadOrderN < cap; i++)
+    for (uint8_t n = 0; n <= PARTY_SLOTS; n++)
+      if (pickExists(n) && !(squadMask & (1 << n)) && pickUid(n).valid() && pickUid(n) == pickMemory[i]) {
+        squadMask |= (uint16_t)(1 << n);
+        squadOrder[squadOrderN++] = n;
+        break;
+      }
+  if (squadOrderN) return;
+  for (uint8_t n = 0; n <= PARTY_SLOTS && squadOrderN < cap; n++)
+    if (pickExists(n)) { squadMask |= (uint16_t)(1 << n); squadOrder[squadOrderN++] = n; }
 }
 
 static void drawPickCell(uint8_t n, int x, int y, uint8_t capLvl) {
@@ -7891,11 +7970,15 @@ static void drawPickCell(uint8_t n, int x, int y, uint8_t capLvl) {
     gfx->setCursor(x + 54, y + 60);
     gfx->print(typeName(d.type2));
   }
-  if (on) {
-    gfx->fillCircle(x + PICK_CELL_W - 16, y + 16, 9, UI_BAR_OK);
+  if (on) {   // its place in the battle order: 1 leads
+    char ord[4];
+    snprintf(ord, sizeof(ord), "%u", (unsigned)pickPosition(n));
+    gfx->fillCircle(x + PICK_CELL_W - 16, y + 16, 11, UI_BAR_OK);
     gfx->setTextColor(UI_BG_DAY);
-    gfx->setCursor(x + PICK_CELL_W - 19, y + 13);
-    gfx->print("*");
+    gfx->setTextSize(2);
+    gfx->setCursor(x + PICK_CELL_W - 21, y + 9);
+    gfx->print(ord);
+    gfx->setTextSize(1);
   }
 }
 
@@ -7957,6 +8040,7 @@ void renderPick() {
   gfx->setCursor(PICK_GO_X + (PICK_BTN_W - (int)strlen(T(S_FIGHT)) * 12) / 2,
                  PICK_GO_Y + 14);
   gfx->print(T(S_FIGHT));
+  uiChrome();   // the rim scrollbar, like every paged screen (v3.70)
   gfx->flush();
 }
 
@@ -7975,6 +8059,7 @@ void pickTap(int16_t x, int16_t y) {
     if (pickChosen() == 0 || pickChosen() > cap) return;   // GO stays inert
     sfxPlay(SFX_TAP);
     pickOpen = false;
+    pickRemember();
     if (pickTrainer == PICK_LAN) {
       // The squad is chosen BEFORE the radio comes up, so what gets offered to
       // the peer is what the player picked -- lanOffer() builds lan.mine from
@@ -8001,7 +8086,7 @@ void pickTap(int16_t x, int16_t y) {
     int cx0 = PICK_X(drawn), cy0 = PICK_Y(drawn);
     drawn++;
     if (x < cx0 || x > cx0 + PICK_CELL_W || y < cy0 || y > cy0 + PICK_CELL_H) continue;
-    squadMask ^= (1 << n);
+    pickToggle(n);
     sfxPlay(SFX_TAP);
     return;
   }

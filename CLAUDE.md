@@ -906,6 +906,25 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: the team picker sets the battle order (v3.70, on the branch)
+
+Owner, 2026-10-28: a Smeargle kept leading (and fainting) because the squad was
+always the live pet first, then the party in slot order, whatever was tapped.
+
+- **`squadSequence(mask, out)` is THE battle order** -- `buildSquad()` and the
+  cells' numbers (`pickPosition()`) both ask it: the picked ones in the order
+  tapped (`squadOrder[]`), then any others in the mask in pool order, so a mask
+  set without an order (tests, the console) still fights pet-first.
+  `pickToggle()` appends or removes; the rest move up.
+- **Remembered by creature ID** (`pickMemory[]`, RAM only): `pickRemember()` on
+  FIGHT, `pickDefault(cap)` reopens with that team in its order, cut to the cap,
+  or the first `cap` candidates if none of them is still here.
+- The picker calls `uiChrome()`, so its two pages (pet + six) get the rim
+  scrollbar; SCR_PICK was already in `uiRimTarget()`.
+- `pickorder_test`; negative-checked (pool order only, no memory, memory by slot,
+  no scrollbar -- the scrollbar check first passed without the bar, because the
+  FIGHT button's corner reaches the ring; it now reads x 420+ only).
+
 ### Done: SKETCH, and a fight that changes a creature (v3.69, on the branch)
 
 Owner, 2026-10-27: a level 35 Smeargle knew nothing (its learnset was empty --

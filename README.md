@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.69-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.70-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1046,6 +1046,16 @@ money and no training; it is a moment, not a penalty. A LAN battle never blacks
 out: a friendly match is just a result.
 
 ### Gym battles and badges
+
+**Choosing your team, and its order** (since v3.70). Tapping a leader opens the
+team picker: your creature and the six in your party, two to a row, paged by
+dragging along the rim (the scrollbar there shows which page). Tap a creature to
+bring it; the number on its card is its place in the **battle order**, and **1
+leads** -- so tap them in the order you want them to fight, and tap one again to
+take it out (the rest move up). The picker remembers your last team and its
+order for the next fight, by creature, so moving one to another party slot does
+not lose its place. On hard, only the first ones up to the leader's team size
+come. The same picker chooses your team for LAN battles.
 
 **Your TMs are the ones you own** (see Evolution and moves), so the early game
 runs on level-up moves — SCRATCH, PECK, POISON STING, BUBBLE, ABSORB, SPARK,
