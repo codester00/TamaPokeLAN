@@ -1,6 +1,6 @@
 # Explore specialty zones -- BUILD PLAN (2026-10-29, revision 2)
 
-Status: **revision 5 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
+Status: **revision 6 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
 are in; nothing built yet.** This file turns `docs/explore-specialty-plan.md` (the proposal:
 what and why) into phases with files, callers, tests and hardware checks, in
 the shape of `docs/build-plan.md`. Where the two differ, the owner's answers
@@ -499,93 +499,144 @@ Ninetales):
 ### E2. Eevee follows the stones
 
 Five of Eevee's eight branches are stones: Vaporeon (Water), Jolteon
-(Thunder), Flareon (Fire), Leafeon (Leaf), Glaceon (Ice). The stone decides,
-so the player chooses. Today `Pet::eeveeOptions()` picks at random,
-preferring an unregistered branch.
+(Thunder), Flareon (Fire), Leafeon (Leaf), Glaceon (Ice). Using the stone
+from the bag evolves it, at any level. Today `Pet::eeveeOptions()` picks at
+random, preferring an unregistered branch; that random pick goes.
 
-**The other three are not stones, so they need a rule (decide):**
-- In the games: ESPEON = level up with high friendship by DAY; UMBREON = the
-  same by NIGHT; SYLVEON = level up with high affection while knowing a Fairy
-  move.
-- *Recommended:* the games' rules over what this game has. Friendship is
-  BOND, day and night are the clock bands Explore already uses, and Sylveon
-  needs a Fairy-type move. For example, at bond 80+ on a level-up: Sylveon if
-  it knows a Fairy move, else Espeon by day and Umbreon by night.
-- Alternative: keep the random pick for these three only, on level-up.
+**The other three, and when they happen.** In the games none of them has a
+level: they happen on ANY level-up once friendship is high (Espeon by day,
+Umbreon by night), and Sylveon on any level-up with high affection while
+knowing a Fairy-type move. Here:
+- **When:** on a level-up (one an hour), once BOND reaches a threshold. Bond
+  rises at most `BOND_DAILY_MAX` (20) a day, so the threshold sets how long
+  it takes: 40 is two days of full care, 60 three, and a creature is first
+  offered its farewell at three days (level 73). **Decide the threshold**;
+  *recommended* 40, which an attentive player reaches around level 48.
+- **Which:** Sylveon if it knows a Fairy move, else Espeon by day (06:00-18:00)
+  and Umbreon by night. No clock set counts as day, as Explore's time bands do.
+- **No blocking needed.** Evolution here already waits for the player: the
+  EVOLVE button appears and nothing happens until it is tapped, and KEEP
+  (`declineEvolve()`) holds it until the next level. A player saving their Eevee
+  for a stone simply does not tap EVOLVE; the stone works whenever it is used.
+  The button reads which branch is on offer (for example `EVOLVE: UMBREON`), so
+  nobody evolves into one by accident.
 
-### E3. The one-off items: two kinds
+### E3. The one-off items
 
 **Single-line items: evolve by level, done** (owner's rule). The item only
 gates a creature's one evolution, so the existing level stand-in stays:
-URSARING -> Ursaluna (Peat Block), KUBFU -> Urshifu (two scrolls, which only
+URSARING -> Ursaluna (Peat Block), KUBFU -> Urshifu (two scrolls that only
 choose a form this dex does not have), DURALUDON -> Archaludon (Metal Alloy),
-SINISTEA/POLTCHAGEIST (pots and teacups, forms only). The three held-item
-evolutions (Happiny holds an Oval Stone by day, Sneasel a Razor Claw at
-night, Gligar a Razor Fang at night) are single-line too, so they stay on
-level as well.
+SINISTEA and POLTCHAGEIST (pots and teacups, forms only). The three held-item
+evolutions (Happiny holds an Oval Stone by day, Sneasel a Razor Claw at night,
+Gligar a Razor Fang at night) are single-line too, so they stay on level.
+**Nothing in the games is held for the branching items either**: apples,
+armours and the augurite are used from the bag, like stones.
 
-**Branching items: they open a second evolution, so they are needed.**
+**Branching items: two ways to build them (decide).**
 
-| species | branches | items |
-|---|---|---|
-| APPLIN | Flapple, Appletun, Dipplin | Tart Apple, Sweet Apple, Syrupy Apple |
-| CHARCADET | Armarouge, Ceruledge | Auspicious Armor, Malicious Armor |
-| SCYTHER | Scizor (by trade, already built), Kleavor | Black Augurite |
+| species | branches | the games' items | level stand-in today |
+|---|---|---|---|
+| APPLIN | Flapple, Appletun, Dipplin | Tart, Sweet, Syrupy Apple | 30 (Flapple only) |
+| CHARCADET | Armarouge, Ceruledge | Auspicious, Malicious Armor | 30 (Armarouge only) |
 
-That is **six items**, not four: the partners Flapple and Armarouge are in
-the data today as level stand-ins, and they move to their own items too.
+- **(a) *Recommended:* a choice at the level, no items.** At its level the
+  EVOLVE offer asks which branch (two or three buttons: FLAPPLE / APPLETUN /
+  DIPPLIN), and KEEP holds it until the next level, like every evolution. In
+  the games these items are one-off pickups with no other use, so a choice
+  loses nothing a player could feel, and the Mart and the bag stay free of
+  five items that do one thing each. It needs a multi-button evolution offer
+  (the Eevee buttons are similar).
+- **(b) Five items** (the apples and armours), used from the bag like stones,
+  sold in the Mart. More faithful, more clutter, and five more names to fit
+  (AUSPICIOUS ARMOR is 16 characters).
 
-**Nothing is held.** In the games, the apples, the armours and the augurite
-are USED from the bag, exactly like a stone, never held. So they need no
-held-item mechanic. They are used from the bag on the live pet, through the
-same path as the stones and the Linking Cord.
+**SCYTHER (owner's design): the Black Augurite as a stone, blended with the
+trade.**
+- **SCIZOR by trade** (built in v3.32: a trade or a Linking Cord marks it).
+  **KLEAVOR by the Black Augurite**, used from the bag like a stone.
+- **Whichever comes first decides.** A Scyther already marked for its trade
+  evolution refuses the augurite (the item is not spent), and a Scyther that
+  used the augurite has evolved and cannot be marked. A traded Scyther still
+  evolves only when it is the live pet and cared for, exactly as today.
+- **Neither: it stays a Scyther**, and its farewell is not held back, as
+  for an unmarked Kadabra or a Pikachu with no stone (`evolutionAhead()`).
+- BLACK AUGURITE is the one special item (14 characters: measure it where the
+  bag, the Mart and the battle bag draw).
 
-**Names:** BLACK AUGURITE (14), AUSPICIOUS ARMOR (16) and MALICIOUS ARMOR
-(15) are long. Measure them where the bag, the Mart and the battle bag draw
-before choosing short forms.
-
-### E4. Gender: hidden, 50/50, from the creature's ID, shown on the card
+### E4. Gender: hidden, from the creature's ID, shown on the card (decided)
 
 **From the creature's ID, not the species' number.** A Pokedex number's even
 or odd would make every Kirlia the same gender, so one of Gallade or Gardevoir
 could never exist. The creature's own ID (`CreatureUid`: the board's MAC, a
 salt and a serial) is fixed at hatching or catching, travels with trades, and
 needs no save change.
-- Use a mixed bit of the whole ID, not the serial's parity. The serial counts
-  up by one per creature, so parity alone would alternate male, female, male
-  in hatch order. Clamperl's trade target uses `u.serial % n` today, and it
-  can stay that way.
+- A mixed bit of the whole ID, not the serial's parity: the serial counts up
+  by one per creature, so parity alone would alternate male, female, male in
+  hatch order. (Clamperl's trade target uses `u.serial % n` and can stay.)
 - Both boards compute the same gender for a traded creature.
 
-**What it decides:** Kirlia's Dawn Stone (Gallade, male) and Snorunt's
-(Froslass, female), and Burmy at 20 (Mothim, male; Wormadam, female). With
-gender available, two existing single-gender evolutions could also follow
-their games: COMBEE evolves to Vespiquen only if female, SALANDIT to Salazzle
-only if female (males do not evolve). Today both evolve regardless. Decide.
+**The games' fixed cases are forced (owner).** From PokeAPI's `gender_rate`,
+generated into the dex:
+- two genders (rate 1-7): 50/50 by the ID;
+- all male (rate 0), e.g. Tauros, Hitmonlee, Nidoking;
+- all female (rate 8), e.g. Chansey, Jynx, Nidoqueen;
+- genderless (rate -1), e.g. Magnemite, Staryu, the legendaries: no gender,
+  no icon.
 
-**Decide: 50/50 for every species, or the games' fixed cases?** Some species
-are all one gender or have none: Chansey and Jynx are female, Tauros and
-Hitmonlee male, Magnemite, Staryu and the legendaries genderless. 50/50
-everywhere would show a "male" Chansey on the card. *Recommended:* 50/50 by ID
-for every species that has two genders, and the species' own fixed gender or
-none for the rest (PokeAPI `gender_rate` -1 / 0 / 8, generated into the dex).
+**What it decides:** Kirlia's Dawn Stone (Gallade, male), Snorunt's
+(Froslass, female), and Burmy at 20 (Mothim, male; Wormadam, female). Two
+existing single-gender evolutions could also follow their games: COMBEE
+evolves to Vespiquen only if female, SALANDIT to Salazzle only if female
+(males do not evolve). Today both evolve regardless. **Decide.**
 
 **On the card:** the font has no glyph for the gender symbols (non-ASCII is
-banned), so draw them as small icons, blue and red as in the games, beside
-the name on the creature's card and the party sheet. No icon for genderless
-species.
+banned), so they are drawn as small icons, blue and red as in the games, beside
+the name on the creature's card and the party sheet.
 
-### E5. Where stones come from (decide)
+### E5. Where stones come from, and gym prize money
 
-- **The Mart:** *recommended:* all ten stones always in stock at $2,100 (the
-  Stone Emporium price in X/Y, and the usual price since). Gen 1's Celadon
-  Dept. Store sold only Fire, Water, Thunder and Leaf.
-- **Wild drops:** the drop table weighs 120 in all today (Poke Ball 30 down
-  to Ultra Ball 6, Master Ball 1). Adding each stone at weight 1 makes any
-  stone ~7.7% of an item drop, a given stone ~0.8%. A normal win rolls one
-  item plus a 30% bonus, so about 1 win in 10 drops some stone.
-- **The six branching items:** the games hand most of them out once. Mart at
-  $3,000, drop-only, or both?
+**The Mart (decided):** all ten stones always in stock at $2,100 (the Stone
+Emporium price in X/Y, and the usual price since). The Black Augurite (and the
+five apples and armours if § E3 goes with items) in stock too; *recommended*
+$3,000.
+
+**Wild drops, only in the stone's own places (owner).** A stone dropping
+everywhere would bury the player in spares. Instead each stone drops only in
+the areas where the games place it, at a rate a player notices there:
+*recommended* about one win in ten in those areas, never elsewhere. That is a
+drop weight of about 9 against the table's 120 (one item a win plus a 30%
+bonus roll).
+- **Where:** the games' own item locations. The decompiled maps name every
+  item ball and hidden item, for example FireRed's Mt. Moon holds a Moon Stone
+  on 1F (an item ball) and one on B2F (hidden). `gen_wild.py` scans the maps it
+  already reads (FireRed, Crystal, Emerald, Platinum) for the ten stones, maps
+  each to our area, and emits a per-area stone list. A test checks every stone
+  has at least one area.
+- **Unova onward** has no decomp and PokeAPI has no item locations, so those
+  regions either get a short hand-made list (NOT VERIFIED, like their rosters)
+  or rely on the Mart. *Recommended:* the Mart only, until someone sources the
+  data.
+
+**Gym prize money (owner): an alternate source.** Every trainer win in the
+games pays. Gen 3's rule (`GetTrainerMoneyToGive()` in pokefirered and
+pokeemerald) is **4 x the level of the leader's LAST creature x the class
+value**: 25 for gym leaders and the Elite Four, 25 for FireRed's champion and
+50 for Emerald's. So:
+- Brock (last Onix L14): 4 x 14 x 25 = **$1,400**
+- Giovanni (L50): **$5,000**
+- Lance (Elite Four, L62): **$6,200**
+- Kanto's champion (L63, class 25): **$6,300**
+- Emerald's champion Wallace (L58, class 50): **$11,600**
+- *Recommended:* the same formula for every region's ladder, with the
+  champion at 50 (Emerald's value) everywhere. The wallet's cap is $999,999.
+- **Rematches:** the games pay every rematch. Here a fight already costs the
+  live pet energy, which is the designed rate limit. *Recommended:* pay every
+  win, on both difficulties; *alternative:* full pay on the first win of each
+  leader per difficulty, a quarter after.
+- No pay on a loss (the blackout takes nothing, by design), none in LAN
+  fights, and none for wild wins, which drop items instead.
+- A balance change, so the README manual's money section changes with it.
 
 ### E6. Branches that need no item
 
@@ -620,20 +671,32 @@ becomes evolution-only and stops hatching.
 - The card reads `7,400 STEPS TO MELMETAL` (a new `evoInfo()` status).
 - The emulator has no pedometer, so the test drives `addSteps()`.
 
-### E8. LUNALA: 50/50, and both legendaries leave Explore once owned (decided)
+### E8. LUNALA and SOLGALEO: 50/50, separate guarantees, gone once owned
 
 - Cosmoem evolves at 53 into Solgaleo or Lunala, 50/50 by the creature's ID
   (the games split them by version).
-- Both stay catchable in Explore under the legendary rules: a guaranteed first
-  meeting, then 3%.
-- **Once owned, it no longer appears in Explore.** The legendary rule today is
-  "until CAUGHT" (the caught bit). Evolving a Cosmoem gives a Solgaleo or
-  Lunala without catching one, so the rule widens. *Recommended:* the evolution
-  sets the same caught bit, so one rule covers both routes (and the
-  guaranteed meeting is skipped if it had not happened yet).
-- **Decide:** does releasing it bring it back? The caught bit never clears
-  today, so *recommended:* no. "Owned" here means "has ever owned", not
-  Bill's PC's "owns right now".
+- Both stay catchable in Explore under the legendary rules until owned: a
+  guaranteed first meeting, then 3%.
+- **Once owned it no longer appears** (decided). Evolving a Cosmoem gives one
+  without catching it, so the evolution sets that legendary's caught bit: one
+  rule for both routes. Releasing it does not bring it back (decided).
+- **The trap the owner pointed out: one must never cost the other its
+  guaranteed meeting.** Each has its OWN met and caught bits in
+  `WILD_LEGENDS`, and they share a home (Vast Poni Canyon).
+  `wildLegendFor()` gives a home's guaranteed meeting to the FIRST legendary
+  there that is not yet met and still live, so after Solgaleo is met, caught
+  or obtained by evolution, the next Explore there is Lunala's guaranteed
+  meeting, and the reverse. The evolution sets ONLY the evolved one's bits.
+  The star (§ 4) stays while the other's guarantee is due.
+- **Tests** (in `branch_test` and `legend_test`): Solgaleo caught -> the next
+  Explore there is a guaranteed Lunala; Solgaleo by evolution before any
+  meeting -> the next Explore is a guaranteed Lunala, and Solgaleo never
+  appears again; both the other way round; the star on and off.
+  Negative-check: the evolution setting both bits.
+- **Option (decide):** the 50/50 could prefer the one the player does not
+  own yet, as Eevee's old pick preferred an unregistered branch. A player with
+  a Lunala would then always get Solgaleo from a Cosmoem. *Recommended:* yes,
+  else the ID decides.
 - Cosmog stays egg-only.
 
 ### E9. The 18 evolved forms that hatch, after this version

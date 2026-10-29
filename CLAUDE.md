@@ -911,7 +911,7 @@ wins wherever it and the summary below differ.
 `docs/explore-specialty-plan.md` -- the Safari engine (Kanto, Hoenn, Great
 Marsh), the Bug-Catching Contest, Pokemon Tower's ghosts, fixed encounters,
 the Ruins of Alph puzzle, swarms, a Friend Safari from LAN rivals. The phased build
-plan is `docs/explore-specialty-build-plan.md` (revision 5). Owner, 2026-10-29:
+plan is `docs/explore-specialty-build-plan.md` (revision 6). Owner, 2026-10-29:
 Safari encounters are ordinary one-at-a-time Explore fights with no team, no
 fee and no step limit, ported from FireRed (Hoenn: one average Pokeblock, no
 natures); fixed encounters, if missed, come back like a legendary until caught
@@ -922,9 +922,12 @@ the Bug-Catching Contest, the Ruins puzzle and the Friend Safari are deferred.
 Evolution (plan § E, owner): stone evolutions need their stone, no level
 route; Eevee follows the stones; a hidden 50/50 gender from the creature's ID,
 shown on the card; Meltan evolves by 10,000 steps; Cosmoem splits 50/50 and an
-owned Solgaleo/Lunala leaves Explore. Still open there: Eevee's three
-non-stone branches, the six branching items' source, stone prices/drops,
-fixed-gender species. The handoff for
+owned Solgaleo/Lunala leaves Explore. Revision 6: Scyther is
+Scizor by trade or Kleavor by the Black Augurite, whichever first; single-
+gender species are forced; stones sold at $2,100 and dropped only in the
+games' own stone areas; gym wins pay Gen 3's prize money. Still open there:
+Eevee's bond threshold, apples/armours as items or a level choice, Combee/
+Salandit, rematch pay, Cosmoem preferring the unowned one. The handoff for
 a new session is HANDOVER.md § 1f.
 
 ### Done: the LUCKY SLOTS hidden setting (v3.74)
