@@ -1,6 +1,7 @@
 # Explore: zones with their own mechanics -- PROPOSAL (2026-10-29)
 
-Status: **proposed to the owner, nothing decided, nothing built.** Written
+Status: **proposed to the owner, nothing decided, nothing built.** The phased build plan, with the owner's open questions, is
+`docs/explore-specialty-build-plan.md`. Written
 after v3.74. Every Explore area today works the same way: pick it, meet one
 creature, fight or throw balls with your own team. The games gave some places
 rules of their own. This is the list of the ones worth bringing over, grouped

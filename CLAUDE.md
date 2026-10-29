@@ -911,7 +911,8 @@ wins wherever it and the summary below differ.
 `docs/explore-specialty-plan.md` -- the Safari engine (Kanto, Hoenn, Great
 Marsh), the Bug-Catching Contest, Pokemon Tower's ghosts, fixed encounters,
 the Ruins of Alph puzzle, swarms, a Friend Safari from LAN rivals. Waiting on
-the owner's answers (listed there) before any of it is built. The handoff for
+the owner's answers (listed there) before any of it is built. The phased build plan
+(v3.75 onward, ten questions first) is `docs/explore-specialty-build-plan.md`. The handoff for
 a new session is HANDOVER.md § 1f.
 
 ### Done: the LUCKY SLOTS hidden setting (v3.74)
