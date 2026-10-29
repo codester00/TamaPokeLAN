@@ -126,6 +126,7 @@ SlotSession slotSit(uint8_t hall) {
     s.lucky = m == 7 || random(6) == 0;
     s.keepRare = (random(256) & 0x2A) == 0;   // Slots init: 12.5%
   }
+  if (settingOn(SET_LUCKY_SLOTS)) s.lucky = true;   // the hidden setting: always the lucky machine
   return s;
 }
 

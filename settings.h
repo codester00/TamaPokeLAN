@@ -21,8 +21,9 @@ enum : uint16_t {
   SET_FAIR_SLOTS      = 1u << 9,   // RETIRED in v3.73: the real engines are the game
   SET_NECROZMA_MET    = 1u << 10,  // wildLegendLive()
   SET_CLASSIC_STATS   = 1u << 11,  // battleStat() in stats.h
+  SET_LUCKY_SLOTS     = 1u << 12,  // slotSit(): every sitting is at a lucky machine (v3.74)
 };
-#define SET_COUNT 12
+#define SET_COUNT 13
 // Bits no longer offered or read (kept so no later setting reuses a saved bit).
 #define SET_RETIRED SET_FAIR_SLOTS
 

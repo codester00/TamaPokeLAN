@@ -169,6 +169,24 @@ int main() {
   ck(gameSettings == (all & ~SET_RETIRED) && !(gameSettings & SET_FAIR_SLOTS),
      "the screen offers every setting but the retired fair slots");
 
+  // --- 9. LUCKY SLOTS: every sitting, in both halls, is at a lucky machine
+  for (uint8_t h = 0; h < HALL_CORNERS; h++) {
+    int lucky = 0;
+    gameSettings = 0;
+    for (int i = 0; i < 1000; i++) lucky += slotSit(h).lucky;
+    ck(lucky > 0 && lucky < 1000, "without it, some sittings are lucky and some are not");
+    pet.setSetting(SET_LUCKY_SLOTS, true);
+    lucky = 0;
+    for (int i = 0; i < 1000; i++) lucky += slotSit(h).lucky;
+    ck(lucky == 1000, "with LUCKY SLOTS, every sitting is lucky");
+    settingsSuspended = true;
+    lucky = 0;
+    for (int i = 0; i < 1000; i++) lucky += slotSit(h).lucky;
+    ck(lucky < 1000, "and not while a LAN battle suspends the settings");
+    settingsSuspended = false;
+  }
+  gameSettings = 0;
+
   printf(bad ? "\n%d FAILED\n" : "\nall passed\n", bad);
   return bad ? 1 : 0;
 }

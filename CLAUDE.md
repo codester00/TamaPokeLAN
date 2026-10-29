@@ -906,6 +906,23 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: the LUCKY SLOTS hidden setting (v3.74)
+
+Owner, 2026-10-29: the retired fair-slots row becomes a setting that sits the
+player at a lucky machine every time. DEVELOPERS ONLY, like every hidden
+setting: never in the README, release notes or installer page.
+
+- A NEW bit, `SET_LUCKY_SLOTS` (bit 12, `SET_COUNT` 13, string `S_SET_11`),
+  not bit 9 reused: a board that had fair slots switched on would otherwise
+  wake up with lucky slots. Bit 9 stays `SET_RETIRED`.
+- `slotSit()` is the one place it acts (`s.lucky = true` for both halls,
+  through `settingOn()`, so LAN suspends it like every setting). The engines
+  are untouched: lucky is each game's own lucky machine (Celadon ~2.84 a coin
+  at bet 1, Goldenrod ~3.07 at bet 3).
+- `codes_test` section 9 (both halls: not always lucky without it, always with
+  it, not while suspended); negative-checked against the line removed and
+  against reading `gameSettings` past `settingOn()`.
+
 ### Done: the real slot machines (v3.73, on the branch)
 
 Owner, 2026-10-29: 30 spins at Celadon with no win; the slots should feel like
