@@ -1,6 +1,6 @@
 # Explore specialty zones -- BUILD PLAN (2026-10-29, revision 2)
 
-Status: **revision 6 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
+Status: **revision 7 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
 are in; nothing built yet.** This file turns `docs/explore-specialty-plan.md` (the proposal:
 what and why) into phases with files, callers, tests and hardware checks, in
 the shape of `docs/build-plan.md`. Where the two differ, the owner's answers
@@ -506,20 +506,36 @@ random, preferring an unregistered branch; that random pick goes.
 **The other three, and when they happen.** In the games none of them has a
 level: they happen on ANY level-up once friendship is high (Espeon by day,
 Umbreon by night), and Sylveon on any level-up with high affection while
-knowing a Fairy-type move. Here:
-- **When:** on a level-up (one an hour), once BOND reaches a threshold. Bond
-  rises at most `BOND_DAILY_MAX` (20) a day, so the threshold sets how long
-  it takes: 40 is two days of full care, 60 three, and a creature is first
-  offered its farewell at three days (level 73). **Decide the threshold**;
-  *recommended* 40, which an attentive player reaches around level 48.
-- **Which:** Sylveon if it knows a Fairy move, else Espeon by day (06:00-18:00)
-  and Umbreon by night. No clock set counts as day, as Explore's time bands do.
-- **No blocking needed.** Evolution here already waits for the player: the
-  EVOLVE button appears and nothing happens until it is tapped, and KEEP
+knowing a Fairy-type move.
+
+**How bond works today** (checked in `pet.cpp`):
+- Bond is per creature, 0-100, and starts at 0 for every new creature.
+- Play and care add to it through `addBond()`: the joy games (Berry Catch pays
+  2 + its joy gain / 6), a loved berry 2, petting 1, cleaning 1. All of that
+  stops once **20 have been added that calendar day** (`BOND_DAILY_MAX`).
+- The first care of each day adds 4 more, outside that cap (the daily streak).
+- So at most about **24 a day**. 100 takes about four days of steady play.
+- Berry Catch's result line says which limit it hit: **BOND MAX** means this
+  creature's bond is at 100 for good; **BOND MAX TODAY** means the daily 20 is
+  spent and it resets at midnight. If the line reads plain BOND MAX, the card's
+  bond bar should be full.
+
+**The loophole in a bond-only rule:** the cap resets at MIDNIGHT, not 24
+hours after hatching. A creature hatched at 23:00 can take 24 before midnight
+and another 24 just after, so bond 40 is reachable in about two hours.
+
+**Recommended rule (the owner's "two days as a pet"):** on a level-up, once
+**bond is 40 or more AND the creature is at least 48 hours old** (level 49).
+The age half closes the midnight loophole; the bond half means it must have
+been played with on both days. Then:
+- Sylveon if it knows a Fairy move, else Espeon by day (06:00-18:00) and
+  Umbreon by night. No clock set counts as day, as Explore's time bands do.
+- Nothing is forced. Evolution here already waits for the player: the EVOLVE
+  button appears and nothing happens until it is tapped, and KEEP
   (`declineEvolve()`) holds it until the next level. A player saving their Eevee
   for a stone simply does not tap EVOLVE; the stone works whenever it is used.
-  The button reads which branch is on offer (for example `EVOLVE: UMBREON`), so
-  nobody evolves into one by accident.
+  The button names the branch (for example `EVOLVE: UMBREON`), so nobody evolves
+  into one by accident.
 
 ### E3. The one-off items
 
@@ -533,23 +549,28 @@ Gligar a Razor Fang at night) are single-line too, so they stay on level.
 **Nothing in the games is held for the branching items either**: apples,
 armours and the augurite are used from the bag, like stones.
 
-**Branching items: two ways to build them (decide).**
+**Branching items: a choice at a level, no items.**
 
 | species | branches | the games' items | level stand-in today |
 |---|---|---|---|
 | APPLIN | Flapple, Appletun, Dipplin | Tart, Sweet, Syrupy Apple | 30 (Flapple only) |
 | CHARCADET | Armarouge, Ceruledge | Auspicious, Malicious Armor | 30 (Armarouge only) |
 
-- **(a) *Recommended:* a choice at the level, no items.** At its level the
-  EVOLVE offer asks which branch (two or three buttons: FLAPPLE / APPLETUN /
-  DIPPLIN), and KEEP holds it until the next level, like every evolution. In
-  the games these items are one-off pickups with no other use, so a choice
-  loses nothing a player could feel, and the Mart and the bag stay free of
-  five items that do one thing each. It needs a multi-button evolution offer
-  (the Eevee buttons are similar).
-- **(b) Five items** (the apples and armours), used from the bag like stones,
-  sold in the Mart. More faithful, more clutter, and five more names to fit
-  (AUSPICIOUS ARMOR is 16 characters).
+At the level, the EVOLVE offer asks which branch (FLAPPLE / APPLETUN / DIPPLIN,
+or ARMAROUGE / CERULEDGE), and KEEP holds it until the next level, like every
+evolution. In the games these items are one-off pickups with no other use, so a
+choice loses nothing a player could feel. It needs a multi-button evolution
+offer, which Eevee's branches will use too.
+
+**Which level (the owner asked about 40):**
+- **30 (recommended):** what both stand-ins use today, so no Applin or
+  Charcadet already raised changes. Every other item evolution in the data
+  also stands in at 30, and Gen 1's stone stand-ins sit at 30-36.
+- **40:** works too, and matches `TM_LEVEL`. But APPLIN's Dipplin evolves
+  again into HYDRAPPLE, whose stand-in is also 30, so a Dipplin made at 40
+  would evolve again on its next level. Hydrapple would need to move up (for
+  example to 50; in the games it needs the move Dragon Cheer). An Applin or
+  Charcadet already between 30 and 39 would wait ten more levels.
 
 **SCYTHER (owner's design): the Black Augurite as a stone, blended with the
 trade.**
@@ -588,7 +609,9 @@ generated into the dex:
 (Froslass, female), and Burmy at 20 (Mothim, male; Wormadam, female). Two
 existing single-gender evolutions could also follow their games: COMBEE
 evolves to Vespiquen only if female, SALANDIT to Salazzle only if female
-(males do not evolve). Today both evolve regardless. **Decide.**
+(males do not evolve). Today both evolve regardless. **Decided: female
+only, as in the games.** A male Combee or Salandit is final, and its farewell
+is not held back.
 
 **On the card:** the font has no glyph for the gender symbols (non-ASCII is
 banned), so they are drawn as small icons, blue and red as in the games, beside
@@ -630,10 +653,9 @@ value**: 25 for gym leaders and the Elite Four, 25 for FireRed's champion and
 - Emerald's champion Wallace (L58, class 50): **$11,600**
 - *Recommended:* the same formula for every region's ladder, with the
   champion at 50 (Emerald's value) everywhere. The wallet's cap is $999,999.
-- **Rematches:** the games pay every rematch. Here a fight already costs the
-  live pet energy, which is the designed rate limit. *Recommended:* pay every
-  win, on both difficulties; *alternative:* full pay on the first win of each
-  leader per difficulty, a quarter after.
+- **Rematches (decided):** full pay on the first win of each leader per
+  difficulty, HALF on every win after. "First win" is the badge, which is
+  already saved per difficulty, so no new save data.
 - No pay on a loss (the blackout takes nothing, by design), none in LAN
   fights, and none for wild wins, which drop items instead.
 - A balance change, so the README manual's money section changes with it.
@@ -693,10 +715,11 @@ becomes evolution-only and stops hatching.
   meeting -> the next Explore is a guaranteed Lunala, and Solgaleo never
   appears again; both the other way round; the star on and off.
   Negative-check: the evolution setting both bits.
-- **Option (decide):** the 50/50 could prefer the one the player does not
-  own yet, as Eevee's old pick preferred an unregistered branch. A player with
-  a Lunala would then always get Solgaleo from a Cosmoem. *Recommended:* yes,
-  else the ID decides.
+- **Decided: hard-set, not a preference.** If the player owns one (its
+  caught bit is set, by a catch or an evolution), Cosmoem ALWAYS becomes the
+  other. Only with neither or both owned does the creature's ID decide 50/50.
+  Tests: own Solgaleo -> every Cosmoem becomes Lunala, whatever its ID, and the
+  reverse.
 - Cosmog stays egg-only.
 
 ### E9. The 18 evolved forms that hatch, after this version
