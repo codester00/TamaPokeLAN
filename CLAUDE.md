@@ -906,7 +906,7 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
-### Done: trade-only evolutions get their farewell, MAX LEVEL (v3.72, on the branch)
+### Done: trade-only evolutions get their farewell, moves on evolving, MAX LEVEL (v3.72, on the branch)
 
 Owner, 2026-10-29: a Kadabra days past level 100 was never offered a farewell,
 and its card read "44 min to Lv.101".
@@ -924,13 +924,22 @@ and its card read "44 min to Lv.101".
   Charmeleon due or blocked no, Charizard yes) and `levelbar_test`.
   Negative-checked: the table rule, an evolution due counted as none, the old
   countdown at 100.
-- Checked alongside (owner's question, not a bug found): an Abra raised from
-  an egg learns Kadabra's NIGHT SHADE 19, PSYBEAM 21, RECOVER 25, PSYCHIC 36 on
-  schedule. Nothing in our list sits above 36 for Kadabra, so a Kadabra met
-  past 36 learns nothing more by level. Abra itself has no level-up move here
-  (TELEPORT is not in the list) and an Abra that evolves at 16 skips Kadabra's
-  CONFUSION 1 and CALM MIND 11 (the picker still offers them), so it fights
-  with STRUGGLE until 19 -- not changed, offered to the owner.
+- **An evolution teaches the moves it has passed** (owner's board: an Abra
+  hatched and raised to 100 was a Kadabra with four empty slots and no offer
+  ever). The gates ran against ABRA's list (no level-up move here), and
+  `evolve()` only checked a gate AT the evolving level -- and evolution waits
+  for the player's tap and care >= 40, so a late tap skipped every Kadabra move.
+  **`Pet::learnRange(after, upTo, offer, skipFrom)` is THE way a level-up move
+  reaches a creature**: `checkLearnGates()`, `evolve()` (0..level, offers, skip
+  what `prevSpeciesId` learned by then -- already offered once) and `switchTo()`
+  (0..level, fill empty slots only, no offers). A chosen move is never
+  overwritten. Charizard now also offers its level-1 CRUNCH/DRAGON CLAW/HEAT
+  WAVE on evolving (the picker always had them). `evomoves_test`;
+  negative-checked (evolution teaching nothing, re-offering the old form's
+  moves, switch-in filling nothing).
+- The MOVES picker stays a free Move Reminder (owner, 2026-10-29: keep both,
+  as Scarlet/Violet do; a hidden "classic moves" setting was offered and
+  declined).
 
 ### Done: the battle bag pages, a faint drops with its line (v3.71, on the branch)
 

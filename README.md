@@ -450,9 +450,14 @@ see `docs/move-expansion-report.md`). Two kinds:
   slots stay empty. Crossing a gate fills an empty slot silently; with all four
   full you get a **prompt** asking which to forget (or to skip it). Offers queue,
   so coming back to a pet that aged two weeks offline asks one at a time.
-  Evolving keeps the moves it already has, and the new form's gates take over —
-  moves it would have learned *below* your current level are not backfilled,
-  same as the real games.
+  Evolving keeps the moves it already has, and the new form **learns the
+  level-up moves it has already passed** (since v3.72): empty slots fill, the
+  rest are offered — except moves the old form learned by then too, which were
+  offered once already. Before, an Abra that evolved late (evolution waits for
+  your tap) became a Kadabra that knew nothing, since every Kadabra move counted
+  as passed. A Pokémon you make your live pet also fills any empty slots from
+  the moves it has passed, without offers. The **MOVES** page still lets you
+  swap in any move your Pokémon could know at its level, any time.
 - **TMs are items** (since v3.51). A move your species learns only by TM is
   learnable once you **own that TM**, at any level, and chosen on demand from
   the **MOVES** page of the stats card (swipe across, then tap a slot). A TM is

@@ -1013,6 +1013,11 @@ bool Pet::switchTo(const PartyMon &m) {
   nick[sizeof(nick) - 1] = 0;
   uid = m.uid;   // the same creature, so the same identity
   setMonFlags(m.flags);
+  // An empty slot takes a level-up move it has already passed (v3.72): the
+  // creature raised here should never stand at full level with slots empty
+  // and moves to spare. Fill only -- what you chose is never overwritten, and
+  // nothing is offered for a creature you merely swapped in.
+  learnRange(0, level(), false);
   registerSpecies(speciesId);
   return save();
 }
@@ -1713,24 +1718,45 @@ void Pet::checkLearnGates() {
     if (moveCount()) pendingSave = true;
   }
   if (lvl <= lastLearnLevel) return;
+  learnRange(lastLearnLevel, lvl, true);
+  lastLearnLevel = lvl;
+  pendingSave = true;
+}
+
+// THE one way a level-up move reaches a creature: every move this species
+// learns by level in (after, upTo] that it does not know fills an empty slot,
+// and -- with offer -- the rest wait as "forget a move?" offers. The gates, an
+// evolution and a creature becoming the live pet all come through here.
+// skipFrom: a species whose own level-up moves up to upTo were already offered
+// (the form just evolved from) -- those are not offered again.
+static bool learnsByLevel(int16_t dex, uint8_t mv, uint8_t upTo) {
+  if (dex < 1 || dex > DEX_COUNT) return false;
+  uint8_t n = learnCount(dex);
+  for (uint8_t i = 0; i < n; i++) {
+    uint8_t at = learnLevel(dex, i);
+    if (at && at <= upTo && learnMove(dex, i) == mv) return true;
+  }
+  return false;
+}
+
+void Pet::learnRange(uint8_t after, uint8_t upTo, bool offer, int16_t skipFrom) {
   uint8_t n = learnCount(speciesId);
   for (uint8_t i = 0; i < n; i++) {
     uint8_t at = learnLevel(speciesId, i);
-    if (at == 0 || at <= lastLearnLevel || at > lvl) continue;  // 0 = TM, no gate
+    if (at == 0 || at <= after || at > upTo) continue;  // 0 = TM, no gate
     uint8_t mv = learnMove(speciesId, i);
     if (!mv || mv >= MOVE_COUNT || knowsMove(mv)) continue;
+    if (skipFrom && learnsByLevel(skipFrom, mv, upTo)) continue;  // already offered
     int freeSlot = -1;
     for (int s = 0; s < MOVE_SLOTS; s++)
       if (!moves[s]) { freeSlot = s; break; }
     if (freeSlot >= 0) { moves[freeSlot] = mv; continue; }
-    if (learnQCount >= sizeof(learnQueue)) continue;
+    if (!offer || learnQCount >= sizeof(learnQueue)) continue;
     bool dup = false;
     for (uint8_t q = 0; q < learnQCount; q++)
       if (learnQueue[q] == mv) dup = true;
     if (!dup) learnQueue[learnQCount++] = mv;
   }
-  lastLearnLevel = lvl;
-  pendingSave = true;
 }
 
 static void popLearn(uint8_t *q, uint8_t &n) {
@@ -2093,7 +2119,15 @@ void Pet::evolve() {
   speciesId = next;
   if (e.byTrade) tradeEvo = false;   // spent: PORYGON2 needs a trade of its own
   registerSpecies(speciesId);
-  checkLearnGates();   // the new form may gate a move at this very level
+  // The new form learns every level-up move it has already passed (v3.72),
+  // not only one gated at this very level: the gates ran against the OLD
+  // species' list, so an ABRA evolved at 40 reached 100 as a KADABRA that knew
+  // nothing -- its moves at 1, 11, 19, 21, 25 and 36 all counted as passed.
+  // Empty slots fill, the rest are offered, as a level-up would -- except moves
+  // the old form learned by now too: those were offered already (a declined
+  // GROWL is not offered again because CHARMANDER became CHARMELEON).
+  if (ceremony == CER_NONE) learnRange(0, level(), true, prevSpeciesId);
+  checkLearnGates();
   sfxPlay(SFX_EVOLVE);
   evolveUntil = millis() + EVOLVE_ANIM_MS;
   save();

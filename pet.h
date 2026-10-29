@@ -708,7 +708,8 @@ public:
   bool applyCordPair(PartyMon &partner);    // CORD_NEEDS_PARTNER; true if they pair
   void evolve();              // dispara la transformacion (la llama un toque del usuario)
   bool canFarewellNow() const;
-  bool evolutionAhead() const;  // an evolution still reachable here without a trade  // forma final + 7 dias: lista para despedirse (boton)
+  bool evolutionAhead() const;  // an evolution still reachable here without a trade
+  void learnRange(uint8_t after, uint8_t upTo, bool offer, int16_t skipFrom = 0);  // level-up moves in (after, upTo]  // forma final + 7 dias: lista para despedirse (boton)
   // Total neglect RIGHT NOW. THE single answer: tick() counts against it and
   // canRunawayNow() re-checks it, because neglectTicks is frozen (neither
   // counted nor cleared) while asleep and so can outlive the state that
