@@ -4,9 +4,9 @@ Written 2026-08-20, updated through 2026-08-23, so work could resume after a
 restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 **authoritative wherever the two disagree**.
 
-> **§ 1e is the newest (2026-10-20, table refreshed 2026-10-21) and describes
-> the repo as it is now.**
-> Read it first. § 1d (2026-10-12) is the state before it; everything below
+> **§ 1f is the newest (2026-10-29, v3.74) and describes the repo as it is
+> now. Read it first.** § 1e (2026-10-20) is the state before it and still holds
+> the cloud-container build setup. § 1d (2026-10-12) is the state before it; everything below
 > that is history, kept for the reasoning.
 >
 > **§ 1 below is current as of v3.22 (2026-09-08). Sections 0 and 2 to 4c are an
@@ -35,7 +35,192 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 ---
 
-## 1e. Where things stand now (2026-10-20)
+## 1f. START HERE -- handoff as of v3.74 (2026-10-29)
+
+This section replaces 1e as the description of the repo today. `CLAUDE.md` is
+still the permanent knowledge and wins wherever the two disagree; its § TODO
+"Done: ..." entries hold the full detail of every version named below, newest
+first. Read § "Traps that have caught us more than once" there before touching
+a rule, a dex number, a saved table or a paged screen.
+
+### State
+
+| | |
+|---|---|
+| Version | **3.74** in `TamaPoke.ino`, the README badge and `web/manifest.json` |
+| `main` | at v3.74 (`6abaf47`), fast-forward from the working branch. The installer page (https://codester00.github.io/TamaPokeLAN/web/) serves `web/` from `main`, so it serves **v3.74** |
+| Working branch | `ccr-151c604c-659yz2` -- everything since v3.39 was built here. It equals `main` plus this handoff (docs only) |
+| Tags | The last published TAG is believed to be **v3.28** (check `git ls-remote --tags origin`). Tagging has been held all along: the owner believes the account's free Actions minutes run out, and `publish-release.yml` needs them. Release notes exist for every version through `docs/release-notes/v3.74.md`, so any of them can be tagged off `main` |
+| On a board | The owner plays `main` builds on real boards: Bill's PC (v3.66), the halls (v3.67), the Kadabra farewell/moves (v3.72) and the real slots (v3.73-v3.74) were all tried on hardware. Much else is emulator-only -- see "Known issues" |
+| Tests | 82 `*_test.cpp` suites under `tools/emu/tests/`, plus `node tools/check_savefile.mjs`. `bash tools/emu/tests/run.sh [name]` runs the real `arduino-cli` compile first, then the suites |
+| Formats | `LINK_PROTO` 9, `TRADE_PROTO` 2, `MOVE_COUNT` 241 (SKETCH is 240), pet checkpoint v5, player checkpoint `PLAYER_VERSION` 9, backup `SAVE_VERSION` 2 (Bill's PC follows the fields), `SET_COUNT` 13 |
+| Toolchain | esp32 core 3.3.0, GFX Library 1.6.9, **SensorLib 0.4.1** (0.5.0 boot-loops the board; `sensorlib_guard.h` refuses it), XPowersLib 0.3.4. Cloud-container setup: § 1e below. Build through a `TamaPoke` symlink (arduino-cli wants the folder named after the `.ino`) |
+
+### How the owner works (follow these)
+
+- **Develop on the branch; push to `main` only when the owner says so.** They
+  usually say "push to main and update the installer": that is `bash
+  tools/build_web.sh` AFTER the last source edit, commit, push the branch, then
+  fast-forward `main` (`git fetch origin main && git merge-base --is-ancestor
+  origin/main HEAD && git push origin HEAD:main`). Never commit on `main`.
+- **"Only run required checks"** means the suites the change touches plus
+  i18n/swipe where relevant -- not the full run. Still negative-check every new
+  guard: break it on purpose and watch the test fail.
+- **One version per change**: bump `FW_VERSION` and the README badge together,
+  write `docs/release-notes/vX.Y.md` FOR PLAYERS (what changed, what it looked
+  like broken, whether to do anything; no file or function names), and add a
+  "Done: ..." entry at the top of CLAUDE.md § TODO.
+- **Secrets stay secret.** The secret codes, hidden SETTINGS, CHEATS, the
+  Super Rod / water-mode gates, Surfing Pikachu's condition, the 8-hour grace
+  window, the legendary safety net and the farming lockout are DEVELOPERS ONLY:
+  CLAUDE.md (and for some, the README manual -- see each entry), never the
+  release notes or the installer page. v3.74's notes, for instance, call it a
+  "small maintenance update".
+- **Ask before design calls; make the small ones.** The owner decides game
+  feel (odds, prices, what is hidden, what the games' rule is). When a choice is
+  theirs, lay out the options with a recommendation and wait.
+- **Port from the games, not from memory.** The pret disassemblies (pokered,
+  pokecrystal, pokeemerald, pokeplatinum, pokeyellow) are the source of truth;
+  PokeAPI's CSV dump on GitHub for Gen 5+. The owner wants things to feel like
+  the originals.
+- Commit trailers: see the session's attribution instructions. No model names
+  in anything pushed.
+
+### What this stretch built (v3.57-v3.74), one line each
+
+Full entries in CLAUDE.md § TODO.
+
+- **v3.57** LAN fixes from the first two-board fights (replacement decided and
+  shipped by the host, results after end-of-turn ticks, next STANDING creature,
+  Struggle for moveless creatures, all five on the POKEMON screen, fixed scene,
+  a lost END no longer strands the guest); a gym win plays its last turn.
+- **v3.58** Training scales with level in battle (`stats.h`, one formula).
+- **v3.59** Secret codes in the Memory game and the hidden SETTINGS (permanent
+  MODIFIED RULES mark). **v3.60** CHEATS, trainer and creature marks, marks
+  over LAN.
+- **v3.61** Bill's PC storage on the `ffat` partition (six of each species,
+  A/B records, migration from the box, backup v2). **v3.62+3.63** PC screens,
+  OWNED, GO TO #, missing-only filter, trade room check.
+- **v3.64** HP drains with its own message line; LAN guest reads the host's
+  narration (`LinkBeat`); the CAUGHT ball on wild foes.
+- **v3.65** Emerald's indoor battle backgrounds for trainer/gym/LAN fights.
+- **v3.66** Bill's PC on a real board (format a partition that never held a
+  PC; the old box stands in while the PC is down).
+- **v3.67** The halls after a board session: card flip's result line, Surfing
+  Pikachu rides right to left and is playable by hand.
+- **v3.68** Backups arrive whole (console replies wait for the host); the
+  installer assembles one backup from several damaged reads.
+- **v3.69** SKETCH: Smeargle copies the foe's last move for good, learned by
+  level as in the games.
+- **v3.70** The team picker sets the battle order (and remembers it).
+- **v3.71** The battle bag pages along the rim; a faint drops with its line.
+- **v3.72** Trade-only evolvers (Kadabra, Haunter...) get their farewell; the
+  level bar reads MAX LEVEL at 100; an evolution teaches the new form's passed
+  moves (`Pet::learnRange()` is THE way a level-up move arrives).
+- **v3.73** The real slot machines: Red's engine at Celadon, Crystal's at
+  Goldenrod, real payouts and lucky odds; Red's reels are 15 stops; the "fair
+  slots" setting retired (bit 9 reserved).
+- **v3.74** Hidden setting LUCKY SLOTS (new bit 12): every sitting is at a lucky
+  machine; suspended in LAN like every setting.
+
+### Decisions the owner made this stretch (do not reverse)
+
+- The MOVES picker stays a free Move Reminder alongside level-up offers, as in
+  Scarlet/Violet; a hidden "classic moves" setting was offered and declined.
+- Slots run the games' real engines with their real payouts (the originals pay
+  out more than they take, in streaks) and the games' prize prices. No rigging.
+- A retired setting's bit is never reused (a board with it on would silently
+  get the new rule); new settings append.
+- Smeargle holds one SKETCH at a time and learns more by level (the games'
+  rule), not four SKETCH slots.
+- The team picker's order is the battle order; remembered by creature ID, RAM
+  only.
+- Dratini prizes keep each game's own price and level (Celadon L18 2,800,
+  Goldenrod L10 2,100).
+- Earlier, still binding: the 8-hour window and nap endings have no indicator;
+  the rod and water gates stay secret; no remote storage for backups; LAN
+  fights are uncapped and never black out; the guest takes the next standing
+  creature (no choice) and has no bag.
+
+### Lessons from this stretch (add to the traps when they recur)
+
+- **A test can pass because of the layout it happened to use.** The picker's
+  scrollbar check passed with no scrollbar because the FIGHT button's corner
+  reaches the ring; it now reads x 420+ only. The bag's page clamp test was
+  vacuous because opening the bag resets the page -- the clamp and its test
+  were removed rather than kept as theatre.
+- **A "never pays twice" check needs proof it could.** Enumeration showed no
+  stop set on either machine lines up two lines at once, so the one-line rule
+  could not be tested by a double line; the test pins that fact instead and the
+  15-stop check catches the old 18-stop reels.
+- **Rules that only checked AT a level miss everything a late tap skips.**
+  Evolution waits for the player's tap and care, so `evolve()` must teach the
+  whole range passed (`learnRange()`), not just the current level's gate.
+- **Ask the RULE, not the table.** The farewell asked `evolvesTo == 0`, so every
+  pure trade evolver waited forever; `evolutionAhead()` asks `evoInfo()`.
+- **Fixtures inherit state.** `hatch()` keeps the age it finds, so tests set
+  `ageMinutes = 0` first; a poisoned fixture died to the end-of-turn tick.
+- **The emulator's generated `proto.h` sits above every type**, so a sketch
+  helper whose signature names a type declared later (ItemKey, AvatarArt) must
+  be `static` or the emulator build breaks while the firmware is fine.
+- **Measured odds come from the emulator's 16-bit LCG**: check them against an
+  independent simulation of the disassembly (both were done for the slots) and
+  give tests bands, not exact figures.
+- **A Python `str.replace` script can half-apply.** A failed assert after some
+  files were written leaves the tree half-edited -- check `git status` before
+  re-running.
+
+### Known issues and open items
+
+Not fixed, in rough priority:
+
+1. **Whole-screen black flicker** (owner, sound off): seen while swiping,
+   scrolling, worst in Berry Catch. Ruled out from code: blocking `flush()`,
+   no black fills, brightness only on idle, no touch-controller reset. Next:
+   on a board, a finger held still on a static screen vs. Berry Catch watched
+   without touching.
+2. **A lost REMATCH strands the guest** (LAN): `sendRematch()` is never resent;
+   a kept packet needs a rematch counter so a stale one cannot rearm turn 0.
+3. **`lastMove` lasts the whole fight** per creature (the games clear it on a
+   switch), so SKETCH can copy a move from before a switch. Transform (Ditto) is
+   absent.
+4. **The gym ladder's win-rate table predates v3.58** (training scales with
+   level); the re-measure (`tools/emu/ladder_sim.cpp`) waits on the owner. Hard
+   mode solo drops to ~0% for a fully trained Charizard.
+5. **Clock drift** (~1 min in 20 min; 3 h a week, possibly a battery change):
+   on hold by the owner. The plan is CLAUDE.md § TODO item B (fix the 30 s
+   cache and `applyClock()` seconds first, then measure).
+6. **Unverified on hardware**: `lanLeave()` against the original
+   guest-quits-mid-battle repro; the PWR long-press flush lead time; the music
+   volume against the effects; Surfing Pikachu's physics on a real tilt sensor;
+   the 24-48 h `HEALTH` soak; `pcfs_ffat.cpp`'s never-format-over-a-filesystem
+   rule (the emulator uses `pcfs_host.cpp`).
+7. ESCAVALIER, ACCELGOR, TOUCANNON have art but no route (each needs an
+   art-less creature first).
+8. Owner's calls, not bugs: `web/editions.json` points release lists at
+   `squithy/TamaPokeLAN` and links at `reallyjustsomeguy/TamaPokeLANExp`;
+   `tools/backs/` has no established licence (CREDITS.md); the avatars are
+   unlicensed Nintendo art by the owner's choice.
+9. Mart TM prices and the slots' feel are the owner's to retune after play.
+   Latest owner feedback on v3.74 slots: "felt more like the original",
+   bet 3 drained 56 coins with +15, +15, +8 -- consistent with streaky payouts.
+
+### Proposed next work
+
+- **Explore specialty zones** -- `docs/explore-specialty-plan.md` (proposed
+  2026-10-29, nothing decided): a Safari engine for Kanto's Safari Zone,
+  Hoenn's Safari Zone + Extension and Sinnoh's Great Marsh (M; three questions
+  for the owner in the doc), the Bug-Catching Contest, Pokemon Tower's
+  unidentified ghosts (S), fixed encounters such as Snorlax and Friday Lapras
+  (S-M), the Ruins of Alph puzzle, daily swarms, a Friend Safari from LAN
+  rivals. Recommended order is in the doc. Wait for the owner's answers before
+  building.
+- From CLAUDE.md's plan list, still unbuilt: the post-game battle league (not
+  designed), and tagging a release when Actions minutes allow.
+
+---
+
+## 1e. Where things stood (2026-10-20)
 
 | | |
 |---|---|
