@@ -1,6 +1,6 @@
 # Explore specialty zones -- BUILD PLAN (2026-10-29, revision 2)
 
-Status: **revision 3 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
+Status: **revision 4 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
 are in; nothing built yet.** This file turns `docs/explore-specialty-plan.md` (the proposal:
 what and why) into phases with files, callers, tests and hardware checks, in
 the shape of `docs/build-plan.md`. Where the two differ, the owner's answers
@@ -39,8 +39,8 @@ catch formula.
 4. **Safari Balls stay out of the bag.** They belong to the encounter.
 5. **Move the city fishing out of the Safari areas.** Fuchsia City and
    Pastoria City (§ 1).
-6. **Pokemon Tower's ghosts and the Bug-Catching Contest are deferred**, to
-   come later with the Friend Safari.
+6. **Pokemon Tower's ghosts, the Bug-Catching Contest and the Ruins of Alph
+   puzzle are deferred**, to come later with the Friend Safari.
 7. **Fixed encounters get their own marker** on the Explore screen, like the
    legendary's star but different (§ 4). **A missed one is never lost**: it
    comes back now and then until caught, like a legendary, and stays in the
@@ -56,9 +56,14 @@ catch formula.
 - A catch still drops items, as every other Explore catch does.
 - No energy cost, since no creature of yours fights.
 
-**Still open:** whether the one-off's marker stays after a miss (§ 4), the
-puzzle's scope (§ 7), evolution stones, and the 18 branch evolutions (end of
-this file).
+10. **A marker means a GUARANTEED battle, for legendaries too.** The star
+    (legendary) and the `!` (one-off) show only while the guaranteed first
+    meeting is due. Once it has happened, the creature falls back to the 3%
+    chance and the marker goes. This changes the legendary star, which since
+    v3.40 has stayed until the legendary is caught (§ 4).
+
+**Still open:** evolution stones and the evolution branches (end of this
+file).
 
 ## Rules that hold in every phase
 
@@ -251,19 +256,23 @@ of the same area wins the roll. **`wildIsExploreLegend()` must NOT read this
 list**, or the species leaves the egg pool. MET is set as the fight starts and
 CAUGHT in `btlThrowBall()`, the same places as the legendaries.
 
-**The marker.** The legendary's star wraps the name: `* AREA *`, drawn by
-`areaCentredName()` from `wildAreaHasLegend()`. A fixed encounter gets
-`! AREA !`, from `wildAreaHasFixed(area, pet)`. If an area has both, the star
-wins. It shows in the area list and on Explore's area row (both draw through
-`areaCentredName()`). `explore_test` checks the name still fits its row with
-the marker.
-
-**Decide:** after a miss, does the `!` stay?
-- (a) *Recommended:* only while the guaranteed meeting is due. The `!`
-  promises "a one-time battle is next", and the rare repeat is then a
-  surprise, as the legendaries' repeats are. (The legendary's star stays until
-  caught, because it means "something rare lives here".)
-- (b) Keep it until caught, like the star.
+**The markers (owner, 2026-10-29): a marker means a guaranteed battle.**
+- `* AREA *` (a legendary) and `! AREA !` (a one-off) are drawn by
+  `areaCentredName()`, in the area list and on Explore's area row, while that
+  area's GUARANTEED first meeting is due: open, gate passed, not yet met, art
+  and pack present, and for Lapras, a Friday. If both are due, the star wins.
+- Once met, the creature falls back to the 3% chance and the marker goes,
+  whether or not it was caught.
+- **This changes the legendary star.** Today `wildAreaHasLegend()` shows it
+  until the legendary is CAUGHT. It becomes "a guaranteed meeting is due"
+  (`wildAreaHasLegendDue()`, or the old name with the new rule). The callers
+  are the star in `areaCentredName()` and the console's `AREA` listing; both
+  move to the one answer. A roamer's guaranteed meeting is at its home, so
+  that is where its star shows. Necrozma's star still waits for all seven
+  Ultra Beasts, since its meeting is not due until then.
+- `legendui_test` (the star's own test) changes with it: the star is on before
+  the first meeting, off after it while uncaught, and stays off after a catch.
+  `fixed_test` checks the same for the `!`.
 
 **How each candidate is reachable today** (checked in `wild_areas.h` and
 `dex.h`; "egg" means it hatches, or its first form does):
@@ -297,7 +306,8 @@ scripts at build time.
 - Saved and reloaded through each half of the save.
 
 Negative checks: no repeat after a miss, a repeat after a catch, Lapras on a
-Thursday, `wildIsExploreLegend()` reading the list.
+Thursday, `wildIsExploreLegend()` reading the list, the marker after the
+first meeting (for both markers).
 
 ## 5. v3.79 -- swarms (S-M)
 
@@ -384,7 +394,10 @@ stones: 1st a TM you do not own, 2nd money, 3rd coins.
 **Size.** M: a session (RAM only), the contest table from the generator, a
 judging port, a results screen, about 8 strings. Saved: only "entered today".
 
-## 7. v3.81 -- the Ruins of Alph puzzle (M)
+## 7. DEFERRED -- the Ruins of Alph puzzle (M)
+
+Deferred by the owner (2026-10-29), with the Tower's ghosts. Kept as
+designed:
 
 **What the game did (Crystal).** It is **not a sliding puzzle** (the proposal
 was wrong about that):
@@ -430,78 +443,150 @@ solve the puzzle first.
 Deferred by the owner. After the champion, each `RivalRecord` would open a
 FRIEND SAFARI row whose type and three species derive from that rival's MAC.
 
-## Evolution stones (asked 2026-10-29, for the contest's prizes)
-
-**Possible, and about one version (M), built the way the Linking Cord was.**
+## Evolution stones and the missing branches (asked 2026-10-29)
 
 **Today.** A stone evolver evolves by LEVEL, with a stand-in level in the
-data: Pikachu at 30, Gloom at 36. `evolvesTo` is one field, so a species with
-two stone branches can only reach one of them.
+data: Pikachu at 30, Gloom at 36. `DexEntry::evolvesTo` holds ONE target, so
+a species with two evolutions can only reach one of them. Eevee's branches
+(`EEVEE_BRANCHES`) and the trade evolutions (`TRADE_EVOS`) are the two
+exceptions, each with its own table.
 
-**Finding: 18 evolved forms hatch from eggs as if they were base forms.**
-None of them is missing art (checked against `noart.h`), so this is not a
-sprite workaround. It is a data limit: `evolvesTo` holds ONE target, so a
-species whose evolution is any other route is nobody's target, and the rarity
-derivation (`gen_dex.py`) calls it a base form. This is what happened to
-Eevee's branches before v3.32. Three groups:
-- **The second branch of a split** (12): HITMONCHAN and HITMONTOP (Tyrogue
-  reaches only Hitmonlee), BELLOSSOM (Gloom reaches Vileplume), CASCOON
-  (Wurmple reaches Silcoon), SHEDINJA (Nincada's extra), MOTHIM (Burmy's
-  male form), GALLADE, FROSLASS, APPLETUN, DIPPLIN, CERULEDGE, KLEAVOR. In the
-  games they come only by evolving; here they hatch, and cannot be evolved
-  into.
-- **The pre-evolution is a regional form this dex does not have** (4):
-  PERRSERKER (Galarian Meowth), RUNERIGUS (Galarian Yamask), SNEASLER
-  (Hisuian Sneasel), CLODSIRE (Paldean Wooper). Without regional forms,
-  hatching is their only way in.
-- **Other** (2): MELMETAL (Meltan evolves only in Pokemon GO), and LUNALA
-  (Cosmoem's second branch; it is an Explore legendary with a home, so it is
-  out of the egg pool already).
+### The 18 evolved forms that hatch
 
-Fixing the first group means a branch table like `EEVEE_BRANCHES`, with each
-game's rule (stones, a stat comparison for Tyrogue, the creature's ID for
-Wurmple, a gender stand-in for Burmy/Kirlia/Snorunt), and marking the targets
-evolution-only. That belongs with the stones. The second group should stay
-hatchable unless regional forms ever arrive. **Not fixed**: the owner's call.
+None is missing art (checked against `noart.h`). Each is an evolution that
+nothing's `evolvesTo` names, so `gen_dex.py` rates it a base form and it
+hatches. Eevee's branches had the same problem before v3.32. Each rule below
+is from PokeAPI's `pokemon_evolution.csv`.
 
-**What stones would take:**
-- **Data:** `tools/fetch_stone_evos.py` from PokeAPI's `pokemon_evolution.csv`
-  (trigger "use-item"), emitting `STONE_EVOS[]` (from, stone, to), like
-  `TRADE_EVOS`. Ten stones (Fire, Water, Thunder, Leaf, Moon, Sun, Shiny,
-  Dusk, Dawn, Ice) cover about 55 species once regional forms are dropped;
-  Galar's and Paldea's one-off items (apples, pots, armour, teacups) are 14
-  more and could follow. Gender-locked rows (Dawn Stone: Gallade from a male
-  Kirlia, Froslass from a female Snorunt) need a rule, since creatures have no
-  gender here.
-- **Items:** ten new `ItemKey`s appended after the marker (`IC_STONE`, param =
-  stone). The bag grows by key without migration. Mart prices: the games'
-  $2,100 (Celadon Dept. Store) or contest and drop only.
-- **The rule:** `Pet::evoInfo()` stays THE evolution rule. A stone target
-  appears as a new status, like `EVO_NEEDS_TRADE`. Using the stone from the bag
-  on the live pet evolves it, through the same path the cord uses
-  (`cordUse()` -> `applyCord()` is the template), and the stone is spent only
-  when it does something.
-- **The big decision: pure stone, or stone OR level?**
-  - Pure stone (as trade evolution went pure in v3.32) is faithful. But every
-    current Pikachu, Gloom, Poliwhirl or Eevee stops evolving by level, which
-    changes running games, and a stone becomes the only way, so stones must be
-    obtainable (Mart, drops, contest).
-  - Stone OR level keeps every save as it is, and adds stones as the way to
-    the OTHER branches (Bellossom, Gallade, Froslass, Eevee's stone forms)
-    and to evolve early.
-  - Recommended: stone OR level. It changes nothing that exists, fixes
-    branches the single `evolvesTo` cannot reach, and gives the contest's Sun
-    Stone a real use (Gloom -> Bellossom, Sunkern -> Sunflora).
-- **Eevee:** today `Pet::eeveeOptions()` picks among the branches. Stones
+**The 12 second branches, and what each needs:**
+
+| form | from | the games' rule | what it needs here |
+|---|---|---|---|
+| BELLOSSOM | Gloom | Sun Stone | a stone |
+| GALLADE | Kirlia | Dawn Stone, male only | a stone + a gender stand-in |
+| FROSLASS | Snorunt | Dawn Stone, female only | a stone + a gender stand-in |
+| APPLETUN | Applin | Sweet Apple | an evolution item |
+| DIPPLIN | Applin | Syrupy Apple | an evolution item |
+| CERULEDGE | Charcadet | Malicious Armor | an evolution item |
+| KLEAVOR | Scyther | Black Augurite | an evolution item |
+| HITMONCHAN | Tyrogue | L20, Attack < Defense | a stat rule |
+| HITMONTOP | Tyrogue | L20, Attack = Defense | a stat rule |
+| CASCOON | Wurmple | L7, the creature's hidden value (50/50) | its ID |
+| MOTHIM | Burmy | L20, male (female gives Wormadam) | a gender stand-in |
+| SHEDINJA | Nincada | appears beside Ninjask at L20 if a party slot is free and a ball is in the bag | a gift rule |
+
+- **The ten classic stones fix 3** (Bellossom, Gallade, Froslass). Two of
+  those also need a gender, since creatures have none here.
+- **Stones plus the four one-off items (two apples, the armour, the
+  augurite) fix 7.** The partners are already in the data as level stand-ins
+  (Flapple, Armarouge, Scizor), so they would move to their own items too.
+- **The other 5 need no item at all**:
+  - **Tyrogue: a stat comparison.** Our creatures have Attack and Defense, so
+    this is exact: at L20, higher Attack gives Hitmonlee, higher Defense
+    Hitmonchan, equal Hitmontop.
+  - **Wurmple: the creature's own ID**, the way Clamperl already picks its
+    trade target. It is fixed at hatching and 50/50.
+  - **Burmy: male Mothim, female Wormadam.** Like Kirlia and Snorunt, it needs
+    a gender stand-in.
+  - **Nincada: Shedinja as a second creature.** At L20 the live pet becomes
+    Ninjask, and if the party has room (and, as in the games, the bag has a
+    Poke Ball), Shedinja joins it through `storeNewCreature()`. It is the only
+    evolution that makes two creatures.
+
+**Gender.** Three of the 12 (Gallade, Froslass, Mothim/Wormadam) need one.
+Creatures have no gender here. A stand-in without a save change: a bit of the
+creature's ID, at the species' real ratio (Kirlia 50/50, Snorunt 50/50,
+Burmy 50/50), shown nowhere, decided at hatching and never re-rolled. A real
+visible gender is a bigger feature and is not proposed.
+
+### The 4 regional-form evolutions
+
+PERRSERKER (Galarian Meowth), RUNERIGUS (Galarian Yamask), SNEASLER (Hisuian
+Sneasel) and CLODSIRE (Paldean Wooper) evolve only from a regional form.
+
+**Why there are no regional forms.** The dex is one entry per National Dex
+number (1025): one name, one typing, one set of stats, one learnset, one
+sprite. Forms are not species. When the data is built, PokeAPI's form rows are
+folded into their species (`pokemon_id` -> `species_id` in `gen_wild.py`), so
+Galar's wild Meowth are plain Meowth, and Opal's Galarian Weezing is a plain
+Weezing (CLAUDE.md, Galar's ladder). Nobody decided against forms; the
+original Kanto game had none, and each expansion kept the shape.
+
+**What adding them would take (L, several versions).** There are 58 regional
+forms (19 Alolan, 19 Galarian, 16 Hisuian, 4 Paldean).
+- A form table with each one's typing, stats, learnset, evolution and name.
+- A form on every creature. `PartyMon` has three reserved zero bytes, so one
+  can carry it without changing the record's size. `tradeMonValid()` refuses
+  non-zero reserved bytes today, so an older board would refuse to trade a
+  form rather than lose it. That is the right failure, but it needs a
+  `TRADE_PROTO`/`LINK_PROTO` bump. The pet checkpoint appends a byte.
+- Sprites from SpriteCollab's form folders (`sprite_paths.py` already knows
+  how to look there), and the packs rebuilt.
+- Wild tables and leader rosters that keep the form.
+- The Pokedex, which counts species, so a form registers its species.
+
+Until then these four stay hatchable. Hatching is their only way in.
+
+### MELMETAL
+
+**It needs something unique to Pokemon GO.** Meltan evolves with 400 Meltan
+Candy, which only GO has (PokeAPI's trigger is `meltan-candies`). The main
+series has no evolution for it at all: Melmetal arrives by transfer. It is not
+a branch, since Meltan has no other evolution, so "decided by chance" has
+nothing to split. Options:
+- (a) Leave it as it is: both are mythicals and both hatch.
+- (b) *Recommended:* give Meltan an evolution of this game's own, and make
+  Melmetal evolution-only. A fit: **walking with Meltan as the live pet**,
+  since GO's candy was earned by playing, and this board has a real pedometer
+  (`Pet::addSteps()`). For example 400 x 25 = 10,000 steps, a long day's walk.
+  A level stand-in (as Gen 1's stones once had) would be simpler but
+  arbitrary.
+
+### LUNALA
+
+**It is a legendary. The split is the game version.** Cosmoem evolves at 53
+into Solgaleo in Sun and Lunala in Moon; nothing about the creature decides
+it. Our data has Cosmoem -> Solgaleo only, so:
+- An Explore Cosmog (egg-only here) always becomes SOLGALEO.
+- LUNALA can only be met in Explore: it is a legendary with a home (Vast Poni
+  Canyon, after the champion), so it is already out of the egg pool. Its
+  base-form rating is harmless today.
+- **Proposal:** split Cosmoem by the creature's ID, 50/50, as Clamperl's trade
+  target already is. The version is the player's choice in the games, and the
+  ID is the nearest thing this game has that is fixed for that creature.
+
+### What a "branches and stones" version would build
+
+- **Data:** `tools/fetch_evo_branches.py` from PokeAPI, emitting one
+  `EVO_BRANCHES[]` table (from, to, rule: item / stat / ID / gender / gift)
+  beside `TRADE_EVOS`. Its targets join the evolution-only set, so all 12 stop
+  hatching. One source for both "can evolve into" and "cannot hatch", which is
+  how Eevee was fixed.
+- **Items:** the ten stones, plus the four one-off items if wanted, appended
+  after the marker (`IC_STONE`). The bag grows by key without migration. The
+  games sell stones at $2,100 (Celadon Dept. Store, and every later shop).
+- **The rule:** `Pet::evoInfo()` stays THE evolution rule. Using an item from
+  the bag on the live pet goes through the Linking Cord's path
+  (`cordUse()` -> `applyCord()`), and the item is spent only when it does
+  something. The stat, ID and gender rules apply on level-up inside
+  `evoInfo()`.
+- **Pure item, or item OR level?**
+  - *Recommended:* item OR level for the existing single route (Pikachu still
+    evolves at 30, so no running game changes), and item ONLY for the 12
+    branches, which cannot evolve today anyway.
+  - Pure item is more faithful, but every current Pikachu, Gloom or Eevee
+    would stop evolving by level.
+- **Eevee:** today `Pet::eeveeOptions()` chooses among the branches. Stones
   would make Vaporeon, Jolteon, Flareon, Leafeon and Glaceon choosable.
   Espeon, Umbreon and Sylveon keep today's path.
-- **Tests:** `stone_test` (each stone through the bag on the live pet, spent
-  only when it works, the card's evolution line, branches, Eevee), plus
-  `dexdata_test`'s rarity invariant extended to stone targets. If the 18 are
-  fixed at the same time, also `region_test`'s egg sweep.
+- **Tests:** `branch_test` (each rule, the item spent only when it works, the
+  card's evolution line, Eevee, Shedinja's gift, the ID and stat splits, a
+  re-ask never re-rolling), `dexdata_test`'s rarity invariant extended to every
+  branch target, and `region_test`'s egg sweep (none of the 12 hatch).
 
-**Size:** M on its own, about the Linking Cord's size. Do it BEFORE the
-contest if its 1st prize is to be the Sun Stone.
+**Size:** M for stones plus the five rule-only branches; +S for the four items.
+It touches no save field, except that the existing trade/link refusal must
+still accept the new items in the bag.
 
 ## Not in this plan
 
