@@ -1,6 +1,6 @@
 # Explore specialty zones -- BUILD PLAN (2026-10-29, revision 2)
 
-Status: **revision 7 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
+Status: **revision 8 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
 are in; nothing built yet.** This file turns `docs/explore-specialty-plan.md` (the proposal:
 what and why) into phases with files, callers, tests and hardware checks, in
 the shape of `docs/build-plan.md`. Where the two differ, the owner's answers
@@ -562,15 +562,11 @@ evolution. In the games these items are one-off pickups with no other use, so a
 choice loses nothing a player could feel. It needs a multi-button evolution
 offer, which Eevee's branches will use too.
 
-**Which level (the owner asked about 40):**
-- **30 (recommended):** what both stand-ins use today, so no Applin or
-  Charcadet already raised changes. Every other item evolution in the data
-  also stands in at 30, and Gen 1's stone stand-ins sit at 30-36.
-- **40:** works too, and matches `TM_LEVEL`. But APPLIN's Dipplin evolves
-  again into HYDRAPPLE, whose stand-in is also 30, so a Dipplin made at 40
-  would evolve again on its next level. Hydrapple would need to move up (for
-  example to 50; in the games it needs the move Dragon Cheer). An Applin or
-  Charcadet already between 30 and 39 would wait ten more levels.
+**The level (decided): 30**, what both stand-ins use today, so no Applin or
+Charcadet already raised changes. DIPPLIN's own evolution, HYDRAPPLE, moves
+from 30 to **40** (owner), so an Applin choosing Dipplin at 30 does not evolve
+again on its next level. In the games Hydrapple needs the move Dragon Cheer.
+§ E11 covers the same problem in five other chains.
 
 **SCYTHER (owner's design): the Black Augurite as a stone, blended with the
 trade.**
@@ -653,8 +649,16 @@ value**: 25 for gym leaders and the Elite Four, 25 for FireRed's champion and
 - Emerald's champion Wallace (L58, class 50): **$11,600**
 - *Recommended:* the same formula for every region's ladder, with the
   champion at 50 (Emerald's value) everywhere. The wallet's cap is $999,999.
+- **Easy pays half of hard (recommended).** Hard is the games' own number;
+  easy's opponents have no training, the simple AI and lower IVs, so it pays
+  50%. (The owner offered a 25-50% cut on easy or a 20% bonus on hard; keeping
+  hard at the games' figure means the formula above stays true for one of the
+  two.)
 - **Rematches (decided):** full pay on the first win of each leader per
-  difficulty, HALF on every win after. "First win" is the badge, which is
+  difficulty, HALF on every win after.
+- Together, for Brock: hard first $1,400, hard rematch $700, easy first $700,
+  easy rematch $350. Kanto's champion (L63, class 50): $12,600 / $6,300 / $6,300
+  / $3,150. "First win" is the badge, which is
   already saved per difficulty, so no new save data.
 - No pay on a loss (the blackout takes nothing, by design), none in LAN
   fights, and none for wild wins, which drop items instead.
@@ -721,6 +725,38 @@ becomes evolution-only and stops hatching.
   Tests: own Solgaleo -> every Cosmoem becomes Lunala, whatever its ID, and the
   reverse.
 - Cosmog stays egg-only.
+
+### E11. Chains that evolve twice at once (found 2026-10-29)
+
+Evolution is offered when the level reaches the stand-in, so if a creature's
+next stand-in is at or below the level it just evolved at, it is offered the
+next evolution straight away. A sweep of `dex.h` finds eleven such chains:
+
+| chain | stand-ins | after this version |
+|---|---|---|
+| Magnemite -> Magneton -> Magnezone | 30, 30 | fixed: Magnezone takes a Thunderstone |
+| Tynamo -> Eelektrik -> Eelektross | 39, 30 | fixed: Thunderstone |
+| Litwick -> Lampent -> Chandelure | 41, 30 | fixed: Dusk Stone |
+| Honedge -> Doublade -> Aegislash | 35, 30 | fixed: Dusk Stone |
+| Rhyhorn -> Rhydon -> Rhyperior | 42, 40 | harmless: Rhyperior is trade-only |
+| Porygon -> Porygon2 -> Porygon-Z | 40, 40 | harmless: both trade-only |
+| Applin -> Dipplin -> Hydrapple | 30, 30 | fixed: Hydrapple at 40 (owner) |
+| **Teddiursa -> Ursaring -> Ursaluna** | 30, 30 | **double today** |
+| **Swinub -> Piloswine -> Mamoswine** | 33, 30 | **double today** |
+| **Pawniard -> Bisharp -> Kingambit** | 52, 30 | **double today** |
+| **Azurill -> Marill -> Azumarill** | 25, 18 | **double today** |
+| **Happiny -> Chansey -> Blissey** | 30, 25 | **double today** |
+
+**Proposed fixes (decide the numbers):**
+- Where the first stage is the ordinary one, move the SECOND stage to ten
+  levels later: Ursaluna 40, Mamoswine 43, Kingambit 62.
+- Where the first stage is a baby (Azurill and Happiny, which in the games
+  evolve early on friendship), move the BABY down instead, so a hatched Marill
+  or Chansey keeps its own level: Azurill -> Marill 10, Happiny -> Chansey 15.
+- A `dexdata_test` check fails if any level-evolution chain's next stand-in is
+  at or below the one before it, so a new generation cannot bring this back.
+- These are data changes only; no save changes, and a creature already
+  waiting simply evolves later.
 
 ### E9. The 18 evolved forms that hatch, after this version
 

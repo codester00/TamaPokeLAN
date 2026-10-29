@@ -911,7 +911,7 @@ wins wherever it and the summary below differ.
 `docs/explore-specialty-plan.md` -- the Safari engine (Kanto, Hoenn, Great
 Marsh), the Bug-Catching Contest, Pokemon Tower's ghosts, fixed encounters,
 the Ruins of Alph puzzle, swarms, a Friend Safari from LAN rivals. The phased build
-plan is `docs/explore-specialty-build-plan.md` (revision 7). Owner, 2026-10-29:
+plan is `docs/explore-specialty-build-plan.md` (revision 8). Owner, 2026-10-29:
 Safari encounters are ordinary one-at-a-time Explore fights with no team, no
 fee and no step limit, ported from FireRed (Hoenn: one average Pokeblock, no
 natures); fixed encounters, if missed, come back like a legendary until caught
@@ -930,7 +930,9 @@ AND 48 hours of age (the daily bond cap resets at midnight, so bond alone is
 reachable in ~2 h); Applin/Charcadet choose their branch at a level, no items
 (30 recommended, 40 asked); Combee/Salandit female only; gym rematches pay
 half; Cosmoem is FORCED to whichever of Solgaleo/Lunala the player does not
-own. The handoff for
+own. Revision 8: Applin/Charcadet choose at 30, Hydrapple moves to 40;
+easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
+Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1f.
 
 ### Done: the LUCKY SLOTS hidden setting (v3.74)
