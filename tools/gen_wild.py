@@ -1026,27 +1026,47 @@ def build(refresh=False):
     return areas, legends
 
 
+# The Safari rules each source plays by (wild.cpp's SAFARI_* enum, in order).
+SAFARI_RULES = {'frlg': 0, 'emerald': 1, 'platinum': 2}
+
+
 def safari_flee_rates(areas, refresh=False):
-    """FireRed's per-species Safari flee rate (SpeciesInfo.safariZoneFleeRate)
-    for every species in a Kanto Safari area. Species without one use the
-    game's floor (an escape factor of 2), so only non-zero rates are emitted.
-    Emerald and Platinum have no such field: their Safari rules start every
-    species the same (v3.76)."""
-    text = fetch(FRLG + 'src/data/pokemon/species_info.h', 'frlg_species_info.h', refresh)
-    rates = {}
-    for m in re.finditer(r'\[SPECIES_(\w+)\]\s*=\s*\{(.*?)\n\s*\},', text, re.S):
-        f = re.search(r'\.safariZoneFleeRate\s*=\s*(\d+)', m.group(2))
-        if f and int(f.group(1)):
-            rates[dex_of(m.group(1))] = int(f.group(1))
-    if len(rates) < 20:
-        sys.exit('gen_wild: only %d Safari flee rates in FireRed -- the parse broke' % len(rates))
-    out = {}
+    """The games' own per-species Safari flee rates, for every species in a
+    Safari area: FireRed's SpeciesInfo.safariZoneFleeRate (Kanto) and
+    Platinum's safari_flee_rate (Sinnoh). Emerald has none -- its Safari starts
+    every species alike. Returns [(dex, rules, rate)] for non-zero rates;
+    anything missing reads 0 (FireRed's floor of 2, Platinum's rate 0)."""
+    src_of = {r['region']: r['source'] for r in WA.REGIONS}
+    want = {}
     for a in areas:
-        if a['mode'] and a['region'] == 0:
+        if a['mode']:
             for dex, *_ in a['slots']:
-                if dex in rates:
-                    out[dex] = rates[dex]
-    return sorted(out.items())
+                want.setdefault(src_of[a['region']], set()).add(dex)
+    out = []
+    if 'frlg' in want:
+        text = fetch(FRLG + 'src/data/pokemon/species_info.h', 'frlg_species_info.h', refresh)
+        rates = {}
+        for m in re.finditer(r'\[SPECIES_(\w+)\]\s*=\s*\{(.*?)\n\s*\},', text, re.S):
+            f = re.search(r'\.safariZoneFleeRate\s*=\s*(\d+)', m.group(2))
+            if f and int(f.group(1)):
+                rates[dex_of(m.group(1))] = int(f.group(1))
+        if len(rates) < 20:
+            sys.exit('gen_wild: only %d Safari flee rates in FireRed -- the parse broke' % len(rates))
+        out += [(d, SAFARI_RULES['frlg'], rates[d]) for d in sorted(want['frlg']) if d in rates]
+    if 'platinum' in want:
+        for d in sorted(want['platinum']):
+            slug = DEX[d - 1][1].replace('-', '_')
+            data = json.loads(fetch(PLATINUM + 'res/pokemon/%s/data.json' % slug,
+                                    'platinum_mon_%s.json' % slug, refresh))
+            rate = data.get('safari_flee_rate')
+            if rate is None:
+                sys.exit('gen_wild: Platinum has no safari_flee_rate for %s' % slug)
+            if rate:
+                out.append((d, SAFARI_RULES['platinum'], rate))
+    for src in want:
+        if src not in SAFARI_RULES:
+            sys.exit('gen_wild: a Safari area in %r, whose Safari rules are not ported' % src)
+    return out
 
 
 def scale(mix):
@@ -1116,10 +1136,11 @@ def emit(areas, legends, flee=()):
              '  uint16_t wxMask;   // the weathers it has (bit WILD_WX_*), 0 = none\n'
              '  uint8_t mode;      // WILD_MODE_*\n'
              '};\n'
-             '// FireRed\'s Safari flee rates (SpeciesInfo.safariZoneFleeRate), for the\n'
-             '// species Kanto\'s Safari holds; any other species uses the floor.\n'
+             '// The games\' Safari flee rates for the species their Safari areas hold:\n'
+             '// FireRed\'s safariZoneFleeRate, Platinum\'s safari_flee_rate.\n'
              'struct WildSafariFlee {\n'
              '  int16_t dex;\n'
+             '  uint8_t rules;     // SAFARI_* (wild.h): whose rate it is\n'
              '  uint8_t rate;\n'
              '};\n'
              '// APPEND-ONLY: the save stores a legendary by its index here.\n'
@@ -1185,8 +1206,8 @@ def emit(areas, legends, flee=()):
                     ', after %d caught' % nc if nc else ''))
     o.append('};\n#define WILD_LEGEND_COUNT %d\n\n' % len(legends))
     o.append('static const WildSafariFlee WILD_SAFARI_FLEE[] = {\n')
-    for dex, rate in flee:
-        o.append('  { %d, %d },  // %s\n' % (dex, rate, DEX[dex - 1][2]))
+    for dex, rules, rate in flee:
+        o.append('  { %d, %d, %d },  // %s\n' % (dex, rules, rate, DEX[dex - 1][2]))
     o.append('};\n#define WILD_SAFARI_FLEE_COUNT %d\n' % len(flee))
     return ''.join(o)
 

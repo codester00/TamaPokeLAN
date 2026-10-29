@@ -208,14 +208,19 @@ int wildLegendFor(uint16_t area, const Pet &p, uint32_t roll);
 bool wildAreaHasLegend(uint16_t area, const Pet &p);
 
 // ---------------------------------------------------------------------------
-// Safari encounters (v3.75, docs/explore-specialty-build-plan.md § 1). A Safari
-// area keeps its ordinary table; what changes is the fight: no team, a fresh
-// SAFARI_BALLS per encounter, and the game's own BAIT and ROCK. The rules are
-// FireRed's (Kanto's areas are FireRed's), ported from pokefirered:
-//   src/battle_main.c   HandleAction_ThrowBait / ThrowRock / WatchesCarefully,
-//                       the factors set at battle start
-//   src/battle_ai_script_commands.c   Cmd_if_random_safari_flee
-//   src/battle_script_commands.c      the ball (Safari Ball x1.5)
+// Safari encounters (v3.75, v3.76; docs/explore-specialty-build-plan.md § 1-2).
+// A Safari area keeps its ordinary table; what changes is the fight: no team,
+// a fresh SAFARI_BALLS per encounter, and each game's own items. The rules are
+// the game whose tables the region uses, ported from the pret decomps:
+//   Kanto (FireRed)   BAIT / ROCK     pokefirered src/battle_main.c
+//                     (HandleAction_ThrowBait/ThrowRock/WatchesCarefully),
+//                     src/battle_ai_script_commands.c (Cmd_if_random_safari_flee)
+//   Hoenn (Emerald)   POKEBLOCK / GO NEAR   pokeemerald src/battle_util.c
+//                     (HandleAction_ThrowPokeblock, HandleAction_GoNear)
+//   Sinnoh (Platinum) BAIT / MUD      pokeplatinum src/battle/
+//                     battle_controller_player.c (SafariBait/RockCommand),
+//                     battle_display.c (Task_SafariPokemonSetCommandSelection),
+//                     battle_script.c (BattleScript_CalcCatchShakes)
 // Every roll is passed in, as everywhere in this file.
 
 // WILD_MODE_NORMAL or WILD_MODE_SAFARI. THE answer startWildBattle() and the
@@ -228,34 +233,59 @@ bool wildAreaHasLegend(uint16_t area, const Pet &p);
 uint8_t wildAreaMode(uint16_t area);
 
 constexpr uint8_t SAFARI_BALLS = 30;        // the games' count, per encounter here
-constexpr uint8_t SAFARI_FACTOR_MAX = 20;   // both factors cap at 20 (x5 = 100%)
+constexpr uint8_t SAFARI_FACTOR_MAX = 20;   // Gen 3: both factors cap at 20 (x5 = 100%)
+constexpr uint8_t SAFARI_STAGE_MAX = 12;    // Platinum: 13 stages, 6 = x1
+constexpr uint8_t SAFARI_STAGE_START = 6;
 
-// What the foe did on a turn it stayed: FireRed's three lines.
-enum : uint8_t { SAFARI_WATCHING, SAFARI_EATING, SAFARI_ANGRY };
+// Which game's rules: the game the region's areas come from.
+enum : uint8_t { SAFARI_FRLG, SAFARI_EMERALD, SAFARI_PLATINUM };
+uint8_t wildSafariRules(uint16_t area);
+
+// What a line after an action or a turn says.
+enum : uint8_t { SAFARI_WATCHING, SAFARI_EATING, SAFARI_ANGRY, SAFARI_CURIOUS,
+                 SAFARI_CLOSER, SAFARI_NO_CLOSER, SAFARI_SAID_NOTHING };
 
 struct SafariState {
+  uint8_t rules = SAFARI_FRLG;
   uint8_t balls = 0;
-  uint8_t catchRate = 0;     // the species' own (DEX_CATCH_RATE): a rock wears off back to it
+  uint8_t catchRate = 0;     // the species' own (DEX_CATCH_RATE)
+  // Gen 3 (FireRed, Emerald)
   uint8_t catchFactor = 0;   // catchRate * 100 / 1275, 0..20
-  uint8_t escapeFactor = 0;  // flee rate * 100 / 1275, at least 2; x5 = % a turn
-  uint8_t baitTurns = 0;     // 0..6: eating
-  uint8_t rockTurns = 0;     // 0..6: angry
+  uint8_t escapeFactor = 0;  // x5 = % a turn
+  uint8_t baitTurns = 0;     // FireRed: 0..6, eating
+  uint8_t rockTurns = 0;     // FireRed: 0..6, angry
+  uint8_t blocks = 0;        // Emerald: Pokeblocks thrown, 0..3
+  uint8_t goNear = 0;        // Emerald: GO NEARs taken, 0..3
+  // Platinum
+  uint8_t catchStage = SAFARI_STAGE_START;
+  uint8_t escapeStage = SAFARI_STAGE_START;
+  uint8_t fleeRate = 0;      // Platinum's safari_flee_rate, compared with a 0..254 roll
 };
 
-// FireRed's safariZoneFleeRate for a species (0 when it has none).
-uint8_t wildSafariFleeRate(int16_t dex);
-void safariBegin(SafariState &s, int16_t dex);
-// `roll` picks the 2..6 turns the game adds (Random() % 5 + 2).
-void safariBait(SafariState &s, uint8_t roll);
-void safariRock(SafariState &s, uint8_t roll);
-// The % chance it flees this turn. The game's AI decides this as the turn
-// starts, BEFORE the player's action lands, so a bait thrown now helps from
-// the next turn on.
+// The game's own per-species Safari flee rate for the region's rules (FireRed's
+// safariZoneFleeRate, Platinum's safari_flee_rate), 0 when it has none.
+uint8_t wildSafariFleeRate(int16_t dex, uint8_t rules);
+void safariBegin(SafariState &s, int16_t dex, uint8_t rules = SAFARI_FRLG);
+// Cell 1: BAIT (FireRed, Platinum) or POKEBLOCK (Emerald). Cell 2: ROCK,
+// MUD or GO NEAR. `roll` is the game's own draw for the action (FireRed: the
+// 2..6 turns, Random() % 5 + 2; Platinum: the 1-in-10, Rand % 10). Each
+// returns the line the action itself says (SAFARI_SAID_NOTHING when the
+// foe's turn says it, as in FireRed).
+uint8_t safariBait(SafariState &s, uint8_t roll);
+uint8_t safariRock(SafariState &s, uint8_t roll);
+// The % chance it flees this turn, for the Gen 3 rules (Platinum's is a
+// 0..254 roll: safariFlees()).
 uint8_t safariFleePct(const SafariState &s);
-// The foe's turn when it did not flee: one turn off whichever counter runs,
-// and the catch factor back to the species' own when an angry spell ends.
+// THE flee rule, every game: does it flee on this roll (16 bits)? The games
+// decide it as the turn starts, BEFORE the player's action lands, so an item
+// thrown now counts from the next turn on.
+bool safariFlees(const SafariState &s, uint16_t roll);
+// The foe's turn when it did not flee. FireRed: one turn off whichever counter
+// runs, and the catch factor back to the species' own when an angry spell
+// ends. Emerald and Platinum: it watches.
 uint8_t safariWatch(SafariState &s);
-// The Safari ball: Gen 3's formula on a full-health foe (nothing here can hurt
-// it). Returns the shakes, 0..4; 4 is caught. `rolls` are four 16-bit draws,
-// one per shake check.
+// The Safari ball (x1.5) on a full-health foe (nothing here can hurt it):
+// Gen 3's formula on the catch factor, Platinum's on the catch rate scaled by
+// its stage. Returns the shakes, 0..4; 4 is caught. `rolls` are four 16-bit
+// draws, one per shake check.
 uint8_t safariBallShakes(const SafariState &s, const uint16_t rolls[4]);

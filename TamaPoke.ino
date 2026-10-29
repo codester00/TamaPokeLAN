@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.75"
+#define FW_VERSION "3.76"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -6545,9 +6545,23 @@ static void wildStoreCaught() {
 static void btlWildCaught();
 static void btlSafariAct(uint8_t a);
 
+// A Safari line about the foe (wild.h's SAFARI_* lines).
+static void btlSafariSays(uint8_t what) {
+  switch (what) {
+    case SAFARI_EATING:    btlSay(T(S_SAFARI_EATING), btlFoe.name); break;
+    case SAFARI_ANGRY:     btlSay(T(S_SAFARI_ANGRY), btlFoe.name); break;
+    case SAFARI_CURIOUS:   btlSay(T(S_SAFARI_CURIOUS), btlFoe.name); break;
+    case SAFARI_CLOSER:    btlSay(T(S_SAFARI_CLOSER), pet.trainerName); break;
+    case SAFARI_NO_CLOSER: btlSay("%s", T(S_SAFARI_NO_CLOSER)); break;
+    case SAFARI_WATCHING:  btlSay(T(S_SAFARI_WATCHING), btlFoe.name); break;
+    default: break;
+  }
+}
+
 // The battle's main menu, cell i: its label and whether it can be used. THE
 // list renderBattle() draws and battleTap() reads (v3.75) -- a Safari fight
-// offers BALL / BAIT / ROCK / RUN in the same four cells.
+// offers its game's four in the same cells: BALL / BAIT / ROCK / RUN (Kanto),
+// BALL / POKEBLOCK / GO NEAR / RUN (Hoenn), BALL / BAIT / MUD / RUN (Sinnoh).
 const char *btlMainOpt(uint8_t i, bool *live) {
   static char ballLabel[16];
   *live = true;
@@ -6557,8 +6571,9 @@ const char *btlMainOpt(uint8_t i, bool *live) {
         snprintf(ballLabel, sizeof(ballLabel), T(S_SAFARI_BALL_FMT), btlSafariSt.balls);
         *live = btlSafariSt.balls > 0;
         return ballLabel;
-      case 1: return T(S_SAFARI_BAIT);
-      case 2: return T(S_SAFARI_ROCK);
+      case 1: return T(btlSafariSt.rules == SAFARI_EMERALD ? S_SAFARI_BLOCK : S_SAFARI_BAIT);
+      case 2: return T(btlSafariSt.rules == SAFARI_EMERALD ? S_SAFARI_GO_NEAR
+                       : btlSafariSt.rules == SAFARI_PLATINUM ? S_SAFARI_MUD : S_SAFARI_ROCK);
       default: return T(S_BTL_RUN);
     }
   }
@@ -6614,13 +6629,13 @@ static void btlWildCaught() {
   }
 }
 
-// One Safari turn (v3.75): the foe decides whether it will flee as the turn
-// starts (FireRed's AI chooses before the player's action lands), then the
-// player's action, then the foe flees or stays -- and staying is a turn off its
-// bait or rock counter. a: 0 BALL, 1 BAIT, 2 ROCK, 3 RUN.
+// One Safari turn (v3.75, v3.76): the foe decides whether it will flee as the
+// turn starts (every game's AI chooses before the player's action lands), then
+// the player's action, then the foe flees or stays. a: 0 BALL, 1 BAIT /
+// POKEBLOCK, 2 ROCK / MUD / GO NEAR, 3 RUN. The game is btlSafariSt.rules.
 static void btlSafariAct(uint8_t a) {
   btlMenu = 0;
-  bool flee = random(100) < safariFleePct(btlSafariSt);
+  bool flee = safariFlees(btlSafariSt, (uint16_t)random(65536));
   if (a == 3) {                       // running always works in the Safari
     sfxPlay(SFX_TAP);
     btlOver = true;
@@ -6629,6 +6644,7 @@ static void btlSafariAct(uint8_t a) {
     btlSay("%s", T(S_GOT_AWAY));
     return;
   }
+  uint8_t said = SAFARI_SAID_NOTHING;
   if (a == 0) {
     if (!btlSafariSt.balls) { sfxPlay(SFX_DENY); return; }
     btlSafariSt.balls--;
@@ -6641,22 +6657,26 @@ static void btlSafariAct(uint8_t a) {
     }
     sfxPlay(SFX_DENY);
     btlSay("%s", T(S_BROKE_FREE));
-    if (!btlSafariSt.balls) {         // the game's "out of Safari Balls"
+    if (!btlSafariSt.balls) {         // the games' "out of Safari Balls"
       btlOver = true;
       btlWon = false;
       audioMusic(MUS_NONE);
       btlSay("%s", T(S_SAFARI_OUT));
       return;
     }
-  } else if (a == 1) {
-    sfxPlay(SFX_TAP);
-    safariBait(btlSafariSt, (uint8_t)random(5));
-    btlSay(T(S_SAFARI_THREW_BAIT), pet.trainerName);
   } else {
     sfxPlay(SFX_TAP);
-    safariRock(btlSafariSt, (uint8_t)random(5));
-    btlSay(T(S_SAFARI_THREW_ROCK), pet.trainerName);
+    uint8_t g = btlSafariSt.rules;
+    if (a == 1) {
+      said = safariBait(btlSafariSt, (uint8_t)random(g == SAFARI_PLATINUM ? 10 : 5));
+      btlSay(T(g == SAFARI_EMERALD ? S_SAFARI_THREW_BLOCK : S_SAFARI_THREW_BAIT), pet.trainerName);
+    } else {
+      said = safariRock(btlSafariSt, (uint8_t)random(g == SAFARI_PLATINUM ? 10 : 5));
+      if (g != SAFARI_EMERALD)
+        btlSay(T(g == SAFARI_PLATINUM ? S_SAFARI_THREW_MUD : S_SAFARI_THREW_ROCK), pet.trainerName);
+    }
   }
+  if (said != SAFARI_SAID_NOTHING) btlSafariSays(said);
   if (flee) {
     btlOver = true;
     btlWon = false;
@@ -6664,9 +6684,7 @@ static void btlSafariAct(uint8_t a) {
     btlSay(T(S_WILD_FLED), btlFoe.name);
     return;
   }
-  uint8_t w = safariWatch(btlSafariSt);
-  btlSay(T(w == SAFARI_EATING ? S_SAFARI_EATING : w == SAFARI_ANGRY ? S_SAFARI_ANGRY
-                              : S_SAFARI_WATCHING), btlFoe.name);
+  btlSafariSays(safariWatch(btlSafariSt));
 }
 
 // A potion or a full heal, on whichever creature is out. It works on the
@@ -10045,7 +10063,7 @@ bool startWildBattle(uint8_t region, bool hard) {
 
   btlWild = true;
   btlSafari = safari;
-  if (safari) safariBegin(btlSafariSt, dex);
+  if (safari) safariBegin(btlSafariSt, dex, wildSafariRules(exploreAreaOf(region)));
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlLink = false;
   btlTrainer = -1;

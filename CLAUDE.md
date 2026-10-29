@@ -935,13 +935,37 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1f.
 
+### Done: Hoenn's and Sinnoh's Safari (v3.76, on the branch)
+
+Plan § 2. Hoenn's SAFARI ZONE + SAFARI EXTENSION (Emerald) and Sinnoh's GREAT
+MARSH (Platinum) are Safari areas; `wildSafariRules(area)` picks the game by
+region (`SAFARI_FRLG/EMERALD/PLATINUM`), and one `SafariState` carries all
+three. `safari_test` sections per game; seven guards negative-checked.
+
+- **Emerald** (`pokeemerald` `battle_util.c`): escape factor starts at 3 for
+  every species; GO NEAR (`safariRock()`) adds `{4,3,2,1}[counter]` catch and
+  4 escape (caps 20), "can't get closer" from the fourth; POKEBLOCK
+  (`safariBait()`) is always the "curious" row `{0,3,2,1}` (owner: one average
+  effect, no natures), with the BUGFIX `<=` so the factor never reaches 0.
+  Flee 5 x factor %; the foe's turn only watches.
+- **Platinum** (`battle_controller_player.c`, `battle_display.c`,
+  `battle_script.c`): stages 0-12 start at 6 with Platinum's 13 fractions.
+  BAIT: catch stage +1, escape stage +1 unless roll % 10 == 0. MUD: escape
+  stage -1, catch stage -1 unless roll % 10 == 0. Flee when roll % 255 <=
+  species `safari_flee_rate` x stage fraction (generated into
+  `WILD_SAFARI_FLEE` with a `rules` field, from `res/pokemon/<slug>/data.json`).
+  The ball: catch rate x catch-stage fraction, the same Gen 3/4 shake formula.
+- **`safariFlees(s, roll)` is THE flee rule**; `btlSafariAct()` asks it before
+  the action, as every game's AI does. `btlSafariSays()` narrates
+  (`SAFARI_EATING/ANGRY/CURIOUS/CLOSER/NO_CLOSER/WATCHING`).
+
 ### Done: the Safari Zone (v3.75, on the branch)
 
 Plan § 1 of `docs/explore-specialty-build-plan.md`. Kanto's SAFARI ZONE is met
 as FireRed meets it, ported from `pokefirered` (`battle_main.c`'s
 `HandleAction_ThrowBait/ThrowRock/WatchesCarefully`, the AI's
 `Cmd_if_random_safari_flee`, the ball in `battle_script_commands.c`).
-`safari_test`; nine guards negative-checked.
+`safari_test`; five guards negative-checked.
 
 - **`wildAreaMode(area)` is THE answer** (`WILD_MODE_NORMAL/SAFARI`, generated
   into `WildArea::mode` from `'safari': [...]` in `tools/wild_areas.py`).

@@ -353,43 +353,100 @@ uint8_t wildAreaMode(uint16_t area) {
   return area < WILD_AREA_COUNT ? WILD_AREAS[area].mode : WILD_MODE_NORMAL;
 }
 
-uint8_t wildSafariFleeRate(int16_t dex) {
+uint8_t wildSafariRules(uint16_t area) {
+  // The game each region's areas come from (tools/wild_areas.py 'source').
+  switch (wildAreaRegion(area)) {
+    case 2:  return SAFARI_EMERALD;    // HOENN
+    case 3:  return SAFARI_PLATINUM;   // SINNOH
+    default: return SAFARI_FRLG;       // KANTO, and anything else
+  }
+}
+
+uint8_t wildSafariFleeRate(int16_t dex, uint8_t rules) {
   for (uint16_t i = 0; i < WILD_SAFARI_FLEE_COUNT; i++)
-    if (WILD_SAFARI_FLEE[i].dex == dex) return WILD_SAFARI_FLEE[i].rate;
+    if (WILD_SAFARI_FLEE[i].dex == dex && WILD_SAFARI_FLEE[i].rules == rules)
+      return WILD_SAFARI_FLEE[i].rate;
   return 0;
 }
 
-void safariBegin(SafariState &s, int16_t dex) {
+void safariBegin(SafariState &s, int16_t dex, uint8_t rules) {
   s = SafariState();
+  s.rules = rules;
   s.balls = SAFARI_BALLS;
   s.catchRate = (dex >= 1 && dex <= DEX_COUNT) ? DEX_CATCH_RATE[dex] : 0;
   s.catchFactor = (uint8_t)((uint16_t)s.catchRate * 100 / 1275);
-  uint8_t e = (uint8_t)((uint16_t)wildSafariFleeRate(dex) * 100 / 1275);
-  s.escapeFactor = e <= 1 ? 2 : e;
+  if (rules == SAFARI_EMERALD) {
+    s.escapeFactor = 3;                // every species alike (battle_main.c)
+  } else if (rules == SAFARI_FRLG) {
+    uint8_t e = (uint8_t)((uint16_t)wildSafariFleeRate(dex, rules) * 100 / 1275);
+    s.escapeFactor = e <= 1 ? 2 : e;
+  } else {
+    s.fleeRate = wildSafariFleeRate(dex, rules);
+  }
 }
 
-void safariBait(SafariState &s, uint8_t roll) {
+// Platinum's 13 stages, the catch rate's and the flee rate's alike
+// (sSafariCatchRate, sFleeRateMultipliers).
+static const uint8_t STAGE_NUM[SAFARI_STAGE_MAX + 1] = { 10, 10, 10, 10, 10, 10, 10, 15, 20, 25, 30, 35, 40 };
+static const uint8_t STAGE_DEN[SAFARI_STAGE_MAX + 1] = { 40, 35, 30, 25, 20, 15, 10, 10, 10, 10, 10, 10, 10 };
+// Emerald: what a Pokeblock takes off the escape factor, by blocks thrown.
+// There are no natures here, so every block is the game's "curious" one --
+// the middle of its three outcomes and their even-odds mean, rounded
+// (sPkblToEscapeFactor[n][B_MSG_MON_CURIOUS]).
+static const uint8_t BLOCK_CURIOUS[4] = { 0, 3, 2, 1 };
+// Emerald: GO NEAR's catch gain by times taken (sGoNearCounterToCatchFactor);
+// the escape factor gains 4 every time (sGoNearCounterToEscapeFactor).
+static const uint8_t GO_NEAR_CATCH[4] = { 4, 3, 2, 1 };
+
+uint8_t safariBait(SafariState &s, uint8_t roll) {
+  if (s.rules == SAFARI_EMERALD) {     // a POKEBLOCK
+    if (s.blocks < 3) s.blocks++;
+    uint8_t cut = BLOCK_CURIOUS[s.blocks];
+    // the game's BUGFIX comparison (<=): the factor never reaches 0
+    if (s.escapeFactor > 1) s.escapeFactor = s.escapeFactor <= cut ? 1 : (uint8_t)(s.escapeFactor - cut);
+    return SAFARI_CURIOUS;
+  }
+  if (s.rules == SAFARI_PLATINUM) {    // BAIT: easier to catch, and (9 in 10) likelier to run
+    if (s.catchStage < SAFARI_STAGE_MAX) s.catchStage++;
+    if (roll % 10 != 0 && s.escapeStage < SAFARI_STAGE_MAX) s.escapeStage++;
+    return SAFARI_EATING;
+  }
   uint8_t t = (uint8_t)(s.baitTurns + roll % 5 + 2);
   s.baitTurns = t > 6 ? 6 : t;
   s.rockTurns = 0;
   s.catchFactor >>= 1;
   if (s.catchFactor <= 2) s.catchFactor = 3;
+  return SAFARI_SAID_NOTHING;
 }
 
-void safariRock(SafariState &s, uint8_t roll) {
+uint8_t safariRock(SafariState &s, uint8_t roll) {
+  if (s.rules == SAFARI_EMERALD) {     // GO NEAR
+    uint16_t c = (uint16_t)s.catchFactor + GO_NEAR_CATCH[s.goNear];
+    s.catchFactor = c > SAFARI_FACTOR_MAX ? SAFARI_FACTOR_MAX : (uint8_t)c;
+    uint16_t e = (uint16_t)s.escapeFactor + 4;
+    s.escapeFactor = e > SAFARI_FACTOR_MAX ? SAFARI_FACTOR_MAX : (uint8_t)e;
+    if (s.goNear < 3) { s.goNear++; return SAFARI_CLOSER; }
+    return SAFARI_NO_CLOSER;
+  }
+  if (s.rules == SAFARI_PLATINUM) {    // MUD: less likely to run, and (9 in 10) harder to catch
+    if (s.escapeStage) s.escapeStage--;
+    if (roll % 10 != 0 && s.catchStage) s.catchStage--;
+    return SAFARI_ANGRY;
+  }
   uint8_t t = (uint8_t)(s.rockTurns + roll % 5 + 2);
   s.rockTurns = t > 6 ? 6 : t;
   s.baitTurns = 0;
   uint16_t c = (uint16_t)s.catchFactor << 1;
   s.catchFactor = c > SAFARI_FACTOR_MAX ? SAFARI_FACTOR_MAX : (uint8_t)c;
+  return SAFARI_SAID_NOTHING;
 }
 
 uint8_t safariFleePct(const SafariState &s) {
   uint8_t f;
-  if (s.rockTurns) {
+  if (s.rules == SAFARI_FRLG && s.rockTurns) {
     uint16_t d = (uint16_t)s.escapeFactor * 2;
     f = d > SAFARI_FACTOR_MAX ? SAFARI_FACTOR_MAX : (uint8_t)d;
-  } else if (s.baitTurns) {
+  } else if (s.rules == SAFARI_FRLG && s.baitTurns) {
     f = s.escapeFactor / 4;
     if (!f) f = 1;
   } else {
@@ -399,7 +456,16 @@ uint8_t safariFleePct(const SafariState &s) {
   return pct > 100 ? 100 : (uint8_t)pct;
 }
 
+bool safariFlees(const SafariState &s, uint16_t roll) {
+  if (s.rules == SAFARI_PLATINUM) {
+    uint32_t rate = (uint32_t)s.fleeRate * STAGE_NUM[s.escapeStage] / STAGE_DEN[s.escapeStage];
+    return (uint32_t)(roll % 255) <= rate;
+  }
+  return roll % 100 < safariFleePct(s);
+}
+
 uint8_t safariWatch(SafariState &s) {
+  if (s.rules != SAFARI_FRLG) return SAFARI_WATCHING;
   if (s.rockTurns) {
     if (--s.rockTurns == 0) {
       s.catchFactor = (uint8_t)((uint16_t)s.catchRate * 100 / 1275);
@@ -424,11 +490,15 @@ static uint32_t isqrt(uint32_t n) {
 }
 
 uint8_t safariBallShakes(const SafariState &s, const uint16_t rolls[4]) {
-  uint32_t catchRate = (uint32_t)s.catchFactor * 1275 / 100;   // a u8 in the game; <= 255
-  // (catchRate * ball / 10) * (3 maxHP - 2 hp) / (3 maxHP), at full health
-  uint32_t odds = (catchRate * 15 / 10) * 1 / 3;
-  if (odds > 254) return 4;
-  if (!odds) return 0;   // the game would divide by zero; a factor of 0 never catches
+  uint32_t rate;
+  if (s.rules == SAFARI_PLATINUM)      // the species' rate at its stage
+    rate = (uint32_t)s.catchRate * STAGE_NUM[s.catchStage] / STAGE_DEN[s.catchStage];
+  else                                 // a u8 in the game; <= 255
+    rate = (uint32_t)s.catchFactor * 1275 / 100;
+  // (rate * ball / 10) * (3 maxHP - 2 hp) / (3 maxHP), at full health
+  uint32_t odds = (rate * 15 / 10) * 1 / 3;
+  if (odds >= 255) return 4;
+  if (!odds) return 0;   // the games would divide by zero; nothing catches at 0
   odds = 1048560 / isqrt(isqrt(16711680 / odds));
   uint8_t shakes = 0;
   while (shakes < 4 && rolls[shakes] < odds) shakes++;

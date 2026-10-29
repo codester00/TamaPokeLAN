@@ -47,10 +47,11 @@ struct WildArea {
   uint16_t wxMask;   // the weathers it has (bit WILD_WX_*), 0 = none
   uint8_t mode;      // WILD_MODE_*
 };
-// FireRed's Safari flee rates (SpeciesInfo.safariZoneFleeRate), for the
-// species Kanto's Safari holds; any other species uses the floor.
+// The games' Safari flee rates for the species their Safari areas hold:
+// FireRed's safariZoneFleeRate, Platinum's safari_flee_rate.
 struct WildSafariFlee {
   int16_t dex;
+  uint8_t rules;     // SAFARI_* (wild.h): whose rate it is
   uint8_t rate;
 };
 // APPEND-ONLY: the save stores a legendary by its index here.
@@ -15368,7 +15369,7 @@ static const WildArea WILD_AREAS[] = {
   { "ROUTE 119", 2, 5, 1066, 9, 23, 31, 0x000, WILD_MODE_NORMAL },
   { "ROUTE 120", 2, 5, 1075, 9, 23, 31, 0x000, WILD_MODE_NORMAL },
   { "ROUTE 121", 2, 6, 1084, 10, 32, 40, 0x000, WILD_MODE_NORMAL },
-  { "SAFARI ZONE", 2, 6, 1094, 18, 32, 40, 0x000, WILD_MODE_NORMAL },
+  { "SAFARI ZONE", 2, 6, 1094, 18, 32, 40, 0x000, WILD_MODE_SAFARI },
   { "MT. PYRE", 2, 6, 1112, 9, 32, 40, 0x000, WILD_MODE_NORMAL },
   { "ROUTE 123", 2, 6, 1121, 10, 32, 40, 0x000, WILD_MODE_NORMAL },
   { "MAGMA HIDEOUT", 2, 6, 1131, 3, 32, 40, 0x000, WILD_MODE_NORMAL },
@@ -15382,7 +15383,7 @@ static const WildArea WILD_AREAS[] = {
   { "SKY PILLAR", 2, 7, 1173, 5, 36, 44, 0x000, WILD_MODE_NORMAL },
   { "METEOR FALLS B1F", 2, 8, 1178, 5, 39, 47, 0x000, WILD_MODE_NORMAL },
   { "VICTORY ROAD", 2, 8, 1183, 20, 39, 47, 0x000, WILD_MODE_NORMAL },
-  { "SAFARI EXTENSION", 2, 13, 1203, 20, 53, 63, 0x000, WILD_MODE_NORMAL },
+  { "SAFARI EXTENSION", 2, 13, 1203, 20, 53, 63, 0x000, WILD_MODE_SAFARI },
   { "DESERT UNDERPASS", 2, 13, 1223, 3, 53, 63, 0x000, WILD_MODE_NORMAL },
   { "ARTISAN CAVE", 2, 13, 1226, 1, 53, 63, 0x000, WILD_MODE_NORMAL },
   { "ALTERING CAVE", 2, 13, 1227, 1, 53, 63, 0x000, WILD_MODE_NORMAL },
@@ -15417,7 +15418,7 @@ static const WildArea WILD_AREAS[] = {
   { "RUIN MANIAC CAVE", 3, 4, 1488, 3, 27, 35, 0x000, WILD_MODE_NORMAL },
   { "VALOR LAKEFRONT", 3, 4, 1491, 8, 27, 35, 0x000, WILD_MODE_NORMAL },
   { "ROUTE 213", 3, 4, 1499, 11, 27, 35, 0x000, WILD_MODE_NORMAL },
-  { "GREAT MARSH", 3, 4, 1510, 14, 27, 35, 0x000, WILD_MODE_NORMAL },
+  { "GREAT MARSH", 3, 4, 1510, 14, 27, 35, 0x000, WILD_MODE_SAFARI },
   { "ROUTE 210 NORTH", 3, 5, 1524, 19, 31, 39, 0x000, WILD_MODE_NORMAL },
   { "ROUTE 211 EAST", 3, 5, 1543, 8, 31, 39, 0x000, WILD_MODE_NORMAL },
   { "ROUTE 218", 3, 5, 1551, 12, 31, 39, 0x000, WILD_MODE_NORMAL },
@@ -15724,27 +15725,37 @@ static const WildLegend WILD_LEGENDS[] = {
 #define WILD_LEGEND_COUNT 58
 
 static const WildSafariFlee WILD_SAFARI_FLEE[] = {
-  { 29, 50 },  // NIDORAN H
-  { 30, 75 },  // NIDORINA
-  { 32, 50 },  // NIDORAN M
-  { 33, 75 },  // NIDORINO
-  { 46, 50 },  // PARAS
-  { 47, 75 },  // PARASECT
-  { 48, 50 },  // VENONAT
-  { 49, 75 },  // VENOMOTH
-  { 54, 50 },  // PSYDUCK
-  { 79, 50 },  // SLOWPOKE
-  { 84, 50 },  // DODUO
-  { 102, 75 },  // EXEGGCUTE
-  { 111, 75 },  // RHYHORN
-  { 113, 125 },  // CHANSEY
-  { 115, 125 },  // KANGASKHAN
-  { 118, 50 },  // GOLDEEN
-  { 119, 75 },  // SEAKING
-  { 123, 125 },  // SCYTHER
-  { 127, 125 },  // PINSIR
-  { 128, 125 },  // TAUROS
-  { 147, 100 },  // DRATINI
-  { 148, 125 },  // DRAGONAIR
+  { 29, 0, 50 },  // NIDORAN H
+  { 30, 0, 75 },  // NIDORINA
+  { 32, 0, 50 },  // NIDORAN M
+  { 33, 0, 75 },  // NIDORINO
+  { 46, 0, 50 },  // PARAS
+  { 47, 0, 75 },  // PARASECT
+  { 48, 0, 50 },  // VENONAT
+  { 49, 0, 75 },  // VENOMOTH
+  { 54, 0, 50 },  // PSYDUCK
+  { 79, 0, 50 },  // SLOWPOKE
+  { 84, 0, 50 },  // DODUO
+  { 102, 0, 75 },  // EXEGGCUTE
+  { 111, 0, 75 },  // RHYHORN
+  { 113, 0, 125 },  // CHANSEY
+  { 115, 0, 125 },  // KANGASKHAN
+  { 118, 0, 50 },  // GOLDEEN
+  { 119, 0, 75 },  // SEAKING
+  { 123, 0, 125 },  // SCYTHER
+  { 127, 0, 125 },  // PINSIR
+  { 128, 0, 125 },  // TAUROS
+  { 147, 0, 100 },  // DRATINI
+  { 148, 0, 125 },  // DRAGONAIR
+  { 114, 2, 90 },  // TANGELA
+  { 130, 2, 60 },  // GYARADOS
+  { 163, 2, 90 },  // HOOTHOOT
+  { 164, 2, 60 },  // NOCTOWL
+  { 193, 2, 120 },  // YANMA
+  { 194, 2, 120 },  // WOOPER
+  { 195, 2, 60 },  // QUAGSIRE
+  { 318, 2, 90 },  // CARVANHA
+  { 357, 2, 60 },  // TROPIUS
+  { 400, 2, 60 },  // BIBAREL
 };
-#define WILD_SAFARI_FLEE_COUNT 22
+#define WILD_SAFARI_FLEE_COUNT 32

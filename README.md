@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.75-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.76-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -656,6 +656,27 @@ numbers are FireRed's (`pret/pokefirered`):
   flees at 5 x (factor x 2) % (at most 100%). When the anger wears off the catch
   factor goes back to the species' own. Bait clears rock and rock clears bait.
 - **RUN** always works. Out of Safari Balls, the encounter ends.
+
+**Hoenn's and Sinnoh's Safari (v3.76).** Hoenn's **SAFARI ZONE** and **SAFARI
+EXTENSION** play by Emerald's rules (`pret/pokeemerald`), Sinnoh's **GREAT
+MARSH** by Platinum's (`pret/pokeplatinum`) -- the same frame, no team and 30
+Safari Balls, each with its game's own menu:
+
+- **Emerald: BALL / POKEBLOCK / GO NEAR / RUN.** Every species starts at escape
+  factor 3 (flees 15% of turns) and the catch factor from its catch rate.
+  **GO NEAR** adds 4, 3, 2, then 1 to the catch factor (at most 20) and 4 to the
+  escape factor every time (at most 20); after three it "can't get any closer".
+  **POKEBLOCK** takes 3, 2, then 1 off the escape factor (never below 1). This
+  game has no natures or Pokeblock flavours, so every block is the game's
+  "curious" one -- the middle of its three outcomes.
+- **Platinum: BALL / BAIT / MUD / RUN.** A catch stage and an escape stage,
+  0-12, start at 6; each stage is x0.25, x0.29, x0.33, x0.4, x0.5, x0.67, x1,
+  x1.5, x2, x2.5, x3, x3.5, x4. Each turn it **flees when a random 0-254 is at
+  most its species' Platinum flee rate x the escape stage's multiplier** (Wooper
+  and Yanma 120, Tropius, Quagsire and Bibarel 60...). **BAIT** raises the catch
+  stage and, 9 times in 10, the escape stage; **MUD** lowers the escape stage
+  and, 9 times in 10, the catch stage. The ball multiplies the species' catch
+  rate by the catch stage's multiplier.
 
 Fuchsia City's pond, which used to ride with the Safari Zone, is part of
 **ROUTES 12-15** now (and Pastoria City's water joined **ROUTE 213**, whose

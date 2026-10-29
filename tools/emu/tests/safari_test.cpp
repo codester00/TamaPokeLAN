@@ -77,6 +77,8 @@ int main() {
 
   // ---------------------------------------------------------------- the rules
   SafariState s;
+  uint16_t pass4[4] = { 55186, 55186, 55186, 55186 };
+  uint16_t fail1[4] = { 55187, 0, 0, 0 };
   safariBegin(s, 113);                    // CHANSEY: catch rate 30, FireRed flee rate 125
   ck(s.balls == SAFARI_BALLS && s.balls == 30, "an encounter starts with 30 Safari Balls");
   ck(s.catchFactor == 2, "Chansey's catch factor is 30 * 100 / 1275 = 2");
@@ -105,8 +107,8 @@ int main() {
   safariBait(s, 0);
   ck(s.catchFactor == 9, "bait halves an 18 to 9 (above the floor)");
   safariBegin(s, 1);                      // BULBASAUR: no FireRed Safari flee rate
-  ck(wildSafariFleeRate(1) == 0 && s.escapeFactor == 2, "a species with no flee rate gets the floor of 2");
-  ck(wildSafariFleeRate(147) == 100 && wildSafariFleeRate(148) == 125,
+  ck(wildSafariFleeRate(1, SAFARI_FRLG) == 0 && s.escapeFactor == 2, "a species with no flee rate gets the floor of 2");
+  ck(wildSafariFleeRate(147, SAFARI_FRLG) == 100 && wildSafariFleeRate(148, SAFARI_FRLG) == 125,
      "Dratini 100 and Dragonair 125, read from FireRed");
   s.escapeFactor = 20; s.rockTurns = 3;
   ck(safariFleePct(s) == 100, "the flee chance caps at 100%");
@@ -115,8 +117,6 @@ int main() {
   // 16711680 / 127 = 131588, sqrt sqrt = 19, 1048560 / 19 = 55187 a shake.
   safariBegin(s, 29);
   s.catchFactor = 20;
-  uint16_t pass4[4] = { 55186, 55186, 55186, 55186 };
-  uint16_t fail1[4] = { 55187, 0, 0, 0 };
   uint16_t fail3[4] = { 0, 0, 55187, 0 };
   ck(safariBallShakes(s, pass4) == 4, "four rolls under 55187 catch it");
   ck(safariBallShakes(s, fail1) == 0, "a first roll at 55187 breaks free at once");
@@ -124,13 +124,74 @@ int main() {
   s.catchFactor = 0;
   ck(safariBallShakes(s, pass4) == 0, "a catch factor of 0 never catches (and never divides by zero)");
 
+  // ------------------------------------------------- Emerald (v3.76)
+  safariBegin(s, 203, SAFARI_EMERALD);    // GIRAFARIG: catch rate 60
+  ck(s.escapeFactor == 3 && safariFleePct(s) == 15, "Emerald starts every species at escape factor 3: 15%");
+  ck(s.catchFactor == 4, "and the catch factor from the catch rate (60 -> 4)");
+  ck(safariBait(s, 0) == SAFARI_CURIOUS && s.escapeFactor == 1, "a first Pokeblock takes 3 off: 3 -> 1 (never 0)");
+  ck(safariFleePct(s) == 5, "so it flees 5% of turns");
+  safariBait(s, 0);
+  ck(s.escapeFactor == 1 && s.blocks == 2, "at 1 a block takes nothing more");
+  safariBegin(s, 203, SAFARI_EMERALD);
+  s.escapeFactor = 10;
+  safariBait(s, 0); safariBait(s, 0); safariBait(s, 0); safariBait(s, 0);
+  ck(s.escapeFactor == 10 - 3 - 2 - 1 - 1 && s.blocks == 3, "blocks take 3, 2, 1, then 1 each");
+  safariBegin(s, 203, SAFARI_EMERALD);
+  ck(safariRock(s, 0) == SAFARI_CLOSER && s.catchFactor == 8 && s.escapeFactor == 7, "GO NEAR: catch +4, escape +4");
+  safariRock(s, 0); safariRock(s, 0);
+  ck(s.catchFactor == 8 + 3 + 2 && s.escapeFactor == 15, "then catch +3, +2 (escape +4 each)");
+  ck(safariRock(s, 0) == SAFARI_NO_CLOSER && s.catchFactor == 14 && s.escapeFactor == 19,
+     "the fourth can't get closer, and still adds 1 (the game's table, counter at 3)");
+  ck(safariRock(s, 0) == SAFARI_NO_CLOSER && s.catchFactor == 15 && s.escapeFactor == 20,
+     "and so on, the escape factor capped at 20");
+  ck(safariWatch(s) == SAFARI_WATCHING && s.escapeFactor == 20, "Emerald's foe only watches");
+
+  // ------------------------------------------------ Platinum (v3.76)
+  safariBegin(s, 194, SAFARI_PLATINUM);   // WOOPER: catch 255, Platinum flee rate 120
+  ck(wildSafariFleeRate(194, SAFARI_PLATINUM) == 120, "Wooper's Platinum flee rate is 120");
+  ck(s.catchStage == 6 && s.escapeStage == 6, "both stages start at 6 (x1)");
+  ck(safariFlees(s, 120) && !safariFlees(s, 121), "it flees when a roll % 255 is at most 120");
+  ck(safariFlees(s, 255) && !safariFlees(s, 255 + 121), "(the roll is taken % 255)");
+  ck(safariBait(s, 1) == SAFARI_EATING && s.catchStage == 7 && s.escapeStage == 7,
+     "BAIT: catch stage up, and escape stage up (roll % 10 != 0)");
+  ck(safariFlees(s, 180) && !safariFlees(s, 181), "at escape stage 7 the rate is 120 x 1.5 = 180");
+  safariBait(s, 0);
+  ck(s.catchStage == 8 && s.escapeStage == 7, "a bait on a 1-in-10 roll leaves the escape stage alone");
+  ck(safariRock(s, 3) == SAFARI_ANGRY && s.escapeStage == 6 && s.catchStage == 7,
+     "MUD: escape stage down, and catch stage down (roll % 10 != 0)");
+  safariRock(s, 0);
+  ck(s.escapeStage == 5 && s.catchStage == 7, "a mud on a 1-in-10 roll leaves the catch stage alone");
+  ck(safariFlees(s, 80) && !safariFlees(s, 81), "at escape stage 5 the rate is 120 / 1.5 = 80");
+  s.escapeStage = 12;
+  ck(safariFlees(s, 254), "at stage 12 (x4: 480) every roll flees");
+  for (int i = 0; i < 20; i++) safariRock(s, 1);
+  ck(s.escapeStage == 0 && s.catchStage == 0, "both stages floor at 0");
+  for (int i = 0; i < 20; i++) safariBait(s, 1);
+  ck(s.escapeStage == 12 && s.catchStage == 12, "and cap at 12");
+  // the ball: Wooper's 255 at stage 6 is (255 x 15/10) / 3 = 127 -> 55187 a shake;
+  // at stage 0, 255 x 10/40 = 63 -> 31 -> 1048560 / sqrt(sqrt(539086)) = 38835
+  s.catchStage = 6;
+  ck(safariBallShakes(s, pass4) == 4 && safariBallShakes(s, fail1) == 0, "stage 6 shakes at 55187, as Gen 3");
+  s.catchStage = 0;
+  uint16_t at38834[4] = { 38834, 38834, 38834, 38834 };
+  uint16_t at38835[4] = { 38835, 0, 0, 0 };
+  ck(safariBallShakes(s, at38834) == 4 && safariBallShakes(s, at38835) == 0, "stage 0 shakes under 38835");
+  s.catchStage = 12;
+  ck(safariBallShakes(s, fail1) == 4, "stage 12 (x4) catches outright");
+  ck(safariWatch(s) == SAFARI_WATCHING, "Platinum's foe only watches");
+
   // ------------------------------------------------------------- the areas
   uint16_t safari = wildAreaByName(0, "SAFARI ZONE");
   uint16_t r1 = wildAreaByName(0, "ROUTE 1");
   ck(safari != WILD_NO_AREA && wildAreaMode(safari) == WILD_MODE_SAFARI, "SAFARI ZONE is a Safari area");
   ck(wildAreaMode(r1) == WILD_MODE_NORMAL, "ROUTE 1 is not");
-  ck(wildAreaMode(wildAreaByName(2, "SAFARI ZONE")) == WILD_MODE_NORMAL,
-     "Hoenn's Safari Zone keeps its fights until its own rules land");
+  ck(wildAreaMode(wildAreaByName(2, "SAFARI ZONE")) == WILD_MODE_SAFARI &&
+     wildAreaMode(wildAreaByName(2, "SAFARI EXTENSION")) == WILD_MODE_SAFARI &&
+     wildAreaMode(wildAreaByName(3, "GREAT MARSH")) == WILD_MODE_SAFARI,
+     "Hoenn's Safari Zone and Extension and Sinnoh's Great Marsh are Safari areas (v3.76)");
+  ck(wildSafariRules(safari) == SAFARI_FRLG && wildSafariRules(wildAreaByName(2, "SAFARI ZONE")) == SAFARI_EMERALD &&
+     wildSafariRules(wildAreaByName(3, "GREAT MARSH")) == SAFARI_PLATINUM,
+     "each plays by its own game's rules");
   pet.badges = 0xFF;                       // every Kanto gate open
   ck(!areaHas(safari, 130), "Fuchsia's Gyarados is no longer met in the Safari Zone");
   ck(areaHas(safari, 147), "the Safari Zone keeps its own Dratini");
@@ -227,6 +288,36 @@ int main() {
   btlMainOpt(0, &deadBall);
   ck(!deadBall, "with none left, BALL reads as unusable");
   battleOpen = false;
+
+  // ---- Hoenn and Sinnoh through the screen (v3.76)
+  pet.badgesX[2 - 1] = 0xFF;
+  exploreAreaPick[2] = (uint16_t)(wildAreaByName(2, "SAFARI ZONE") + 1);
+  ck(startWildBattle(2, false) && btlSafari && btlSafariSt.rules == SAFARI_EMERALD, "Hoenn's Safari Zone: Emerald's rules");
+  ck(btlSquadN == 0, "no team in Hoenn's either");
+  ck(!strcmp(btlMainOpt(1, &live), "POKEBLOCK") && !strcmp(btlMainOpt(2, &live), "GO NEAR"),
+     "its menu reads POKEBLOCK and GO NEAR");
+  drain();
+  btlSafariSt.escapeFactor = 0;            // stays for the test
+  tapCell(2);
+  ck(sawLine("closer") && btlSafariSt.goNear == 1 && btlSafariSt.catchFactor > 0, "GO NEAR through the screen");
+  drain();
+  tapCell(1);
+  ck(sawLine("POKEBLOCK") && btlSafariSt.blocks == 1, "POKEBLOCK through the screen");
+  drain();
+  tapCell(3); drain();
+  ck(!battleOpen, "and RUN leaves");
+  exploreAreaPick[3] = (uint16_t)(wildAreaByName(3, "GREAT MARSH") + 1);
+  ck(startWildBattle(3, false) && btlSafari && btlSafariSt.rules == SAFARI_PLATINUM, "the Great Marsh: Platinum's rules");
+  ck(!strcmp(btlMainOpt(1, &live), "BAIT") && !strcmp(btlMainOpt(2, &live), "MUD"), "its menu reads BAIT and MUD");
+  drain();
+  btlSafariSt.fleeRate = 0; btlSafariSt.escapeStage = 0;   // 0 x 0.25: only a roll of 0 flees
+  uint8_t st0 = btlSafariSt.catchStage;
+  tapCell(1);
+  ck(btlSafariSt.catchStage == st0 + 1 || btlOver, "BAIT through the screen raises the catch stage");
+  drain();
+  if (battleOpen && !btlOver) { tapCell(2); ck(sawLine("MUD") || btlOver, "MUD through the screen"); drain(); }
+  if (battleOpen) { tapCell(3); drain(); }
+  ck(!battleOpen, "and it closes");
 
   printf(bad ? "\nsafari_test: %d FAILED\n" : "\nsafari_test: all passed\n", bad);
   return bad ? 1 : 0;

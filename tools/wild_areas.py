@@ -264,6 +264,9 @@ HOENN = {
     'source': 'emerald',
     # Emerald's Super Rod is in a Mossdeep house, reached after Winona.
     'super_rod': {'gate': 6, 'script': 'MossdeepCity_House3'},
+    # The Safari Zone and its extension play by Emerald's Safari rules (v3.76):
+    # no team, 30 Safari Balls, POKEBLOCK and GO NEAR.
+    'safari': ['SAFARI ZONE', 'SAFARI EXTENSION'],
     'areas': [
         ('ROUTE 101',        0, ['ROUTE101']),
         ('ROUTE 102',        0, ['ROUTE102']),
@@ -381,6 +384,9 @@ SINNOH = {
     'source': 'platinum',
     # Platinum's Super Rod is the Fight Area's fisherman, in the Battle Zone.
     'super_rod': {'gate': GATE_CHAMPION, 'script': 'fight_area'},
+    # The Great Marsh plays by Platinum's Safari rules (v3.76): no team, 30
+    # Safari Balls, BAIT and MUD.
+    'safari': ['GREAT MARSH'],
     'areas': [
         ('ROUTE 201',        0, ['ROUTE_201']),
         ('LAKE VERITY',      0, ['LAKE_VERITY', 'LAKE_VERITY_LOW_WATER']),
