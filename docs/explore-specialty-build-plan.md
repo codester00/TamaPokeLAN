@@ -1,71 +1,59 @@
-# Explore specialty zones -- BUILD PLAN (2026-10-29)
+# Explore specialty zones -- BUILD PLAN (2026-10-29, revision 2)
 
-Status: **a plan, nothing built, waiting on the owner's answers in § 0.** It
-turns `docs/explore-specialty-plan.md` (the proposal: what and why) into
-phases with files, callers, tests and hardware checks, in the shape of
-`docs/build-plan.md`. Where the two differ, the owner's answers decide, then
-this file.
+Status: **the owner's answers for v3.75 and v3.78 are in (revision 2); nothing
+built yet.** This file turns `docs/explore-specialty-plan.md` (the proposal:
+what and why) into phases with files, callers, tests and hardware checks, in
+the shape of `docs/build-plan.md`. Where the two differ, the owner's answers
+decide, then this file. Version numbers are labels: each phase takes the next
+free version when it is built.
 
 Every number below comes from a pret disassembly, ported, never remembered.
 The sources were checked as fetchable from this container on 2026-10-29:
 
 | mechanic | source |
 |---|---|
-| Kanto Safari (BAIT / ROCK, flee, ball count) | `pokered` `engine/battle/core.asm` (`wSafariBaitFactor`, `wSafariEscapeFactor`, `wNumSafariBalls`), `engine/items/item_effects.asm` (the ball) |
-| Hoenn Safari (POKEBLOCK / GO NEAR) | `pokeemerald` `src/safari_zone.c`, `src/battle_script_commands.c` (`safariCatchFactor * 1275 / 100`) |
-| Great Marsh (MUD / BAIT) | `pokeplatinum` `src/battle/` (battle controller, Safari branch) |
-| Bug-Catching Contest | `pokecrystal` `engine/events/bug_contest/contest.asm`, `judging.asm`, `data/wild/bug_contest_mons.asm` |
-| Pokemon Tower's ghosts | `pokered` `engine/battle/core.asm` (`IsGhostBattle`, `PrintGhostText`) |
+| Kanto Safari (BALL / BAIT / ROCK) | `pokefirered` `src/battle_main.c` (`HandleAction_ThrowBait/ThrowRock/WatchesCarefully`, the factors at battle start), `src/battle_ai_script_commands.c` (`Cmd_if_random_safari_flee`), `src/battle_script_commands.c` (the ball: `safariCatchFactor * 1275 / 100`, Safari Ball x1.5) |
+| Hoenn Safari (POKEBLOCK / GO NEAR) | `pokeemerald` `src/battle_util.c` (`HandleAction_ThrowPokeblock`, `HandleAction_GoNear`, `sPkblToEscapeFactor`, `sGoNearCounterTo*`), `src/battle_main.c` (escape factor starts at 3) |
+| Great Marsh (BAIT / MUD) | `pokeplatinum` `src/battle/battle_controller_player.c` (`SafariBait/RockCommand`), `src/battle/battle_script.c` (`sSafariCatchRate`, 13 stages), `src/battle/battle_lib.c` (both start at stage 6) |
+| Bug-Catching Contest | `pokecrystal` `engine/events/bug_contest/judging.asm` (`ContestScore`), `data/wild/bug_contest_mons.asm`, `data/events/bug_contest_winners.asm`, `maps/Route36NationalParkGate.asm` |
+| Ruins of Alph puzzle | `pokecrystal` `engine/games/unown_puzzle.asm`, `data/wild/unlocked_unowns.asm` |
+| Swarms | `pokecrystal` `data/wild/swarm_grass.asm`, `swarm_water.asm`; `pokeemerald` `src/tv.c` (`sPokeOutbreakSpeciesList`); `pokeplatinum` encounter JSON (`swarms`) |
+| Pokemon Tower's ghosts (deferred) | `pokered` `engine/battle/core.asm` (`IsGhostBattle`) |
 
-## 0. Decisions for the owner (blocking)
+**Kanto ports from FireRed, not Red.** Kanto's areas are FireRed's tables
+(v3.39), so its Safari is FireRed's Gen 3 Safari: BAIT and ROCK work the same
+way as Red's but through Gen 3 numbers. This also puts Kanto and Hoenn on one
+catch formula.
 
-Recommendation first in each.
+## 0. Decisions
 
-1. **Safari catch maths.** (a) *Recommended:* port each game's own catch
-   formula for the Safari ball, which needs each species' real catch rate --
-   a new generated `DEX_CATCH_RATE[]` (1 byte x 1025, ~1 KB flash; PokeAPI's
-   `capture_rate`, which `gen_dex_data.py` already reads). BAIT and ROCK only
-   mean what they meant in the game on top of the game's formula.
-   (b) Apply bait/rock as multipliers on today's `wildCaptureChance()`. That is
-   cheaper but not the games' odds.
-2. **What ends a session.** (a) *Recommended:* the games' rule -- 30 Safari
-   Balls or 500 real pedometer steps, whichever comes first, with each EXPLORE
-   tap inside the session one encounter. Someone who never walks can still use
-   all 30 balls. The emulator has no pedometer, so its sessions end on balls
-   only (and `safari_test` drives steps through `Pet::addSteps()`).
-   (b) A fixed number of encounters (for example 30).
-3. **Hoenn and Sinnoh menus.** (a) *Recommended:* each game's own menu (Kanto
-   BALL/BAIT/ROCK/RUN, Emerald BALL/POKEBLOCK/GO NEAR/RUN, Platinum
-   BALL/MUD/BAIT/RUN). There are no Pokeblocks here, so Emerald's POKEBLOCK
-   throws a plain block with the game's "no flavour match" effect.
-   (b) Kanto's menu everywhere.
-4. **Safari Balls stay out of the bag** (*recommended*, as in the games): a
-   session counter, and anything left over is lost when you leave.
-5. **The entry fee** is $500 from step money, as in every game. Refused with
-   less than $500.
-6. **Pokemon Tower's gate.** The Tower opens today at gate 4, which is also
-   where the Silph Scope fits (Celadon), so a ghost gate there would never be
-   seen. *Recommended:* open the Tower at gate 3 (Lavender is reachable after
-   Lt. Surge and Rock Tunnel, as in Red) and identify the ghosts at gate 4.
-   Secret like the Super Rod, or visible? (*Recommended: visible* -- an
-   unidentified GHOST is the point of the mechanic. Only the fact that the
-   badge fixes it goes unsaid.)
-7. **Bug-Catching Contest prizes.** Evolution stones do not exist here.
-   *Recommended:* 1st place gets a random TM the player does not own (the
-   Mart's own "not owned" rule), 2nd gets money, 3rd coins. Days: Tuesday,
-   Thursday and Saturday as in Crystal. With no clock set, never (fail safe,
-   like the weather).
-8. **Fixed encounters: which ones, and which gates.** The list in § 4 with a
-   gate for each. The red Gyarados is always shiny (the game's rule).
-   Lapras is Fridays only (no clock = never).
-9. **Swarms show on the row** (`SWARM`) -- *recommended*. The alternative is a
-   hidden swarm, which in practice nobody would ever find.
-10. **Fuchsia City and Pastoria City.** Today the SAFARI ZONE area holds
-    Fuchsia's fishing and the GREAT MARSH holds Pastoria's. In Safari mode
-    those maps would turn into Safari encounters. *Recommended:* give each city
-    its own map in a neighbouring area (Fuchsia's with ROUTES 19-21's sea if
-    the rod gates agree, Pastoria's with Route 213), checked with
-    `verify_wild.py`.
+**Decided by the owner (2026-10-29):**
+
+1. **The Safari's odds come from the games.** Each species' real catch rate
+   becomes a generated `DEX_CATCH_RATE[]` (1 byte x 1025, from PokeAPI's
+   `capture_rate`), and each Safari ball runs the game's own catch formula.
+2. **No entry fee and no step limit.** A Safari area works like every other
+   area: each EXPLORE tap is one encounter. What changes is the battle itself:
+   no team, Safari Balls, and the game's own items (Kanto: BAIT and ROCK).
+3. **Each game's own menu** in Hoenn and Sinnoh (v3.76).
+4. **Safari Balls stay out of the bag.** They belong to the encounter.
+5. **Move the city fishing out of the Safari areas.** Fuchsia City and
+   Pastoria City (§ 1).
+6. **Pokemon Tower's ghosts are deferred**, to come later with the Friend
+   Safari.
+7. **Fixed encounters get their own marker** on the Explore screen, like the
+   legendary's star but different (§ 4).
+
+**Small calls made here (say if you want them different):**
+
+- **30 Safari Balls per encounter**, the games' number. In practice a foe
+  flees long before 30 throws (§ 1), so the count is only there for the
+  game's "out of Safari Balls" line.
+- A catch still drops items, as every other Explore catch does.
+- No energy cost, since no creature of yours fights.
+
+**Still open:** the contest's prizes (§ 6; evolution stones are discussed
+there), the puzzle's scope (§ 7), and whether swarms show on the row (§ 5).
 
 ## Rules that hold in every phase
 
@@ -83,143 +71,374 @@ Recommendation first in each.
   order that the generator enforces, like `LEGEND_ORDER`.
 - **Saved data is additive.** New bits go into the player checkpoint tail
   (`PLAYER_VERSION` 10, then later) plus a legacy key in `SAVE_FIELDS`. Never
-  reuse existing bytes. Safari and contest sessions are RAM only.
+  reuse existing bytes. Safari and contest state is RAM only.
 - **`wild.cpp` stays the only includer of `wild_areas.h`.**
 - **Every new guard is negative-checked.** The test must also prove the
   mechanism engaged (trap 3's "vacuously true" shape), for example that a
-  Safari session really did skip `buildSquad()`, not just that the squad
+  Safari encounter really did skip `buildSquad()`, not just that the squad
   looks untouched.
 - **Each phase is one version**: `FW_VERSION`, README badge, the README
   manual's numbers, `docs/release-notes/vX.Y.md` for players, a CLAUDE.md
   "Done" entry, screenshots regenerated (`make_screens.sh`, the three lists
   reconciled). Strings appended in all six languages, ASCII only.
 
-## 1. v3.75 -- the Safari engine, Kanto (M)
+## 1. v3.75 -- Safari encounters, Kanto (M)
 
-**Generator.** A `'mode'` on the area tuple in `tools/wild_areas.py`
-(`'safari'`); `gen_wild.py` emits `WildArea::mode` (`WILD_MODE_NORMAL`,
-`WILD_MODE_SAFARI`) and refuses a Safari area that has a legendary home or a
-hidden rod/water gate (no legendary lives in one today; the assertion keeps
-it that way). Re-check that the other regions come out byte-identical apart
-from the new field. § 0.10's city split happens here.
+**The rules, from FireRed:**
+- At the start of each encounter: catch factor = `catchRate * 100 / 1275`
+  (0..20); escape factor = the species' `safariZoneFleeRate * 100 / 1275`,
+  at least 2. `safariZoneFleeRate` is a FireRed species field, so the
+  generator reads it from `pokefirered` for the species Kanto's Safari holds.
+- **BAIT**: catch factor halved (floor 3), bait counter + 2..6 (at most 6),
+  rock counter cleared.
+- **ROCK**: catch factor doubled (cap 20), rock counter + 2..6 (at most 6),
+  bait counter cleared.
+- **Each turn the foe flees** with probability `5 x f` %, where f is the
+  escape factor x2 (cap 20) while angry, /4 (at least 1) while eating, as is
+  otherwise. Otherwise it watches, and one turn comes off the counter. When the
+  rock counter runs out, the catch factor resets to the species' own.
+- **BALL**: Gen 3's formula, with catch rate = `factor * 1275 / 100`, ball
+  x1.5, full HP and no status (a Safari foe is never hurt): caught outright at
+  a >= 255, otherwise four shake checks.
+- **RUN** always works.
+
+**Generator.** A `'mode': 'safari'` on the area in `tools/wild_areas.py`;
+`gen_wild.py` emits `WildArea::mode` (`WILD_MODE_NORMAL`, `WILD_MODE_SAFARI`)
+and the FireRed flee rates. It refuses a Safari area that holds a legendary's
+home. `gen_dex.py` emits `DEX_CATCH_RATE[]`. The other regions must come out
+byte-identical apart from the new field.
+
+**The city fishing moves.** FUCHSIA CITY leaves SAFARI ZONE for ROUTES 12-15,
+and PASTORIA CITY leaves GREAT MARSH for ROUTE 213. What that changes:
+- **Pastoria: nothing.** Its surf, Good Rod and Super Rod tables are the same
+  as Route 213's, slot for slot (checked in pokeplatinum). The species and the
+  odds are unchanged.
+- **Fuchsia**: Psyduck (surfing), and Goldeen, Seaking, Gyarados and Psyduck
+  (Super Rod) join ROUTES 12-15. That area's water odds shift a little, and
+  Gyarados becomes catchable there. The rod gate is 4 on both sides, so the
+  Super Rod secret holds no more back than before.
+- **The Safari Zone keeps its own water**: Psyduck surfing, and Dratini and
+  Dragonair on the Super Rod. Those become Safari encounters, as they are in
+  FireRed.
+- **Not SEA ROUTES 19-21.** Surfing Pikachu's secret needs every species in
+  that area registered, so adding Fuchsia's catch there would quietly move the
+  secret's goalposts. `surfui_test` and `wildarea_test` should prove SEA
+  ROUTES 19-21 is unchanged.
+- Nothing saved stores an area's contents (`exploreAreaPick[]` is RAM), so no
+  save changes.
 
 **Firmware.**
-- `wild.h/.cpp`: `wildAreaMode()`; the pure Safari rules as testable
-  functions with every roll passed in, like the rest of wild.cpp:
-  `safariCatchChance(dex, baitState, rockState, roll)`,
-  `safariFleeChance(...)`, `safariApplyBait/Rock(...)`. Kanto's values come
-  from `core.asm`/`item_effects.asm`, and the test pins them at their
-  boundaries.
-- `safari.h` (Arduino-free, like `surf.cpp`): `SafariSession { region, balls,
-  stepsLeft, active }`, `safariStart()` (charge $500 through the wallet,
-  `pet.saveNow()`), `safariEnd()`, `safariStepTick()` fed from
-  `Pet::addSteps()`'s caller.
-- Sketch: tapping EXPLORE on a Safari area starts or continues the session.
-  `startWildBattle()` branches on `wildAreaMode()`: **no `buildSquad()`**, no
-  energy cost, no PP, `btlYou` is a stand-in that draws the player's avatar
-  from behind (`avatars.h`) and never acts. A `btlSafari` flag picks the
-  menu, through `btlMainOpt()`. BALL throws a Safari Ball (the session counter,
-  not `bag.consume()`), and a catch goes through `wildStoreCaught()` ->
-  `storeNewCreature()` -- the ONE catch path. BAIT/ROCK change the foe's
-  state. Each turn the foe watches or flees by the game's odds. The foe never
-  attacks (as in the games). RUN always works. Out of balls or steps: the
-  game's message, then the session ends.
-- Explore screen: while a session runs, the area row reads the balls and
-  steps left. Leaving Explore ends the session (as leaving the gate does).
-- i18n: BAIT, ROCK, SAFARI BALL x n, the out-of-balls and session-over lines,
-  the fee line.
+- `wild.h/.cpp`: `wildAreaMode()`; the pure Safari rules with every roll
+  passed in, like the rest of wild.cpp: `safariStart(dex)`, `safariBait()`,
+  `safariRock()`, `safariFleeChance()`, `safariTurnEnd()`,
+  `safariBallCaught(roll...)`.
+- Sketch: `startWildBattle()` branches on `wildAreaMode()`. It does **not**
+  call `buildSquad()`: no energy, no PP, no team picker. `btlYou` stands in for
+  the player (the player's avatar from behind, `avatars.h`) and never acts.
+  `btlSafari` selects the menu through `btlMainOpt()`. A catch goes through
+  `wildStoreCaught()` -> `storeNewCreature()`, the ONE catch path, so the
+  party / PC / box order and the release chooser all come for free.
+  Narration as in FireRed: "WILD X is eating!", "is angry!", "is watching
+  carefully", "fled!". The foe never attacks (as in the games).
+- Explore's area row and the area list read SAFARI ZONE as usual. The status
+  line is unchanged.
+- i18n: BAIT, ROCK, SAFARI BALL, the eating/angry/watching lines and
+  out-of-balls, in six languages.
 
-**Tests.** `safari_test` through the real tap handlers: the fee is charged
-once and refused under $500. No squad is built, and the live pet's energy and
-PP are unchanged; this is proved by a probe that fails if `buildSquad()` ran.
-Balls count down per throw and never touch the bag. A catch lands in party,
-then the PC, then the box. The session ends at 0 balls and at 500 steps.
-BAIT/ROCK odds are pinned to the disassembly's constants. A non-Safari area
-is unchanged (Route 1 still builds a squad). `flush_test` covers the Safari
-menu, `hit_test` the four cells (they are the existing cells, so finger-sized
-by construction), and `explore_test` the row text. Negative checks: the squad
-built anyway, a ball taken from the bag, the session not ending, bait ignored.
+**Tests.** `safari_test` through the real tap handlers:
+- No squad is built, and the live pet's energy and PP are unchanged (a probe
+  fails if `buildSquad()` ran).
+- Balls count down and never touch the bag.
+- A catch lands in the party, then the PC, then the box.
+- BAIT/ROCK factors, the counters and the flee chance are pinned at FireRed's
+  boundaries: floor 3, cap 20, x2, /4, at least 1, the 2..6 counter, the reset
+  when the rock counter runs out.
+- The ball's catch odds for one species are checked against an independent
+  simulation of the formula (like the slots).
+- Route 1 still builds a squad.
+- ROUTES 12-15 now offers Gyarados, the Safari Zone no longer offers it from
+  Fuchsia, SEA ROUTES 19-21 is unchanged, and the Great Marsh and Route 213
+  hold the same water species as before.
 
-**On a board:** the step count against a real walk, and the session row.
+Also `flush_test` (the Safari menu) and `hit_test` (the four cells are the
+existing cells). Negative checks: the squad built anyway, a ball taken from
+the bag, bait ignored, the flee check not run, Fuchsia not moved.
+
+**On a board:** it plays like every Explore tap, so only the feel needs a
+check.
 
 ## 2. v3.76 -- Hoenn's and Sinnoh's Safari menus (S-M)
 
-Mark Hoenn's SAFARI ZONE and SAFARI EXTENSION and Sinnoh's GREAT MARSH
-`'safari'`. Per-game rule sets behind the same session: `SafariRules` chosen
-by region (Emerald: `safariCatchFactor`, `safariEscapeFactor`, GO NEAR,
-POKEBLOCK; Platinum: MUD, BAIT). Port each from its source and pin each in
-`safari_test`. If § 0.3 is answered (b), this phase reduces to marking the
-areas.
+SAFARI ZONE and SAFARI EXTENSION (Hoenn) and GREAT MARSH (Sinnoh) get
+`'mode': 'safari'` with their own rules, chosen by region (`SafariRules`).
+The encounter frame from § 1 is unchanged: no team, 30 Safari Balls, the same
+catch path.
 
-## 3. v3.77 -- Pokemon Tower's ghosts (S)
+**Hoenn (Emerald): BALL / POKEBLOCK / GO NEAR / RUN.**
+- Escape factor starts at **3** for every species (15% a turn); the catch
+  factor comes from the catch rate, as in § 1. Emerald has no per-species
+  flee rate.
+- **GO NEAR**: catch factor + 4, +3, +2, +1 on the first four goes (cap 20);
+  escape factor + 4 each time (cap 20). After four, "can't get any closer".
+  It is a gamble: easier to catch, much likelier to flee.
+- **POKEBLOCK**: lowers the escape factor by an amount that depends on whether
+  the foe's NATURE likes the block's flavour (`sPkblToEscapeFactor`: ignored /
+  curious / enthralled) and on how many blocks have been thrown (up to 3).
+  The catch is untouched. **This game has no natures and no Pokeblocks**, so a
+  decision is needed:
+  - (a) *recommended:* a plain block, always "curious" (the middle row of the
+    game's table). Simple, and still the game's numbers.
+  - (b) give each wild creature a hidden nature drawn when it appears, and
+    roll a random flavour per throw, so the game's three outcomes happen at
+    the game's frequencies. This is more faithful, and adds nothing saved
+    because the nature lives only in the encounter.
+  - Pokeblocks as items, made at a berry blender, would be a separate L-sized
+    feature. Not proposed.
+  - Port the game's BUGFIX row (the `<=` comparison), so the factor can never
+    reach 0. Emerald's original has the "Pokeblock glitch".
+- Two new strings: POKEBLOCK and GO NEAR fit in 12 characters.
 
-`'ghost_gate': 4` on the Tower area (and its gate moved to 3, per § 0.6).
-`wildGhostHidden(area, pet)` is the one answer, built on `wildGateOpen()`.
-While it holds: the foe's plate reads GHOST and draws a silhouette
-(`drawThumbInk()`-style), balls "dodge" (the game's text, and the ball is
-spent, as in Red), the foe's turns are the game's "GET OUT..." with no
-damage, and RUN always works (`core.asm` `.canEscape`). Nothing is registered
-as seen. `ghost_test`: hidden before the badge, identified after it on either
-difficulty, a ball never catches while hidden, run always escapes, and other
-Kanto areas are unaffected. Negative-check each.
+**Sinnoh (Platinum): BALL / BAIT / MUD / RUN.** Platinum works in STAGES, not
+factors:
+- A catch stage 0..12 (starting at 6) indexes `sSafariCatchRate`: x0.25,
+  x0.29, x0.33, x0.4, x0.5, x0.67, x1, x1.5, x2, x2.5, x3, x3.5, x4, applied to
+  the species' catch rate. An escape count also starts at 6.
+- **BAIT**: catch stage +1, and in 9 cases of 10 escape count +1.
+- **MUD**: escape count -1, and in 9 cases of 10 catch stage -1.
+- The names in the decompile look swapped against how the games describe them
+  (in Platinum, bait makes the foe stay and mud makes it easier to catch). So
+  the flee check (`subscript_safari_escape` and the battle script that reads
+  `BTLVAR_SAFARI_ESCAPE_COUNT`) must be read in full before porting, and the
+  test pinned to it, not to these notes.
+- Ball: Gen 4's formula (same shape as Gen 3) with the stage multiplier.
 
-## 4. v3.78 -- fixed encounters (S-M)
+**Tests.** `safari_test` grows a section per region, through the same tap
+handlers. Each region's numbers are pinned to its own source, Hoenn's Pokeblock
+option per the owner's pick, and GO NEAR's cap at four. Kanto's section stays
+green untouched, which is the proof the three rule sets do not leak into each
+other.
+
+**Size.** The frame is built in § 1, so this phase is two rule sets, four
+strings and tests. Option (b) for the Pokeblock adds about a day.
+
+## 3. DEFERRED -- Pokemon Tower's ghosts
+
+Deferred by the owner (2026-10-29), to be taken up with the Friend Safari (§
+8). The design stays as it was: `'ghost_gate': 4` on the Tower, the Tower
+moved to gate 3, an unidentified GHOST that dodges balls and cannot be
+fought, until the Silph Scope's badge.
+
+## 4. v3.78 -- fixed encounters, with their own marker (S-M)
 
 A second generated list, `WILD_FIXED` (`dex, area, level, gate, flags:
 shiny, weekday mask`), with its own saved MET bits (`FIXED_BYTES`,
-APPEND-ONLY order in `tools/wild_areas.py`, new legacy key, player record
-tail). A species on it stays hatchable: **`wildIsExploreLegend()` must NOT
-read this list.** `wildFixedFor(area, pet, weekday)` comes before the
-legendary roll in `startWildBattle()`. It is a one-time guaranteed meeting
-with no rare repeat (in the games they were one-offs). A fixed encounter
-that runs or faints is gone, as in the games: MET is set as the fight starts,
-same as the legendaries.
+APPEND-ONLY order in `tools/wild_areas.py`, a new legacy key, the player
+record's tail). A species on it stays hatchable: **`wildIsExploreLegend()`
+must NOT read this list.** `wildFixedFor(area, pet, weekday)` comes before
+the legendary roll in `startWildBattle()`. It is a one-time guaranteed
+meeting with no rare repeat (in the games they were one-offs). A fixed
+encounter that runs or faints is gone, as in the games: MET is set as the
+fight starts, the same as the legendaries.
 
-Candidates (levels from the map scripts): SNORLAX x2 (Routes 12 and 16, L30),
-ELECTRODE x2 (Power Plant, L43), SUDOWOODO (Route 36, L20), LAPRAS (Union Cave
-B2F, Fridays, L20), red GYARADOS (Lake of Rage, shiny, L30), KECLEON (Routes
-119-120, L30). `fixed_test`: once and only once, the weekday rule, a forced
-shiny, still in the egg pool, and saved and reloaded through each half of the
-save.
+**The marker (owner).** The legendary's star wraps the name: `* SAFARI ZONE
+*`, drawn by `areaCentredName()` from `wildAreaHasLegend()`. Recommended for a
+fixed encounter: `! ROUTE 12 !`, from `wildAreaHasFixed(area, pet)` (open,
+not met, today is its day, art and pack present). If an area has both, the
+star wins (`* NAME *`), since the legendary repeats and the one-off does not.
+The marker shows in the area list and on Explore's area row (both draw
+through `areaCentredName()`), and only while the encounter is due -- Lapras's
+marker shows on Fridays only. `explore_test` checks the name still fits its
+row with the marker (the longest area name plus 4 characters).
+
+**Candidates** (levels read from the map scripts at build time): SNORLAX x2
+(Routes 12 and 16), ELECTRODE x2 (Power Plant), SUDOWOODO (Route 36), LAPRAS
+(Union Cave B2F, Fridays), red GYARADOS (Lake of Rage, always shiny), KECLEON
+(Routes 119-120). Each needs its area and gate confirmed against our area
+list when it is built.
+
+**Tests.** `fixed_test`: met once and only once; the weekday rule (no clock
+= never); the forced shiny; the species still in the egg pool; the marker on
+and off at exactly the right moments, through `areaCentredName()`'s own
+text; saved and reloaded through each half of the save. Negative checks: the
+marker after MET, Lapras on a Thursday, `wildIsExploreLegend()` reading the
+list.
 
 ## 5. v3.79 -- swarms (S-M)
 
-`gen_wild.py` stops dropping each game's swarm tables and emits them as
-`WILD_SWARMS` (region, area, species, level). `wildSwarmToday(region, pet)`
-picks one area per region per day with the same day-hash as
-`wildAreaWeather()` (salted by `Pet::daySalt`, so the existing re-roll cheat
-covers it). With no clock set, no swarm. On the swarm day the area's draw
-gives the swarm species the game's swarm share (Crystal: the swarm table
-replaces the map's; Platinum: slots 0-1). The row reads SWARM.
-`areaStatusText()` remains the one status line, and must still fit 20
-characters (`explore_test` checks). `swarm_test`: one area a day, steady all
-day, every candidate comes round, the share, and no swarm without a clock.
+**What the games did.** One place in the region holds a swarm of one species
+on a given day:
+- **Johto (Crystal):** a phone call from a contact starts it. The swarm tables
+  are separate (`swarm_grass.asm`, `swarm_water.asm`): Dunsparce in Dark Cave
+  (40% of the cave's slots in the data above) and Yanma on Route 35 in the
+  grass; Qwilfish (Route 32) and Remoraid (Route 44) on the rod. Remoraid is
+  met nowhere else in Crystal, so this brings it into Explore.
+- **Hoenn (Emerald):** a TV news bulletin. Five outbreaks in `tv.c`: Seedot
+  (Route 102, L3), Nuzleaf (Route 114, L15), Seedot (Route 117, L13), Seedot
+  (Route 120, L25), Skitty (Route 116, L8). Each comes with its own moveset,
+  and the species takes about half the route's encounters.
+- **Sinnoh (Platinum):** Professor Oak's daughter on TV reports a swarm each
+  day after the Pokedex is national. The route's grass slots 0 and 1 change
+  to the swarm species; the encounter JSON carries a `swarms` pair per map,
+  which must be checked against the game's swarm list before use.
+- **Kanto (FireRed), Unova onward:** FireRed has none. Gen 5+ is PokeAPI's
+  `swarm` method where the data has it, NOT VERIFIED like everything else
+  there.
 
-## 6. v3.80 -- the Bug-Catching Contest (S-M, after § 1)
+**Proposal.** Each region with swarm data gets one swarm a day:
+`wildSwarmToday(region, pet)` picks one entry from that region's list with the
+day hash `wildAreaWeather()` uses, salted by `Pet::daySalt`, so the existing
+re-roll cheat covers it. No clock, no swarm. On that day the area's pick gives
+the swarm species the game's share (Crystal: the swarm table replaces the
+map's; Emerald: the outbreak's share; Platinum: slots 0-1), with the game's
+level and, for Emerald, its moves. Nothing is saved: the day decides.
 
-NATIONAL PARK gets `'contest'` mode, live on contest days (§ 0.7) and normal
-on other days. A session like the Safari's: 20 Park Balls, ONLY the lead
-creature (a squad of one, the team picker's first), the bug table from
-`bug_contest_mons.asm`. The one creature you keep is scored by `judging.asm`'s
-formula against the game's NPC scores. Prizes per § 0.7. You may swap your
-catch for a new one, as in the game. `contest_test`: the day rule, the bug
-table, a squad of one, the score pinned to the disassembly, a prize once a
-day.
+**Decide:** does the row show it? (a) *Recommended:* the status line appends
+SWARM (`Lv.12-18 SWARM`), as the weather does, so a player can find it. This
+is the games' TV and phone call. (b) Hidden, found by playing. Most players
+would never find it.
+
+**Tests.** `swarm_test`: one swarm per region per day, steady all day, every
+entry comes round over a year, the share and level, no swarm without a clock,
+the status line fits 20 characters, and Remoraid reachable.
+
+## 6. v3.80 -- the Bug-Catching Contest (M)
+
+**What the game did (Crystal).** Tuesday, Thursday and Saturday at National
+Park:
+- You enter with ONE creature (the rest are held at the gate) and 20 Park
+  Balls, and have 20 minutes.
+- The park's table is replaced by the contest's: Caterpie and Weedle 20%
+  each; Metapod, Kakuna, Venonat and Paras 10%; Butterfree, Beedrill, Scyther
+  and Pinsir 5%. Levels run 7-18; Scyther and Pinsir are 13-14.
+- You may hold one catch. Catching another asks whether to swap.
+- At the end, your catch is scored and judged against the NPC contestants:
+  ten of them, each with three possible results and a fixed score (Bug Catcher
+  Don's Kakuna 300, Cooltrainer Nick's Pinsir 368, and so on). The score is:
+  4 x max HP + Attack + Defense + Speed + Sp. Atk + Sp. Def + a DV bonus +
+  remaining HP / 8 + 1 if it holds an item.
+- Prizes: 1st a Sun Stone, 2nd an Everstone, 3rd a Gold Berry, everyone else
+  a Berry. You keep the bug.
+
+**How it fits here.** The contest is one SESSION by nature (one entry, many
+encounters, one judging), unlike your Safari decision. Proposal:
+- National Park on a contest day shows CONTEST on its row. Tapping it starts
+  the contest: pick ONE creature (the team picker capped at one), 20 Park
+  Balls.
+- Each EXPLORE tap in the park is a normal fight with that one creature (you
+  weaken, then throw), drawn from the contest table.
+- No timer (a 20-minute clock on a pocket device is a poor fit). The contest
+  ends when you choose to end it, or when the Park Balls run out. Ask if you
+  would rather have the timer.
+- Judging uses Crystal's formula on **Gen 2 stats** computed from the catch
+  (our IVs halved to DVs, Gen 2's stat formula). Our own stats run about 40%
+  above canonical on purpose (see CLAUDE.md § "Fight length"), so scoring them
+  directly would beat every NPC every time. Computed this way, the NPC scores
+  mean what they meant.
+- The ten NPCs each draw one of their three results, as in the game. One
+  contest a contest day.
+- The catch goes through `storeNewCreature()`.
+
+**Prizes: the open question** (see "Evolution stones" below). Without
+stones: 1st a TM you do not own, 2nd money, 3rd coins.
+
+**Size.** M: a session (RAM only), the contest table from the generator, a
+judging port, a results screen, about 8 strings. Saved: only "entered today".
 
 ## 7. v3.81 -- the Ruins of Alph puzzle (M)
 
-A 4x4 sliding puzzle screen (`SCR_PUZZLE`, art from `pokecrystal`
-`gfx/unown_puzzle/` via a `tools/gen_*.py`). Until it is solved the RUINS OF
-ALPH row opens the puzzle instead of an encounter. One saved bit. It needs
-`flush_test`, `hit_test` (finger-sized tiles) and `uiRimTarget()` only if it
-pages. Tanoby and Solaceon reuse are left to the owner.
+**What the game did (Crystal).** It is **not a sliding puzzle** (the proposal
+was wrong about that):
+- A 6x6 board. The 16 pieces of a 4x4 picture start on the 20 border squares
+  (`PuzzlePieceInitialPositions`).
+- You pick a piece up and put it down in the 4x4 centre. The picture is solved
+  when every piece is in its place.
+- Four puzzles (Kabuto, Omanyte, Aerodactyl, Ho-Oh), each in its own chamber.
+  Each solved puzzle unlocks a set of Unown letters: A-K, L-R, S-W, X-Z
+  (`unlocked_unowns.asm`).
+- Until the first is solved, no Unown appears in the Inner Chamber.
 
-## 8. Later -- the Kalos Friend Safari (M)
+**How it fits here.**
+- This dex has no Unown letter forms, so the four sets cannot mean four
+  different creatures. Options:
+  - (a) *recommended:* one puzzle (Kabuto, the first), and solving it lets
+    Unown appear: a hidden gate on the Inner Chamber's Unown slots, like the
+    rod's. The rest of RUINS OF ALPH (Natu, Smeargle outside) is unaffected.
+  - (b) all four puzzles as a collection (four saved bits, a medal), with
+    Unown unlocked by the first.
+- Tapping RUINS OF ALPH while it is unsolved opens the puzzle instead of a
+  fight (a new screen, `SCR_PUZZLE`). Tap a piece, tap a square: two taps,
+  finger-sized squares (a 6x6 board on the round panel is about 58 px a
+  square, under `UI_TAP_FINGER`, so the board needs `hit_test` attention or a
+  zoomed centre).
+- Art: pret's `gfx/unown_puzzle/` via a `tools/gen_unown_puzzle.py`, the same
+  unlicensed-Nintendo-art arrangement as the avatars and the Game Corners.
+- Saved: one bit (or four), the player record's tail.
+- Tanoby Ruins (Kanto) and Solaceon Ruins (Sinnoh) also hold Unown. Gate them
+  on the same bit, or leave them open? (Recommended: leave them open. Their
+  games had no puzzle.)
 
-After the champion, each `RivalRecord` opens a FRIEND SAFARI row whose type
-and three species derive from that rival's MAC (a stable hash, only species
-with art and an installed pack). This adds no new wire format. Design it
-once phases 1-6 have been on a board.
+## 8. LATER -- the Kalos Friend Safari, with the Tower's ghosts
+
+Deferred by the owner. After the champion, each `RivalRecord` would open a
+FRIEND SAFARI row whose type and three species derive from that rival's MAC.
+
+## Evolution stones (asked 2026-10-29, for the contest's prizes)
+
+**Possible, and about one version (M), built the way the Linking Cord was.**
+
+**Today.** A stone evolver evolves by LEVEL, with a stand-in level in the
+data: Pikachu at 30, Gloom at 36. `evolvesTo` is one field, so a species with
+two stone branches can only reach one of them.
+
+**Finding: 18 evolved forms hatch from eggs as if they were base forms.** This
+is the disease Eevee's branches had before v3.32: nothing's `evolvesTo` names
+them, so the rarity derivation calls them base forms. They are BELLOSSOM,
+GALLADE, FROSLASS, HITMONCHAN, HITMONTOP, CASCOON, SHEDINJA, MOTHIM, LUNALA,
+MELMETAL, APPLETUN, PERRSERKER, RUNERIGUS, KLEAVOR, SNEASLER, CERULEDGE,
+CLODSIRE and DIPPLIN. Checked against PokeAPI's `evolves_from_species_id`.
+Seven are stone or item branches (Bellossom, Gallade, Froslass, Appletun,
+Kleavor, Ceruledge, Dipplin). The rest need a gender, a form, a stat or a
+region. **Not fixed**: whether a creature you cannot evolve into should still
+hatch is the owner's call.
+
+**What stones would take:**
+- **Data:** `tools/fetch_stone_evos.py` from PokeAPI's `pokemon_evolution.csv`
+  (trigger "use-item"), emitting `STONE_EVOS[]` (from, stone, to), like
+  `TRADE_EVOS`. Ten stones (Fire, Water, Thunder, Leaf, Moon, Sun, Shiny,
+  Dusk, Dawn, Ice) cover about 55 species once regional forms are dropped;
+  Galar's and Paldea's one-off items (apples, pots, armour, teacups) are 14
+  more and could follow. Gender-locked rows (Dawn Stone: Gallade from a male
+  Kirlia, Froslass from a female Snorunt) need a rule, since creatures have no
+  gender here.
+- **Items:** ten new `ItemKey`s appended after the marker (`IC_STONE`, param =
+  stone). The bag grows by key without migration. Mart prices: the games'
+  $2,100 (Celadon Dept. Store) or contest and drop only.
+- **The rule:** `Pet::evoInfo()` stays THE evolution rule. A stone target
+  appears as a new status, like `EVO_NEEDS_TRADE`. Using the stone from the bag
+  on the live pet evolves it, through the same path the cord uses
+  (`cordUse()` -> `applyCord()` is the template), and the stone is spent only
+  when it does something.
+- **The big decision: pure stone, or stone OR level?**
+  - Pure stone (as trade evolution went pure in v3.32) is faithful. But every
+    current Pikachu, Gloom, Poliwhirl or Eevee stops evolving by level, which
+    changes running games, and a stone becomes the only way, so stones must be
+    obtainable (Mart, drops, contest).
+  - Stone OR level keeps every save as it is, and adds stones as the way to
+    the OTHER branches (Bellossom, Gallade, Froslass, Eevee's stone forms)
+    and to evolve early.
+  - Recommended: stone OR level. It changes nothing that exists, fixes
+    branches the single `evolvesTo` cannot reach, and gives the contest's Sun
+    Stone a real use (Gloom -> Bellossom, Sunkern -> Sunflora).
+- **Eevee:** today `Pet::eeveeOptions()` picks among the branches. Stones
+  would make Vaporeon, Jolteon, Flareon, Leafeon and Glaceon choosable.
+  Espeon, Umbreon and Sylveon keep today's path.
+- **Tests:** `stone_test` (each stone through the bag on the live pet, spent
+  only when it works, the card's evolution line, branches, Eevee), plus
+  `dexdata_test`'s rarity invariant extended to stone targets. If the 18 are
+  fixed at the same time, also `region_test`'s egg sweep.
+
+**Size:** M on its own, about the Linking Cord's size. Do it BEFORE the
+contest if its 1st prize is to be the Sun Stone.
 
 ## Not in this plan
 
