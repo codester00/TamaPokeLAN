@@ -337,7 +337,7 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // no coins, no score -- what a save from before them truly had.
 // v6 appended the legendary safety net's counter (one byte, after surfHi).
 // v7 appended the farming lockout's attempt count (one byte, after that).
-static constexpr uint16_t PLAYER_VERSION = 9;
+static constexpr uint16_t PLAYER_VERSION = 10;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -348,7 +348,8 @@ static constexpr size_t PLAYER_MAX =
     PLAYER_FIXED + 2 * PLAYER_DEX_BYTES + 4 * (GYM_REGIONS - 1) +
     2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
     4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ +
-    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + 1 /* v7 legendAttempts */ + 4 /* v8 settings, rulesUsed */ + 4 + 1 + 1 + 1 + TM_BYTES /* v9 cheats */ + CKPT_CRC;
+    1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + 1 /* v7 legendAttempts */ + 4 /* v8 settings, rulesUsed */ + 4 + 1 + 1 + 1 + TM_BYTES /* v9 cheats */ +
+    1 + 2 * FIXED_BYTES /* v10 fixed one-offs */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -452,6 +453,10 @@ bool Pet::savePlayerSnapshot() {
   cur.put(&daySalt, 1);
   cur.put(&tmBytes, 1);
   cur.put(tmCheated, sizeof(tmCheated));
+  const uint8_t fixedBytes = FIXED_BYTES;    // v10
+  cur.put(&fixedBytes, 1);
+  cur.put(fixedMetBits, sizeof(fixedMetBits));
+  cur.put(fixedCaughtBits, sizeof(fixedCaughtBits));
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -582,6 +587,17 @@ bool Pet::loadPlayerSnapshot() {
             if (body >= v9 + 7 + cb) {
               CkptCursor cc{ buf, v9 + 7, body };
               cc.take(tmCheated, sizeof(tmCheated), cb);
+              // v10: the fixed one-offs, behind their own length byte.
+              // Absent reads as none met and none caught.
+              const size_t v10 = v9 + 7 + cb;
+              if (body >= v10 + 1) {
+                size_t fb = buf[v10];
+                if (body >= v10 + 1 + 2 * fb) {
+                  CkptCursor fc{ buf, v10 + 1, body };
+                  fc.take(fixedMetBits, sizeof(fixedMetBits), fb);
+                  fc.take(fixedCaughtBits, sizeof(fixedCaughtBits), fb);
+                }
+              }
             }
           }
         }
@@ -2696,6 +2712,13 @@ bool Pet::save() {
     memcpy(lg + LEGEND_BYTES, legendCaughtBits, LEGEND_BYTES);
     SAVE_KEY(prefs.putBytes("lgnd", lg, sizeof(lg)), "lgnd");
   }
+  {
+    // The fixed one-offs' legacy key (v3.77), the same shape as "lgnd".
+    uint8_t fx[2 * FIXED_BYTES];
+    memcpy(fx, fixedMetBits, FIXED_BYTES);
+    memcpy(fx + FIXED_BYTES, fixedCaughtBits, FIXED_BYTES);
+    SAVE_KEY(prefs.putBytes("fixd", fx, sizeof(fx)), "fixd");
+  }
   SAVE_KEY(prefs.putBytes("tms", tmOwned, sizeof(tmOwned)), "tms");   // v3.51
   SAVE_KEY(prefs.putUShort("coins", coins), "coins");                // v3.53
   SAVE_KEY(prefs.putUShort("surfhi", surfHi), "surfhi");             // v3.54
@@ -2785,6 +2808,12 @@ void Pet::load() {
     loadBlob(prefs, "lgnd", lg, sizeof(lg));
     memcpy(legendMetBits, lg, LEGEND_BYTES);
     memcpy(legendCaughtBits, lg + LEGEND_BYTES, LEGEND_BYTES);
+  }
+  {
+    uint8_t fx[2 * FIXED_BYTES] = { 0 };
+    loadBlob(prefs, "fixd", fx, sizeof(fx));
+    memcpy(fixedMetBits, fx, FIXED_BYTES);
+    memcpy(fixedCaughtBits, fx + FIXED_BYTES, FIXED_BYTES);
   }
   loadBlob(prefs, "tms", tmOwned, sizeof(tmOwned));
   coins = prefs.getUShort("coins", 0);

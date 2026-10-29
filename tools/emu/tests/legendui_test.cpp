@@ -29,6 +29,7 @@ void areaListPos(uint16_t area, uint8_t *page, uint8_t *row);
 void exploreAreaRect(int *x, int *y, int *w, int *h);
 void exploreBtnRect(int *x, int *y, int *w, int *h);
 uint16_t exploreAreaOf(uint8_t region);
+const char *areaMarkedName(uint16_t area, bool open_);
 extern Pet pet;
 extern Party party;
 extern Inventory bag;
@@ -78,6 +79,10 @@ int main() {
   uint16_t seafoam = wildLegendHome(art), plant = wildLegendHome(zap);
   for (uint8_t b = 0; b < 5; b++) pet.winBadge(0, b, false);   // the Soul Badge opens Seafoam
 
+  char starred[32];
+  snprintf(starred, sizeof(starred), "* %s *", wildAreaName(seafoam));
+  ck(!strcmp(areaMarkedName(seafoam, true), starred),
+     "Seafoam's row is starred while Articuno's certain meeting is due");
   chooseArea(seafoam);
   ck(!areaListOpen && exploreAreaOf(0) == seafoam, "Seafoam Islands is chosen through the list");
   ck(!pet.legendMet(art), "(Articuno has not been met)");
@@ -85,6 +90,10 @@ int main() {
   ck(battleOpen && wildDex == 144 && wildLegend == art, "the first Explore there meets Articuno");
   ck(wildLvl == wildLegendLevel(art), "at the level the game fights it at");
   ck(pet.legendMet(art), "and the meeting is spent as the fight starts");
+  // The star means a CERTAIN meeting (v3.77): met, it goes -- though Articuno
+  // is still uncaught and can still turn up.
+  ck(!strcmp(areaMarkedName(seafoam, true), wildAreaName(seafoam)) && wildAreaHasLegend(seafoam, pet),
+     "met but uncaught, the star goes");
   {
     Pet reloaded; reloaded.begin();
     ck(reloaded.legendMet(art), "already in the save, before the fight is over");
@@ -118,7 +127,8 @@ int main() {
     if (startWildBattle(0, false) && wildDex == 144) again = true;
   }
   ck(!again, "a caught legendary never comes back");
-  ck(!wildAreaHasLegend(seafoam, pet), "and its home loses the star");
+  ck(!wildAreaHasLegend(seafoam, pet) && !strcmp(areaMarkedName(seafoam, true), wildAreaName(seafoam)),
+     "and its home stays unstarred");
 
   // Hard changes the AI, not the legendary's level.
   chooseArea(plant);

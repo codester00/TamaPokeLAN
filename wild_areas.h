@@ -25,6 +25,7 @@
 #define WILD_WX_AVG 0x200   // WildSlot::wx bit: the all-weather average (no clock set)
 #define WILD_WX_ANY 0x3FF   // WildSlot::wx of an area without weather
 #define WILD_LEGEND_ROAMS 1   // WildLegend::flags: met anywhere in its region
+#define WILD_FIXED_SHINY 1    // WildFixed::flags: always shiny, repeats too
 #define WILD_MODE_NORMAL 0    // WildArea::mode: a fight with your team
 #define WILD_MODE_SAFARI 1    // no team: Safari Balls and the game's own items
 #define WILD_REGIONS 9       // real regions, REGIONS order (no ALL)
@@ -62,6 +63,15 @@ struct WildLegend {
   uint8_t gate;      // ladder position that lets it appear (at or after its area's)
   uint8_t flags;     // WILD_LEGEND_ROAMS
   uint8_t needFirst, needCount;  // WILD_LEGEND_NEEDS: all caught first
+};
+// APPEND-ONLY: the save stores a fixed one-off by its index here (v3.77).
+struct WildFixed {
+  int16_t dex;
+  uint16_t area;     // where it stands, into WILD_AREAS
+  uint8_t level;     // read from its script
+  uint8_t gate;      // ladder position that lets it appear
+  uint8_t flags;     // WILD_FIXED_SHINY
+  uint8_t days;      // weekdays it is there, bit 0 = Sunday; 0x7F = every day
 };
 
 static const WildSlot WILD_SLOTS[] = {
@@ -15723,6 +15733,18 @@ static const WildLegend WILD_LEGENDS[] = {
   { 1008, 365, 72, 13, 0, 0, 0 },  // MIRAIDON, AREA ZERO
 };
 #define WILD_LEGEND_COUNT 58
+
+static const WildFixed WILD_FIXED[] = {
+  { 143, 15, 30, 4, 0, 0x7F },  // SNORLAX, ROUTES 12-15
+  { 143, 16, 30, 4, 0, 0x7F },  // SNORLAX, ROUTES 16-18
+  { 101, 19, 34, 5, 0, 0x7F },  // ELECTRODE, POWER PLANT
+  { 101, 19, 34, 5, 0, 0x7F },  // ELECTRODE, POWER PLANT
+  { 185, 51, 20, 3, 0, 0x7F },  // SUDOWOODO, ROUTES 36-37
+  { 131, 59, 20, 4, 0, 0x20 },  // LAPRAS, UNION CAVE B2F, FRIDAY
+  { 130, 58, 30, 4, WILD_FIXED_SHINY, 0x7F },  // GYARADOS, LAKE OF RAGE, shiny
+  { 352, 93, 30, 5, 0, 0x7F },  // KECLEON, ROUTE 120
+};
+#define WILD_FIXED_COUNT 8
 
 static const WildSafariFlee WILD_SAFARI_FLEE[] = {
   { 29, 0, 50 },  // NIDORAN H

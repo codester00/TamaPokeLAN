@@ -210,6 +210,10 @@ struct RivalRecord {
 // one bit each, met and caught. 16 bytes = 128 legendaries; wild.cpp fails the
 // build before WILD_LEGENDS outgrows it.
 #define LEGEND_BYTES 16
+// Room for Explore's fixed one-off encounters (WILD_FIXED, v3.77): Snorlax on
+// the road, the Power Plant's Electrode... one bit each, met and caught. 4
+// bytes = 32; wild.cpp fails the build before WILD_FIXED outgrows it.
+#define FIXED_BYTES 4
 // Owned TMs (v3.51): one bit per MOVE INDEX, so every index a uint8_t can hold
 // has a bit. Keyed by move, never by TM number: the TM list is regenerated,
 // the move indices are append-only (CLAUDE.md trap 2).
@@ -496,6 +500,22 @@ public:
     if (i >= 8 * LEGEND_BYTES) return;
     legendCaughtBits[i >> 3] |= (uint8_t)(1 << (i & 7));
     setLegendMet(i);   // caught implies met, whatever path got there
+  }
+  // Explore's fixed one-offs (v3.77), the same shape: bit i is WILD_FIXED[i],
+  // APPEND-ONLY. MET when the guaranteed meeting happens, CAUGHT when caught.
+  uint8_t fixedMetBits[FIXED_BYTES] = { 0 };
+  uint8_t fixedCaughtBits[FIXED_BYTES] = { 0 };
+  bool fixedMet(uint8_t i) const {
+    return i < 8 * FIXED_BYTES && (fixedMetBits[i >> 3] >> (i & 7) & 1);
+  }
+  bool fixedCaught(uint8_t i) const {
+    return i < 8 * FIXED_BYTES && (fixedCaughtBits[i >> 3] >> (i & 7) & 1);
+  }
+  void setFixedMet(uint8_t i) { if (i < 8 * FIXED_BYTES) fixedMetBits[i >> 3] |= (uint8_t)(1 << (i & 7)); }
+  void setFixedCaught(uint8_t i) {
+    if (i >= 8 * FIXED_BYTES) return;
+    fixedCaughtBits[i >> 3] |= (uint8_t)(1 << (i & 7));
+    setFixedMet(i);
   }
   // TMs the player owns (v3.51), player-wide like the badges: reusable, the
   // Gen 5 rule -- owning one lets ANY of the player's creatures learn it, at

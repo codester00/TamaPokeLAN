@@ -17,6 +17,9 @@ static_assert(S_WX_FOG - S_WX_CLEAR + 1 == WILD_WX_COUNT && S_WX_FOG - S_WX_CLEA
               "the weather names in i18n.h must follow WILD_WX_* (wild_areas.h)");
 static_assert(WILD_LEGEND_COUNT <= 8 * LEGEND_BYTES,
               "the save's legendary bitmasks are full -- raise LEGEND_BYTES (pet.h)");
+static_assert(WILD_FIXED_COUNT <= 8 * FIXED_BYTES,
+              "the save's fixed one-off bitmasks are full -- raise FIXED_BYTES (pet.h)");
+static_assert(sizeof(((WildFixed *)0)->area) >= 2, "WildFixed::area must hold an area index past 255");
 
 static uint8_t shinyBonus(uint8_t bonus) {
   return bonus > WILD_SHINY_BONUS_MAX ? WILD_SHINY_BONUS_MAX : bonus;
@@ -508,5 +511,59 @@ uint8_t safariBallShakes(const SafariState &s, const uint16_t rolls[4]) {
 bool wildAreaHasLegend(uint16_t area, const Pet &p) {
   for (uint8_t i = 0; i < WILD_LEGEND_COUNT; i++)
     if (WILD_LEGENDS[i].area == area && wildLegendLive(i, p)) return true;
+  return false;
+}
+
+bool wildAreaLegendDue(uint16_t area, const Pet &p) {
+  for (uint8_t i = 0; i < WILD_LEGEND_COUNT; i++)
+    if (WILD_LEGENDS[i].area == area && !p.legendMet(i) && wildLegendLive(i, p)) return true;
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Fixed one-offs (v3.77).
+
+uint8_t wildFixedCount() { return WILD_FIXED_COUNT; }
+int16_t wildFixedDex(uint8_t i) { return i < WILD_FIXED_COUNT ? WILD_FIXED[i].dex : 0; }
+uint16_t wildFixedArea(uint8_t i) { return i < WILD_FIXED_COUNT ? WILD_FIXED[i].area : WILD_NO_AREA; }
+uint8_t wildFixedLevel(uint8_t i) { return i < WILD_FIXED_COUNT ? WILD_FIXED[i].level : 1; }
+bool wildFixedShiny(uint8_t i) {
+  return i < WILD_FIXED_COUNT && (WILD_FIXED[i].flags & WILD_FIXED_SHINY);
+}
+
+int8_t wildWeekday(const Pet &p) {
+  uint32_t d = p.today();
+  return d ? (int8_t)((d + 4) % 7) : -1;   // 1970-01-01 was a Thursday
+}
+
+bool wildFixedToday(uint8_t i, const Pet &p) {
+  if (i >= WILD_FIXED_COUNT) return false;
+  uint8_t days = WILD_FIXED[i].days;
+  if (days == 0x7F) return true;
+  int8_t wd = wildWeekday(p);
+  return wd >= 0 && (days >> wd & 1);   // no clock: never a weekday's creature
+}
+
+bool wildFixedLive(uint8_t i, const Pet &p) {
+  if (i >= WILD_FIXED_COUNT || p.fixedCaught(i)) return false;
+  const WildFixed &f = WILD_FIXED[i];
+  return gateOpen(WILD_AREAS[f.area].region, f.gate, p) && wildHasArt(f.dex) &&
+         regionAvailable(regionOfDex(f.dex)) && wildFixedToday(i, p);
+}
+
+int wildFixedFor(uint16_t area, const Pet &p, uint32_t roll) {
+  if (area >= WILD_AREA_COUNT) return -1;
+  for (uint8_t i = 0; i < WILD_FIXED_COUNT; i++)   // the guaranteed meeting
+    if (WILD_FIXED[i].area == area && !p.fixedMet(i) && wildFixedLive(i, p)) return i;
+  uint8_t cand[WILD_FIXED_COUNT ? WILD_FIXED_COUNT : 1], n = 0;
+  for (uint8_t i = 0; i < WILD_FIXED_COUNT; i++)
+    if (WILD_FIXED[i].area == area && p.fixedMet(i) && wildFixedLive(i, p)) cand[n++] = i;
+  if (!n || roll % 100 >= WILD_LEGEND_PCT) return -1;
+  return cand[(roll / 100) % n];
+}
+
+bool wildAreaFixedDue(uint16_t area, const Pet &p) {
+  for (uint8_t i = 0; i < WILD_FIXED_COUNT; i++)
+    if (WILD_FIXED[i].area == area && !p.fixedMet(i) && wildFixedLive(i, p)) return true;
   return false;
 }

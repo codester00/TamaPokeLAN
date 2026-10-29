@@ -161,6 +161,16 @@ KANTO = {
         {'dex': 146, 'area': 'MT. EMBER',       'script': 'MtEmber_Summit'},      # Moltres
         {'dex': 150, 'area': 'CERULEAN CAVE',   'script': 'CeruleanCave_B1F'},    # Mewtwo
     ],
+    # Fixed one-off encounters (v3.77): a creature standing on the map, met
+    # once for certain and then now and then until caught, like a legendary --
+    # but it stays in the egg pool. The level is READ from 'script', like a
+    # legendary's; the order is FIXED_ORDER's (append-only, it indexes the save).
+    'fixed': [
+        {'dex': 143, 'area': 'ROUTES 12-15', 'script': 'Route12'},      # Snorlax, Route 12
+        {'dex': 143, 'area': 'ROUTES 16-18', 'script': 'Route16'},      # Snorlax, Route 16
+        {'dex': 101, 'area': 'POWER PLANT',  'script': 'PowerPlant'},   # Electrode
+        {'dex': 101, 'area': 'POWER PLANT',  'script': 'PowerPlant'},   # and the second one
+    ],
 }
 
 # ---------------------------------------------------------------------------
@@ -232,6 +242,16 @@ JOHTO = {
     ],
     # Johto maps the source has encounters on that are deliberately not here.
     'skip': {},
+    # Fixed one-offs (see Kanto's). Lapras comes out only on Fridays and the
+    # Lake of Rage's Gyarados is always the red one: gen_wild.py checks each
+    # script says so (FRIDAY, BATTLETYPE_FORCESHINY).
+    'fixed': [
+        {'dex': 185, 'area': 'ROUTES 36-37',   'script': 'Route36'},       # Sudowoodo
+        {'dex': 131, 'area': 'UNION CAVE B2F', 'script': 'UnionCaveB2F',
+         'days': ['FRIDAY']},                                                # Lapras
+        {'dex': 130, 'area': 'LAKE OF RAGE',   'script': 'LakeOfRage',
+         'shiny': True},                                                     # the red Gyarados
+    ],
     'legends': [
         # Raikou and Entei flee the Burned Tower and roam Johto from then on --
         # met there once, then anywhere in Johto now and then until caught.
@@ -344,6 +364,11 @@ HOENN = {
         'CAVE_OF_ORIGIN_UNUSED_RUBY_SAPPHIRE_MAP2': 'left over from Ruby/Sapphire, unreachable in Emerald',
         'CAVE_OF_ORIGIN_UNUSED_RUBY_SAPPHIRE_MAP3': 'left over from Ruby/Sapphire, unreachable in Emerald',
     },
+    # Fixed one-offs (see Kanto's): the Kecleon the Devon Scope shows up,
+    # fought from Route 120's own script.
+    'fixed': [
+        {'dex': 352, 'area': 'ROUTE 120', 'script': 'Route120'},   # Kecleon
+    ],
     'legends': [
         # The Regis wait behind the Sealed Chamber, which needs Dive (Mind
         # Badge). Their chambers have no wild tables, so each borrows the area
@@ -1031,6 +1056,10 @@ REGIONS = [KANTO, JOHTO, HOENN, SINNOH, UNOVA, KALOS, ALOLA, GALAR, PALDEA]
 # indices and avatar picks. gen_wild.py emits them region by region in the
 # order above; a new region's legends must go AFTER every existing one, which
 # gen_wild.py enforces against LEGEND_ORDER.
+# The fixed one-offs' order (v3.77), APPEND-ONLY like LEGEND_ORDER: the save
+# stores each one's met and caught bit by its position here.
+FIXED_ORDER = [143, 143, 101, 101, 185, 131, 130, 352]
+
 LEGEND_ORDER = [144, 145, 146, 150, 243, 244, 245, 249, 250,
                 377, 378, 379, 380, 381, 382, 383, 384,
                 480, 481, 482, 483, 484, 485, 486, 487, 488,

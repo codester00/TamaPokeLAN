@@ -239,6 +239,12 @@ fought, until the Silph Scope's badge.
 
 ## 4. v3.78 -- fixed encounters, with their own marker (S-M)
 
+**BUILT as v3.77** (2026-10-29). One change from the text below: a one-off's
+certain meeting outranks a legendary's rare REPEAT in the same area (a
+legendary's certain meeting still comes first), so the Power Plant meets
+Zapdos, then both Electrode, before any 3% roll. Kecleon is one meeting, on
+Route 120, where Emerald's script fights it.
+
 **The rule, as the owner set it: a one-off works like a legendary.** The
 first Explore in its area after its gate is a guaranteed meeting. If it is
 not caught (it fled, fainted or you ran), it is NOT gone: from then on it

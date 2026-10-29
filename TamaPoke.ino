@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.76"
+#define FW_VERSION "3.77"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -861,6 +861,7 @@ bool cheatLegendNext = false;   // CHEAT_LEGEND armed: RAM only, for the next en
 bool wildCheated = false;       // this wild foe came from that cheat
 uint8_t wildIv[4] = { 0, 0, 0, 0 };   // atk, def, spe, hp
 int8_t wildLegend = -1;   // the WILD_LEGENDS index being fought, or -1 (wild.h)
+int8_t wildFixed = -1;    // the WILD_FIXED index being fought, or -1 (v3.77)
 bool wildShiny = false;
 bool wildCaught = false;
 // What a win handed over, for the settlement lines on the win screen.
@@ -1660,7 +1661,7 @@ void handleSerial() {
     uint16_t area = exploreAreaOf(rg);
     if (startWildBattle(rg, hard))
       Serial.printf("wild %s%s Lv.%u%s iv=%u/%u/%u/%u in %s\n", DEX_TBL[wildDex].name,
-                    wildLegend >= 0 ? " (LEGENDARY)" : "", wildLvl, wildShiny ? " *SHINY*" : "",
+                    wildLegend >= 0 ? " (LEGENDARY)" : wildFixed >= 0 ? " (ONE-OFF)" : "", wildLvl, wildShiny ? " *SHINY*" : "",
                     wildIv[0], wildIv[1], wildIv[2], wildIv[3],
                     area == WILD_NO_AREA ? REGIONS[rg].name : wildAreaName(area));
     else
@@ -1683,10 +1684,12 @@ void handleSerial() {
     for (uint8_t i = 0; i < n; i++) {
       uint16_t a = (uint16_t)(first + i);
       int8_t wx = wildAreaWeather(a, pet);
-      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s%s%s%s\n", a == cur ? '>' : ' ', i,
+      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s%s%s%s%s\n", a == cur ? '>' : ' ', i,
                     wildAreaName(a), wildAreaGate(a), wildAreaLvMin(a), wildAreaLvMax(a),
                     wildAreaUnlocked(a, pet) ? "" : "  locked",
-                    wildAreaHasLegend(a, pet) ? "  legendary" : "",
+                    wildAreaLegendDue(a, pet) ? "  legendary due"
+                    : wildAreaHasLegend(a, pet) ? "  legendary" : "",
+                    wildAreaFixedDue(a, pet) ? "  one-off due" : "",
                     wx >= 0 ? "  today: " : "", wildWeatherName(wx));
     }
     Serial.println("DONE");
@@ -3628,13 +3631,23 @@ static void areaCentred(const char *t, int cx, int y, int maxW) {
   gfx->print(t);
 }
 
-// An area's name, starred while a legendary that lives there is still to be
-// caught and can appear -- the one hint that the area holds something more.
-// A locked area never gives its legendary away.
+// An area's name as its row shows it: "* NAME *" while a legendary's
+// guaranteed meeting is due there, "! NAME !" while a fixed one-off's is
+// (v3.77; the star wins if both are). A marker means a meeting for certain --
+// once met, the creature falls back to the rare repeat and the marker goes.
+// A locked area never gives either away.
+const char *areaMarkedName(uint16_t area, bool open_) {
+  static char t[24];
+  const char *fmt = !open_ ? "%s"
+                  : wildAreaLegendDue(area, pet) ? "* %s *"
+                  : wildAreaFixedDue(area, pet) ? "! %s !" : "%s";
+  snprintf(t, sizeof(t), fmt, wildAreaName(area));
+  return t;
+}
+
 void areaCentredName(uint16_t area, bool open_, int cx, int y, int maxW) {
   char t[24];
-  snprintf(t, sizeof(t), (open_ && wildAreaHasLegend(area, pet)) ? "* %s *" : "%s",
-           wildAreaName(area));
+  snprintf(t, sizeof(t), "%s", areaMarkedName(area, open_));
   areaCentred(t, cx, y, maxW);
 }
 
@@ -6613,6 +6626,7 @@ static void btlWildCaught() {
     // A legendary with a home is caught for good: it stops appearing in
     // Explore. Saved by the saveNow() below, with the creature itself.
     if (wildLegend >= 0) pet.setLegendCaught((uint8_t)wildLegend);
+    if (wildFixed >= 0) pet.setFixedCaught((uint8_t)wildFixed);   // the same for a one-off
     wildStoreCaught();
     // wildStoreCaught() saves the PARTY (or the pet checkpoint, via
     // setEnded(), only in the both-full fallback) -- but the common case
@@ -9980,6 +9994,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   int16_t dex = 0;
   uint8_t lvl = 1;
   int legend = -1;
+  int fixed = -1;
   bool safari = false;
   wildCheated = false;
   if (wildRegionHasAreas(region)) {
@@ -10000,9 +10015,20 @@ bool startWildBattle(uint8_t region, bool hard) {
     legend = (cheatLegendNext && !safari) ? wildLegendForced(region, pet) : -1;
     if (legend >= 0) { cheatLegendNext = false; wildCheated = true; }   // the CHEAT's meeting
     else if (!safari) legend = wildLegendFor(area, pet, (uint32_t)random(65536) * 31u + random(31));
+    // Then a fixed one-off (v3.77), the same way: its guaranteed meeting, or
+    // the rare repeat until caught.
+    // A certain meeting outranks a rare repeat: a legendary's first meeting,
+    // then a one-off's, then either's repeat (a legendary's first).
+    if (!safari && !wildCheated && (legend < 0 || pet.legendMet((uint8_t)legend))) {
+      int f = wildFixedFor(area, pet, (uint32_t)random(65536) * 31u + random(31));
+      if (f >= 0 && (legend < 0 || !pet.fixedMet((uint8_t)f))) { fixed = f; legend = -1; }
+    }
     if (legend >= 0) {
       dex = wildLegendDex((uint8_t)legend);
       lvl = wildLegendLevel((uint8_t)legend);
+    } else if (fixed >= 0) {
+      dex = wildFixedDex((uint8_t)fixed);
+      lvl = wildFixedLevel((uint8_t)fixed);
     } else {
       dex = wildAreaPick(area, wildTimeBand(exploreHour()), pet,
                          (uint32_t)random(65536) * 31u + random(31));
@@ -10025,11 +10051,13 @@ bool startWildBattle(uint8_t region, bool hard) {
   wildDex = dex;
   wildLvl = lvl;
   wildLegend = (int8_t)legend;
+  wildFixed = (int8_t)fixed;
   for (int i = 0; i < 4; i++) wildIv[i] = (uint8_t)(8 + random(24));
   // Bonus 0: nothing in this build earns one yet, so every wild shiny is the
   // flat 1/4096. The parameter stays because it is where a farewell reward
   // would land, and wild_test already pins the curve it would follow.
   wildShiny = wildShinyForRoll((uint32_t)random(WILD_SHINY_SCALE), 0);
+  if (fixed >= 0 && wildFixedShiny((uint8_t)fixed)) wildShiny = true;   // the red Gyarados
   wildApplyShiny(wildShiny, wildIv[0], wildIv[1], wildIv[2], wildIv[3]);
   wildCaught = false;
   wildDropN = 0;
@@ -10047,6 +10075,10 @@ bool startWildBattle(uint8_t region, bool hard) {
   }
   if (legend >= 0 && !pet.legendMet((uint8_t)legend)) {
     pet.setLegendMet((uint8_t)legend);   // the guaranteed meeting is spent
+    pet.saveNow();
+  }
+  if (fixed >= 0 && !pet.fixedMet((uint8_t)fixed)) {
+    pet.setFixedMet((uint8_t)fixed);     // the same, for a fixed one-off
     pet.saveNow();
   }
 

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.76-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.77-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -159,8 +159,9 @@ sprite pack is not installed are skipped. **Kanto and Johto are split into the
 games' own areas** -- Route 1, Mt. Moon and Cerulean Cave; Route 29, Ilex Forest
 and the Whirl Islands; 71 in all -- each holding the creatures the games put
 there, and each opening with the badge that opened it in the games. Tap the area
-row to choose one; a locked area says which badge it needs, and a starred one
-has a legendary waiting. Weaken one and throw a ball to keep it;
+row to choose one; a locked area says which badge it needs, a starred one
+(`* AREA *`) has a legendary waiting to be met, and one marked `! AREA !` a
+one-off creature standing there, as in the games. Weaken one and throw a ball to keep it;
 a caught creature goes to the party or the box, and does *not* fill the Pokédex
 until you actually raise it.
 
@@ -975,7 +976,7 @@ final with Leon, a step the ladder has no place for, so it waits for the
 champion. The expansions' legendaries (Kubfu, the Regis of Galar, Calyrex and its
 steeds) are in no table here and stay egg-only.
 
-| A legendary is waiting |
+| A legendary (*) and a one-off (!) waiting |
 |---|
 | <img src="docs/screens/areaj.png" width="240"> |
 
@@ -983,8 +984,28 @@ Levels are read from the games' scripts. The **first Explore in its home after
 its badge always meets it** -- once. Win, lose, run or let it flee, the meeting
 is spent as the fight starts; after that it comes back in **3 %** of that area's
 encounters (a roamer, in 3 % across every open area of its region) until it is
-**caught**, and then never again. Its home's row wears a star while it is still
-out there. Difficulty does not change its level.
+**caught**, and then never again. Its home's row wears a star while that first,
+certain meeting is still due; once met, the star goes, caught or not -- a marker
+means a meeting for certain, never a chance (v3.77). Difficulty does not change
+its level.
+
+**One-offs stand where the games put them (v3.77).** A few creatures were not in
+any wild table but stood on the map, met once: the **row reads `! AREA !`**
+while that meeting is due, and the first Explore there meets it for certain.
+Missed (fled, fainted, you ran), it is not gone: like a legendary it comes back
+in **3 %** of that area's encounters until caught. Unlike a legendary it **still
+hatches from eggs** and still turns up in its ordinary wild slots elsewhere. A
+legendary of the same area is met first; a certain meeting always comes before
+a rare repeat. Levels are read from the games' scripts:
+
+| One-off | Area | Level | Note |
+|---|---|---|---|
+| Snorlax | Routes 12-15, and another on Routes 16-18 | 30 | FireRed's two |
+| Electrode, twice | Power Plant | 34 | after Zapdos |
+| Sudowoodo | Routes 36-37 | 20 | Crystal |
+| Lapras | Union Cave B2F | 20 | **Fridays only**, by the board's clock (none without one), repeats too |
+| Gyarados | Lake of Rage | 30 | **always shiny** -- the red one, repeats too |
+| Kecleon | Route 120 | 30 | Emerald's Devon Scope Kecleon |
 
 **Story legendaries are caught, not hatched.** A legendary with a home is never
 in an egg. **Mythicals** (Mew, Celebi and the rest) have no home in any game's

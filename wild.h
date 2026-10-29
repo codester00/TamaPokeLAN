@@ -204,8 +204,38 @@ bool wildLegendLive(uint8_t i, const Pet &p);
 // roll decides the rare repeat. Pure: the roll is passed in.
 int wildLegendFor(uint16_t area, const Pet &p, uint32_t roll);
 
-// Does the area hold a legendary still to be caught? (The star on its row.)
+// Does the area hold a legendary still to be caught (whether or not met)?
 bool wildAreaHasLegend(uint16_t area, const Pet &p);
+// Is a legendary's GUARANTEED first meeting due here: its home, not yet met,
+// and live? THE star on the area's row (v3.77). Once met it falls back to the
+// rare repeat, and the star goes whether or not it was caught.
+bool wildAreaLegendDue(uint16_t area, const Pet &p);
+
+// ---------------------------------------------------------------------------
+// Fixed one-offs (WILD_FIXED, v3.77, docs/explore-specialty-build-plan.md § 4):
+// a creature standing on the map in the game -- Snorlax on Route 12, the Power
+// Plant's Electrode, Crystal's Friday Lapras and red Gyarados. Each works like
+// a legendary: the first Explore in its area after its gate meets it for
+// certain, and after that it turns up WILD_LEGEND_PCT of encounters there
+// until it is CAUGHT. Unlike a legendary it STAYS in the egg pool:
+// wildIsExploreLegend() never reads this list. Met and caught bits are the
+// player's (Pet::fixedMet/fixedCaught), by position in WILD_FIXED.
+uint8_t wildFixedCount();
+int16_t wildFixedDex(uint8_t i);
+uint16_t wildFixedArea(uint8_t i);
+uint8_t wildFixedLevel(uint8_t i);
+bool wildFixedShiny(uint8_t i);   // the red Gyarados: every meeting, repeats too
+// The weekday by the board's clock, 0 = Sunday, or -1 with no clock.
+int8_t wildWeekday(const Pet &p);
+// Is it one of the days fixed one-off i is there (Lapras: Fridays)?
+bool wildFixedToday(uint8_t i, const Pet &p);
+// Can fixed one-off i appear right now: not caught, gate open, art and pack, its day.
+bool wildFixedLive(uint8_t i, const Pet &p);
+// The fixed one-off this Explore in `area` meets, or -1. The guaranteed
+// meeting first, else the rare repeat. A legendary is asked first and wins.
+int wildFixedFor(uint16_t area, const Pet &p, uint32_t roll);
+// Is a fixed one-off's guaranteed meeting due here? (The '!' on its row.)
+bool wildAreaFixedDue(uint16_t area, const Pet &p);
 
 // ---------------------------------------------------------------------------
 // Safari encounters (v3.75, v3.76; docs/explore-specialty-build-plan.md § 1-2).

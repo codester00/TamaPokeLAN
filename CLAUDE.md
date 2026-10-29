@@ -935,6 +935,37 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1f.
 
+### Done: fixed one-offs and the guaranteed-meeting markers (v3.77, on the branch)
+
+Plan § 4 of `docs/explore-specialty-build-plan.md`. `fixed_test`; ten guards
+negative-checked.
+
+- **`WILD_FIXED`** (generated; `'fixed'` per region in `tools/wild_areas.py`,
+  order `FIXED_ORDER`, APPEND-ONLY -- it indexes the save): Snorlax x2 (Routes
+  12-15, 16-18, L30), Electrode x2 (Power Plant, L34), Sudowoodo (Routes 36-37,
+  L20), Lapras (Union Cave B2F, L20, Fridays), the red Gyarados (Lake of Rage,
+  L30, always shiny, repeats too), Kecleon (Route 120, L30). `fixed_encounters()`
+  in gen_wild.py reads each level with `legend_level()` and REFUSES a weekday the
+  script does not name or a shiny without `BATTLETYPE_FORCESHINY`, a Safari area,
+  or a gate before its area's.
+- **`wildFixedFor()`** follows `wildLegendFor()`: the certain first meeting, then
+  `WILD_LEGEND_PCT` until caught. `wildFixedLive()` is THE rule (not caught, gate,
+  art via `wildHasArt`, pack, `wildFixedToday()`). `wildWeekday()` is
+  `(today() + 4) % 7`, -1 with no clock (then a weekday creature never comes).
+  **`wildIsExploreLegend()` never reads the list**, so they stay in eggs.
+- **Order in `startWildBattle()`**: a legendary's certain meeting, then a
+  one-off's, then either's 3% repeat (legendary first). A one-off's certain
+  meeting outranks a legendary's REPEAT. Not in Safari areas, not with the
+  cheat's legendary. MET is set and saved as the fight starts; CAUGHT in
+  `btlWildCaught()`. `wildFixed` is the global beside `wildLegend`.
+- **Markers mean a certain meeting** (owner): `areaMarkedName()` is THE text
+  (`* AREA *` = `wildAreaLegendDue()`, `! AREA !` = `wildAreaFixedDue()`, star
+  wins), drawn by `areaCentredName()` in the list and on Explore's row.
+  `wildAreaHasLegend()` keeps its old meaning (uncaught and live) for
+  legend_test and the console, which now also says `legendary due`/`one-off due`.
+- Save: `FIXED_BYTES` 4, `PLAYER_VERSION` 10 tail (length byte, met, caught),
+  legacy key `fixd` (`SAVE_FIELDS`, tpsave.py).
+
 ### Done: Hoenn's and Sinnoh's Safari (v3.76, on the branch)
 
 Plan § 2. Hoenn's SAFARI ZONE + SAFARI EXTENSION (Emerald) and Sinnoh's GREAT

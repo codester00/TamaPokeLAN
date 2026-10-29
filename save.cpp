@@ -41,6 +41,7 @@ const SaveField SAVE_FIELDS[] = {
   // the Poke Mart: 1 pedometer step = $1
   { "wlt", SK_U32 },    { "stps", SK_U32 },
   { "lgnd", SK_BYTES },   // Explore's legendaries: met bits, then caught bits
+  { "fixd", SK_BYTES },   // Explore's fixed one-offs (v3.77): met bits, then caught bits
   { "tms", SK_BYTES },    // owned TMs, one bit per move index (v3.51)
   { "coins", SK_U16 },    // the Game Corner's coin case
   { "surfhi", SK_U16 },   // Surfing Pikachu's best score
