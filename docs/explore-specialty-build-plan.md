@@ -730,7 +730,8 @@ becomes evolution-only and stops hatching.
 
 Evolution is offered when the level reaches the stand-in, so if a creature's
 next stand-in is at or below the level it just evolved at, it is offered the
-next evolution straight away. A sweep of `dex.h` finds eleven such chains:
+next evolution straight away. A sweep of `dex.h` finds eleven such chains, plus
+Dipplin -> Hydrapple once Applin can reach Dipplin:
 
 | chain | stand-ins | after this version |
 |---|---|---|
