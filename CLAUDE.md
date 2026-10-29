@@ -911,12 +911,15 @@ wins wherever it and the summary below differ.
 `docs/explore-specialty-plan.md` -- the Safari engine (Kanto, Hoenn, Great
 Marsh), the Bug-Catching Contest, Pokemon Tower's ghosts, fixed encounters,
 the Ruins of Alph puzzle, swarms, a Friend Safari from LAN rivals. The phased build
-plan is `docs/explore-specialty-build-plan.md` (revision 2). Owner, 2026-10-29:
+plan is `docs/explore-specialty-build-plan.md` (revision 3). Owner, 2026-10-29:
 Safari encounters are ordinary one-at-a-time Explore fights with no team, no
-fee and no step limit, ported from FireRed; fixed encounters get their own
-row marker; the Tower's ghosts and the Friend Safari are deferred. Still open
-there: the contest's prizes (evolution stones), the puzzle's scope, whether
-swarms show. The handoff for
+fee and no step limit, ported from FireRed (Hoenn: one average Pokeblock, no
+natures); fixed encounters get their own row marker and, if missed, come back
+like a legendary until caught while staying in eggs; swarms show on the row
+like the weather; the Tower's ghosts, the Bug-Catching Contest and the Friend
+Safari are deferred. Still open there: the one-off marker after a miss, the
+puzzle's scope, evolution stones, and 18 evolved forms that hatch because
+`evolvesTo` holds one target (not an art workaround). The handoff for
 a new session is HANDOVER.md § 1f.
 
 ### Done: the LUCKY SLOTS hidden setting (v3.74)

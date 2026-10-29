@@ -1,7 +1,7 @@
 # Explore specialty zones -- BUILD PLAN (2026-10-29, revision 2)
 
-Status: **the owner's answers for v3.75 and v3.78 are in (revision 2); nothing
-built yet.** This file turns `docs/explore-specialty-plan.md` (the proposal:
+Status: **revision 3 -- the owner's answers for v3.75, v3.76, v3.78 and v3.79
+are in; nothing built yet.** This file turns `docs/explore-specialty-plan.md` (the proposal:
 what and why) into phases with files, callers, tests and hardware checks, in
 the shape of `docs/build-plan.md`. Where the two differ, the owner's answers
 decide, then this file. Version numbers are labels: each phase takes the next
@@ -39,10 +39,14 @@ catch formula.
 4. **Safari Balls stay out of the bag.** They belong to the encounter.
 5. **Move the city fishing out of the Safari areas.** Fuchsia City and
    Pastoria City (§ 1).
-6. **Pokemon Tower's ghosts are deferred**, to come later with the Friend
-   Safari.
+6. **Pokemon Tower's ghosts and the Bug-Catching Contest are deferred**, to
+   come later with the Friend Safari.
 7. **Fixed encounters get their own marker** on the Explore screen, like the
-   legendary's star but different (§ 4).
+   legendary's star but different (§ 4). **A missed one is never lost**: it
+   comes back now and then until caught, like a legendary, and stays in the
+   egg pool (§ 4).
+8. **Pokeblock: one average effect**, no natures (§ 2).
+9. **Swarms show on the row, like the weather** (§ 5).
 
 **Small calls made here (say if you want them different):**
 
@@ -52,8 +56,9 @@ catch formula.
 - A catch still drops items, as every other Explore catch does.
 - No energy cost, since no creature of yours fights.
 
-**Still open:** the contest's prizes (§ 6; evolution stones are discussed
-there), the puzzle's scope (§ 7), and whether swarms show on the row (§ 5).
+**Still open:** whether the one-off's marker stays after a miss (§ 4), the
+puzzle's scope (§ 7), evolution stones, and the 18 branch evolutions (end of
+this file).
 
 ## Rules that hold in every phase
 
@@ -184,18 +189,13 @@ catch path.
 - **POKEBLOCK**: lowers the escape factor by an amount that depends on whether
   the foe's NATURE likes the block's flavour (`sPkblToEscapeFactor`: ignored /
   curious / enthralled) and on how many blocks have been thrown (up to 3).
-  The catch is untouched. **This game has no natures and no Pokeblocks**, so a
-  decision is needed:
-  - (a) *recommended:* a plain block, always "curious" (the middle row of the
-    game's table). Simple, and still the game's numbers.
-  - (b) give each wild creature a hidden nature drawn when it appears, and
-    roll a random flavour per throw, so the game's three outcomes happen at
-    the game's frequencies. This is more faithful, and adds nothing saved
-    because the nature lives only in the encounter.
-  - Pokeblocks as items, made at a berry blender, would be a separate L-sized
-    feature. Not proposed.
-  - Port the game's BUGFIX row (the `<=` comparison), so the factor can never
-    reach 0. Emerald's original has the "Pokeblock glitch".
+  The catch is untouched. **Decided (owner): one average effect, no natures.**
+  Every block is the game's "curious" row: escape factor -3, -2, then -1 for
+  every later throw (floor 1). That row is the equal-odds mean of the game's
+  three outcomes, rounded: (3+5+0)/3 = 2.7, (2+3+0)/3 = 1.7, (1+2+0)/3 = 1.
+  The narration reads "is curious about the block". The game's BUGFIX
+  comparison (`<=`) is ported, so the factor can never reach 0 (Emerald's
+  original has the "Pokeblock glitch").
 - Two new strings: POKEBLOCK and GO NEAR fit in 12 characters.
 
 **Sinnoh (Platinum): BALL / BAIT / MUD / RUN.** Platinum works in STAGES, not
@@ -213,13 +213,13 @@ factors:
 - Ball: Gen 4's formula (same shape as Gen 3) with the stage multiplier.
 
 **Tests.** `safari_test` grows a section per region, through the same tap
-handlers. Each region's numbers are pinned to its own source, Hoenn's Pokeblock
-option per the owner's pick, and GO NEAR's cap at four. Kanto's section stays
+handlers. Each region's numbers are pinned to its own source, the Pokeblock's
+row, and GO NEAR's cap at four. Kanto's section stays
 green untouched, which is the proof the three rule sets do not leak into each
 other.
 
 **Size.** The frame is built in § 1, so this phase is two rule sets, four
-strings and tests. Option (b) for the Pokeblock adds about a day.
+strings and tests.
 
 ## 3. DEFERRED -- Pokemon Tower's ghosts
 
@@ -230,38 +230,74 @@ fought, until the Silph Scope's badge.
 
 ## 4. v3.78 -- fixed encounters, with their own marker (S-M)
 
-A second generated list, `WILD_FIXED` (`dex, area, level, gate, flags:
-shiny, weekday mask`), with its own saved MET bits (`FIXED_BYTES`,
-APPEND-ONLY order in `tools/wild_areas.py`, a new legacy key, the player
-record's tail). A species on it stays hatchable: **`wildIsExploreLegend()`
-must NOT read this list.** `wildFixedFor(area, pet, weekday)` comes before
-the legendary roll in `startWildBattle()`. It is a one-time guaranteed
-meeting with no rare repeat (in the games they were one-offs). A fixed
-encounter that runs or faints is gone, as in the games: MET is set as the
-fight starts, the same as the legendaries.
+**The rule, as the owner set it: a one-off works like a legendary.** The
+first Explore in its area after its gate is a guaranteed meeting. If it is
+not caught (it fled, fainted or you ran), it is NOT gone: from then on it
+turns up now and then in that area, `WILD_LEGEND_PCT` (3) of encounters, the
+same rule the legendaries use, until it is caught. Unlike a legendary it
+**stays in the egg pool**, so eggs bring it too.
 
-**The marker (owner).** The legendary's star wraps the name: `* SAFARI ZONE
-*`, drawn by `areaCentredName()` from `wildAreaHasLegend()`. Recommended for a
-fixed encounter: `! ROUTE 12 !`, from `wildAreaHasFixed(area, pet)` (open,
-not met, today is its day, art and pack present). If an area has both, the
-star wins (`* NAME *`), since the legendary repeats and the one-off does not.
-The marker shows in the area list and on Explore's area row (both draw
-through `areaCentredName()`), and only while the encounter is due -- Lapras's
-marker shows on Fridays only. `explore_test` checks the name still fits its
-row with the marker (the longest area name plus 4 characters).
+This changes revision 2, which had a missed one-off gone for good, as in the
+games. (That is what "the legendary comes back and the one-off does not"
+meant there. It is withdrawn.)
 
-**Candidates** (levels read from the map scripts at build time): SNORLAX x2
-(Routes 12 and 16), ELECTRODE x2 (Power Plant), SUDOWOODO (Route 36), LAPRAS
-(Union Cave B2F, Fridays), red GYARADOS (Lake of Rage, always shiny), KECLEON
-(Routes 119-120). Each needs its area and gate confirmed against our area
-list when it is built.
+**Data.** A second generated list, `WILD_FIXED` (`dex, area, level, gate,
+flags: shiny, weekday mask`), with its own saved MET and CAUGHT bits
+(`FIXED_BYTES` each, APPEND-ONLY order in `tools/wild_areas.py`, a new legacy
+key, the player record's tail), exactly like `LEGEND_BYTES`.
+`wildFixedFor(area, pet, roll)` follows `wildLegendFor()`'s shape: the
+guaranteed meeting first, then the rare repeat while not caught. A legendary
+of the same area wins the roll. **`wildIsExploreLegend()` must NOT read this
+list**, or the species leaves the egg pool. MET is set as the fight starts and
+CAUGHT in `btlThrowBall()`, the same places as the legendaries.
 
-**Tests.** `fixed_test`: met once and only once; the weekday rule (no clock
-= never); the forced shiny; the species still in the egg pool; the marker on
-and off at exactly the right moments, through `areaCentredName()`'s own
-text; saved and reloaded through each half of the save. Negative checks: the
-marker after MET, Lapras on a Thursday, `wildIsExploreLegend()` reading the
-list.
+**The marker.** The legendary's star wraps the name: `* AREA *`, drawn by
+`areaCentredName()` from `wildAreaHasLegend()`. A fixed encounter gets
+`! AREA !`, from `wildAreaHasFixed(area, pet)`. If an area has both, the star
+wins. It shows in the area list and on Explore's area row (both draw through
+`areaCentredName()`). `explore_test` checks the name still fits its row with
+the marker.
+
+**Decide:** after a miss, does the `!` stay?
+- (a) *Recommended:* only while the guaranteed meeting is due. The `!`
+  promises "a one-time battle is next", and the rare repeat is then a
+  surprise, as the legendaries' repeats are. (The legendary's star stays until
+  caught, because it means "something rare lives here".)
+- (b) Keep it until caught, like the star.
+
+**How each candidate is reachable today** (checked in `wild_areas.h` and
+`dex.h`; "egg" means it hatches, or its first form does):
+
+| candidate | the game's fixed encounter | met in Explore today | from eggs |
+|---|---|---|---|
+| SNORLAX | Routes 12 and 16 (FireRed) | not in Kanto-Sinnoh; wild in Kalos and Galar | via Munchlax (Sinnoh eggs) |
+| ELECTRODE | Power Plant (FireRed) | Cerulean Cave, New Mauville | via Voltorb |
+| SUDOWOODO | Route 36 (Crystal) | Routes 219-221 (Sinnoh) | via Bonsly (Sinnoh eggs) |
+| LAPRAS | Union Cave B2F, Fridays (Crystal) | Icefall Cave, Victory Road back | hatches (rare) |
+| red GYARADOS | Lake of Rage, always shiny (Crystal) | many routes, not shiny | via Magikarp |
+| KECLEON | Routes 119-120, Devon Scope (Emerald) | Routes 118-123 (Hoenn) | hatches (common) |
+
+Every candidate stays reachable by an egg, so a missed one-off never leaves
+the collection incomplete. Snorlax is the one with no Kanto wild slot, which
+is why its fixed encounter matters most.
+
+Rules that follow the game: Lapras's meeting and its repeats happen on
+Fridays only (no clock = never). The red Gyarados is shiny on every meeting,
+repeats included, since it is the same creature. Levels are read from the map
+scripts at build time.
+
+**Tests.** `fixed_test`:
+- The guaranteed meeting happens once.
+- After a miss, the repeat appears at the legendaries' rate until caught, and
+  never after.
+- The weekday rule, and the forced shiny on the repeat too.
+- The species is still in the egg pool, and still in its ordinary wild slots.
+- The marker is on and off at exactly the right moments, through
+  `areaCentredName()`'s own text.
+- Saved and reloaded through each half of the save.
+
+Negative checks: no repeat after a miss, a repeat after a catch, Lapras on a
+Thursday, `wildIsExploreLegend()` reading the list.
 
 ## 5. v3.79 -- swarms (S-M)
 
@@ -292,16 +328,20 @@ the swarm species the game's share (Crystal: the swarm table replaces the
 map's; Emerald: the outbreak's share; Platinum: slots 0-1), with the game's
 level and, for Emerald, its moves. Nothing is saved: the day decides.
 
-**Decide:** does the row show it? (a) *Recommended:* the status line appends
-SWARM (`Lv.12-18 SWARM`), as the weather does, so a player can find it. This
-is the games' TV and phone call. (b) Hidden, found by playing. Most players
-would never find it.
+**Decided (owner): it shows like the weather.** `areaStatusText()`, the one
+status line, appends SWARM (`Lv.12-18 SWARM`), after the weather if both
+apply. The line must still fit 20 characters, which the longest band plus a
+weather plus SWARM may not; `explore_test` decides, and the weather may need
+its short form.
 
 **Tests.** `swarm_test`: one swarm per region per day, steady all day, every
 entry comes round over a year, the share and level, no swarm without a clock,
 the status line fits 20 characters, and Remoraid reachable.
 
-## 6. v3.80 -- the Bug-Catching Contest (M)
+## 6. DEFERRED -- the Bug-Catching Contest (M)
+
+Deferred by the owner (2026-10-29), with the Tower's ghosts. Kept as
+designed:
 
 **What the game did (Crystal).** Tuesday, Thursday and Saturday at National
 Park:
@@ -357,6 +397,14 @@ was wrong about that):
   (`unlocked_unowns.asm`).
 - Until the first is solved, no Unown appears in the Inner Chamber.
 
+**Unown today** (checked): it has art, it hatches (common tier), and it is
+an ordinary wild encounter in four areas, caught like any other: Johto's
+RUINS OF ALPH (gate 1, about 28% of the area, the game's Inner Chamber table
+merged with the outside's Natu and Smeargle), Kanto's TANOBY RUINS
+(champion), and Sinnoh's SOLACEON RUINS (gate 3) and RUIN MANIAC CAVE (gate
+4). So in Johto, Unown appears from the first badge, where Crystal makes you
+solve the puzzle first.
+
 **How it fits here.**
 - This dex has no Unown letter forms, so the four sets cannot mean four
   different creatures. Options:
@@ -390,16 +438,31 @@ FRIEND SAFARI row whose type and three species derive from that rival's MAC.
 data: Pikachu at 30, Gloom at 36. `evolvesTo` is one field, so a species with
 two stone branches can only reach one of them.
 
-**Finding: 18 evolved forms hatch from eggs as if they were base forms.** This
-is the disease Eevee's branches had before v3.32: nothing's `evolvesTo` names
-them, so the rarity derivation calls them base forms. They are BELLOSSOM,
-GALLADE, FROSLASS, HITMONCHAN, HITMONTOP, CASCOON, SHEDINJA, MOTHIM, LUNALA,
-MELMETAL, APPLETUN, PERRSERKER, RUNERIGUS, KLEAVOR, SNEASLER, CERULEDGE,
-CLODSIRE and DIPPLIN. Checked against PokeAPI's `evolves_from_species_id`.
-Seven are stone or item branches (Bellossom, Gallade, Froslass, Appletun,
-Kleavor, Ceruledge, Dipplin). The rest need a gender, a form, a stat or a
-region. **Not fixed**: whether a creature you cannot evolve into should still
-hatch is the owner's call.
+**Finding: 18 evolved forms hatch from eggs as if they were base forms.**
+None of them is missing art (checked against `noart.h`), so this is not a
+sprite workaround. It is a data limit: `evolvesTo` holds ONE target, so a
+species whose evolution is any other route is nobody's target, and the rarity
+derivation (`gen_dex.py`) calls it a base form. This is what happened to
+Eevee's branches before v3.32. Three groups:
+- **The second branch of a split** (12): HITMONCHAN and HITMONTOP (Tyrogue
+  reaches only Hitmonlee), BELLOSSOM (Gloom reaches Vileplume), CASCOON
+  (Wurmple reaches Silcoon), SHEDINJA (Nincada's extra), MOTHIM (Burmy's
+  male form), GALLADE, FROSLASS, APPLETUN, DIPPLIN, CERULEDGE, KLEAVOR. In the
+  games they come only by evolving; here they hatch, and cannot be evolved
+  into.
+- **The pre-evolution is a regional form this dex does not have** (4):
+  PERRSERKER (Galarian Meowth), RUNERIGUS (Galarian Yamask), SNEASLER
+  (Hisuian Sneasel), CLODSIRE (Paldean Wooper). Without regional forms,
+  hatching is their only way in.
+- **Other** (2): MELMETAL (Meltan evolves only in Pokemon GO), and LUNALA
+  (Cosmoem's second branch; it is an Explore legendary with a home, so it is
+  out of the egg pool already).
+
+Fixing the first group means a branch table like `EEVEE_BRANCHES`, with each
+game's rule (stones, a stat comparison for Tyrogue, the creature's ID for
+Wurmple, a gender stand-in for Burmy/Kirlia/Snorunt), and marking the targets
+evolution-only. That belongs with the stones. The second group should stay
+hatchable unless regional forms ever arrive. **Not fixed**: the owner's call.
 
 **What stones would take:**
 - **Data:** `tools/fetch_stone_evos.py` from PokeAPI's `pokemon_evolution.csv`
