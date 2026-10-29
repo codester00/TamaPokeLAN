@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.71"
+#define FW_VERSION "3.72"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -9257,6 +9257,19 @@ const char *uiEvoLine(char *buf, size_t n, uint16_t *col) {
   }
 }
 
+// The card's level bar: its line and how far it is filled, in minutes of
+// MINUTES_PER_LEVEL. At MAX_LEVEL there is no next level, so the bar is full
+// and reads MAX LEVEL (v3.72) -- it used to count down to a level 101.
+void uiNextLevelText(char *buf, size_t n, uint8_t *into) {
+  if (pet.level() >= MAX_LEVEL) {
+    *into = MINUTES_PER_LEVEL;
+    snprintf(buf, n, "%s", T(S_MAX_LEVEL));
+    return;
+  }
+  *into = pet.ageMinutes % MINUTES_PER_LEVEL;
+  snprintf(buf, n, T(S_NEXT_LVL_FMT), MINUTES_PER_LEVEL - *into, pet.level() + 1);
+}
+
 void renderCardProgress() {
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(3);
@@ -9271,13 +9284,13 @@ void renderCardProgress() {
   gfx->print(lv);
 
   // barra de progreso al siguiente nivel (1 nivel = 60 min de juego)
-  uint8_t into = pet.ageMinutes % MINUTES_PER_LEVEL;
+  uint8_t into = 0;
+  char nx[26];
+  uiNextLevelText(nx, sizeof(nx), &into);
   int bx = 93, bw = 280, by = 158, bh = 22;
   gfx->fillRoundRect(bx, by, bw, bh, 6, UI_TRACK);
   int fw = (bw - 4) * into / MINUTES_PER_LEVEL;
   if (fw > 0) gfx->fillRoundRect(bx + 2, by + 2, fw, bh - 4, 5, UI_BAR_OK);
-  char nx[26];
-  snprintf(nx, sizeof(nx), T(S_NEXT_LVL_FMT), MINUTES_PER_LEVEL - into, pet.level() + 1);
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(2);
   gfx->setCursor(CX - strlen(nx) * 6, by + 32);

@@ -906,6 +906,32 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: trade-only evolutions get their farewell, MAX LEVEL (v3.72, on the branch)
+
+Owner, 2026-10-29: a Kadabra days past level 100 was never offered a farewell,
+and its card read "44 min to Lv.101".
+
+- **`Pet::evolutionAhead()` is THE "an evolution still comes" rule** for the
+  farewell: `evoInfo()` LEVELS/BLOCKED/READY with a showable target
+  (`canEvolveNow()`'s own rule). `canFarewellNow()` asked the TABLE
+  (`evolvesTo == 0`), so every pure trade evolver (`EVO_NEEDS_TRADE`) waited
+  forever. A creature marked for its trade evolution (traded, Linking Cord)
+  has one ahead and waits for it. `MED_FINAL` still reads the table, on
+  purpose: a Kadabra has not reached its final form.
+- **`uiNextLevelText()`** is the card bar's line and fill; at `MAX_LEVEL` it is
+  full and reads `S_MAX_LEVEL`.
+- `farewell_test` (Kadabra/Haunter unmarked yes, marked no until Alakazam,
+  Charmeleon due or blocked no, Charizard yes) and `levelbar_test`.
+  Negative-checked: the table rule, an evolution due counted as none, the old
+  countdown at 100.
+- Checked alongside (owner's question, not a bug found): an Abra raised from
+  an egg learns Kadabra's NIGHT SHADE 19, PSYBEAM 21, RECOVER 25, PSYCHIC 36 on
+  schedule. Nothing in our list sits above 36 for Kadabra, so a Kadabra met
+  past 36 learns nothing more by level. Abra itself has no level-up move here
+  (TELEPORT is not in the list) and an Abra that evolves at 16 skips Kadabra's
+  CONFUSION 1 and CALM MIND 11 (the picker still offers them), so it fights
+  with STRUGGLE until 19 -- not changed, offered to the owner.
+
 ### Done: the battle bag pages, a faint drops with its line (v3.71, on the branch)
 
 Owner, 2026-10-28: the battle bag showed the first four usable items and nothing

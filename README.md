@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.71-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.72-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -239,7 +239,8 @@ the navigation — three axes, one meaning each, everywhere:
 - **1 real minute = 1 in-game minute.** Your Pokémon gains **+1 level every hour**
   of real time. Leveling is purely time-based — caring well doesn't speed it up,
   but neglect *delays evolution*.
-- **Level caps at 100**, reached at 4 days 3 hours. Farewell is only *offered* at
+- **Level caps at 100**, reached at 4 days 3 hours; the card's level bar then
+  reads MAX LEVEL. Farewell is only *offered* at
   3 days (level 73) — **not a deadline**: your Pokémon is still growing, and
   declining it to reach 100 is a real choice. Declining re-offers a day later.
 - It keeps **aging while powered off** (the RTC runs), catching up to **2 weeks** max.
@@ -1134,6 +1135,10 @@ Every life ends one of three ways. You choose and witness each — none ever
 auto-fires:
 
 - 💛 **Farewell** — offered once it's a **final form** that has lived **3 days**.
+  A Pokémon whose next form comes only by trade (Kadabra, Haunter, Graveler,
+  Machoke...) counts as final until it is traded or given a Linking Cord; one
+  marked for its trade evolution waits for it (since v3.72 — before, a Kadabra
+  was never offered a farewell at all).
   Triggering it **blesses your next egg**; you can postpone it ("stay together",
   re-offered a day later).
 - 💔 **Run-away** — if you let **all four stats sit at 0 for a full hour**. A

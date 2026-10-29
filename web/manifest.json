@@ -1,6 +1,6 @@
 {
-  "name": "TamaPoke v3.71",
-  "version": "3.71",
+  "name": "TamaPoke v3.72",
+  "version": "3.72",
   "new_install_prompt_erase": true,
   "builds": [
     {
@@ -19,7 +19,7 @@
           "offset": 57344
         },
         {
-          "path": "firmware/app.bin?v=314e3a259c9c1aec",
+          "path": "firmware/app.bin?v=5a8a5e9aedcfecfc",
           "offset": 65536
         }
       ]

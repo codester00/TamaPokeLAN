@@ -1822,7 +1822,23 @@ uint16_t Pet::registeredCount() const {
 bool Pet::canFarewellNow() const {
   if (frozen) return false;     // a companion cannot be lost; that is the point
   return !isEgg() && !sleeping && ceremony == CER_NONE &&
-         DEX_TBL[speciesId].evolvesTo == 0 && ageMinutes >= FAREWELL_AGE_MIN;
+         !evolutionAhead() && ageMinutes >= FAREWELL_AGE_MIN;
+}
+
+// Can this creature still evolve where it is, without a trade? The farewell
+// waits for it, and only for it (v3.72). It used to ask the TABLE whether the
+// species has a next form, so a KADABRA, HAUNTER or GRAVELER -- whose next form
+// is reached only by trade -- was never offered a farewell, at level 100 or
+// ever. A creature already marked for its trade evolution (traded, or the
+// Linking Cord) does have one ahead, and waits for it like any other.
+bool Pet::evolutionAhead() const {
+  switch (evoInfo().status) {
+    case EVO_LEVELS: case EVO_BLOCKED: case EVO_READY:
+      // a target this card cannot draw never comes (canEvolveNow()'s rule)
+      return evoTargetShowable();
+    default:   // EVO_FINAL, EVO_NEEDS_TRADE
+      return false;
+  }
 }
 
 // abandono total durante 1h: lista para escaparse. La dispara el usuario con el
