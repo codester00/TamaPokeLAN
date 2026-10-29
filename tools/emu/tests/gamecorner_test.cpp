@@ -1,7 +1,8 @@
-// The Game Corners' rules (v3.53): the slots pay what they show and give back
-// a little under a coin per coin, the rigging actually engages, the card flip
-// pays Crystal's fair odds, the prize counters are complete, and the halls open
-// on the ladder's gate. The screens are driven by gamecorner_ui_test.
+// The Game Corners' rules: the slots are Red's and Crystal's own engines
+// (v3.73) -- one paying line, each engine's rules, the lucky machines at the
+// games' odds, and a machine that pays out more than it takes, as the
+// originals did -- the card flip pays Crystal's fair odds, the prize counters
+// are complete, and the halls open on the ladder's gate. The screens are driven by gamecorner_ui_test.
 #include "Arduino.h"
 #include "Preferences.h"
 #include "pet.h"
@@ -21,89 +22,161 @@ void sfxPlay(uint8_t) {}
 static int bad = 0;
 static void ck(bool ok, const char *w) { printf("%s  %s\n", ok ? "PASS" : "FAIL", w); if (!ok) bad++; }
 
-// The return per coin with the rigging, and the "natural" one of the bare
-// strips (every stop equally likely, nothing vetoed or lined up).
-static double played(uint8_t hall, uint8_t bet, int spins, bool *paysAsShown, uint16_t odds) {
-  const SlotMachine &m = slotMachine(hall);
-  double won = 0;
-  for (int i = 0; i < spins; i++) {
-    SlotResult r = slotSpin(hall, bet, odds);
-    if (r.win != slotPayout(m, r.stop, bet)) *paysAsShown = false;
-    won += r.win;
-  }
-  return won / ((double)spins * bet);
+// The symbol a result paid for: reel 1's symbol on the paying line.
+static int paidSym(uint8_t hall, const SlotResult &r) {
+  static const int8_t ROW0[5] = { 0, -1, 1, -1, 1 };
+  for (int l = 0; l < 5; l++)
+    if (r.lines & (1 << l)) return slotSymbol(slotMachine(hall), 0, r.stop[0], ROW0[l]);
+  return -1;
 }
-static double natural(uint8_t hall, uint8_t bet) {
-  const SlotMachine &m = slotMachine(hall);
-  double won = 0, n = 0;
-  uint8_t s[3];
-  for (s[0] = 0; s[0] < m.len; s[0]++)
-    for (s[1] = 0; s[1] < m.len; s[1]++)
-      for (s[2] = 0; s[2] < m.len; s[2]++) { won += slotPayout(m, s, bet); n++; }
-  return won / (n * bet);
+
+struct Play { double hit, ret, big; };
+// Plays `sittings` sittings of `spins` spins each, every one at a machine as
+// lucky as asked, and checks each result pays what its stops show.
+static Play play(uint8_t hall, uint8_t bet, bool lucky, int sittings, int spins, bool *shown) {
+  long wins = 0, big = 0, n = 0; double won = 0;
+  for (int t = 0; t < sittings; t++) {
+    SlotSession ss = slotSit(hall);
+    ss.lucky = lucky;
+    for (int i = 0; i < spins; i++) {
+      SlotResult r = slotSpin(ss, bet);
+      if (r.win != slotPayout(slotMachine(hall), r.stop, bet)) *shown = false;
+      if (r.win) wins++;
+      if (r.win >= 100) big++;
+      won += r.win; n++;
+    }
+  }
+  return { (double)wins / n, won / ((double)n * bet), big ? (double)n / big : 0 };
 }
 
 int main() {
   // --- 1. the reels are the games'
   {
     const SlotMachine &r = slotMachine(HALL_CELADON), &g = slotMachine(HALL_GOLDENROD);
-    ck(r.len == 18 && g.len == 15, "Red's wheels have 18 stops, Crystal's 15");
+    ck(r.len == 15 && g.len == 15, "both machines' reels have 15 stops (Red's tables repeat three to wrap)");
     int sevens = 0;
     for (uint8_t i = 0; i < r.len; i++) sevens += r.reel[0][i] == 0;
-    ck(sevens == 4 && r.pay[0] == 300 && r.pay[1] == 100, "Red's first wheel has four 7s; 7s pay 300, BARs 100");
+    ck(sevens == 3 && r.pay[0] == 300 && r.pay[1] == 100, "Red's first wheel has three 7s; 7s pay 300, BARs 100");
     ck(g.pay[0] == 300 && g.pay[1] == 50 && g.pay[2] == 6, "Crystal's payout table (300, 50, 6, ...)");
   }
 
-  // --- 2. what is shown is what is paid, and each machine's odds hold
-  // A machine draws its odds per sitting (v3.55), 0.88-1.10 a coin; the stingy
-  // and the lucky end are both played. The bands are wide because the
-  // emulator's random() is a 16-bit LCG whose consecutive draws are not
-  // independent, which skews three-reel combinations by several hundredths.
-  // The board draws from the hardware generator.
+  // --- 2. one line at a time
+  // No stop set on either machine lines up two lines at once, so a spin's win
+  // is one line's prize. Both games pay a single line by design; this pins
+  // that the reels never make the question arise.
   for (uint8_t h = 0; h < HALL_CORNERS; h++) {
-    for (uint8_t bet = 1; bet <= SLOT_MAX_BET; bet++) {
-      bool shown = true;
-      double lo = played(h, bet, 400000, &shown, SLOT_ODDS_MIN);
-      double hi = played(h, bet, 400000, &shown, SLOT_ODDS_MAX);
-      double nat = natural(h, bet);
-      printf("     %s bet %u: %.3f at the stingy end, %.3f at the lucky (bare strips %.3f)\n",
-             hallName(h), bet, lo, hi, nat);
-      ck(shown, "every spin pays exactly what its stops show");
-      ck(lo > 0.75 && lo < 0.98, "a stingy machine returns a little under a coin");
-      ck(hi > 0.97 && hi < 1.22, "a lucky one a little over");
-      ck(hi > lo + 0.12, "and the odds really differ");
-      // the rigging engages in both directions: Red's strips would pay out
-      // more than they take, Crystal's middle line far less
-      if (nat > 1.25) ck(hi < nat - 0.12, "a machine that would pay out more vetoes wins");
-      if (nat < 0.7) ck(lo > nat + 0.15, "a machine that would pay out less lines wins up");
-    }
-  }
-  {
-    bool inRange = true;
-    for (int i = 0; i < 2000; i++) {
-      uint16_t o = slotDrawOdds();
-      if (o < SLOT_ODDS_MIN || o > SLOT_ODDS_MAX) inRange = false;
-    }
-    ck(inRange && SLOT_ODDS_MIN == 880 && SLOT_ODDS_MAX == 1100, "a machine's odds are drawn from 0.88-1.10");
-  }
-
-  // --- 3. more coins, more lines
-  {
-    const SlotMachine &m = slotMachine(HALL_CELADON);
-    uint8_t s[3]; bool found = false;
-    for (s[0] = 0; s[0] < m.len && !found; s[0]++)
-      for (s[1] = 0; s[1] < m.len && !found; s[1]++)
-        for (s[2] = 0; s[2] < m.len && !found; s[2]++)
-          if (!slotPayout(m, s, 1) && slotPayout(m, s, 2) && !found) {
-            found = true;
-            uint8_t lines;
-            slotPayout(m, s, 2, &lines);
-            ck(lines && !(lines & 1), "a top or bottom line pays at 2 coins, not at 1");
+    const SlotMachine &m = slotMachine(h);
+    uint8_t s[3]; int multi = 0, wins = 0;
+    for (s[0] = 0; s[0] < m.len; s[0]++)
+      for (s[1] = 0; s[1] < m.len; s[1]++)
+        for (s[2] = 0; s[2] < m.len; s[2]++) {
+          int n = 0;
+          static const int8_t L[5][3] = { { 0, 0, 0 }, { -1, -1, -1 }, { 1, 1, 1 }, { -1, 0, 1 }, { 1, 0, -1 } };
+          for (auto &l : L) {
+            uint8_t x = slotSymbol(m, 0, s[0], l[0]);
+            if (x == slotSymbol(m, 1, s[1], l[1]) && x == slotSymbol(m, 2, s[2], l[2])) n++;
           }
-    ck(found, "(a stop where only an outer line wins)");
+          if (n > 1) multi++;
+          if (slotPayout(m, s, 3)) wins++;
+        }
+    printf("     %s: %d stop sets win at 3 coins, %d line up two lines\n", hallName(h), wins, multi);
+    ck(wins > 0 && multi == 0, "no stop set lines up two lines at once");
+  }
+  ck(slotMachine(HALL_CELADON).order[0] == 3 && slotMachine(HALL_GOLDENROD).order[0] == 0,
+     "(Red checks a diagonal first, Crystal the middle line)");
+
+  // --- 3. Red's engine
+  {
+    bool barClears = true, modeHolds = true, shown = true;
+    SlotSession ss = slotSit(HALL_CELADON);
+    for (int i = 0; i < 200000; i++) {
+      bool inMode = ss.flags & SLOT_RED_CAN_7;
+      SlotResult r = slotSpin(ss, 1 + i % 3);
+      int sym = paidSym(HALL_CELADON, r);
+      if (sym == 1 && ss.flags) barClears = false;                    // a BAR ends the mode
+      if (inMode && sym != 0 && sym != 1 && !(ss.flags & SLOT_RED_CAN_7)) modeHolds = false;
+      if (r.win != slotPayout(slotMachine(HALL_CELADON), r.stop, 1 + i % 3)) shown = false;
+    }
+    ck(shown, "every Celadon spin pays exactly what its stops show");
+    ck(barClears, "three BARs end 7/BAR mode");
+    ck(modeHolds, "7/BAR mode lasts until a 7 or a BAR pays");
+    // from a cleared machine a spin enters 7/BAR mode 2 times in 256 at most,
+    // so that is the most often it can pay a 7 or BAR
+    int jackpots = 0, wins = 0;
+    for (int i = 0; i < 100000; i++) {
+      SlotSession t = slotSit(HALL_CELADON);
+      t.flags = 0; t.allow = 0;
+      SlotResult r = slotSpin(t, 3);
+      int sym = paidSym(HALL_CELADON, r);
+      if (sym == 0 || sym == 1) jackpots++;
+      if (r.win) wins++;
+    }
+    printf("     from a cleared machine: %d 7/BAR wins and %d wins in 100000 spins\n", jackpots, wins);
+    ck(jackpots < 100000 * 3 / 256 && wins > 100000 / 20, "a 7 or BAR pays only in 7/BAR mode; small wins still come");
+    bool shown2 = true;
+    Play n1 = play(HALL_CELADON, 1, false, 400, 500, &shown2), n3 = play(HALL_CELADON, 3, false, 400, 500, &shown2);
+    Play l1 = play(HALL_CELADON, 1, true, 400, 500, &shown2);
+    printf("     Celadon normal bet 1: wins %.1f%%, return %.2f, 7/BAR 1 in %.0f\n", 100 * n1.hit, n1.ret, n1.big);
+    printf("     Celadon normal bet 3: wins %.1f%%, return %.2f, 7/BAR 1 in %.0f\n", 100 * n3.hit, n3.ret, n3.big);
+    printf("     Celadon lucky  bet 1: wins %.1f%%, return %.2f, 7/BAR 1 in %.0f\n", 100 * l1.hit, l1.ret, l1.big);
+    ck(n1.hit > 0.05 && n1.hit < 0.16, "Red wins about 1 spin in 10 at one coin");
+    ck(n3.hit > 2 * n1.hit, "and far more often at three");
+    ck(n1.ret > 1.2, "it pays out more than it takes, as Red's did");
+    ck(l1.big > 0 && l1.big < n1.big / 1.5, "the lucky machine hits 7/BAR much more often");
   }
 
-  // --- 4. the card flip: Crystal's odds, exactly fair
+  // --- 4. Crystal's engine
+  {
+    bool onlyBias = true, shown = true;
+    SlotSession ss = slotSit(HALL_GOLDENROD);
+    for (int i = 0; i < 200000; i++) {
+      if (i % 50 == 0) ss = slotSit(HALL_GOLDENROD);
+      SlotResult r = slotSpin(ss, 1 + i % 3);
+      int sym = paidSym(HALL_GOLDENROD, r);
+      // a win is the bias's: after a non-7 win the bias is still that symbol;
+      // after 7s it is still 7 or cleared
+      if (sym > 0 && ss.bias != sym) onlyBias = false;
+      if (sym == 0 && ss.bias != 0 && ss.bias != SLOT_NO_BIAS) onlyBias = false;
+      if (r.win != slotPayout(slotMachine(HALL_GOLDENROD), r.stop, 1 + i % 3)) shown = false;
+    }
+    ck(shown, "every Goldenrod spin pays exactly what its stops show");
+    ck(onlyBias, "Crystal only pays the symbol the spin was biased to");
+    // a 7 bias stays until 7s pay
+    bool sevenStays = true;
+    for (int i = 0; i < 20000; i++) {
+      SlotSession t = slotSit(HALL_GOLDENROD);
+      t.bias = 0;
+      SlotResult r = slotSpin(t, 1);
+      if (paidSym(HALL_GOLDENROD, r) != 0 && t.bias != 0) sevenStays = false;
+    }
+    ck(sevenStays, "a 7 bias lasts until 7s pay");
+
+    bool sh = true;
+    Play n1 = play(HALL_GOLDENROD, 1, false, 400, 50, &sh), n2 = play(HALL_GOLDENROD, 2, false, 400, 50, &sh);
+    Play l2 = play(HALL_GOLDENROD, 2, true, 400, 50, &sh);
+    printf("     Goldenrod normal bet 1: wins %.1f%%, return %.2f\n", 100 * n1.hit, n1.ret);
+    printf("     Goldenrod normal bet 2: wins %.1f%%, return %.2f, 7s 1 in %.0f\n", 100 * n2.hit, n2.ret, n2.big);
+    printf("     Goldenrod lucky  bet 2: wins %.1f%%, return %.2f, 7s 1 in %.0f\n", 100 * l2.hit, l2.ret, l2.big);
+    ck(n1.hit > 0.01 && n1.hit < 0.08, "Crystal is stingy on one line");
+    ck(n2.hit > 0.10 && n2.hit < 0.30, "and wins about 1 spin in 6 at two coins");
+    ck(l2.hit > n2.hit * 1.3, "a lucky machine wins clearly more");
+    ck(n2.ret > 1.1, "it pays out more than it takes, as Crystal's did");
+  }
+
+  // --- 5. the lucky machines come up at the games' own odds
+  {
+    int redL = 0, gsL = 0, N = 40000;
+    for (int i = 0; i < N; i++) {
+      slotVisit(HALL_CELADON);
+      if (slotSit(HALL_CELADON).lucky) redL++;
+      if (slotSit(HALL_GOLDENROD).lucky) gsL++;
+    }
+    printf("     lucky sittings: Celadon %.1f%%, Goldenrod %.1f%%\n", 100.0 * redL / N, 100.0 * gsL / N);
+    ck(redL > N / 60 && redL < N / 20, "Celadon: one lucky machine a visit, about 1 sitting in 35");
+    ck(gsL > N * 15 / 100 && gsL < N * 28 / 100, "Goldenrod: about 1 sitting in 5");
+  }
+
+  // --- 6. the card flip: Crystal's odds, exactly fair
   {
     int sum[3] = { 0, 0, 0 };
     for (uint8_t c = 0; c < CARD_DECK; c++) {
@@ -124,7 +197,7 @@ int main() {
     ck(d.left == CARD_DECK - 1, "and is shuffled again when it runs out");
   }
 
-  // --- 5. the prize counters
+  // --- 7. the prize counters
   {
     bool surf = false;
     for (uint8_t i = 0; i < hallPrizeCount(HALL_CELADON); i++) {
@@ -168,7 +241,7 @@ int main() {
     ck(m2.uid != m.uid, "and the next one is a different creature");
   }
 
-  // --- 6. the halls open on the ladder
+  // --- 8. the halls open on the ladder
   {
     Pet p; p.dbgHatchAs(25, false);
     ck(!hallUnlocked(HALL_CELADON, p) && !hallUnlocked(HALL_GOLDENROD, p), "both closed at the start");

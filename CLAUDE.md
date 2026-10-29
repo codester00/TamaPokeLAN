@@ -906,6 +906,49 @@ wins wherever it and the summary below differ.
    outline if only the party does, grey silhouette otherwise. A 7th forces a
    release through the existing chooser. Multi-release; full plan first.
 
+### Done: the real slot machines (v3.73, on the branch)
+
+Owner, 2026-10-29: 30 spins at Celadon with no win; the slots should feel like
+the games'. The v3.53/v3.55 rigging (a per-sitting return of 0.88-1.10 a coin,
+reached by vetoing or lining up wins) is gone. **Both halls now run their
+game's own engine**, ported from pret (the analysis behind it: Red's
+`engine/slots/slot_machine.asm`, `scripts/GameCorner.asm`; Crystal's
+`engine/games/slot_machine.asm`, `maps/GoldenrodGameCorner.asm`).
+
+- **`SlotSession`** (gamecorner.h) is one sitting: hall, lucky, Red's flags /
+  60-win counter / re-roll budget, Crystal's bias / rare-streak flag.
+  `slotVisit()` (openHall) is Red picking its lucky machine for the visit;
+  `slotSit()` (the SLOTS button) is walking up to a random machine;
+  `slotSpin(session, bet)` runs `redSpin()` or `gsSpin()`.
+- **Red**: `redSetFlags()` (1/256 sixty-win streak; > 253, lucky > 250: 7/BAR
+  mode, kept until a 7 or BAR pays; > 210: may win), wheel 1 slips past a
+  centred cherry (in 7/BAR mode always four, Red's bug), wheel 2 slips to pair
+  with wheel 1, wheel 3 rolls on while a win is not allowed or until one lines
+  up. `redFlags` persists across sittings, as Red's WRAM does. Lucky: one of
+  machines 1-31 per visit (three of 36 out of order) -> ~1 sitting in 35.
+- **Crystal**: `gsInitBias()` (normal/lucky tables; a 7 bias stays), reel 1
+  slips to show the bias, reel 2 to pair it (or, 80/256 at 2+ coins with a 7
+  on reel 1, spins until 7s pair), reel 3 stops on the bias and slips away from
+  anything else -- no bias, no win. With 7s paired, slow advance/Golem/Chansey
+  land 7s with a 7 bias and nothing otherwise. Lucky: machine 8 always, others
+  1 in 6 -> ~1 sitting in 5.
+- **Red's reels are 15 stops** (its tables repeat the first three to wrap; v3.53
+  read 18). On these reels no stop set lines up two lines at once, so the old
+  sum-of-lines payout never paid double; `slotPayout()` is one line in the
+  game's check order (`SlotMachine::order`) anyway.
+- **Measured** (gamecorner_test, emulator RNG): Celadon bet 1 wins 9%, returns
+  1.98 a coin, lucky 2.84; Goldenrod bet 1 3.6%, bet 2 17.9% / 2.08, lucky 3.07.
+  Independent simulations of the disassemblies gave 10% / 2.0 / 2.77 and
+  3.4% / 17.6% / 2.2 / 3.12. **The originals pay out more than they take**
+  (owner's call: real payouts, real lucky odds, the games' prize prices).
+- **`SET_FAIR_SLOTS` retired** (owner): bit 9 stays reserved (`SET_RETIRED`), the
+  settings screen skips it (`codesSetBit()`), nothing reads it.
+- `gamecorner_test` (reels, one line, each engine's rules, lucky odds, play
+  bands), `codes_test` (every offered setting, never the retired one).
+  Negative-checked: 7/BAR mode re-rolled each spin, Crystal stopping on any
+  line-up, the 7 bias re-rolled, Goldenrod's 1-in-6 lucky dropped, 18-stop
+  reels, the retired row offered.
+
 ### Done: trade-only evolutions get their farewell, moves on evolving, MAX LEVEL (v3.72, on the branch)
 
 Owner, 2026-10-29: a Kadabra days past level 100 was never offered a farewell,

@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.72"
+#define FW_VERSION "3.73"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -769,7 +769,7 @@ bool hallBuyConfirm = false;   // "Buy 50 coins?" is up
 char hallMsg[40] = "";         // the last result line
 uint8_t slotBet = 1;
 SlotResult slotRes;
-uint16_t slotOdds = SLOT_ODDS_MIN;   // this sitting's machine (slotDrawOdds)
+SlotSession slotSess;               // the machine sat at (slotSit), its luck and state
 uint8_t slotShown = SLOT_REELS;   // reels revealed of slotRes; SLOT_REELS = idle
 int8_t cardGuessC = CARD_ANY, cardGuessN = CARD_ANY;
 int8_t cardShown = -1;         // the card just turned over, -1 = none
@@ -3743,7 +3743,19 @@ uint8_t codesPage = 0;
 static_assert(S_SET_LAST - S_SET_FIRST + 1 == SET_COUNT, "a setting without its name, or a name without its setting");
 static_assert(S_CHEAT_LAST - S_CHEAT_FIRST + 1 == CHEAT_COUNT, "a cheat without its name, or a name without its cheat");
 
-static uint8_t codesRows() { return codesCheats ? CHEAT_COUNT : SET_COUNT; }
+// The settings the screen offers, as bit indices: every one but the retired
+// (SET_RETIRED; their bits stay reserved, the list being saved append-only).
+static uint8_t codesSetBit(uint8_t row) {
+  for (uint8_t b = 0; b < SET_COUNT; b++)
+    if (!(SET_RETIRED & (1u << b)) && row-- == 0) return b;
+  return 0xFF;
+}
+static uint8_t codesRows() {
+  if (codesCheats) return CHEAT_COUNT;
+  uint8_t n = 0;
+  for (uint8_t b = 0; b < SET_COUNT; b++) if (!(SET_RETIRED & (1u << b))) n++;
+  return n;
+}
 
 // A cheat row's second line: a toggle says ON/OFF, a one-shot asks to be used.
 static StrId cheatStatus(uint8_t id) {
@@ -3773,11 +3785,12 @@ void renderCodes() {
       areaCentred(T(st), CX, ry + 56, rw - 16);
       continue;
     }
-    bool on = gameSettings & (1u << k);
+    uint8_t b = codesSetBit((uint8_t)k);
+    bool on = gameSettings & (1u << b);
     gfx->fillRoundRect(rx, ry, rw, rh, 12, UI_BG_DAY);
     gfx->drawRoundRect(rx, ry, rw, rh, 12, on ? UI_BAR_OK : UI_INK);
     gfx->setTextColor(UI_INK);
-    areaCentred(T((StrId)(S_SET_FIRST + k)), CX, ry + 22, rw - 16);
+    areaCentred(T((StrId)(S_SET_FIRST + b)), CX, ry + 22, rw - 16);
     gfx->setTextColor(on ? UI_BAR_OK : UI_INK_SOFT);
     areaCentred(T(on ? S_SET_ON : S_SET_OFF), CX, ry + 56, rw - 16);
   }
@@ -3785,7 +3798,8 @@ void renderCodes() {
   gfx->flush();
 }
 
-// The setting (its bit index) under a tap, or -1. Drawing and tapping both
+// The row under a tap (a cheat's id; a setting's row, codesSetBit() gives its
+// bit), or -1. Drawing and tapping both
 // lay out through areaRowRect().
 int codesRowAt(int16_t x, int16_t y) {
   for (int i = 0; i < AREA_ROWS; i++) {
@@ -3815,7 +3829,7 @@ void codesTap(int16_t x, int16_t y) {
     sfxPlay(cheatApply((uint8_t)k) ? SFX_MEDAL : SFX_DENY);
     return;
   }
-  uint16_t bit = (uint16_t)(1u << k);
+  uint16_t bit = (uint16_t)(1u << codesSetBit((uint8_t)k));
   pet.setSetting(bit, !(gameSettings & bit));
   pet.flushSave();
   sfxPlay(SFX_TAP);
@@ -3855,6 +3869,7 @@ void openHall(uint8_t h) {
   hallMsg[0] = 0;
   slotShown = SLOT_REELS;
   cardShown = -1;
+  slotVisit(h);   // walking in: Red picks its lucky machine for the visit
   if (hallIsBeach(h)) surfStart();
 }
 
@@ -4058,7 +4073,7 @@ static void slotsTap(uint8_t h, int16_t tx, int16_t ty) {
       snprintf(hallMsg, sizeof(hallMsg), "%s", T(S_GC_NEED_COINS));
       return;
     }
-    slotRes = slotSpin(h, slotBet, slotOdds);
+    slotRes = slotSpin(slotSess, slotBet);
     slotShown = 0;
     hallMsg[0] = 0;
     sfxPlay(SFX_TAP);
@@ -4292,7 +4307,7 @@ void hallTap(int16_t x, int16_t y) {
     sfxPlay(SFX_TAP);
     hallMsg[0] = 0;
     switch (btn[i]) {
-      case HB_SLOTS:  hallMode = HM_SLOTS; slotShown = SLOT_REELS; slotOdds = slotDrawOdds(); break;
+      case HB_SLOTS:  hallMode = HM_SLOTS; slotShown = SLOT_REELS; slotSess = slotSit(h); break;
       case HB_CARDS:  hallMode = HM_CARDS; cardShown = -1; break;
       case HB_PRIZES: hallMode = HM_PRIZES; hallPage = 0; break;
       case HB_BUY:

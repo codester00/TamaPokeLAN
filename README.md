@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.72-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.73-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -535,11 +535,24 @@ opens the hall, never a fight. Swipe down to back out, one level at a time.
   creatures 15; Crystal: 7s 300, Poké Balls 50, Staryu 15, Squirtle 10, Pikachu
   8, cherries 6). Bet 1-3 coins: 1 plays the middle line, 2 adds the top and
   bottom, 3 the diagonals. SPIN, then STOP each reel; a win is paid when the
-  last one stops (backing out mid-spin pays it too). Like the real machines they
-  are rigged, and **each machine is different**: every time you sit down at the
-  slots the machine draws its odds, between **0.88 and 1.10 coins back per
-  coin** (since v3.55; it was a flat 0.88). Walk away and sit down again for a
-  new machine.
+  last one stops (backing out mid-spin pays it too). One line pays at a time.
+  **Since v3.73 each hall runs its own game's machine**, rigging and all, ported
+  from the disassemblies:
+  - **Celadon (Red):** each spin rolls whether a small win is allowed (about 1
+    in 6), and the reels slip to line one up; now and then the machine enters
+    **7/BAR mode**, which stays on until a 7 or BAR pays (three 7s keep it on
+    half the time), and rarely it allows the next **60 small wins**. Wins come
+    about 1 spin in 10 at 1 coin, 1 in 3 at 3. One machine is **lucky** each time
+    you walk in (more 7/BAR mode), so sitting down finds it about 1 time in 35.
+  - **Goldenrod (Crystal):** each spin the machine picks a symbol to work toward,
+    or none -- and with none, nothing pays. A 7 stays the target until 7s pay
+    (and a quarter of the time after). Stingy on one line (1 win in 30), about
+    1 in 6 at 2 or 3 coins. The reel-2 rush to 7s, the slow last reel, Golem
+    and Chansey are the show; the target decides them. One machine is always
+    lucky and each other one 1 time in 6, so about 1 sitting in 5 is lucky.
+  - Both pay out **more than they take**, as the originals did: about two coins
+    back per coin over a long session, most of it in 7 streaks. Walk away and
+    sit down again for another machine.
 - **Card flip** (Goldenrod): the deck is 24 cards, four creatures (PIKACHU,
   JIGGLYPUFF, POLIWAG, ODDISH) each numbered 1-6. Tap the **POKEMON** box to step
   through ANY and the four creatures, the **NUMBER** box for ANY and 1-6, then

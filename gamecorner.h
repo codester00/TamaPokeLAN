@@ -4,19 +4,23 @@
 // no drawing and no touch, so gamecorner_test can play thousands of rounds.
 // The screens are in TamaPoke.ino (renderHall/hallTap).
 //
-// Faithful where it is cheap to be: the reel strips are the games' own
-// (pokered's slot_machine_wheels.asm, pokecrystal's Reel1Tilemap..), so are the
-// payout tables and Crystal's card-flip odds. The games' machines were rigged
-// in engine code, and Red's differed machine to machine ("this one's lucky").
-// Here each time the player sits down a machine draws its ODDS, the coins it
-// returns per 1000 bet, from SLOT_ODDS_MIN-SLOT_ODDS_MAX (owner, v3.55), and
-// every spin is rigged toward them (gamecorner_test measures it):
-//   - BIAS: when the strips alone pay less (Crystal's do: about half), the
-//     middle line is set up to win this often, weighted toward small prizes;
-//   - VETO: when they pay more (Red's do, up to twice), just enough wins are
-//     turned into losses. Both rates are worked out from the strips themselves
-//     (slotReturns), per bet -- more coins mean more lines, and the lines on
-//     these strips tend to win together.
+// The slot machines are the GAMES' OWN ENGINES (v3.73), ported from the
+// disassemblies with their reels, payouts and rigging, so they feel like the
+// casinos they stand for:
+//   - Celadon is Red's (pokered engine/slots/slot_machine.asm). Each spin
+//     rolls whether a win is allowed (about 1 in 6), now and then a 7/BAR mode
+//     that lasts until a 7 or BAR pays, and rarely a streak of 60 small wins;
+//     the reels slip up to four stops to line a win up. ONE machine is lucky
+//     per visit (more 7/BAR mode), as Red picks it when you walk in.
+//   - Goldenrod is Crystal's (pokecrystal engine/games/slot_machine.asm).
+//     Each spin rolls a BIAS -- the symbol the reels work toward, or none -- and
+//     without one reel 3 slips away from any line-up. A 7 bias lasts until 7s
+//     pay. One machine is always lucky and each other one is lucky 1 time in 6.
+//     The reel-2 "skip to 7", the slow reel 3, Golem and Chansey are theatre:
+//     their outcome is the bias's.
+// Both pay one line, the first the game checks (on these reels two never line
+// up at once anyway). And both pay well: the originals return about two coins
+// per coin played, mostly in 7 streaks.
 #include <stdint.h>
 #include "pet.h"
 #include "party.h"
@@ -37,33 +41,44 @@ struct SlotMachine {
   const uint8_t *reel[SLOT_REELS];   // symbol per stop
   uint8_t len;                       // stops per reel
   uint8_t symbols;
-  const uint16_t *pay;               // coins per winning line, by symbol
-  const uint8_t *biasWeight;         // BIAS: how often each symbol is chosen, or none
+  const uint16_t *pay;               // coins for a winning line, by symbol
+  const uint8_t *order;              // the lines in the order the game checks them
 };
-#define SLOT_ODDS_FAIR 0               // slotDrawOdds() with "fair slots": no rigging
-#define SLOT_ODDS_MIN 880              // coins back per 1000 bet, a stingy machine
-#define SLOT_ODDS_MAX 1100             // and a lucky one
 
 struct SlotResult {
   uint8_t stop[SLOT_REELS];   // the stop under the middle line, per reel
   uint16_t win;               // coins paid
-  uint8_t lines;              // winning lines (bit 0 middle, 1 top, 2 bottom, 3 and 4 diagonals)
+  uint8_t lines;              // the paying line (bit 0 middle, 1 top, 2 bottom, 3 and 4 diagonals)
+};
+
+#define SLOT_RED_CAN_WIN 1     // Red: this spin may win a small prize
+#define SLOT_RED_CAN_7   2     // Red: 7/BAR mode, until a 7 or BAR pays
+#define SLOT_NO_BIAS 0xFF      // Crystal: the spin works toward nothing
+// One sitting at a machine (v3.73): which kind it is, whether it is the lucky
+// one, and the engine's state, which lasts until the player gets up.
+struct SlotSession {
+  uint8_t hall = HALL_CELADON;
+  bool lucky = false;
+  uint8_t flags = 0;               // Red
+  uint8_t allow = 0;               // Red: the 60-win streak's counter
+  uint8_t reroll = 0;              // Red: wheel 3's re-roll budget
+  uint8_t bias = SLOT_NO_BIAS;     // Crystal
+  bool keepRare = false;           // Crystal: the rarer 7-streak odds this sitting
 };
 
 const SlotMachine &slotMachine(uint8_t hall);
 // The symbol a reel shows `row` rows from its middle-line stop (-1 top, +1 bottom).
 uint8_t slotSymbol(const SlotMachine &m, uint8_t reel, uint8_t stop, int8_t row);
-// What a set of stops pays at a bet of 1-3. The ONE payout rule: the spin and
-// the screen both ask it, so what is shown is what is paid.
+// What a set of stops pays at a bet of 1-3: ONE line, the first the game checks
+// among those the bet plays. The spin and the tests both ask it.
 uint16_t slotPayout(const SlotMachine &m, const uint8_t stop[SLOT_REELS], uint8_t bet,
                     uint8_t *lines = nullptr);
-// A spin's return per 1000 coins bet on the bare strips and on a biased spin.
-void slotReturns(uint8_t hall, uint8_t bet, uint32_t *barePm, uint32_t *biasedPm);
-// A machine's odds for one sitting, SLOT_ODDS_MIN..SLOT_ODDS_MAX.
-uint16_t slotDrawOdds();
-// One spin at a machine with `odds`. Decides the stops (the screen only
-// reveals them) and the win.
-SlotResult slotSpin(uint8_t hall, uint8_t bet, uint16_t odds);
+// Walking into a hall: Red picks its lucky machine for the visit.
+void slotVisit(uint8_t hall);
+// Sitting at a machine, chosen at random as a player walks up to one.
+SlotSession slotSit(uint8_t hall);
+// One spin. Decides the stops (the screen only reveals them) and the win.
+SlotResult slotSpin(SlotSession &s, uint8_t bet);
 
 // ---- card flip (Goldenrod) --------------------------------------------------
 // A card is creature + 4 * (number - 1): creature 0-3 (PIKACHU, JIGGLYPUFF,

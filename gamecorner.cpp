@@ -7,20 +7,22 @@
 #include "wild.h"
 
 // ---------------------------------------------------------------- the reels
-// Celadon: pokered's SlotMachineWheel1-3 (data/events/slot_machine_wheels.asm),
-// 18 stops each. Symbols: 7, BAR, CHERRY, FISH, BIRD, MOUSE (the art's order).
+// Celadon: pokered's SlotMachineWheel1-3 (data/events/slot_machine_wheels.asm).
+// The tables are 18 long but the wheel is 15: the last three repeat the first
+// three so a window of three can wrap (the offset wraps at 30 bytes, 15 stops).
+// Symbols: 7, BAR, CHERRY, FISH, BIRD, MOUSE (the art's order).
 enum : uint8_t { RS_7, RS_BAR, RS_CHERRY, RS_FISH, RS_BIRD, RS_MOUSE, RS_COUNT };
-static const uint8_t RED_W1[18] = { RS_7, RS_MOUSE, RS_FISH, RS_BAR, RS_CHERRY, RS_7, RS_FISH, RS_BIRD, RS_BAR,
-                                    RS_CHERRY, RS_7, RS_MOUSE, RS_BIRD, RS_BAR, RS_CHERRY, RS_7, RS_MOUSE, RS_FISH };
-static const uint8_t RED_W2[18] = { RS_7, RS_FISH, RS_CHERRY, RS_BIRD, RS_MOUSE, RS_BAR, RS_CHERRY, RS_FISH, RS_BIRD,
-                                    RS_CHERRY, RS_BAR, RS_FISH, RS_BIRD, RS_CHERRY, RS_MOUSE, RS_7, RS_FISH, RS_CHERRY };
-static const uint8_t RED_W3[18] = { RS_7, RS_BIRD, RS_FISH, RS_CHERRY, RS_MOUSE, RS_BIRD, RS_FISH, RS_CHERRY, RS_MOUSE,
-                                    RS_BIRD, RS_FISH, RS_CHERRY, RS_MOUSE, RS_BIRD, RS_BAR, RS_7, RS_BIRD, RS_FISH };
+static const uint8_t RED_W1[15] = { RS_7, RS_MOUSE, RS_FISH, RS_BAR, RS_CHERRY, RS_7, RS_FISH, RS_BIRD, RS_BAR,
+                                    RS_CHERRY, RS_7, RS_MOUSE, RS_BIRD, RS_BAR, RS_CHERRY };
+static const uint8_t RED_W2[15] = { RS_7, RS_FISH, RS_CHERRY, RS_BIRD, RS_MOUSE, RS_BAR, RS_CHERRY, RS_FISH, RS_BIRD,
+                                    RS_CHERRY, RS_BAR, RS_FISH, RS_BIRD, RS_CHERRY, RS_MOUSE };
+static const uint8_t RED_W3[15] = { RS_7, RS_BIRD, RS_FISH, RS_CHERRY, RS_MOUSE, RS_BIRD, RS_FISH, RS_CHERRY, RS_MOUSE,
+                                    RS_BIRD, RS_FISH, RS_CHERRY, RS_MOUSE, RS_BIRD, RS_BAR };
 // Red/Blue: 7s 300, BARs 100, three cherries 8, the creatures 15.
 static const uint16_t RED_PAY[RS_COUNT] = { 300, 100, 8, 15, 15, 15 };
 
 // Goldenrod: pokecrystal's Reel1Tilemap-Reel3Tilemap (engine/games/
-// slot_machine.asm), 15 stops each. Symbols in SLOTS_* order: 7, POKE BALL,
+// slot_machine.asm), REEL_SIZE 15. Symbols in SLOTS_* order: 7, POKE BALL,
 // CHERRY, PIKACHU, SQUIRTLE, STARYU.
 enum : uint8_t { CS_7, CS_BALL, CS_CHERRY, CS_PIKA, CS_SQUIRTLE, CS_STARYU, CS_COUNT };
 static const uint8_t GS_W1[15] = { CS_7, CS_CHERRY, CS_STARYU, CS_PIKA, CS_SQUIRTLE, CS_7, CS_CHERRY, CS_STARYU,
@@ -31,12 +33,25 @@ static const uint8_t GS_W3[15] = { CS_7, CS_PIKA, CS_CHERRY, CS_SQUIRTLE, CS_STA
                                    CS_STARYU, CS_PIKA, CS_BALL, CS_CHERRY, CS_SQUIRTLE, CS_STARYU, CS_PIKA };
 // Crystal's .PayoutTable.
 static const uint16_t GS_PAY[CS_COUNT] = { 300, 50, 6, 8, 10, 15 };
-// What the BIAS lines up, small prizes far more often than big ones.
-static const uint8_t GS_BIAS[CS_COUNT] = { 2, 6, 40, 25, 15, 12 };
+
+// The lines, as rows from the middle per reel (-1 is the stop before the middle
+// one), in the bit order of SlotResult::lines.
+static const int8_t LINE[5][3] = {
+  { 0, 0, 0 },      // middle
+  { -1, -1, -1 },   // top
+  { 1, 1, 1 },      // bottom
+  { -1, 0, 1 },     // diagonal
+  { 1, 0, -1 },     // the other diagonal
+};
+// Which line pays when two do: Red takes the FIRST match of diagonals, then the
+// outer rows, then the middle (CheckForMatches); Crystal checks the same lines
+// the other way round and keeps the LAST (Slots_CheckMatchedAllThreeReels).
+static const uint8_t RED_ORDER[5] = { 3, 4, 2, 1, 0 };
+static const uint8_t GS_ORDER[5]  = { 0, 2, 1, 4, 3 };
 
 static const SlotMachine MACHINES[HALL_CORNERS] = {
-  { { RED_W1, RED_W2, RED_W3 }, 18, RS_COUNT, RED_PAY, nullptr },
-  { { GS_W1, GS_W2, GS_W3 }, 15, CS_COUNT, GS_PAY, GS_BIAS },
+  { { RED_W1, RED_W2, RED_W3 }, 15, RS_COUNT, RED_PAY, RED_ORDER },
+  { { GS_W1, GS_W2, GS_W3 }, 15, CS_COUNT, GS_PAY, GS_ORDER },
 };
 
 const SlotMachine &slotMachine(uint8_t hall) {
@@ -49,126 +64,231 @@ uint8_t slotSymbol(const SlotMachine &m, uint8_t reel, uint8_t stop, int8_t row)
   return m.reel[reel % SLOT_REELS][p];
 }
 
-uint16_t slotPayout(const SlotMachine &m, const uint8_t stop[SLOT_REELS], uint8_t bet,
-                    uint8_t *lines) {
-  // rows per line, for reels 0, 1, 2
-  static const int8_t LINE[5][3] = {
-    { 0, 0, 0 },      // middle
-    { -1, -1, -1 },   // top
-    { 1, 1, 1 },      // bottom
-    { -1, 0, 1 },     // diagonal down
-    { 1, 0, -1 },     // diagonal up
-  };
-  uint8_t nLines = bet <= 1 ? 1 : bet == 2 ? 3 : 5;
-  uint16_t win = 0;
-  uint8_t mask = 0;
-  for (uint8_t l = 0; l < nLines; l++) {
-    uint8_t a = slotSymbol(m, 0, stop[0], LINE[l][0]);
-    if (a != slotSymbol(m, 1, stop[1], LINE[l][1]) || a != slotSymbol(m, 2, stop[2], LINE[l][2]))
-      continue;
-    win += m.pay[a];
-    mask |= (uint8_t)(1 << l);
-  }
-  if (lines) *lines = mask;
-  return win;
-}
-
 static uint8_t clampBet(uint8_t bet) {
   return bet < 1 ? 1 : bet > SLOT_MAX_BET ? SLOT_MAX_BET : bet;
 }
-
-// Every stop of `reel` that shows `sym` on the middle line; how many.
-static uint8_t stopsOf(const SlotMachine &m, uint8_t reel, uint8_t sym, uint8_t *at) {
-  uint8_t n = 0;
-  for (uint8_t p = 0; p < m.len; p++) if (m.reel[reel][p] == sym) at[n++] = p;
-  return n;
+static bool linePlayed(uint8_t line, uint8_t bet) {
+  return line == 0 || (line <= 2 && bet >= 2) || bet >= 3;
 }
 
-// What a spin returns per 1000 coins bet, worked out exactly by enumerating
-// every stop: on the BARE strips (each stop equally likely), and on a BIASED
-// spin (a symbol by weight, then each reel at a random stop showing it). The
-// rigging below mixes the two, or vetoes wins, to land on a machine's odds.
-void slotReturns(uint8_t hall, uint8_t bet, uint32_t *barePm, uint32_t *biasedPm) {
-  static uint32_t cache[HALL_CORNERS][SLOT_MAX_BET + 1][2];
-  const SlotMachine &m = slotMachine(hall);
-  if (hall >= HALL_CORNERS) hall = 0;
+// The symbol of the line that pays, or 0xFF.
+static uint8_t paidSymbol(const SlotMachine &m, const uint8_t stop[SLOT_REELS], uint8_t bet, uint8_t *line) {
   bet = clampBet(bet);
-  uint32_t *c = cache[hall][bet];
-  if (!c[0]) {
-    uint64_t won = 0, n = 0;
-    uint8_t s[SLOT_REELS];
-    for (s[0] = 0; s[0] < m.len; s[0]++)
-      for (s[1] = 0; s[1] < m.len; s[1]++)
-        for (s[2] = 0; s[2] < m.len; s[2]++) { won += slotPayout(m, s, bet); n++; }
-    c[0] = (uint32_t)(won * 1000ULL / n / bet);
-    if (!c[0]) c[0] = 1;
-    uint64_t biased = 0;
-    uint32_t total = 0;
-    if (m.biasWeight) {
-      for (uint8_t k = 0; k < m.symbols; k++) total += m.biasWeight[k];
-      for (uint8_t sym = 0; sym < m.symbols; sym++) {
-        uint8_t a[32], b[32], d[32];
-        uint8_t na = stopsOf(m, 0, sym, a), nb = stopsOf(m, 1, sym, b), nd = stopsOf(m, 2, sym, d);
-        if (!na || !nb || !nd) continue;
-        uint64_t w = 0;
-        for (uint8_t i = 0; i < na; i++) for (uint8_t j = 0; j < nb; j++) for (uint8_t k = 0; k < nd; k++) {
-          uint8_t st[SLOT_REELS] = { a[i], b[j], d[k] };
-          w += slotPayout(m, st, bet);
-        }
-        biased += (uint64_t)m.biasWeight[sym] * w * 1000ULL / ((uint64_t)na * nb * nd);
-      }
-    }
-    c[1] = total ? (uint32_t)(biased / total / bet) : 0;
+  for (uint8_t i = 0; i < 5; i++) {
+    uint8_t l = m.order[i];
+    if (!linePlayed(l, bet)) continue;
+    uint8_t a = slotSymbol(m, 0, stop[0], LINE[l][0]);
+    if (a != slotSymbol(m, 1, stop[1], LINE[l][1]) || a != slotSymbol(m, 2, stop[2], LINE[l][2])) continue;
+    if (line) *line = l;
+    return a;
   }
-  if (barePm) *barePm = c[0];
-  if (biasedPm) *biasedPm = c[1];
+  return 0xFF;
 }
 
-uint16_t slotDrawOdds() {
-  if (settingOn(SET_FAIR_SLOTS)) return SLOT_ODDS_FAIR;   // the hidden setting
-  return (uint16_t)(SLOT_ODDS_MIN + random(SLOT_ODDS_MAX - SLOT_ODDS_MIN + 1));
+uint16_t slotPayout(const SlotMachine &m, const uint8_t stop[SLOT_REELS], uint8_t bet,
+                    uint8_t *lines) {
+  uint8_t l = 0;
+  uint8_t sym = paidSymbol(m, stop, bet, &l);
+  if (lines) *lines = sym == 0xFF ? 0 : (uint8_t)(1 << l);
+  return sym == 0xFF ? 0 : m.pay[sym];
 }
 
-SlotResult slotSpin(uint8_t hall, uint8_t bet, uint16_t odds) {
-  const SlotMachine &m = slotMachine(hall);
-  bet = clampBet(bet);
-  uint32_t bare, biased;
-  slotReturns(hall, bet, &bare, &biased);
-  if (odds == SLOT_ODDS_FAIR) odds = (uint16_t)bare;   // the strips as they are
-  // A machine paying less than its odds lines wins up (BIAS); one paying more
-  // turns wins away (VETO). Per 10,000: random() is 16 bits in the emulator,
-  // so a wider roll would never reach the top of its range there.
-  uint32_t biasP = 0, vetoP = 0;
-  if (odds > bare && biased > bare) {
-    biasP = (uint32_t)((uint64_t)(odds - bare) * 10000ULL / (biased - bare));
-    if (biasP > 10000) biasP = 10000;
-  } else if (odds < bare) {
-    vetoP = (uint32_t)((uint64_t)(bare - odds) * 10000ULL / bare);
+// ---- the lucky machines
+// Red: walking into the Game Corner picks one machine (GameCornerSelectLuckySlot
+// Machine: a random byte, 8 if under 7, over 8 -> 1..31). Its hidden events
+// list 36 machines, three of them out of order, and only the first 31 can be
+// the lucky one.
+#define RED_MACHINES 36
+static bool redBroken(uint8_t i) { return i == 5 || i == 8 || i == 27; }
+static uint8_t redLuckyIdx = 0;
+static uint8_t redFlags = 0;   // wSlotMachineFlags: kept between sittings, as in Red
+
+void slotVisit(uint8_t hall) {
+  if (hall != HALL_CELADON) return;
+  uint8_t a = (uint8_t)random(256);
+  if (a < 7) a = 8;
+  redLuckyIdx = (uint8_t)(a >> 3);
+}
+
+SlotSession slotSit(uint8_t hall) {
+  SlotSession s;
+  s.hall = hall < HALL_CORNERS ? hall : HALL_CELADON;
+  if (s.hall == HALL_CELADON) {
+    if (!redLuckyIdx) slotVisit(HALL_CELADON);
+    uint8_t m;
+    do { m = (uint8_t)random(RED_MACHINES); } while (redBroken(m));
+    s.lucky = (uint8_t)(m + 1) == redLuckyIdx;
+    s.flags = redFlags;
+  } else {
+    // Goldenrod's 18 machines: the eighth is always lucky, any other 1 in 6
+    // (GoldenrodGameCornerSlotsMachineScript: random 6)
+    uint8_t m = (uint8_t)random(18);
+    s.lucky = m == 7 || random(6) == 0;
+    s.keepRare = (random(256) & 0x2A) == 0;   // Slots init: 12.5%
   }
+  return s;
+}
+
+// ---- Red: SlotMachine_SetFlags, the wheel stops and CheckForMatches
+static void redSetFlags(SlotSession &s) {
+  if (s.flags & SLOT_RED_CAN_7) return;
+  if (s.allow) { s.flags |= SLOT_RED_CAN_WIN; return; }
+  uint8_t b = (uint8_t)random(256);
+  if (b == 0) { s.allow = 60; return; }                 // 1/256: sixty small wins
+  if (b > (s.lucky ? 250 : 253)) { s.flags |= SLOT_RED_CAN_7; return; }
+  if (b > 210) { s.flags |= SLOT_RED_CAN_WIN; return; }  // ~1 in 6
+  s.flags = 0;
+}
+
+static SlotResult redSpin(SlotSession &s, uint8_t bet) {
+  const SlotMachine &m = MACHINES[HALL_CELADON];
+  redSetFlags(s);
   SlotResult r;
   for (int i = 0; i < SLOT_REELS; i++) r.stop[i] = (uint8_t)random(m.len);
-  if (biasP && (uint32_t)random(10000) < biasP) {
-    // line up one symbol on the middle line
-    uint16_t total = 0;
-    for (uint8_t s = 0; s < m.symbols; s++) total += m.biasWeight[s];
-    uint16_t roll = (uint16_t)random(total);
-    uint8_t sym = 0;
-    while (sym + 1 < m.symbols && roll >= m.biasWeight[sym]) roll -= m.biasWeight[sym++];
-    for (int i = 0; i < SLOT_REELS; i++) {
-      uint8_t at[32];
-      uint8_t n = stopsOf(m, (uint8_t)i, sym, at);
-      if (n) r.stop[i] = at[random(n)];
+  auto adv = [&](int i) { r.stop[i] = (uint8_t)((r.stop[i] + 1) % m.len); };
+  bool seven = s.flags & SLOT_RED_CAN_7;
+  // wheel 1 slips up to four stops: past a centred cherry normally; in 7/BAR
+  // mode always all four (Red's bug: it meant to stop on a 7)
+  for (int c = 0; c < 4; c++) {
+    if (!seven && slotSymbol(m, 0, r.stop[0], 0) != RS_CHERRY) break;
+    adv(0);
+  }
+  // wheel 2 slips until it pairs with wheel 1 (in 7/BAR mode: until the paired,
+  // or else the lower, symbol is a 7 or BAR)
+  static const int8_t PAIR[5][2] = { { -1, -1 }, { -1, 0 }, { 0, 0 }, { 1, 0 }, { 1, 1 } };
+  for (int c = 0; c < 4; c++) {
+    int8_t w2 = -1;
+    bool paired = false;
+    for (auto &p : PAIR)
+      if (slotSymbol(m, 0, r.stop[0], p[0]) == slotSymbol(m, 1, r.stop[1], p[1])) { paired = true; w2 = p[1]; break; }
+    uint8_t t = slotSymbol(m, 1, r.stop[1], w2);
+    if (seven ? t <= RS_BAR : paired) break;
+    adv(1);
+  }
+  // wheel 3 stops at once, then rolls on while a match is not allowed -- or,
+  // when a win is allowed, until one lines up or the re-roll budget runs out
+  uint8_t sym = 0xFF;
+  for (int guard = 0; guard < 2000; guard++) {
+    sym = paidSymbol(m, r.stop, bet, nullptr);
+    if (sym != 0xFF) {
+      if (!(s.flags & (SLOT_RED_CAN_WIN | SLOT_RED_CAN_7))) { adv(2); continue; }
+      if (!(s.flags & SLOT_RED_CAN_7) && sym <= RS_BAR) { adv(2); continue; }
+      break;
+    }
+    if (!(s.flags & (SLOT_RED_CAN_WIN | SLOT_RED_CAN_7))) break;
+    if (--s.reroll == 0) break;
+    adv(2);
+  }
+  r.win = slotPayout(m, r.stop, bet, &r.lines);
+  if (r.win) {
+    if (sym == RS_BAR) s.flags = 0;                       // SlotReward100Func
+    else if (sym == RS_7) {                               // SlotReward300Func
+      if (random(256) >= 0x80) s.flags = 0;
+      s.allow = 0;
+    } else if (s.allow) s.allow--;                        // the small prizes
+  }
+  redFlags = s.flags;
+  return r;
+}
+
+// ---- Crystal: Slots_InitBias, the ReelAction stops and the reel-3 modes
+static void gsInitBias(SlotSession &s) {
+  if (s.bias == CS_7) return;                 // a 7 bias stays until 7s pay
+  static const uint8_t NORMAL[7][2] = { { 1, CS_7 }, { 3, CS_BALL }, { 10, CS_STARYU }, { 20, CS_SQUIRTLE },
+                                        { 40, CS_PIKA }, { 48, CS_CHERRY }, { 255, SLOT_NO_BIAS } };
+  static const uint8_t LUCKY[7][2]  = { { 2, CS_7 }, { 3, CS_BALL }, { 8, CS_STARYU }, { 16, CS_SQUIRTLE },
+                                        { 30, CS_PIKA }, { 80, CS_CHERRY }, { 255, SLOT_NO_BIAS } };
+  const uint8_t (*t)[2] = s.lucky ? LUCKY : NORMAL;
+  uint8_t c = (uint8_t)random(256);
+  for (int i = 0; i < 7; i++) if (t[i][0] >= c) { s.bias = t[i][1]; return; }
+}
+
+// Slots_CheckMatchedFirstTwoReels: the pair the bet's lines show (the last
+// checked wins, as the game overwrites it), and whether any of them is 7s.
+static uint8_t gsPair(const SlotMachine &m, const uint8_t stop[SLOT_REELS], uint8_t bet, bool *sevens) {
+  uint8_t got = 0xFF;
+  if (sevens) *sevens = false;
+  for (int i = 4; i >= 0; i--) {             // checked in reverse of GS_ORDER: last wins
+    uint8_t l = GS_ORDER[i];
+    if (!linePlayed(l, bet)) continue;
+    uint8_t a = slotSymbol(m, 0, stop[0], LINE[l][0]);
+    if (a != slotSymbol(m, 1, stop[1], LINE[l][1])) continue;
+    got = a;
+    if (a == CS_7 && sevens) *sevens = true;
+  }
+  return got;
+}
+
+static SlotResult gsSpin(SlotSession &s, uint8_t bet) {
+  const SlotMachine &m = MACHINES[HALL_GOLDENROD];
+  gsInitBias(s);
+  SlotResult r;
+  for (int i = 0; i < SLOT_REELS; i++) r.stop[i] = (uint8_t)random(m.len);
+  auto adv = [&](int i) { r.stop[i] = (uint8_t)((r.stop[i] + 1) % m.len); };
+  auto shows = [&](int reel, uint8_t sym) {
+    for (int8_t row = -1; row <= 1; row++) if (slotSymbol(m, (uint8_t)reel, r.stop[reel], row) == sym) return true;
+    return false;
+  };
+  // reel 1: with a bias, slip up to four until the symbol shows anywhere on it
+  if (s.bias != SLOT_NO_BIAS)
+    for (int c = 0; c < 4 && !shows(0, s.bias); c++) adv(0);
+  // reel 2: at 2+ coins, a 7 on reel 1 and a 7 bias or none, 80/256 spin on
+  // until 7s pair -- otherwise slip up to four toward the bias
+  bool sevens = false;
+  if (bet >= 2 && (s.bias == CS_7 || s.bias == SLOT_NO_BIAS) && shows(0, CS_7) && random(256) < 80) {
+    for (int guard = 0; guard < 2 * m.len; guard++) {
+      gsPair(m, r.stop, bet, &sevens);
+      if (sevens) break;
+      adv(1);
+    }
+  } else {
+    for (int c = 4;;) {
+      uint8_t p = gsPair(m, r.stop, bet, nullptr);
+      if (p != 0xFF && p == s.bias) break;
+      if (s.bias == SLOT_NO_BIAS || c == 0) break;
+      c--;
+      adv(1);
+    }
+  }
+  bool paired = gsPair(m, r.stop, bet, &sevens) != 0xFF;
+  // reel 3: with 7s paired, Slots_StopReel3 may hand over to the slow reel,
+  // Golem or Chansey -- which land 7s with a 7 bias and nothing otherwise
+  bool theatre = false;
+  if (paired && sevens) theatre = (uint8_t)random(256) < (s.bias == CS_7 ? 180 : 160);
+  if (theatre) {
+    for (int guard = 0; guard < 4 * m.len; guard++) {
+      uint8_t got = paidSymbol(m, r.stop, bet, nullptr);
+      if (s.bias == CS_7 ? got == CS_7 : got == 0xFF) break;
+      adv(2);
+    }
+  } else {
+    // ReelAction_StopReel3: stop on the bias lined up; slip away from any
+    // other line-up; with a bias, slip up to four looking for it
+    for (int c = 4, guard = 0; guard < 4 * m.len; guard++) {
+      uint8_t got = paidSymbol(m, r.stop, bet, nullptr);
+      if (got != 0xFF) {
+        if (got == s.bias) break;
+        if (c) c--;
+        adv(2);
+        continue;
+      }
+      if (s.bias == SLOT_NO_BIAS || c == 0) break;
+      c--;
+      adv(2);
     }
   }
   r.win = slotPayout(m, r.stop, bet, &r.lines);
-  if (r.win && vetoP && (uint32_t)random(10000) < vetoP) {
-    // the third reel slips on until nothing lines up, as a rigged reel does
-    for (uint8_t k = 0; k < m.len && r.win; k++) {
-      r.stop[2] = (uint8_t)((r.stop[2] + 1) % m.len);
-      r.win = slotPayout(m, r.stop, bet, &r.lines);
-    }
+  if (r.win && paidSymbol(m, r.stop, bet, nullptr) == CS_7) {
+    // .LinedUpSevens: keep the 7 bias 1 in 4 (1 in 8 on the rarer sittings)
+    uint8_t x = (uint8_t)random(256);
+    if (x & (s.keepRare ? 0x1C : 0x14)) s.bias = SLOT_NO_BIAS;
   }
   return r;
+}
+
+SlotResult slotSpin(SlotSession &s, uint8_t bet) {
+  bet = clampBet(bet);
+  return s.hall == HALL_GOLDENROD ? gsSpin(s, bet) : redSpin(s, bet);
 }
 
 // ---------------------------------------------------------------- card flip

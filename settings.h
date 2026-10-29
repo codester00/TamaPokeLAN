@@ -18,11 +18,13 @@ enum : uint16_t {
   SET_COMPANION_GROWS = 1u << 6,   // Pet::grows()
   SET_NO_BOND_CAP     = 1u << 7,   // Pet::bondCappedToday()
   SET_NO_RUNAWAY      = 1u << 8,   // Pet::canRunawayNow()
-  SET_FAIR_SLOTS      = 1u << 9,   // slotDrawOdds()
+  SET_FAIR_SLOTS      = 1u << 9,   // RETIRED in v3.73: the real engines are the game
   SET_NECROZMA_MET    = 1u << 10,  // wildLegendLive()
   SET_CLASSIC_STATS   = 1u << 11,  // battleStat() in stats.h
 };
 #define SET_COUNT 12
+// Bits no longer offered or read (kept so no later setting reuses a saved bit).
+#define SET_RETIRED SET_FAIR_SLOTS
 
 extern uint16_t gameSettings;
 // True while a LAN battle is being offered or fought: the settings never apply

@@ -26,6 +26,7 @@ void simonBerryPos(uint8_t i, int *x, int *y);
 void codeApply(uint8_t id);
 void codesTap(int16_t x, int16_t y);
 int codesRowAt(int16_t x, int16_t y);
+uint8_t codesPages();
 void areaRowRect(int i, int *x, int *y, int *w, int *h);
 uint8_t squadCap(uint8_t idx, bool hard);
 bool exploreRegionAllowed(uint8_t r);
@@ -113,9 +114,6 @@ int main() {
   pet.setSetting(SET_COMPANION_GROWS, true);
   ck(pet.grows(), "unless companions grow");
   pet.frozen = false;
-  ck(slotDrawOdds() != SLOT_ODDS_FAIR, "a machine is rigged for the sitting");
-  pet.setSetting(SET_FAIR_SLOTS, true);
-  ck(slotDrawOdds() == SLOT_ODDS_FAIR, "fair slots leave the strips alone");
   uint16_t atk = pet.atkStat();
   pet.trAtk = 100; uint16_t scaled = pet.atkStat();
   pet.setSetting(SET_CLASSIC_STATS, true);
@@ -157,6 +155,19 @@ int main() {
   ck(codesRowAt(rx + rw / 2, ry + rh / 2) == 1, "the second row is the second setting");
   onTap(rx + rw / 2, ry + rh / 2);
   ck(gameSettings == (1u << 1), "tapping it turns it on");
+  // every row, every page: each offered setting once, and never the retired
+  // fair slots (v3.73) -- the row after it is the next bit, not a dead one
+  gameSettings = 0;
+  for (uint8_t pg = 0; pg < codesPages(); pg++) {
+    codesPage = pg;
+    for (int i = 0; i < 3; i++) {
+      areaRowRect(i, &rx, &ry, &rw, &rh);
+      if (codesRowAt(rx + rw / 2, ry + rh / 2) >= 0) onTap(rx + rw / 2, ry + rh / 2);
+    }
+  }
+  uint16_t all = (uint16_t)((1u << SET_COUNT) - 1);
+  ck(gameSettings == (all & ~SET_RETIRED) && !(gameSettings & SET_FAIR_SLOTS),
+     "the screen offers every setting but the retired fair slots");
 
   printf(bad ? "\n%d FAILED\n" : "\nall passed\n", bad);
   return bad ? 1 : 0;
