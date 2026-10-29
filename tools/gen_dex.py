@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dex_data import DEX, TYPE_ACCENTS, CLASSIC, RARE, LEGENDARY, REGIONS, EEVEE_BRANCHES
 from dex_stats import BASE_STATS
 from dex_weights import WEIGHT_HG
+from dex_rates import CATCH_RATE
 from dex_trade import TRADE_EVOS
 from dex_types import TYPES, TYPE_ORDER, CHART
 
@@ -133,6 +134,13 @@ def main():
     out.append("static const uint16_t DEX_WEIGHT_HG[DEX_COUNT + 1] = {\n  0,")
     for num, *_ in DEX:
         out.append(("\n  " if num % 16 == 0 else " ") + f"{WEIGHT_HG[num]},")
+    out.append("\n};\n\n")
+    out.append("// The games' catch rate, 3 (legendaries) to 255, from PokeAPI via\n"
+               "// tools/fetch_species_rates.py. The Safari ball runs the games' own\n"
+               "// catch formula on it (wild.cpp, safariBallCaught()).\n")
+    out.append("static const uint8_t DEX_CATCH_RATE[DEX_COUNT + 1] = {\n  0,")
+    for num, *_ in DEX:
+        out.append(("\n  " if num % 16 == 0 else " ") + f"{CATCH_RATE[num]},")
     out.append("\n};\n\n")
     out.append("// Evolutions that happen by TRADE, from PokeAPI via tools/fetch_trade_evos.py.\n"
                "// Where `to` is the species' own evolvesTo, trading is its ONLY route: the\n"

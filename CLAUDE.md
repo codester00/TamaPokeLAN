@@ -935,6 +935,42 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1f.
 
+### Done: the Safari Zone (v3.75, on the branch)
+
+Plan § 1 of `docs/explore-specialty-build-plan.md`. Kanto's SAFARI ZONE is met
+as FireRed meets it, ported from `pokefirered` (`battle_main.c`'s
+`HandleAction_ThrowBait/ThrowRock/WatchesCarefully`, the AI's
+`Cmd_if_random_safari_flee`, the ball in `battle_script_commands.c`).
+`safari_test`; nine guards negative-checked.
+
+- **`wildAreaMode(area)` is THE answer** (`WILD_MODE_NORMAL/SAFARI`, generated
+  into `WildArea::mode` from `'safari': [...]` in `tools/wild_areas.py`).
+  `startWildBattle()` asks it: a Safari encounter builds NO squad (no energy,
+  no PP, `btlPetIn` false), meets no legendary (gen_wild refuses a home in a
+  Safari area; roamers and the cheat's legendary skip it), and starts
+  `btlSafariSt` (`safariBegin()`).
+- **The rules are pure functions in wild.cpp**, rolls passed in: catch factor =
+  `DEX_CATCH_RATE` x 100 / 1275; escape factor = FireRed's
+  `safariZoneFleeRate` (`WILD_SAFARI_FLEE`, generated for the Safari's species)
+  x 100 / 1275, at least 2; BAIT halves catch (floor 3), ROCK doubles it (cap
+  20), 2-6 turns each, each clears the other; flee % = 5 x factor (x2 angry, /4
+  eating, cap 100) decided BEFORE the player's action lands, as the game's AI
+  does; a rock wearing off resets the catch factor. The ball is Gen 3's formula
+  at full HP with x1.5 (`safariBallShakes()`, 4 = caught; a factor of 0 never
+  catches -- the game would divide by zero).
+- **`btlMainOpt(i, &live)` is THE main-menu list** for drawing and tapping;
+  Safari offers BALL xN / BAIT / ROCK / RUN in the same four cells. RUN always
+  works; 30 `SAFARI_BALLS` per encounter, never the bag's; out of balls ends it.
+  `btlWildCaught()` is the ONE catch path (bag balls and the Safari ball).
+  `btlSafariSide()` draws the trainer's avatar and the balls left.
+- **`DEX_CATCH_RATE`** (and `GENDER_RATE` for later) come from PokeAPI via
+  `tools/fetch_species_rates.py` -> `tools/dex_rates.py` -> `gen_dex.py`.
+- Fuchsia City's water moved to ROUTES 12-15 (not SEA ROUTES 19-21: Surfing
+  Pikachu's secret counts that area's species) and Pastoria City's to ROUTE 213
+  (identical tables, slot for slot). `verify_wild.py` emits the flee table too.
+- Screenshot `safari`. Note `run.sh` recompiles the whole sketch for every
+  suite, so a full run takes over an hour in a cloud container.
+
 ### Done: the LUCKY SLOTS hidden setting (v3.74)
 
 Owner, 2026-10-29: the retired fair-slots row becomes a setting that sits the

@@ -46,6 +46,9 @@ KANTO = {
     # fishing guru's brother on Route 12, past the Poke Flute: Erika's gate.
     # gen_wild.py checks the script really gives the rod.
     'super_rod': {'gate': 4, 'script': 'Route12_FishingHouse'},
+    # Areas met as the Safari Zone is (v3.75): no team, 30 Safari Balls an
+    # encounter, BAIT and ROCK, FireRed's own catch and flee rules.
+    'safari': ['SAFARI ZONE'],
     'areas': [
         # name               gate  maps
         ('ROUTE 1',          0, ['ROUTE1']),
@@ -70,12 +73,16 @@ KANTO = {
         ('POKEMON TOWER',    4, ['POKEMON_TOWER_3F', 'POKEMON_TOWER_4F',
                                  'POKEMON_TOWER_5F', 'POKEMON_TOWER_6F',
                                  'POKEMON_TOWER_7F']),
-        ('ROUTES 12-15',     4, ['ROUTE12', 'ROUTE13', 'ROUTE14', 'ROUTE15']),
+        # Fuchsia's pond rides here, not with the Safari Zone (v3.75): a Safari
+        # area meets everything without a team, and the city's fishing is not
+        # the Safari's. Not SEA ROUTES 19-21 either -- Surfing Pikachu's secret
+        # wants every species there registered.
+        ('ROUTES 12-15',     4, ['ROUTE12', 'ROUTE13', 'ROUTE14', 'ROUTE15',
+                                 'FUCHSIA_CITY']),
         ('ROUTES 16-18',     4, ['ROUTE16', 'ROUTE17', 'ROUTE18',
                                  'CELADON_CITY']),
         ('SAFARI ZONE',      4, ['SAFARI_ZONE_CENTER', 'SAFARI_ZONE_EAST',
-                                 'SAFARI_ZONE_NORTH', 'SAFARI_ZONE_WEST',
-                                 'FUCHSIA_CITY']),
+                                 'SAFARI_ZONE_NORTH', 'SAFARI_ZONE_WEST']),
         # Koga -- the games' Surf opens the sea and the islands on it
         ('SEAFOAM ISLANDS',  5, ['SEAFOAM_ISLANDS_1F', 'SEAFOAM_ISLANDS_B1F',
                                  'SEAFOAM_ISLANDS_B2F', 'SEAFOAM_ISLANDS_B3F',
@@ -431,8 +438,10 @@ SINNOH = {
         ('RUIN MANIAC CAVE', 4, ['RUIN_MANIAC_CAVE_SHORT', 'RUIN_MANIAC_CAVE_LONG',
                                  'MANIAC_TUNNEL', 'SOLACEON_RUINS_MANIAC_TUNNEL_ROOM']),
         ('VALOR LAKEFRONT',  4, ['VALOR_LAKEFRONT']),
-        ('ROUTE 213',        4, ['ROUTE_213']),
-        ('GREAT MARSH',      4, ['GREAT_MARSH_%d' % i for i in range(1, 7)] + ['PASTORIA_CITY']),
+        # Pastoria's water is Route 213's, slot for slot (pokeplatinum), so the
+        # city rides with the route rather than with the Great Marsh (v3.75).
+        ('ROUTE 213',        4, ['ROUTE_213', 'PASTORIA_CITY']),
+        ('GREAT MARSH',      4, ['GREAT_MARSH_%d' % i for i in range(1, 7)]),
         # Wake -- the SecretPotion clears Route 210, and Celestic gives Surf
         ('ROUTE 210 NORTH',  5, ['ROUTE_210_NORTH', 'CELESTIC_TOWN']),
         ('ROUTE 211 EAST',   5, ['ROUTE_211_EAST']),

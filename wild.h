@@ -206,3 +206,56 @@ int wildLegendFor(uint16_t area, const Pet &p, uint32_t roll);
 
 // Does the area hold a legendary still to be caught? (The star on its row.)
 bool wildAreaHasLegend(uint16_t area, const Pet &p);
+
+// ---------------------------------------------------------------------------
+// Safari encounters (v3.75, docs/explore-specialty-build-plan.md § 1). A Safari
+// area keeps its ordinary table; what changes is the fight: no team, a fresh
+// SAFARI_BALLS per encounter, and the game's own BAIT and ROCK. The rules are
+// FireRed's (Kanto's areas are FireRed's), ported from pokefirered:
+//   src/battle_main.c   HandleAction_ThrowBait / ThrowRock / WatchesCarefully,
+//                       the factors set at battle start
+//   src/battle_ai_script_commands.c   Cmd_if_random_safari_flee
+//   src/battle_script_commands.c      the ball (Safari Ball x1.5)
+// Every roll is passed in, as everywhere in this file.
+
+// WILD_MODE_NORMAL or WILD_MODE_SAFARI. THE answer startWildBattle() and the
+// battle screen ask. The values are wild_areas.h's, restated for code that may
+// not include it (only wild.cpp may); the redefinition there must be identical.
+#ifndef WILD_MODE_NORMAL
+#define WILD_MODE_NORMAL 0
+#define WILD_MODE_SAFARI 1
+#endif
+uint8_t wildAreaMode(uint16_t area);
+
+constexpr uint8_t SAFARI_BALLS = 30;        // the games' count, per encounter here
+constexpr uint8_t SAFARI_FACTOR_MAX = 20;   // both factors cap at 20 (x5 = 100%)
+
+// What the foe did on a turn it stayed: FireRed's three lines.
+enum : uint8_t { SAFARI_WATCHING, SAFARI_EATING, SAFARI_ANGRY };
+
+struct SafariState {
+  uint8_t balls = 0;
+  uint8_t catchRate = 0;     // the species' own (DEX_CATCH_RATE): a rock wears off back to it
+  uint8_t catchFactor = 0;   // catchRate * 100 / 1275, 0..20
+  uint8_t escapeFactor = 0;  // flee rate * 100 / 1275, at least 2; x5 = % a turn
+  uint8_t baitTurns = 0;     // 0..6: eating
+  uint8_t rockTurns = 0;     // 0..6: angry
+};
+
+// FireRed's safariZoneFleeRate for a species (0 when it has none).
+uint8_t wildSafariFleeRate(int16_t dex);
+void safariBegin(SafariState &s, int16_t dex);
+// `roll` picks the 2..6 turns the game adds (Random() % 5 + 2).
+void safariBait(SafariState &s, uint8_t roll);
+void safariRock(SafariState &s, uint8_t roll);
+// The % chance it flees this turn. The game's AI decides this as the turn
+// starts, BEFORE the player's action lands, so a bait thrown now helps from
+// the next turn on.
+uint8_t safariFleePct(const SafariState &s);
+// The foe's turn when it did not flee: one turn off whichever counter runs,
+// and the catch factor back to the species' own when an angry spell ends.
+uint8_t safariWatch(SafariState &s);
+// The Safari ball: Gen 3's formula on a full-health foe (nothing here can hurt
+// it). Returns the shakes, 0..4; 4 is caught. `rolls` are four 16-bit draws,
+// one per shake check.
+uint8_t safariBallShakes(const SafariState &s, const uint16_t rolls[4]);

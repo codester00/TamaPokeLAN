@@ -349,6 +349,92 @@ int wildLegendFor(uint16_t area, const Pet &p, uint32_t roll) {
   return cand[(roll / 100) % n];
 }
 
+uint8_t wildAreaMode(uint16_t area) {
+  return area < WILD_AREA_COUNT ? WILD_AREAS[area].mode : WILD_MODE_NORMAL;
+}
+
+uint8_t wildSafariFleeRate(int16_t dex) {
+  for (uint16_t i = 0; i < WILD_SAFARI_FLEE_COUNT; i++)
+    if (WILD_SAFARI_FLEE[i].dex == dex) return WILD_SAFARI_FLEE[i].rate;
+  return 0;
+}
+
+void safariBegin(SafariState &s, int16_t dex) {
+  s = SafariState();
+  s.balls = SAFARI_BALLS;
+  s.catchRate = (dex >= 1 && dex <= DEX_COUNT) ? DEX_CATCH_RATE[dex] : 0;
+  s.catchFactor = (uint8_t)((uint16_t)s.catchRate * 100 / 1275);
+  uint8_t e = (uint8_t)((uint16_t)wildSafariFleeRate(dex) * 100 / 1275);
+  s.escapeFactor = e <= 1 ? 2 : e;
+}
+
+void safariBait(SafariState &s, uint8_t roll) {
+  uint8_t t = (uint8_t)(s.baitTurns + roll % 5 + 2);
+  s.baitTurns = t > 6 ? 6 : t;
+  s.rockTurns = 0;
+  s.catchFactor >>= 1;
+  if (s.catchFactor <= 2) s.catchFactor = 3;
+}
+
+void safariRock(SafariState &s, uint8_t roll) {
+  uint8_t t = (uint8_t)(s.rockTurns + roll % 5 + 2);
+  s.rockTurns = t > 6 ? 6 : t;
+  s.baitTurns = 0;
+  uint16_t c = (uint16_t)s.catchFactor << 1;
+  s.catchFactor = c > SAFARI_FACTOR_MAX ? SAFARI_FACTOR_MAX : (uint8_t)c;
+}
+
+uint8_t safariFleePct(const SafariState &s) {
+  uint8_t f;
+  if (s.rockTurns) {
+    uint16_t d = (uint16_t)s.escapeFactor * 2;
+    f = d > SAFARI_FACTOR_MAX ? SAFARI_FACTOR_MAX : (uint8_t)d;
+  } else if (s.baitTurns) {
+    f = s.escapeFactor / 4;
+    if (!f) f = 1;
+  } else {
+    f = s.escapeFactor;
+  }
+  uint16_t pct = (uint16_t)f * 5;
+  return pct > 100 ? 100 : (uint8_t)pct;
+}
+
+uint8_t safariWatch(SafariState &s) {
+  if (s.rockTurns) {
+    if (--s.rockTurns == 0) {
+      s.catchFactor = (uint8_t)((uint16_t)s.catchRate * 100 / 1275);
+      return SAFARI_WATCHING;
+    }
+    return SAFARI_ANGRY;
+  }
+  if (s.baitTurns) return --s.baitTurns ? SAFARI_EATING : SAFARI_WATCHING;
+  return SAFARI_WATCHING;
+}
+
+// The engine's own integer square root (pokefirered Sqrt): floor.
+static uint32_t isqrt(uint32_t n) {
+  uint32_t r = 0, bit = 1UL << 30;
+  while (bit > n) bit >>= 2;
+  while (bit) {
+    if (n >= r + bit) { n -= r + bit; r = (r >> 1) + bit; }
+    else r >>= 1;
+    bit >>= 2;
+  }
+  return r;
+}
+
+uint8_t safariBallShakes(const SafariState &s, const uint16_t rolls[4]) {
+  uint32_t catchRate = (uint32_t)s.catchFactor * 1275 / 100;   // a u8 in the game; <= 255
+  // (catchRate * ball / 10) * (3 maxHP - 2 hp) / (3 maxHP), at full health
+  uint32_t odds = (catchRate * 15 / 10) * 1 / 3;
+  if (odds > 254) return 4;
+  if (!odds) return 0;   // the game would divide by zero; a factor of 0 never catches
+  odds = 1048560 / isqrt(isqrt(16711680 / odds));
+  uint8_t shakes = 0;
+  while (shakes < 4 && rolls[shakes] < odds) shakes++;
+  return shakes;
+}
+
 bool wildAreaHasLegend(uint16_t area, const Pet &p) {
   for (uint8_t i = 0; i < WILD_LEGEND_COUNT; i++)
     if (WILD_LEGENDS[i].area == area && wildLegendLive(i, p)) return true;

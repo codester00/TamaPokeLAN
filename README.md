@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.74-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.75-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -147,6 +147,10 @@ way. Same reasoning that makes Hoenn Emerald throughout.
 | Choose where to hunt | Kanto's areas | A wild encounter |
 |---|---|---|
 | <img src="docs/screens/explore.png" width="240"> | <img src="docs/screens/area.png" width="240"> | <img src="docs/screens/wild.png" width="240"> |
+
+| The Safari Zone |
+|---|
+| <img src="docs/screens/safari.png" width="240"> |
 
 Wild creatures are met by exploring rather than only in gyms. The `< REGION >`
 selector picks where the next encounter comes from, independently of your egg's
@@ -631,6 +635,32 @@ simply comes up half as often. Each area mixes walking, surfing, the best
 fishing rod and Rock Smash, every creature at the game's own rate within its
 method, the methods weighted walk 1.0 / surf 0.5 / fishing 0.3 / Rock Smash 0.2.
 `tools/verify_wild.py --table` prints every area's exact odds.
+
+**The Safari Zone (v3.75).** Kanto's SAFARI ZONE is met the way FireRed meets
+it: **no team of yours fights** (so nothing of yours spends energy or PP), and
+each encounter brings **30 Safari Balls** of its own -- never the bag's balls --
+with **BALL / BAIT / ROCK / RUN** in place of the usual menu. There is no entry
+fee and no step limit: each EXPLORE tap is one encounter, like any area. The
+numbers are FireRed's (`pret/pokefirered`):
+
+- **Catch factor** = the species' catch rate x 100 / 1275 (0-20); a Safari Ball
+  is Gen 3's catch formula on a full-health creature with a x1.5 ball, using
+  catch rate = factor x 1275 / 100.
+- **Escape factor** = the species' FireRed Safari flee rate x 100 / 1275, at
+  least 2 (24 species have their own rate: Chansey, Kangaskhan, Scyther,
+  Pinsir, Tauros and Dragonair 125, Dratini 100...). Each turn it **flees with
+  5 x the factor %** -- decided as the turn begins, before your throw lands.
+- **BAIT**: catch factor halved (at least 3), 2-6 turns of eating, during which
+  it flees at 5 x (factor / 4) % (at least 5%).
+- **ROCK**: catch factor doubled (at most 20), 2-6 angry turns, during which it
+  flees at 5 x (factor x 2) % (at most 100%). When the anger wears off the catch
+  factor goes back to the species' own. Bait clears rock and rock clears bait.
+- **RUN** always works. Out of Safari Balls, the encounter ends.
+
+Fuchsia City's pond, which used to ride with the Safari Zone, is part of
+**ROUTES 12-15** now (and Pastoria City's water joined **ROUTE 213**, whose
+tables it matches slot for slot), so the Safari Zone holds only its own
+creatures.
 
 **The best rod's catch waits for the rod (v3.41).** The fishing slots are the
 Super Rod's, so they stay out of an area until the badge the game hands that

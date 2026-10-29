@@ -196,6 +196,7 @@ extern bool lanWantHost;
 extern bool gShowAllAvatars;
 extern bool avatarPickOpen, blackoutOpen; extern uint8_t avatarPage;
 extern bool areaListOpen; extern uint8_t areaPage; extern uint16_t exploreAreaPick[];
+uint16_t wildAreaByName(uint8_t region, const char *name); extern uint8_t btlMsgCount;
 extern uint8_t exploreRegion;
 #define PICK_LAN 0xFF
 uint8_t squadCap(uint8_t, bool);
@@ -376,6 +377,12 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
   else if (!strcmp(screen, "movepick")) { movePickOpen = true; }
   else if (!strcmp(screen, "battle2")) { startBattle(9, 50); }
   else if (!strcmp(screen, "wild")) { startWildBattle(currentExploreRegion(), false); }
+  else if (!strcmp(screen, "safari")) {   // Kanto's Safari Zone (v3.75): no team, BALL/BAIT/ROCK/RUN
+    pet.badges = 0x0F;
+    exploreAreaPick[0] = (uint16_t)(wildAreaByName(0, "SAFARI ZONE") + 1);
+    startWildBattle(0, false);
+    btlMsgCount = 0;              // past "A wild X appeared!", onto the menu
+  }
   else if (!strcmp(screen, "btlmenu")) { startTrainerBattle(3, false); }
   else if (!strcmp(screen, "btlswitch")) { startTrainerBattle(3, false); btlMenu = 2; }
   else if (!strcmp(screen, "btlmoves")) { startTrainerBattle(3, false); btlMenu = 1; }

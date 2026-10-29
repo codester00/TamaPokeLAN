@@ -51,7 +51,7 @@ def main():
     #    every loader, which records the maps each source has encounters on)
     areas, legends = G.build(refresh)
     G.check(areas)
-    fresh = G.emit(areas, legends)
+    fresh = G.emit(areas, legends, G.safari_flee_rates(areas, refresh))
     try:
         committed = open(G.OUT).read()
     except FileNotFoundError:

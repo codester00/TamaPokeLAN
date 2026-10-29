@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.74"
+#define FW_VERSION "3.75"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -835,6 +835,10 @@ uint8_t martConfirmTm = 0;   // a TM row being bought (a move index), 0 = none
 // of those is asked through btlWild, so there is no second opinion about what
 // kind of battle is on screen.
 bool btlWild = false;
+// A Safari encounter (v3.75): no team, Safari Balls, BAIT and ROCK. Set only by
+// startWildBattle() in a Safari area, cleared wherever btlWild is.
+bool btlSafari = false;
+SafariState btlSafariSt;
 // Which theme this fight plays (v3.56), and which jingle a win plays -- THE one
 // answer every battle start and every win asks, so a wild win cannot end on the
 // gym fanfare. Red's own choices: wild, trainer, gym leader (the Elite Four too)
@@ -6159,6 +6163,7 @@ void startLinkBattle() {
   btlLink = true;
   btlLinkHost = lan.isHost;
   btlWild = false;
+  btlSafari = false;
   btlTrainer = -1;
   btlHard = false;
   btlFoeAt = 0;
@@ -6203,6 +6208,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlRegion = region;
   btlHard = hard;
   btlWild = false;
+  btlSafari = false;
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlFoeAt = 0;
   foeFromSpecies(btlFoe, tr.team[0].dex, tr.team[0].level, hard);
@@ -6242,6 +6248,7 @@ void startBattle(int16_t dex, uint8_t lvl) {
   foe.relearnFromLevel();
   combatantFromPet(btlFoe, foe);
   btlWild = false;
+  btlSafari = false;
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlTrainer = -1;   // a one-off: never the last gym's leader, badge and all
   btlHard = false;
@@ -6535,6 +6542,33 @@ static void wildStoreCaught() {
   pet.setEnded(m, CER_RELEASE);
 }
 
+static void btlWildCaught();
+static void btlSafariAct(uint8_t a);
+
+// The battle's main menu, cell i: its label and whether it can be used. THE
+// list renderBattle() draws and battleTap() reads (v3.75) -- a Safari fight
+// offers BALL / BAIT / ROCK / RUN in the same four cells.
+const char *btlMainOpt(uint8_t i, bool *live) {
+  static char ballLabel[16];
+  *live = true;
+  if (btlSafari) {
+    switch (i) {
+      case 0:
+        snprintf(ballLabel, sizeof(ballLabel), T(S_SAFARI_BALL_FMT), btlSafariSt.balls);
+        *live = btlSafariSt.balls > 0;
+        return ballLabel;
+      case 1: return T(S_SAFARI_BAIT);
+      case 2: return T(S_SAFARI_ROCK);
+      default: return T(S_BTL_RUN);
+    }
+  }
+  static const StrId OPT[4] = { S_FIGHT, S_BAG, S_BTL_SWITCH, S_BTL_RUN };
+  // The bag is dead in a link fight: an item the peer was never told about
+  // would desync the two devices, and the host is authoritative.
+  if (i == 1 && btlLink) *live = false;
+  return T(OPT[i & 3]);
+}
+
 // Throwing a ball. Spends the turn either way: a free capture attempt every
 // round would make weakening the target pointless.
 static void btlThrowBall(ItemKey k) {
@@ -6545,6 +6579,19 @@ static void btlThrowBall(ItemKey k) {
                                      btlFoe.maxHp, btlFoe.ailment != AIL_NONE,
                                      itemEntry(k).param);
   if (random(100) < chance) {
+    btlWildCaught();
+    return;
+  }
+  sfxPlay(SFX_DENY);
+  btlSay("%s", T(S_BROKE_FREE));
+  btlResolve(0);   // move 0 = no attack, so only the foe acts
+}
+
+// A wild creature is caught: stored (party, PC, box), saved, narrated and its
+// drops granted. The ONE catch path -- the bag's balls and the Safari ball both
+// end here.
+static void btlWildCaught() {
+  {
     wildCaught = true;
     btlOver = true;
     btlWon = true;
@@ -6564,11 +6611,62 @@ static void btlThrowBall(ItemKey k) {
     sfxPlay(SFX_VICTORY);
     btlSay(T(S_CAUGHT), btlFoe.name);
     wildGrantDrops();
+  }
+}
+
+// One Safari turn (v3.75): the foe decides whether it will flee as the turn
+// starts (FireRed's AI chooses before the player's action lands), then the
+// player's action, then the foe flees or stays -- and staying is a turn off its
+// bait or rock counter. a: 0 BALL, 1 BAIT, 2 ROCK, 3 RUN.
+static void btlSafariAct(uint8_t a) {
+  btlMenu = 0;
+  bool flee = random(100) < safariFleePct(btlSafariSt);
+  if (a == 3) {                       // running always works in the Safari
+    sfxPlay(SFX_TAP);
+    btlOver = true;
+    btlWon = false;
+    audioMusic(MUS_NONE);
+    btlSay("%s", T(S_GOT_AWAY));
     return;
   }
-  sfxPlay(SFX_DENY);
-  btlSay("%s", T(S_BROKE_FREE));
-  btlResolve(0);   // move 0 = no attack, so only the foe acts
+  if (a == 0) {
+    if (!btlSafariSt.balls) { sfxPlay(SFX_DENY); return; }
+    btlSafariSt.balls--;
+    btlSay(T(S_THREW), T(S_SAFARI_BALL));
+    uint16_t rolls[4];
+    for (uint16_t &r : rolls) r = (uint16_t)random(65536);
+    if (safariBallShakes(btlSafariSt, rolls) >= 4) {
+      btlWildCaught();
+      return;
+    }
+    sfxPlay(SFX_DENY);
+    btlSay("%s", T(S_BROKE_FREE));
+    if (!btlSafariSt.balls) {         // the game's "out of Safari Balls"
+      btlOver = true;
+      btlWon = false;
+      audioMusic(MUS_NONE);
+      btlSay("%s", T(S_SAFARI_OUT));
+      return;
+    }
+  } else if (a == 1) {
+    sfxPlay(SFX_TAP);
+    safariBait(btlSafariSt, (uint8_t)random(5));
+    btlSay(T(S_SAFARI_THREW_BAIT), pet.trainerName);
+  } else {
+    sfxPlay(SFX_TAP);
+    safariRock(btlSafariSt, (uint8_t)random(5));
+    btlSay(T(S_SAFARI_THREW_ROCK), pet.trainerName);
+  }
+  if (flee) {
+    btlOver = true;
+    btlWon = false;
+    audioMusic(MUS_NONE);
+    btlSay(T(S_WILD_FLED), btlFoe.name);
+    return;
+  }
+  uint8_t w = safariWatch(btlSafariSt);
+  btlSay(T(w == SAFARI_EATING ? S_SAFARI_EATING : w == SAFARI_ANGRY ? S_SAFARI_ANGRY
+                              : S_SAFARI_WATCHING), btlFoe.name);
 }
 
 // A potion or a full heal, on whichever creature is out. It works on the
@@ -6896,6 +6994,22 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
   drawThumb(th, sx + ox, sy + oy, 3, flash);
 }
 
+// Your side in a Safari encounter (v3.75): no creature fights, so the trainer
+// stands there, with the Safari Balls left on the plate.
+static void btlSafariSide(int tx, int ty, int sx, int sy) {
+  gfx->fillRoundRect(tx - 8, ty - 8, 158, 40, 8, UI_BG_DAY);
+  gfx->drawRoundRect(tx - 8, ty - 8, 158, 40, 8, UI_INK);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(1);
+  gfx->setCursor(tx, ty);
+  gfx->print(pet.trainerName);
+  char l[24];
+  snprintf(l, sizeof(l), T(S_SAFARI_LEFT_FMT), btlSafariSt.balls);
+  gfx->setCursor(tx, ty + 14);
+  gfx->print(l);
+  drawAvatar(pet.avatar, sx, sy, 6);
+}
+
 // Bars drain rather than snap: a hit that removes half your health should be
 // visible as it happens, not as a value that was already different.
 static void btlEaseBars() {
@@ -7011,7 +7125,8 @@ void renderBattle() {
   // x=82 not 58: at y=60 the round bezel starts around x=77, and a longer
   // name like BLASTOISE was losing its first characters off the edge
   btlSide(82, 82, 300, 40, btlFoe, 1);    // foe reads top-left, sprite top-right
-  btlSide(250, 190, 76, 168, btlYou, 0);  // you read bottom-right, sprite bottom-left
+  if (btlSafari) btlSafariSide(250, 190, 76, 168);
+  else btlSide(250, 190, 76, 168, btlYou, 0);  // you read bottom-right, sprite bottom-left
 
   // Waiting on the other device. Without this the screen is identical to the
   // one where it is your turn, so a tap that has been sent and a tap that was
@@ -7083,18 +7198,16 @@ void renderBattle() {
     // below. FIGHT used to be a full-width row, which left nowhere for the bag;
     // all four now reuse the move grid's cells and so inherit its padded hit
     // areas -- the same padding that fixed POKEMON being hard to press.
-    const char *opt[4] = { T(S_FIGHT), T(S_BAG), T(S_BTL_SWITCH), T(S_BTL_RUN) };
     for (int i = 0; i < 4; i++) {
       int x = BTL_CELL_X(i), y = BTL_CELL_Y(i);
-      // The bag is dead in a link fight: an item the peer was never told about
-      // would desync the two devices, and the host is authoritative.
-      bool live = !(i == 1 && btlLink);
+      bool live;
+      const char *label = btlMainOpt((uint8_t)i, &live);
       gfx->fillRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, live ? UI_BG_DAY : UI_TRACK);
       gfx->drawRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, live ? UI_INK : 0x8410);
       gfx->setTextColor(live ? UI_INK : 0x8410);
       gfx->setTextSize(2);
-      gfx->setCursor(x + (BTL_CELL_W - (int)strlen(opt[i]) * 12) / 2, y + 19);
-      gfx->print(opt[i]);
+      gfx->setCursor(x + (BTL_CELL_W - (int)strlen(label) * 12) / 2, y + 19);
+      gfx->print(label);
     }
   } else if (btlMenu == 3) {
     drawBtlBack();
@@ -7346,6 +7459,7 @@ static void btlRun() {
   if (btlLink) { lanLeave(); btlLink = false; lanOpen = true; }
   battleOpen = false;
   btlWild = false;
+  btlSafari = false;
   btlMenu = 0;
 }
 
@@ -7357,6 +7471,7 @@ void battleTap(int16_t x, int16_t y) {
     audioMusic(MUS_NONE);
     battleOpen = false;
     btlWild = false;
+    btlSafari = false;
     // lanLeave() tears down the radio (ESP-NOW + WiFi off) and resets
     // lan.state to LINK_OFF. btlRun()'s own exit does this; this one and the
     // one below did not, which left the radio running and lan.state stuck
@@ -7389,6 +7504,7 @@ void battleTap(int16_t x, int16_t y) {
       audioMusic(MUS_NONE);
       battleOpen = false;
       btlWild = false;
+      btlSafari = false;
       if (btlLost && !btlLink) {   // out of creatures: black out, Mom takes over
         btlLost = false;
         blackoutOpen = true;
@@ -7432,6 +7548,17 @@ void battleTap(int16_t x, int16_t y) {
         y >= BTL_BACK_Y && y <= BTL_BACK_Y + BTL_BACK_H) {
       sfxPlay(SFX_TAP);
       lanQuitConfirm = true;
+    }
+    return;
+  }
+  if (btlMenu == 0 && btlSafari) {
+    for (uint8_t i = 0; i < 4; i++) {
+      if (!btlCellHit(i, x, y)) continue;
+      bool live;
+      btlMainOpt(i, &live);
+      if (!live) { sfxPlay(SFX_DENY); return; }
+      btlSafariAct(i);
+      return;
     }
     return;
   }
@@ -9835,6 +9962,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   int16_t dex = 0;
   uint8_t lvl = 1;
   int legend = -1;
+  bool safari = false;
   wildCheated = false;
   if (wildRegionHasAreas(region)) {
     // A region with areas draws from the one the player chose, weighted by the
@@ -9842,14 +9970,18 @@ bool startWildBattle(uint8_t region, bool hard) {
     // Difficulty does not touch either: hard is the smart AI (btlHard below).
     uint16_t area = exploreAreaOf(region);
     if (area == WILD_NO_AREA || !wildAreaUnlocked(area, pet)) return false;
+    safari = wildAreaMode(area) == WILD_MODE_SAFARI;
     // A legendary first: its guaranteed meeting at home, or the rare repeat.
     // It is MET as the fight starts, and saved then: wild battles end in half a
     // dozen places (caught, fled, ran, fainted, won), and one start is a single
     // place to get right. A power cut mid-fight costs the guarantee, never the
     // legendary -- the rare repeat still applies.
-    legend = cheatLegendNext ? wildLegendForced(region, pet) : -1;
+    // No legendary in a Safari area: a fight you cannot fight is no meeting
+    // (gen_wild.py refuses a home there; this keeps out the roamers and the
+    // cheat's legendary too, which waits for the next ordinary area).
+    legend = (cheatLegendNext && !safari) ? wildLegendForced(region, pet) : -1;
     if (legend >= 0) { cheatLegendNext = false; wildCheated = true; }   // the CHEAT's meeting
-    else legend = wildLegendFor(area, pet, (uint32_t)random(65536) * 31u + random(31));
+    else if (!safari) legend = wildLegendFor(area, pet, (uint32_t)random(65536) * 31u + random(31));
     if (legend >= 0) {
       dex = wildLegendDex((uint8_t)legend);
       lvl = wildLegendLevel((uint8_t)legend);
@@ -9884,8 +10016,17 @@ bool startWildBattle(uint8_t region, bool hard) {
   wildCaught = false;
   wildDropN = 0;
 
-  buildSquad(0, TRAINER_TEAM_MAX, squadMask);
-  if (!btlSquadN) return false;
+  if (safari) {
+    // No team: nothing of yours fights, so nothing is spent -- no energy, no
+    // PP -- and btlYou stays an empty stand-in the screen never draws.
+    btlSquadN = 0;
+    btlSquadAt = 0;
+    btlYou = Combatant();
+    btlPetIn = false;
+  } else {
+    buildSquad(0, TRAINER_TEAM_MAX, squadMask);
+    if (!btlSquadN) return false;
+  }
   if (legend >= 0 && !pet.legendMet((uint8_t)legend)) {
     pet.setLegendMet((uint8_t)legend);   // the guaranteed meeting is spent
     pet.saveNow();
@@ -9903,6 +10044,8 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlFoe.shiny = wildShiny;
 
   btlWild = true;
+  btlSafari = safari;
+  if (safari) safariBegin(btlSafariSt, dex);
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlLink = false;
   btlTrainer = -1;
