@@ -11,6 +11,7 @@ slowest species, and whatever was never reached.
 """
 import json
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 
@@ -23,6 +24,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from dex_data import DEX  # noqa: E402
 
 NAME = {row[0]: row[2] for row in DEX}
+# Evolution-only species, from the generated dex: runs made before the bot told
+# a hatch from an evolution label both 'evolve', and this sorts them.
+_DEX_H = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'dex.h')).read()
+EVO_ONLY = {int(n) for n in re.findall(r'R_EVO, [^}]*\},\s*// (\d+) ', _DEX_H)}
 
 
 def region_of(d):
@@ -77,6 +82,9 @@ def summarise(path):
     out['gym_losses'] = sum(losses.values())
     # the acquisition timeline
     got = [e for e in evs if e['ev'] == 'got']
+    for e in got:
+        if e['how'] in ('evolve', 'hatch'):
+            e['how'] = 'evolve' if e['dex'] in EVO_ONLY else 'hatch'
     out['how'] = Counter(e['how'] for e in got)
     out['curve'] = [[round(t(e), 2), start['target'] - e['left']] for e in got]
     out['last'] = [{'dex': e['dex'], 'name': e['name'], 'how': e['how'], 'day': round(t(e), 1)}

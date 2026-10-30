@@ -136,6 +136,9 @@ static void noteRegistered(const char *how) {
   for (int16_t d = 1; d <= DEX_COUNT; d++)
     if (!seen[d] && pet.isRegistered(d)) {
       seen[d] = true;
+      // an egg can hatch while the bot waits after an evolution: the dex knows
+      // which a species is (an evolution-only one never hatches)
+      if (!strcmp(how, "evolve") || !strcmp(how, "hatch")) how = DEX_TBL[d].rarity == R_EVO ? "evolve" : "hatch";
       noteAcquired(d, how);
       ev("\"ev\":\"reg\",\"dex\":%d,\"name\":\"%s\",\"how\":\"%s\",\"total\":%u,\"target_left\":%d",
          d, DEX_TBL[d].name, how, registeredNow(),
