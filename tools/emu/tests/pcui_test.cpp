@@ -157,8 +157,8 @@ int main() {
   // --- the Pokedex: GO TO # and OWNED
   pcOpen = false; partyOpen = false;
   galleryOpen = true; galleryPick = false; galleryRegion = 0; render();
-  onTap(233, 84 + 4 * 80 + 8); render();
-  ck(jumpOpen, "the Pokedex footer opens GO TO # too");
+  onTap(233, 60); render();                    // the header (v3.88; the footer is BACK now)
+  ck(jumpOpen, "the Pokedex header opens GO TO #");
   tapKey(1); tapKey(4); tapKey(1); tapKey(11);   // 2 5 2 GO
   ck(!jumpOpen && galleryRegion == 2 && galleryPage == 0 && galleryJumpMark == 252, "#252 lands on Hoenn's first page");
   ck(ownedIn(1, 151) >= 4 && ownedCount(4) == 1, "OWNED counts the PC, the party and the live pet");

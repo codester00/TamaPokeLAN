@@ -935,6 +935,32 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: wrap-safe timers, the Pokedex's BACK and footer (v3.88, on the branch)
+
+Owner, 2026-10-30. `timerwrap_test`, `dexnav_test`; seven guards negative-checked.
+
+- **`timers.h` is THE way to compare a deadline**: `timeReached(now, at)`,
+  `timerRunning(now, until)` (0 = no timer, kept explicitly -- a bare signed
+  difference reads 0 as running once millis() passes 2^31) and `timeLeft()`.
+  Every deadline in the sketch, `pet.h` and `pet.cpp` goes through them (~60
+  sites, not the 11 v3.87 counted: that grep matched one spelling only). Never
+  compare a deadline directly. `link.cpp` already subtracted; `surf.cpp`
+  compares elapsed time, not millis().
+- **The Pokedex footer printed an unfilled buffer** since v3.63 (on `main`):
+  `pg` was declared and its `snprintf` replaced, not added to. Garbage glyphs on
+  a board, nothing in the emulator (blank stack). The page number and GO TO #
+  are the header's line now (`galleryHeaderText()`).
+- **`Arduino_Canvas::textLog`** (emulator) records what a screen prints, so a
+  test reads the text itself; `dexnav_test` also fails on any character outside
+  printable ASCII.
+- **BACK on every Pokedex screen** (`S_BTN_BACK`, `drawBackPill()`), in the
+  band its own BACK answers: the region chooser (as before), the grid and a
+  creature's page (`DEX_BACK_Y`, under the grid), the GO TO # pad
+  (`JUMP_BACK_Y`, under the keys; above still works). **`galleryBack()` is THE
+  one level up** for the swipe down and the button. The grid's header opens GO
+  TO # now; it used to close the whole Pokedex, skipping the chooser. Bill's PC
+  grid is unchanged (its footer is GO TO # and the filter).
+
 ### Done: the simulated playthrough, and the bug it found (v3.87, on the branch)
 
 Owner, 2026-10-30: play a fresh save to every badge and every obtainable
@@ -959,7 +985,7 @@ is an artifact, not in the repo.
   was 95% of the run); the bot checks the same seed gives the same run with and
   without drawing. All three are off by default; the SDL app and tests are
   unchanged.
-- **Not fixed, for the owner**: eleven firmware timers compare
+- **Fixed in v3.88 (`timers.h`)**: eleven firmware timers compare
   `millis() > until`, which misfires if a timer starts within its duration of
   the 49.7-day wrap (the board running seven weeks without a reset). The worst
   is the ceremony in `Pet::update()` (pet.cpp, ~824), which would hold for ~49

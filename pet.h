@@ -6,6 +6,7 @@
 #include "party.h"
 #include "settings.h"
 #include "cheats.h"
+#include "timers.h"
 
 // 1 tick = 1 minuto de juego. Baja este valor para probar mas rapido
 // (p. ej. 5000UL = las estadisticas caen 12x mas rapido).
@@ -687,9 +688,9 @@ public:
 
   bool isEgg() const { return speciesId < 0; }
   uint8_t eggCracks() const { return eggTaps; }
-  bool eating() const { return millis() < eatUntil; }
-  bool showHeart() const { return millis() < heartUntil; }
-  bool evolving() const { return millis() < evolveUntil; }
+  bool eating() const { return timerRunning(millis(), eatUntil); }
+  bool showHeart() const { return timerRunning(millis(), heartUntil); }
+  bool evolving() const { return timerRunning(millis(), evolveUntil); }
   float evolveT() const {     // progreso de la animacion de evolucion 0..1
     uint32_t n = millis();
     uint32_t left = evolveUntil > n ? evolveUntil - n : 0;
@@ -901,15 +902,15 @@ public:
   float ceremonyT() const {
     if (ceremony == CER_NONE) return 0.0f;
     uint32_t n = millis();
-    uint32_t left = ceremonyUntil > n ? ceremonyUntil - n : 0;
+    uint32_t left = timeLeft(n, ceremonyUntil);
     return 1.0f - (float)left / (float)CEREMONY_MS;
   }
 
   // racha / vinculo / medallas / nombre
   void rename(const char *name);
   bool hasMedal(uint16_t m) const { return medals & m; }
-  bool showMedal() const { return millis() < medalUntil; }
-  bool showMilestone() const { return millis() < milestoneUntil; }
+  bool showMedal() const { return timerRunning(millis(), medalUntil); }
+  bool showMilestone() const { return timerRunning(millis(), milestoneUntil); }
   int careBonus() const;  // mejora del huevo por racha + vinculo
 
   // guardado periodico diferido: tick() marca pendiente y el loop lo vuelca

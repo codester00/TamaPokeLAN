@@ -3,6 +3,7 @@
 #pragma once
 #include "Arduino.h"
 #include <vector>
+#include <string>
 #include <algorithm>
 
 #define RGB565_BLACK 0x0000
@@ -37,6 +38,10 @@ public:
   // Draw nothing (playsim.cpp: a year of play is ~95% pixels otherwise). Every
   // frame still runs, so anything the firmware times by frames is unchanged.
   static inline bool skipDraw = false;
+  // Everything printed, when a test points this somewhere (v3.88): the
+  // Pokedex's footer printed a buffer nothing had filled, which a screenshot
+  // of blank emulator memory could not show. Null otherwise.
+  static inline std::string *textLog = nullptr;
 
   Arduino_Canvas(int16_t w, int16_t h, Arduino_CO5300 *p)
       : _w(w), _h(h), _panel(p), fb(w * h, 0) {}
@@ -154,6 +159,7 @@ public:
     }
   }
   void print(char ch) {
+    if (textLog) *textLog += ch;
     if (ch == '\n') { cy += 8 * textSize; cx = 0; return; }
     drawChar(ch, cx, cy);
     cx += 6 * textSize;

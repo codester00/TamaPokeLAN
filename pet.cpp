@@ -821,7 +821,7 @@ void Pet::syncClock(uint32_t nowEpoch) {
 
 void Pet::update(uint32_t nowMs) {
   // fin de ceremonia: la criatura se va y queda un huevo nuevo
-  if (ceremony != CER_NONE && millis() > ceremonyUntil) {
+  if (ceremony != CER_NONE && !timerRunning(millis(), ceremonyUntil)) {
     snapshotForParty();  // hand it over BEFORE newEgg() erases everything
     newEgg();
     return;

@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.87"
+#define FW_VERSION "3.88"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -98,6 +98,11 @@ bool galleryDirty = false;
 #define GAL_X 73       // the 4x4 grid, shared by the Pokedex and Bill's PC
 #define GAL_Y 84
 #define GAL_CELL 80
+// The Pokedex's BACK (v3.88): the band under the grid on every Pokedex screen,
+// labelled, so going up one level has one known place. The header above the
+// grid is GO TO # (it used to close the whole Pokedex, skipping the chooser).
+#define DEX_BACK_Y (GAL_Y + 4 * GAL_CELL)
+#define DEX_BACK_LABEL_Y (DEX_BACK_Y + 4)
 #define GAL_REGIONS (REGION_COUNT - 1)          // the real regions, not ALL
 #define GAL_LO (REGIONS[galleryRegion % GAL_REGIONS].lo)
 #define GAL_HI (REGIONS[galleryRegion % GAL_REGIONS].hi)
@@ -520,8 +525,11 @@ static int regionPickTap(int16_t x, int16_t y, uint8_t mode);
 int rpickRowAt(int16_t x, int16_t y, uint8_t mode);
 bool lanBtnHit(int16_t x, int16_t y);
 bool rpickBackHit(int16_t x, int16_t y, uint8_t mode);
+void galleryBack();
+void galleryHeaderText(char *buf, size_t n);
 bool uiOnControl(int16_t x, int16_t y);
 static void drawEggRegion();          // defined with the egg screen helpers
+static void drawBackPill(int y);      // the Pokedex's BACK button, with the gallery
 static int eggRegionTap(int16_t x, int16_t y);
 static void drawBtlBack();
 static void btlLinkPoll();   // defined with the battle code, called from render()
@@ -2181,17 +2189,11 @@ void onSwipeV(int dir) {
   }
   if (galleryOpen) {
     if (galleryDetail) {
-      if (back) { galleryDetail = 0; galleryPmd.unload(); galleryDirty = true; }
+      if (back) galleryBack();
       return;
     }
     if (galleryPick) { if (back) uiTileGo(TILE_PET); return; }
-    if (back) {
-      galleryPick = true; rpickPage = 0;
-      galleryPmd.unload();
-      galleryDirty = true;
-      sfxPlay(SFX_TAP);
-      return;
-    }
+    if (back) { galleryBack(); return; }
     galleryRegion = (uint8_t)((galleryRegion + 1) % GAL_REGIONS);
     galleryPage = 0;
     galleryDirty = true;
@@ -2970,14 +2972,14 @@ void onTap(int16_t x, int16_t y) {
     return;
   }
   if (confirmUntil) {        // dialogo "soltar?": SI / NO
-    if (millis() < confirmUntil && x >= 118 && x <= 218 && y >= 252 && y <= 304) {
+    if (timerRunning(millis(), confirmUntil) && x >= 118 && x <= 218 && y >= 252 && y <= 304) {
       pet.release();
     }
     confirmUntil = 0;
     return;
   }
   if (feedMenuUntil) {       // selector de comida
-    if (millis() < feedMenuUntil && y >= FEED_MENU_Y && y <= FEED_MENU_Y + FEED_MENU_H &&
+    if (timerRunning(millis(), feedMenuUntil) && y >= FEED_MENU_Y && y <= FEED_MENU_Y + FEED_MENU_H &&
         x >= FEED_MENU_X && x <= FEED_MENU_X + FEED_MENU_W) {
       int item = (x - FEED_MENU_X) / (FEED_MENU_W / 4);
       if (item > 3) item = 3;
@@ -4412,7 +4414,7 @@ void surfStart() {
 // the panel that way, puts the nose down. A held side wins over the sensor --
 // on v3.54 a board with a sensor ignored every touch.
 float surfInput(uint32_t now) {
-  if (now < surfTouchUntil) return surfTouch;
+  if (timerRunning(now, surfTouchUntil)) return surfTouch;
   if (surfSensor) {
     float ax, ay;
     if (tiltRead(surfTilt0x, surfTilt0y, &ax, &ay)) {
@@ -4931,7 +4933,7 @@ void render() {
 
   // selector de comida
   if (feedMenuUntil) {
-    if (millis() > feedMenuUntil) {
+    if (!timerRunning(millis(), feedMenuUntil)) {
       feedMenuUntil = 0;
     } else {
       gfx->fillRoundRect(FEED_MENU_X, FEED_MENU_Y, FEED_MENU_W, FEED_MENU_H, 14, UI_WHITE);
@@ -4945,7 +4947,7 @@ void render() {
 
   // dialogo "soltar?" (pulsacion larga sobre el bicho)
   if (confirmUntil) {
-    if (millis() > confirmUntil) {
+    if (!timerRunning(millis(), confirmUntil)) {
       confirmUntil = 0;
     } else {
       gfx->fillRoundRect(94, 168, 278, 152, 16, UI_WHITE);
@@ -4968,13 +4970,13 @@ void render() {
 
   // dialogo de decision (evolucionar/mantener, despedirse/quedaros)
   if (choiceKind) {
-    if (millis() > choiceUntil) choiceKind = 0;
+    if (!timerRunning(millis(), choiceUntil)) choiceKind = 0;
     else drawChoiceDialog();
   }
 
   // "<name> joined the party!" after a farewell or release
   if (partyBannerUntil) {
-    if (millis() > partyBannerUntil) {
+    if (!timerRunning(millis(), partyBannerUntil)) {
       partyBannerUntil = 0;
     } else {
       char b[40];
@@ -5083,7 +5085,7 @@ void stepGame() {
     ballY = CY + ny * 205;
   }
   // the clock, or three misses, whichever lands first
-  if (gameUntil && millis() >= gameUntil && !gameOverUntil) {
+  if (gameUntil && timeReached(millis(), gameUntil) && !gameOverUntil) {
     gameNewHi = (gameScore > pet.gameHi);
     pet.playResult(gameScore);
     sfxPlay(gameNewHi && gameScore > 0 ? SFX_MEDAL : SFX_LEVEL);
@@ -5120,7 +5122,7 @@ void startSack() {
 }
 
 void sackTap() {
-  if (millis() >= sackUntil) return;  // ya termino el tiempo
+  if (!timerRunning(millis(), sackUntil)) return;  // ya termino el tiempo
   sackHits++;
   sackShake = 16;  // sacude el saco
 }
@@ -5135,7 +5137,7 @@ void renderSack() {
 
   // pantalla de resultado
   if (sackOverUntil) {
-    if (now > sackOverUntil) { sackOpen = false; return; }
+    if (!timerRunning(now, sackOverUntil)) { sackOpen = false; return; }
     char b[20];
     snprintf(b, sizeof(b), T(S_HITS_FMT), sackHits);
     gfx->setTextColor(ink);
@@ -5167,7 +5169,7 @@ void renderSack() {
   }
 
   // se acabaron los 10 s: aplicar entrenamiento
-  if (now >= sackUntil) {
+  if (!timerRunning(now, sackUntil)) {
     sackNewHi = (sackHits > pet.strHi);
     sackGain = pet.trainStrength(sackHits);
     sfxPlay(sackNewHi ? SFX_MEDAL : SFX_PLAY);
@@ -5237,7 +5239,7 @@ void renderGame() {
 
   if (gameOverUntil) {
     drawGameScene();
-    if (millis() > gameOverUntil) {
+    if (!timerRunning(millis(), gameOverUntil)) {
       gameOpen = false;
       return;
     }
@@ -5290,7 +5292,7 @@ void renderGame() {
   // read the same way. Thin and near the rim: the middle belongs to the ball.
   if (!gameOverUntil) {
     uint32_t now2 = millis();
-    uint32_t left = (gameUntil > now2) ? gameUntil - now2 : 0;
+    uint32_t left = timeLeft(now2, gameUntil);
     int bw = 200, fw = (int)((uint32_t)bw * left / GAME_MS);
     gfx->fillRoundRect(CX - bw / 2, 124, bw, 10, 4, UI_TRACK);
     if (fw > 2)
@@ -7056,23 +7058,23 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
   uint32_t now = millis();
   int ox = 0, oy = 0;
   bool flash = false;
-  if (now < btlFaintUntil[who]) {          // sinks out of frame as it faints
+  if (timerRunning(now, btlFaintUntil[who])) {          // sinks out of frame as it faints
     uint32_t left = btlFaintUntil[who] - now;
     oy += (int)((BTL_FAINT_MS - left) * 70 / BTL_FAINT_MS);
   } else if (c.fainted() && btlFaintUntil[who]) {
     return;                                // dropped out: gone until replaced
   }
-  if (now < btlEnterUntil[who]) {          // and the next one rises into place
+  if (timerRunning(now, btlEnterUntil[who])) {          // and the next one rises into place
     uint32_t left = btlEnterUntil[who] - now;
     oy += (int)(left * 70 / BTL_ENTER_MS);
   }
-  if (now < btlLungeUntil[who]) {          // lean in, then back out
+  if (timerRunning(now, btlLungeUntil[who])) {          // lean in, then back out
     uint32_t left = btlLungeUntil[who] - now;
     int amt = (int)(left > BTL_LUNGE_MS / 2 ? BTL_LUNGE_MS - left : left) * 22 / (BTL_LUNGE_MS / 2);
     ox = who == 0 ? amt : -amt;            // you lunge right, the foe lunges left
     oy = who == 0 ? -amt / 2 : amt / 2;
   }
-  if (now < btlHitUntil[who]) {
+  if (timerRunning(now, btlHitUntil[who])) {
     uint32_t left = btlHitUntil[who] - now;
     ox += ((left / 50) % 2) ? 5 : -5;      // jitter
   }
@@ -7085,9 +7087,9 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
     uint8_t act = PMD_IDLE;
     bool loop = true;
     uint32_t t = now;
-    if (now < btlHitUntil[who] && btlPmd[who].has(PMD_HURT)) {
+    if (timerRunning(now, btlHitUntil[who]) && btlPmd[who].has(PMD_HURT)) {
       act = PMD_HURT; loop = false; t = now - (btlHitUntil[who] - BTL_HIT_MS);
-    } else if (now < btlLungeUntil[who] && btlPmd[who].has(PMD_ATTACK)) {
+    } else if (timerRunning(now, btlLungeUntil[who]) && btlPmd[who].has(PMD_ATTACK)) {
       act = PMD_ATTACK; loop = false; t = now - (btlLungeUntil[who] - BTL_LUNGE_MS);
     }
     drawPmdActM(btlPmd[who], act, sx + 24 + ox, sy + 78 + oy, t, loop, false, 4);
@@ -7095,7 +7097,7 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
   }
   const uint8_t *th = thumbs.get(c.dex);
   if (!th) return;
-  if (now < btlHitUntil[who]) flash = ((btlHitUntil[who] - now) / 60) % 2 == 0;
+  if (timerRunning(now, btlHitUntil[who])) flash = ((btlHitUntil[who] - now) / 60) % 2 == 0;
   drawThumb(th, sx + ox, sy + oy, 3, flash);
 }
 
@@ -8085,7 +8087,7 @@ void renderSpeed() {
   uint16_t ink = night ? UI_INK_NIGHT : UI_INK;
 
   if (spdOverUntil) {
-    if (now > spdOverUntil) { spdOpen = false; return; }
+    if (!timerRunning(now, spdOverUntil)) { spdOpen = false; return; }
     char b[24];
     snprintf(b, sizeof(b), T(S_SCORE_FMT), spdHits);
     gfx->setTextColor(ink);
@@ -8117,7 +8119,7 @@ void renderSpeed() {
   }
 
   // session over?
-  if (now >= spdUntil) {
+  if (!timerRunning(now, spdUntil)) {
     spdNewHi = (spdHits > pet.spdHi);
     spdGain = pet.trainSpeed(spdHits);
     sfxPlay(spdNewHi ? SFX_MEDAL : SFX_PLAY);
@@ -8147,7 +8149,7 @@ void renderSpeed() {
   gfx->setCursor(CX - strlen(b) * 12, 30);
   gfx->print(b);
   // seconds left
-  uint32_t left = (spdUntil > now) ? (spdUntil - now + 999) / 1000 : 0;
+  uint32_t left = (timeLeft(now, spdUntil) + 999) / 1000;
   snprintf(b, sizeof(b), "%us", (unsigned)left);
   gfx->setTextSize(2);
   gfx->setCursor(CX - strlen(b) * 6, 76);
@@ -9370,12 +9372,7 @@ static void renderRegionPick(uint8_t mode) {
     }
   }
   // Drawn exactly where rpickBackHit() answers: the Pokedex's and the PC's.
-  if (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) {
-    gfx->setTextColor(UI_INK_SOFT);
-    gfx->setTextSize(2);
-    gfx->setCursor(CX - strlen(T(S_BACK)) * 6, RPICK_BACK_LABEL_Y);
-    gfx->print(T(S_BACK));
-  }
+  if (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) drawBackPill(RPICK_BACK_LABEL_Y - 6);
   uiChrome();
   gfx->flush();
 }
@@ -9809,7 +9806,7 @@ void renderBag() {
     gfx->setCursor(CX - (int)strlen(pg) * 6, 386);
     gfx->print(pg);
   }
-  if (bagMsgUntil && millis() < bagMsgUntil) {
+  if (timerRunning(millis(), bagMsgUntil)) {
     gfx->fillRoundRect(66, CY - 26, 334, 52, 12, UI_WHITE);
     gfx->drawRoundRect(66, CY - 26, 334, 52, 12, UI_INK);
     gfx->setTextColor(UI_INK);
@@ -10509,14 +10506,14 @@ void leaveCatch() {
 // One frame of the game. Public so a test can drive it without a panel.
 void catchStep(uint32_t now) {
   if (catchOverUntil) return;
-  if (now >= catchUntil) { catchFinish(); return; }
+  if (!timerRunning(now, catchUntil)) { catchFinish(); return; }
   float d = catchTarget - catchBasketX;                // the basket eases after the finger
   catchBasketX += d > 18 ? 18 : (d < -18 ? -18 : d);
   if (catchBasketX < 130) catchBasketX = 130;
   if (catchBasketX > 336) catchBasketX = 336;
   // Faster as the clock runs down: a spawn every 700 ms at the start, 380 at the end.
   uint32_t left = catchUntil - now;
-  if (now >= catchNextSpawn) {
+  if (timeReached(now, catchNextSpawn)) {
     for (auto &t : catchThings) {
       if (t.live) continue;
       t.live = true;
@@ -10548,7 +10545,7 @@ void renderCatch() {
   bool night = sceneHour() < 6 || sceneHour() >= 20;
   uint16_t ink = night ? UI_INK_NIGHT : UI_INK;
   if (catchOverUntil) {
-    if (now > catchOverUntil) { catchOpen = false; return; }
+    if (!timerRunning(now, catchOverUntil)) { catchOpen = false; return; }
     char b[24];
     snprintf(b, sizeof(b), T(S_CATCH_FMT), catchScore);
     gfx->setTextColor(ink);
@@ -10590,7 +10587,7 @@ void renderCatch() {
                      C565(0xa8, 0x70, 0x38));
   gfx->drawRoundRect(bx - CATCH_BASKET_HALF, CATCH_BASKET_Y, 2 * CATCH_BASKET_HALF, 26, 8, ink);
   gfx->drawFastHLine(bx - CATCH_BASKET_HALF + 4, CATCH_BASKET_Y + 9, 2 * CATCH_BASKET_HALF - 8, ink);
-  if (now < catchOuchUntil) {                       // a rock in the basket costs a berry
+  if (timerRunning(now, catchOuchUntil)) {                       // a rock in the basket costs a berry
     gfx->setTextColor(UI_BAR_BAD);
     gfx->setTextSize(3);
     gfx->setCursor(bx - 18, CATCH_BASKET_Y - 34);
@@ -10607,7 +10604,7 @@ void renderCatch() {
     gfx->setCursor(CX - (int)strlen(T(S_CATCH_HINT)) * 6, 140);
     gfx->print(T(S_CATCH_HINT));
   }
-  uint32_t left = catchUntil > now ? catchUntil - now : 0;
+  uint32_t left = timeLeft(now, catchUntil);
   int bw = 260, fw = (int)((uint64_t)bw * left / CATCH_MS);
   gfx->fillRoundRect(CX - bw / 2, 396, bw, 14, 5, UI_TRACK);
   if (fw > 2) gfx->fillRoundRect(CX - bw / 2, 396, fw, 14, 5, UI_BAR_OK);
@@ -10764,8 +10761,8 @@ static void rockAdvance() {
 
 static void rockPress(uint32_t now) {
   if (rockBeat >= ROCK_BEATS) return;
-  if (now + ROCK_EARLY_MS < rockBeatAt) return;      // not aimed at this beat yet
-  uint32_t dt = now > rockBeatAt ? now - rockBeatAt : rockBeatAt - now;
+  if (!timeReached(now + ROCK_EARLY_MS, rockBeatAt)) return;      // not aimed at this beat yet
+  uint32_t dt = timeReached(now, rockBeatAt) ? now - rockBeatAt : rockBeatAt - now;
   if (dt <= ROCK_PERFECT_MS) { rockPerfects++; mgScore++; mgGrading(S_PERFECT, now); sfxPlay(SFX_HIT); }
   else if (dt <= ROCK_GOOD_MS) { rockGoods++; mgScore++; mgGrading(S_GOOD, now); sfxPlay(SFX_TAP); }
   else { mgGrading(S_MISS, now); sfxPlay(SFX_DENY); }
@@ -10773,11 +10770,11 @@ static void rockPress(uint32_t now) {
 }
 
 static void rockStep(uint32_t now) {
-  if (rockBeat < ROCK_BEATS && now > rockBeatAt + ROCK_GOOD_MS) {
+  if (rockBeat < ROCK_BEATS && !timeReached(rockBeatAt + ROCK_GOOD_MS, now)) {
     mgGrading(S_MISS, now);                          // let it pass: a miss
     rockAdvance();
   }
-  if (rockBeat >= ROCK_BEATS && now > rockBeatAt - rockPeriod + ROCK_GOOD_MS) mgFinish(now);
+  if (rockBeat >= ROCK_BEATS && !timeReached(rockBeatAt - rockPeriod + ROCK_GOOD_MS, now)) mgFinish(now);
 }
 
 // --- Block!
@@ -10801,7 +10798,7 @@ uint8_t blockSideAt(int16_t x, int16_t y) {
 
 // How far in an attack is, 0 at spawn to 1 when it lands.
 static float blockFrac(const BlockAttack &b, uint32_t now) {
-  return now <= b.at ? 0.0f : (float)(now - b.at) / (float)b.dur;
+  return timeReached(b.at, now) ? 0.0f : (float)(now - b.at) / (float)b.dur;
 }
 
 // Where attack i is drawn, or false if it is not in the air. The render and
@@ -10817,7 +10814,7 @@ bool blockAttackPos(int i, uint32_t now, int *x, int *y) {
 }
 
 static void blockPress(int16_t x, int16_t y, uint32_t now) {
-  if (now >= mgUntil || now < blockLockUntil) return;
+  if (!timerRunning(now, mgUntil) || timerRunning(now, blockLockUntil)) return;
   uint8_t side = blockSideAt(x, y);
   BlockAttack *best = nullptr;
   for (auto &b : blockAtk)
@@ -10835,11 +10832,11 @@ static void blockPress(int16_t x, int16_t y, uint32_t now) {
 }
 
 static void blockStep(uint32_t now) {
-  if (now >= mgUntil) { mgFinish(now); return; }
+  if (!timerRunning(now, mgUntil)) { mgFinish(now); return; }
   uint32_t el = now - mgStart;
   for (auto &b : blockAtk)
     if (b.live && blockFrac(b, now) >= 1.0f) { b.live = false; mgGrading(S_MISS, now); sfxPlay(SFX_DENY); }
-  if (now >= blockNext) {
+  if (timeReached(now, blockNext)) {
     uint8_t taken = 0;
     for (auto &b : blockAtk) if (b.live) taken |= 1 << b.side;
     if (taken != 0x0F) {
@@ -10902,7 +10899,7 @@ void startTilt() {
 }
 
 static void tiltStep(uint32_t now) {
-  if (now >= mgUntil) { mgFinish(now); return; }
+  if (!timerRunning(now, mgUntil)) { mgFinish(now); return; }
   float ax, ay;
   if (!tiltRead(tilt0x, tilt0y, &ax, &ay)) return;
   // Scaled by the real frame time: the panel draws slower on hardware.
@@ -10962,7 +10959,7 @@ void startPush() {
 
 // Where the needle is, -1..1 across the bar. Its swing quickens over the round.
 float pushNeedle(uint32_t now) {
-  float t = (float)(now > mgStart ? now - mgStart : 0);
+  float t = (float)(timeReached(mgStart, now) ? 0 : now - mgStart);
   float turns = PUSH_F0 * t + (PUSH_F1 - PUSH_F0) * t * t / (2.0f * PUSH_MS);
   return sinf(turns * 6.2831853f);
 }
@@ -10974,7 +10971,7 @@ uint8_t pushZone(float v) {
 }
 
 static void pushPress(uint32_t now) {
-  if (now >= mgUntil || now < pushLockUntil) return;
+  if (!timerRunning(now, mgUntil) || timerRunning(now, pushLockUntil)) return;
   uint8_t z = pushZone(pushNeedle(now));
   if (z) {
     pushSteps += z;
@@ -10991,7 +10988,7 @@ static void pushPress(uint32_t now) {
 }
 
 static void pushStep(uint32_t now) {
-  if (now >= mgUntil) mgFinish(now);
+  if (!timerRunning(now, mgUntil)) mgFinish(now);
 }
 
 // --- Memory (joy + bond): four berries light up in a sequence; tap them back.
@@ -11085,10 +11082,10 @@ static void simonPress(int16_t x, int16_t y, uint32_t now) {
 
 static void simonStep(uint32_t now) {
   if (!simonShowing) {
-    if (now >= simonLitUntil) simonLit = -1;
+    if (!timerRunning(now, simonLitUntil)) simonLit = -1;
     return;
   }
-  if (now < simonShowAt) { simonLit = -1; return; }
+  if (timerRunning(now, simonShowAt)) { simonLit = -1; return; }
   uint32_t k = (now - simonShowAt) / (SIMON_ON_MS + SIMON_GAP_MS);
   if (k >= simonLen) { simonShowing = false; simonLit = -1; return; }
   bool on = (now - simonShowAt) % (SIMON_ON_MS + SIMON_GAP_MS) < SIMON_ON_MS;
@@ -11227,7 +11224,7 @@ void mgPress(int16_t x, int16_t y, uint32_t now) {
 // One frame of whichever game is open. Public so a test can drive it.
 void mgStep(uint32_t now) {
   if (mgOverUntil) {
-    if (now > mgOverUntil) miniGame = MG_NONE;
+    if (!timerRunning(now, mgOverUntil)) miniGame = MG_NONE;
     return;
   }
   if (miniGame == MG_ROCK) rockStep(now);
@@ -11247,7 +11244,7 @@ static void mgCentered(const char *s, int y, int size, uint16_t col) {
 }
 
 static void mgTimeBar(uint32_t now, uint32_t total, int y) {
-  uint32_t left = mgUntil > now ? mgUntil - now : 0;
+  uint32_t left = timeLeft(now, mgUntil);
   int bw = 260, fw = (int)((uint64_t)bw * left / total);
   gfx->fillRoundRect(CX - bw / 2, y, bw, 14, 5, UI_TRACK);
   if (fw > 2) gfx->fillRoundRect(CX - bw / 2, y, fw, 14, 5, UI_BAR_OK);
@@ -11309,7 +11306,7 @@ void renderMini() {
       int x2 = CX + (int)((ROCK_R - 4) * cosf(a + 0.3f)), y2 = ROCK_CY + (int)((ROCK_R - 4) * sinf(a + 0.3f));
       gfx->drawLine(x1, y1, x2, y2, ink);
     }
-    if (rockBeat < ROCK_BEATS && now + rockPeriod >= rockBeatAt) {
+    if (rockBeat < ROCK_BEATS && timeReached(now + rockPeriod, rockBeatAt)) {
       int32_t to = (int32_t)(rockBeatAt - now);
       int r = ROCK_R + (int)((int64_t)(ROCK_RING_R - ROCK_R) * (to > 0 ? to : 0) / (int32_t)rockPeriod);
       uint16_t col = to <= ROCK_PERFECT_MS && to >= -ROCK_PERFECT_MS ? UI_BAR_OK : UI_BAR_WARN;
@@ -11325,7 +11322,7 @@ void renderMini() {
   } else if (miniGame == MG_BLOCK) {
     const uint8_t *th = pet.isEgg() ? nullptr : thumbs.get(pet.speciesId);
     if (th) drawThumb(th, CX - thumbCell() / 2, CY - thumbCell() / 2, 3, false);
-    bool locked = now < blockLockUntil;
+    bool locked = timerRunning(now, blockLockUntil);
     gfx->drawCircle(CX, CY, BLOCK_SHIELD, locked ? UI_BAR_BAD : ink);
     gfx->drawCircle(CX, CY, BLOCK_SHIELD + 1, locked ? UI_BAR_BAD : ink);
     for (int i = 0; i < BLOCK_MAX; i++) {
@@ -11343,7 +11340,7 @@ void renderMini() {
     gfx->setTextSize(3);
     gfx->setCursor(CX - 120 - (int)strlen(c) * 9, CY - 132);
     gfx->print(c);
-    uint32_t left = mgUntil > now ? (mgUntil - now + 999) / 1000 : 0;
+    uint32_t left = (timeLeft(now, mgUntil) + 999) / 1000;
     snprintf(c, sizeof(c), "%lu", (unsigned long)left);
     gfx->setTextColor(left <= 5 ? UI_BAR_BAD : ink);
     gfx->setCursor(CX + 120 - (int)strlen(c) * 9, CY - 132);
@@ -11383,7 +11380,7 @@ void renderMini() {
     gfx->fillRect(CX - gw, byt, 2 * gw, bh, UI_BAR_OK);
     gfx->drawRoundRect(bxl, byt, bw, bh, 6, ink);
     int nx = CX + (int)(pushNeedle(now) * (bw / 2 - 4));
-    gfx->fillRect(nx - 3, byt - 8, 6, bh + 16, now < pushLockUntil ? UI_BAR_BAD : ink);
+    gfx->fillRect(nx - 3, byt - 8, 6, bh + 16, timerRunning(now, pushLockUntil) ? UI_BAR_BAD : ink);
     char c[8];
     snprintf(c, sizeof(c), "%u", (unsigned)(pushSteps / PUSH_TOP));   // boulders up the hill
     mgCentered(c, 30, 3, ink);
@@ -11427,7 +11424,7 @@ void renderMini() {
     if (seekStage == SEEK_SHOW && seekRound == 0) mgCentered(T(S_SEEK_HINT), 110, 2, ink);
     if (seekStage == SEEK_PICK) mgCentered(T(S_SEEK_PICK), 110, 2, ink);
   }
-  if (now < mgGradeUntil) {
+  if (timerRunning(now, mgGradeUntil)) {
     uint16_t col = mgGradeStr == S_PERFECT || mgGradeStr == S_FOUND ? UI_BAR_OK :
                    mgGradeStr == S_GOOD ? UI_BAR_WARN : UI_BAR_BAD;
     int gy = miniGame == MG_ROCK ? 330 : miniGame == MG_PUSH ? 150 : 360;
@@ -11863,6 +11860,7 @@ int16_t galleryJumpMark = 0;   // the Pokedex cell GO TO # landed on
 #define JUMP_KEY 74
 #define JUMP_X (CX - 3 * JUMP_KEY / 2)
 #define JUMP_Y 118
+#define JUMP_BACK_Y (JUMP_Y + 4 * JUMP_KEY)   // the band under the pad: BACK
 
 void jumpOpenFor(bool forPc) {
   jumpOpen = true;
@@ -11916,13 +11914,17 @@ void renderJump() {
     gfx->setCursor(x + JUMP_KEY / 2 - (int)strlen(KEYS[k]) * 9, y + JUMP_KEY / 2 - 11);
     gfx->print(KEYS[k]);
   }
+  drawBackPill(JUMP_BACK_Y + 6);
   uiChrome();
   gfx->flush();
 }
 
 void jumpTap(int16_t x, int16_t y) {
   int k = jumpKeyAt(x, y);
-  if (k < 0) { if (y < JUMP_Y - 10) jumpOpen = false; return; }   // above the pad: back
+  if (k < 0) {   // BACK below the pad (labelled), or above it as before
+    if (y < JUMP_Y - 10 || y >= JUMP_BACK_Y) { jumpOpen = false; sfxPlay(SFX_TAP); }
+    return;
+  }
   size_t len = strlen(jumpBuf);
   if (k == 9) { if (len) jumpBuf[len - 1] = 0; sfxPlay(SFX_TAP); return; }
   if (k == 11) {
@@ -12260,6 +12262,37 @@ void drawThumbInk(const uint8_t *b, int x, int y, int s, uint16_t col) {
       if (d[r * w + c] != 0xFF) gfx->fillRect(ox + c * s, oy + r * s, s, s, col);
 }
 
+// "3/10  GO TO #": the page and the pad, the line under the grid's title.
+void galleryHeaderText(char *buf, size_t n) {
+  snprintf(buf, n, "%d/%d  %s", galleryPage + 1, (int)GAL_PAGES, T(S_GOTO));
+}
+// BACK as a button: a pill around the word, top edge at y. Every Pokedex screen
+// draws it in the band its own BACK answers (v3.88).
+static void drawBackPill(int y) {
+  const char *t = T(S_BTN_BACK);
+  int w = (int)strlen(t) * 12 + 28;
+  gfx->fillRoundRect(CX - w / 2, y, w, 30, 15, UI_WHITE);
+  gfx->drawRoundRect(CX - w / 2, y, w, 30, 15, UI_INK);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(t) * 6, y + 8);
+  gfx->print(t);
+}
+static void drawDexBack() { drawBackPill(DEX_BACK_LABEL_Y); }
+// Up one level in the Pokedex: a creature's page -> the grid -> the region
+// chooser. The swipe down and the BACK label both ask this (v3.88).
+void galleryBack() {
+  if (galleryDetail) {
+    galleryDetail = 0;
+  } else {
+    galleryPick = true;
+    rpickPage = 0;
+  }
+  galleryPmd.unload();
+  galleryDirty = true;
+  sfxPlay(SFX_TAP);
+}
+
 void renderGallery() {
   if (galleryDetail) {  // vista detalle: se redibuja siempre (animada)
     gfx->fillScreen(RGB565_BLACK);
@@ -12282,10 +12315,7 @@ void renderGallery() {
       const uint8_t *t = thumbs.get(galleryDetail);
       if (t) drawThumb(t, CX - GAL_CELL, 135, 4, !reg);
     }
-    gfx->setTextColor(UI_INK);
-    gfx->setTextSize(2);
-    gfx->setCursor(CX - strlen(T(S_DETAIL_BACK)) * 6, 408);
-    gfx->print(T(S_DETAIL_BACK));
+    drawDexBack();
     uiChrome();
     gfx->flush();
     return;
@@ -12304,8 +12334,15 @@ void renderGallery() {
            pet.registeredCountIn(grg.lo, grg.hi), (unsigned)GAL_SPAN);
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(3);
-  gfx->setCursor(CX - strlen(head) * 9, 36);
+  gfx->setCursor(CX - strlen(head) * 9, 30);
   gfx->print(head);
+  // The page and GO TO # under the title: tapping the header opens the pad.
+  char pgl[32];
+  galleryHeaderText(pgl, sizeof(pgl));
+  gfx->setTextColor(UI_INK_SOFT);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(pgl) * 6, 60);
+  gfx->print(pgl);
 
   for (int r = 0; r < 4; r++) {
     for (int c = 0; c < 4; c++) {
@@ -12334,33 +12371,15 @@ void renderGallery() {
       }
     }
   }
-  // A page number, not a row of dots. 25 dots do not fit across the bottom of
-  // a round panel -- the chord at that height is only ~228 px -- and counting
-  // them to find where you are is worse than reading the number.
-  char pg[12];
-  char pgl[32];
-  snprintf(pgl, sizeof(pgl), "%s  %s", pg, T(S_GOTO));   // the footer opens GO TO #
-  gfx->setTextColor(UI_INK_SOFT);
-  gfx->setTextSize(2);
-  gfx->setCursor(CX - (int)strlen(pgl) * 6, 410);
-  gfx->print(pgl);
+  drawDexBack();
   uiChrome();
   gfx->flush();
 }
 
 void galleryTap(int16_t x, int16_t y) {
-  if (galleryDetail) {  // volver a la rejilla
-    galleryDetail = 0;
-    galleryPmd.unload();
-    galleryDirty = true;
-    return;
-  }
-  if (y < 72) {  // tocar la cabecera = salir
-    galleryOpen = false;
-    galleryPmd.unload();
-    return;
-  }
-  if (y >= GAL_Y + 4 * GAL_CELL) { jumpOpenFor(false); return; }   // GO TO #
+  if (galleryDetail) { galleryBack(); return; }   // nothing else to hit on a detail
+  if (y < GAL_Y) { jumpOpenFor(false); sfxPlay(SFX_TAP); return; }   // the header: GO TO #
+  if (y >= DEX_BACK_Y) { galleryBack(); return; }                    // BACK
   int c = (x - GAL_X) / GAL_CELL, r = (y - GAL_Y) / GAL_CELL;
   if (c < 0 || c > 3 || r < 0 || r > 3) return;
   int16_t dex = GAL_LO + galleryPage * GAL_PER_PAGE + r * 4 + c;
@@ -12759,7 +12778,7 @@ void startBath() {
 
 void drawBath() {
   uint32_t now = millis();
-  if (now > bathUntil) {
+  if (!timerRunning(now, bathUntil)) {
     bathUntil = 0;
     if (bathPending) {
       bathPending = false;
@@ -12897,7 +12916,7 @@ void drawPetPMD() {
     act = PMD_HURT;
   } else {
     // contento: el planificador decide (idle / paseo / gesto)
-    if (now > beh.until) behNext();
+    if (!timerRunning(now, beh.until)) behNext();
     if (beh.mode == 1) {
       float d = beh.targetX - beh.x;
       if (fabsf(d) < 4) {
