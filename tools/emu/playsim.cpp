@@ -1,4 +1,4 @@
-// A simulated playthrough of the real firmware (v3.86 audit). Not a test.
+// A simulated playthrough of the real firmware (v3.86 audit, v3.92 economy). Not a test.
 //
 //   bash tools/emu/playsim.sh <profile> <seed> <days> > run.jsonl
 //
@@ -15,15 +15,24 @@
 //     (startWildBattle) otherwise, in the open area with the most species not
 //     yet registered;
 //   - the Mart (spendWallet + the bag, as its confirm does): balls, the stone
-//     or Linking Cord an evolution needs;
+//     or Linking Cord an evolution needs; then, from what is left over a
+//     reserve, X items for the gyms, vitamins and PP Ups (v3.90-v3.92);
+//   - SELLING (martSellOne, the Mart's own) of what it will not use: spare
+//     potions, spare stones;
+//   - vitamins and PP Ups through the bag screen's taps (onTap), X items and
+//     potions through the battle bag, as a player would;
 //   - evolutions as offered, stones from the bag, the cord, Applin's choice of
 //     a branch not registered, and banked creatures swapped in to evolve;
 //   - the farewell when offered, the next egg from the region with the most
 //     left to register.
 // Each event is one JSON line on stdout; tools/emu/playsim_report.py reads them.
 //
-// Profiles: casual (2 sessions, 5 fights, 3,000 steps a day), regular (4, 15,
-// 6,000), dedicated (6, 40, 10,000 -- and it swaps banked creatures in).
+// Profiles (v3.92 rerun; the board counts steps only while it is powered and
+// carried, and a child leaves it home for school):
+//   child   school days 3 sessions, 8 fights,   300 steps; weekends 4, 15, 3,000
+//   walker  weekdays    3 sessions, 10 fights, 1,500 steps; weekends 4, 15, 6,000
+//   adult   every day   2 sessions, 6 fights,  4,000 steps (an upper bound)
+// 2026-01-01, the first day, is a Thursday.
 #include "Arduino.h"
 #include "Arduino_GFX_Library.h"
 #include "Preferences.h"
@@ -35,6 +44,7 @@
 #include "battle.h"
 #include "trainers.h"
 #include "pcstore.h"
+#include "pp.h"
 #include <cstdio>
 #include <cstdarg>
 #include <algorithm>
@@ -64,6 +74,14 @@ bool boxViewSwap(uint8_t partyIdx, uint16_t idx);
 uint16_t boxViewIndexOf(int16_t dex, uint8_t slot);
 void stoneFromBag(uint8_t k);
 void shedinjaCheck();
+bool martSellOne(uint8_t k);
+void onTap(int16_t x, int16_t y);
+void render();
+void partySlotPos(int i, int *cx, int *cy);
+extern bool bagOpen;
+extern uint8_t bagPage, vitPick, ppUpWho, btlBagPage;
+extern uint8_t btlTrainer;
+extern bool btlLink;
 extern Pet pet; extern Party party; extern Inventory bag;
 extern bool battleOpen, btlOver, btlWon, btlLost, blackoutOpen, btlWild, btlSafari, screenOff;
 extern bool partyPick, partyOpen, gymHard, exploreOpen;
@@ -79,23 +97,27 @@ uint8_t ownedCount(int16_t dex);
 extern Combatant btlYou, btlFoe;
 
 // ---- the profile ------------------------------------------------------------------
-struct Profile { const char *name; uint8_t sessions; uint16_t fights; uint32_t steps; bool swapIn; };
+struct DayPlan { uint8_t sessions; uint16_t fights; uint32_t steps; };
+struct Profile { const char *name; DayPlan weekday, weekend; bool swapIn; };
 static const Profile PROFILES[] = {
-  { "casual", 2, 5, 3000, false },
-  { "regular", 4, 15, 6000, true },
-  { "dedicated", 6, 40, 10000, true },
+  { "child",  { 3, 8, 300 },   { 4, 15, 3000 }, true },
+  { "walker", { 3, 10, 1500 }, { 4, 15, 6000 }, true },
+  { "adult",  { 2, 6, 4000 },  { 2, 6, 4000 },  false },
 };
 static Profile P;
-static uint8_t sessionHour(uint8_t i) {
-  static const uint8_t two[] = { 8, 19 }, four[] = { 7, 12, 17, 20 }, six[] = { 7, 10, 13, 16, 18, 21 };
-  return P.sessions == 2 ? two[i] : P.sessions == 4 ? four[i] : six[i];
-}
 
 // ---- the clock --------------------------------------------------------------------
 static const uint32_t START_EPOCH = 1767225600UL;   // 2026-01-01 00:00 (a Thursday)
 static uint32_t nowEpoch() { return rtcEpoch(); }
 static int day() { return (int)((nowEpoch() - START_EPOCH) / 86400); }
 static int hourOf() { return (int)((nowEpoch() / 3600) % 24); }
+static bool weekend() { int wd = (day() + 4) % 7; return wd == 0 || wd == 6; }   // 0 = Sunday
+static const DayPlan &plan() { return weekend() ? P.weekend : P.weekday; }
+static uint8_t sessionHour(uint8_t i) {
+  static const uint8_t two[] = { 8, 19 }, three[] = { 7, 16, 19 }, four[] = { 9, 12, 16, 19 };
+  uint8_t n = plan().sessions;
+  return n == 2 ? two[i] : n == 3 ? three[i] : four[i];
+}
 // Lets the game run for `ms`, in slices so loop() sees every minute's tick.
 static void run(uint64_t ms, uint32_t slice = 60000) {
   while (ms) {
@@ -111,6 +133,11 @@ static int nRaised = 0;
 static int nFights = 0, nWild = 0, nCatch = 0, nCatchFail = 0, nGym = 0, nGymWin = 0, nBlack = 0;
 static int nFarewell = 0, nEvolve = 0, nStonesFound = 0, nStonesBought = 0, nCords = 0, nSwaps = 0;
 static uint64_t moneyIn = 0, moneyOut = 0;
+// where the money came from and went (v3.92 rerun)
+static uint64_t inSteps = 0, inPrize = 0, inSold = 0;
+static uint64_t outBalls = 0, outStones = 0, outCords = 0, outX = 0, outVit = 0, outPpUp = 0, outHeal = 0;
+static int nSold = 0, nVit = 0, nVitMax = 0, nXUsed = 0, nPpUp = 0, nHealUsed = 0, nUiMiss = 0;
+static uint64_t *spendBucket = &outBalls;   // what buy() counts the money against
 static std::set<int16_t> target;
 static void ev(const char *fmt, ...) {
   char b[8192];                                 // the target list is ~4 KB
@@ -183,9 +210,42 @@ static ItemKey bestBall(bool legend) {
   return ITEM_NONE;
 }
 // Plays a fight out through the screen. Returns +1 won (or caught), -1 lost, 0 fled/other.
+// The lead's stronger side, by its best attacking move.
+static uint8_t bestCategory(const Combatant &c) {
+  int phys = 0, spec = 0;
+  for (int i = 0; i < MOVE_SLOTS; i++) {
+    uint8_t mv = c.moves[i];
+    if (!mv || mv >= MOVE_COUNT) continue;
+    int p = MOVE_TBL[mv].power;
+    if (MOVE_TBL[mv].cat == MC_PHYS) phys = std::max(phys, p); else if (MOVE_TBL[mv].cat == MC_SPEC) spec = std::max(spec, p);
+  }
+  return spec > phys ? MC_SPEC : MC_PHYS;
+}
+// BAG, then the item's page and cell, through the battle screen's taps.
+static bool useBattleItem(ItemKey k) {
+  int idx = bagIndexOf(k);
+  if (idx < 0) return false;
+  uint8_t before = bag.count(k);
+  tapCell(1);
+  if (btlMenu != 3) return false;
+  btlBagPage = (uint8_t)(idx / 4);
+  tapCell(idx % 4);
+  // taken = the bag went down, or the screen answered with its lines (a catch
+  // can drop the same ball straight back into the bag)
+  bool took = bag.count(k) < before || (btlMenu == 0 && btlMsgCount > 0);
+  if (!took) {
+    nUiMiss++;
+    ev("\"ev\":\"ui_miss\",\"what\":\"battle_bag\",\"item\":%u,\"idx\":%d,\"menu\":%u,\"msgs\":%u,\"wild\":%d,\"safari\":%d",
+       (unsigned)k, idx, btlMenu, btlMsgCount, btlWild, btlSafari);
+  }
+  if (!took) { if (btlMenu == 3) { tapAt(5, 5); btlMenu = 0; } return false; }
+  return true;
+}
 static int playFight(bool wantCatch) {
   findCells();
   int throws = 0;
+  bool xUsedThisFight = false;
+  int healsUsed = 0;
   static int traced = 0;
   bool trace = getenv("PLAYSIM_TRACE") && traced++ < 1;
   for (int guard = 0; guard < 4000 && battleOpen; guard++) {
@@ -197,11 +257,18 @@ static int playFight(bool wantCatch) {
     // weaken first: throw once the foe is under 60%, or at once if a hit might KO it
     // a much stronger lead would knock it out with one hit: a person throws at once
     bool weak = btlFoe.hp * 100 < btlFoe.maxHp * 60 || btlYou.level >= btlFoe.level + 8;
-    if (ball != ITEM_NONE && (weak || throws > 0)) {
-      int idx = bagIndexOf(ball);
-      if (idx >= 0 && idx < 4) {
-        tapCell(1);                     // BAG
-        if (btlMenu == 3) { tapCell(idx); throws++; continue; }
+    if (ball != ITEM_NONE && (weak || throws > 0) && useBattleItem(ball)) { throws++; continue; }
+    // a trainer fight: an X item on the lead's first turn, a potion when low
+    if (!btlWild && !btlLink) {
+      if (!xUsedThisFight && btlYou.hp == btlYou.maxHp) {
+        xUsedThisFight = true;
+        ItemKey x = bestCategory(btlYou) == MC_SPEC ? IT_XSPATK : IT_XATTACK;
+        if (bag.count(x) && useBattleItem(x)) { nXUsed++; continue; }
+      }
+      if (btlYou.hp * 100 < btlYou.maxHp * 30 && btlFoe.hp * 100 > btlFoe.maxHp * 25 && healsUsed < 3) {
+        ItemKey h = bag.count(IT_HYPERPOTION) ? IT_HYPERPOTION : bag.count(IT_SUPERPOTION) ? IT_SUPERPOTION
+                  : bag.count(IT_POTION) ? IT_POTION : ITEM_NONE;
+        if (h != ITEM_NONE && useBattleItem(h)) { healsUsed++; nHealUsed++; continue; }
       }
     }
     tapCell(0);                         // FIGHT
@@ -272,13 +339,109 @@ static bool buy(ItemKey k, uint8_t n = 1) {
   if (!pet.spendWallet(price)) return false;
   bag.add(k, n);
   moneyOut += price;
+  *spendBucket += price;
   return true;
 }
 static void stockBalls() {
+  spendBucket = &outBalls;
   if (bag.count(IT_ULTRABALL) < 10 && pet.wallet > 20000) buy(IT_ULTRABALL, 5);
   if (bag.count(IT_GREATBALL) < 10 && pet.wallet > 6000) buy(IT_GREATBALL, 5);
   if (bag.count(IT_POKEBALL) < 10) buy(IT_POKEBALL, 5);
-  if (bag.count(IT_POTION) < 5 && pet.wallet > 3000) buy(IT_POTION, 3);
+  spendBucket = &outHeal;
+  if (bag.count(IT_SUPERPOTION) < 3 && pet.wallet > 5000) buy(IT_SUPERPOTION, 3);
+  spendBucket = &outBalls;
+}
+// What a player keeps: balls, 5 of each potion, 2 of each stone, every item it
+// uses (vitamins, X items, PP Up, cords). The rest goes back to the Mart.
+static void sellSpares() {
+  for (uint8_t i = 0; i < bag.distinctCount();) {
+    ItemKey k = bag.keyAt(i);
+    const ItemEntry &e = itemEntry(k);
+    uint8_t keep = e.category == IC_HEAL || e.category == IC_CURE ? 5 : e.category == IC_STONE ? 2 : 255;
+    uint8_t had = bag.distinctCount();
+    while (bag.count(k) > keep) {
+      uint32_t w0 = pet.wallet;
+      if (!martSellOne(k)) break;
+      inSold += pet.wallet - w0; moneyIn += pet.wallet - w0; nSold++;
+    }
+    if (bag.distinctCount() == had) i++;   // the row is still there: next one
+  }
+}
+// The bag screen, tapped as a person would (BAG_ROW_Y rows of 5 a page).
+static void tapBagItem(ItemKey k) {
+  uint8_t d = bag.distinctCount(), at = 0;
+  for (uint8_t i = 0; i < d; i++) if (bag.keyAt(i) == k) at = i;
+  bagOpen = true; bagPage = at / 5; render();
+  onTap(233, 112 + (at % 5) * 58 + 25);
+}
+static void closeBag() { bagOpen = false; partyOpen = false; vitPick = 0; ppUpWho = 0xFF; render(); }
+// A vitamin on `who` (-1 the live pet, else a party slot), through the ring.
+static bool vitaminOn(ItemKey k, int who) {
+  uint8_t before = bag.count(k);
+  tapBagItem(k);
+  if (party.count()) {
+    if (who < 0) onTap(233, 233);
+    else { int x, y; partySlotPos(who, &x, &y); onTap((int16_t)x, (int16_t)y); }
+  }
+  bool ok = bag.count(k) < before;
+  closeBag();
+  return ok;
+}
+static bool ppUpOnSlot(int who, int slot) {
+  uint8_t before = bag.count(IT_PPUP);
+  tapBagItem(IT_PPUP);
+  if (party.count()) {
+    if (who < 0) onTap(233, 233);
+    else { int x, y; partySlotPos(who, &x, &y); onTap((int16_t)x, (int16_t)y); }
+  }
+  render(); onTap(233, 112 + slot * 58 + 25);
+  bool ok = bag.count(IT_PPUP) < before;
+  closeBag();
+  return ok;
+}
+// Spending what is left over a reserve (balls, stones and cords come first, in
+// session()): X items before a gym, then vitamins on the team, then PP Ups on
+// the live pet's best move.
+static const uint32_t RESERVE = 30000;
+static void spendSurplus() {
+  if (pet.isEgg()) return;
+  spendBucket = &outX;
+  if (pet.wallet > RESERVE + 8000) {
+    if (bag.count(IT_XATTACK) < 3) buy(IT_XATTACK, 3 - bag.count(IT_XATTACK));
+    if (bag.count(IT_XSPATK) < 3) buy(IT_XSPATK, 3 - bag.count(IT_XSPATK));
+  }
+  // vitamins: the team member with the most headroom on a stat, a few a session
+  spendBucket = &outVit;
+  for (int n = 0; n < 4 && pet.wallet > RESERVE + itemEntry(IT_PROTEIN).price; n++) {
+    int bestWho = -2, bestGap = 0; ItemKey bestK = IT_PROTEIN;
+    auto look = [&](int who, uint8_t a, uint8_t d, uint8_t s, uint8_t ia, uint8_t id, uint8_t is) {
+      int g[3] = { Pet::trMaxFor(ia) - a, Pet::trMaxFor(id) - d, Pet::trMaxFor(is) - s };
+      static const ItemKey K[3] = { IT_PROTEIN, IT_IRON, IT_CARBOS };
+      for (int i = 0; i < 3; i++) if (g[i] > bestGap) { bestGap = g[i]; bestWho = who; bestK = K[i]; }
+    };
+    look(-1, pet.trAtk, pet.trDef, pet.trSpe, pet.ivAtk, pet.ivDef, pet.ivSpe);
+    for (int i = 0; i < PARTY_SLOTS; i++) {
+      const PartyMon &m = party.slots[i];
+      if (!m.empty()) look(i, m.trAtk, m.trDef, m.trSpe, m.ivAtk, m.ivDef, m.ivSpe);
+    }
+    if (bestWho == -2) { nVitMax++; break; }   // the whole team is trained to its ceiling
+    if (!bag.count(bestK) && !buy(bestK)) break;
+    if (vitaminOn(bestK, bestWho)) nVit++; else { nUiMiss++; break; }
+  }
+  // PP Up: only with real surplus, on the live pet's strongest move
+  spendBucket = &outPpUp;
+  if (pet.wallet > RESERVE + 100000) {
+    int slot = -1, pow = 0;
+    for (int i = 0; i < MOVE_SLOTS; i++) {
+      uint8_t mv = pet.moves[i];
+      if (!mv || mv >= MOVE_COUNT || ppUpsAt(pet.ppUps, i) >= PP_UPS_MAX) continue;
+      if (MOVE_TBL[mv].power > pow) { pow = MOVE_TBL[mv].power; slot = i; }
+    }
+    if (slot >= 0 && (bag.count(IT_PPUP) || buy(IT_PPUP))) {
+      if (ppUpOnSlot(-1, slot)) nPpUp++; else nUiMiss++;
+    }
+  }
+  spendBucket = &outBalls;
 }
 
 // ---- evolution ----------------------------------------------------------------------
@@ -309,14 +472,20 @@ static bool tendEvolution(const char *why) {
       int16_t t = pet.stoneTarget(s);
       if (!t || !chainHasUnregistered(t)) continue;
       ItemKey k = (ItemKey)(IT_FIRESTONE + s);
-      if (!bag.count(k)) { if (!buy(k)) continue; nStonesBought++; ev("\"ev\":\"buy_stone\",\"stone\":%u", s); }
+      if (!bag.count(k)) {
+        spendBucket = &outStones;
+        bool got = buy(k);
+        spendBucket = &outBalls;
+        if (!got) continue;
+        nStonesBought++; ev("\"ev\":\"buy_stone\",\"stone\":%u", s);
+      }
       stoneFromBag(k);
       break;
     }
   } else if (e.status == Pet::EVO_NEEDS_TRADE && e.target && chainHasUnregistered(e.target)) {
     if (pet.wallet >= itemEntry(IT_LINKCORD).price && pet.cordUse() == Pet::CORD_SOLO) {
       if (pet.spendWallet(itemEntry(IT_LINKCORD).price) && pet.applyCord()) {
-        moneyOut += itemEntry(IT_LINKCORD).price; nCords++; ev("\"ev\":\"cord\",\"dex\":%d", pet.speciesId);
+        moneyOut += itemEntry(IT_LINKCORD).price; outCords += itemEntry(IT_LINKCORD).price; nCords++; ev("\"ev\":\"cord\",\"dex\":%d", pet.speciesId);
       }
     }
   }
@@ -531,13 +700,19 @@ static void careFor() {
 static void session(int s) {
   screenOff = false; pet.setScreenOff(false);
   careFor();
-  pet.addSteps(P.steps / P.sessions);          // the walk since the last session
-  moneyIn += P.steps / P.sessions;
+  const DayPlan &D = plan();
+  {                                             // the walk since the last session
+    uint32_t w0 = pet.wallet;
+    pet.addSteps(D.steps / D.sessions);
+    moneyIn += pet.wallet - w0; inSteps += pet.wallet - w0;   // what landed (the cap)
+  }
+  sellSpares();
   stockBalls();
   tendEvolution("offered");
   if (P.swapIn) swapInEvolutions(2);
   raiseStored();                                // every profile: it is just choosing who to raise
-  int fights = P.fights / P.sessions;
+  spendSurplus();
+  int fights = D.fights / D.sessions;
   int gymFights = 0;                            // at most half the session's fights
   for (int f = 0; f < fights; f++) {
     if (pet.isEgg() || pet.ceremony != CER_NONE) break;
@@ -557,7 +732,7 @@ static void session(int s) {
       nFights++; nGym++;
       int res = playFight(false);
       bool won = pet.badgeMask(gr, hardNow) != before;
-      if (pet.wallet > w0) moneyIn += pet.wallet - w0;
+      if (pet.wallet > w0) { moneyIn += pet.wallet - w0; inPrize += pet.wallet - w0; }
       ev("\"ev\":\"gym\",\"r\":%u,\"i\":%u,\"hard\":%d,\"won\":%d,\"team\":%d,\"res\":%d",
          gr, gi, hardNow ? 1 : 0, won ? 1 : 0, teamLevel(3), res);
       // a loss: back off, longer each time in a row (1, 2, 4 ... 32 days), as a
@@ -620,7 +795,7 @@ static void session(int s) {
 }
 
 int main(int argc, char **argv) {
-  const char *prof = argc > 1 ? argv[1] : "regular";
+  const char *prof = argc > 1 ? argv[1] : "walker";
   uint32_t seedArg = argc > 2 ? (uint32_t)atoi(argv[2]) : 1;
   g_seed = seedArg;
   int days = argc > 3 ? atoi(argv[3]) : 365;
@@ -652,7 +827,7 @@ int main(int argc, char **argv) {
   int lastDay = -1;
   while (day() < days) {
     int h = hourOf();
-    for (uint8_t s = 0; s < P.sessions; s++)
+    for (uint8_t s = 0; s < plan().sessions; s++)
       if (h == sessionHour(s)) session(s);
     if (h == 22) {                               // bedtime: lights out, screen off
       if (!pet.isEgg() && !pet.sleeping) pet.toggleLight();
@@ -673,10 +848,17 @@ int main(int argc, char **argv) {
         ev("\"ev\":\"week\",\"reg\":%u,\"left\":%d,\"badges_easy\":%d,\"badges_hard\":%d,\"fights\":%d,\"wild\":%d,"
            "\"catch\":%d,\"miss\":%d,\"gym\":%d,\"gymwin\":%d,\"blackouts\":%d,\"farewells\":%d,\"evolves\":%d,"
            "\"stones_found\":%d,\"stones_bought\":%d,\"cords\":%d,\"swaps\":%d,\"wallet\":%u,\"in\":%llu,\"out\":%llu,"
-           "\"pet\":%d,\"lvl\":%u,\"raised\":%d",
+           "\"pet\":%d,\"lvl\":%u,\"raised\":%d,"
+           "\"in_steps\":%llu,\"in_prize\":%llu,\"in_sold\":%llu,\"out_balls\":%llu,\"out_stones\":%llu,"
+           "\"out_cords\":%llu,\"out_x\":%llu,\"out_vit\":%llu,\"out_ppup\":%llu,\"out_heal\":%llu,"
+           "\"sold\":%d,\"vit\":%d,\"vit_maxed\":%d,\"x_used\":%d,\"ppup\":%d,\"heal_used\":%d,\"ui_miss\":%d",
            registeredNow(), left, badgesE, badgesH, nFights, nWild, nCatch, nCatchFail, nGym, nGymWin, nBlack,
            nFarewell, nEvolve, nStonesFound, nStonesBought, nCords, nSwaps, pet.wallet,
-           (unsigned long long)moneyIn, (unsigned long long)moneyOut, pet.speciesId, pet.level(), nRaised);
+           (unsigned long long)moneyIn, (unsigned long long)moneyOut, pet.speciesId, pet.level(), nRaised,
+           (unsigned long long)inSteps, (unsigned long long)inPrize, (unsigned long long)inSold,
+           (unsigned long long)outBalls, (unsigned long long)outStones, (unsigned long long)outCords,
+           (unsigned long long)outX, (unsigned long long)outVit, (unsigned long long)outPpUp, (unsigned long long)outHeal,
+           nSold, nVit, nVitMax, nXUsed, nPpUp, nHealUsed, nUiMiss);
         fflush(stdout);
         if (left == 0) { ev("\"ev\":\"done\""); break; }
       }

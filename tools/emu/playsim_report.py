@@ -107,8 +107,13 @@ def summarise(path):
     out['totals'] = {k: last.get(k) for k in (
         'reg', 'left', 'badges_easy', 'badges_hard', 'fights', 'wild', 'catch', 'miss', 'gym',
         'gymwin', 'blackouts', 'farewells', 'evolves', 'stones_found', 'stones_bought', 'cords',
-        'swaps', 'wallet', 'in', 'out')}
-    out['weekly'] = [{k: w[k] for k in ('day', 'left', 'badges_easy', 'badges_hard', 'wallet', 'fights')}
+        'swaps', 'wallet', 'in', 'out', 'in_steps', 'in_prize', 'in_sold', 'out_balls', 'out_stones',
+        'out_cords', 'out_x', 'out_vit', 'out_ppup', 'out_heal', 'sold', 'vit', 'vit_maxed', 'x_used',
+        'ppup', 'heal_used', 'ui_miss')}
+    # the day the wallet first reached the cap, if it did
+    out['cap_day'] = next((w['day'] for w in weeks if w['wallet'] >= 999000), None)
+    out['weekly'] = [{k: w.get(k) for k in ('day', 'left', 'badges_easy', 'badges_hard', 'wallet', 'fights',
+                                            'in_steps', 'in_prize', 'in_sold', 'out')}
                      for w in weeks]
     # what never came: the goal is in the stream ('target', since the bot
     # learned to print it) or in --target FILE, a 'target' line saved apart

@@ -40,9 +40,11 @@ uint8_t ppMax(uint8_t move);
 // PP Ups (v3.92), the games' rule: each adds a fifth of the move's base PP,
 // rounded down, up to 3 (35 PP -> 42, 49, 56). A creature's Ups are packed two
 // bits a move SLOT (PartyMon::reserved[1], Pet::ppUps, Combatant::ppUps): the
-// slot keeps them if its move changes -- simpler than the games, which lose
-// them with a forgotten move, and it cannot drift between the many places a
-// move is written.
+// slot keeps them if its move changes, for good: any move put in that slot gets
+// the bonus. ACCEPTED BY THE OWNER (2026-10-30) as a storage limit, not the
+// intended rule -- PP Ups should belong to the MOVE. A creature stores only its
+// four move bytes (all 8 bits used) and one spare byte, so a per-move record
+// does not fit; if PartyMon ever grows, see CLAUDE.md "PP Up: per slot".
 #define PP_UPS_MAX 3
 uint8_t ppMaxFor(uint8_t move, uint8_t ups);
 inline uint8_t ppUpsAt(uint8_t packed, int slot) { return (uint8_t)((packed >> (2 * slot)) & 3); }

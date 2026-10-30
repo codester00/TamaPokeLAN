@@ -946,9 +946,23 @@ the base PP (it first spent 16 of 35, which no clamp touches).
   `PP_UPS_MAX` 3 (the games' rule). `ppMax()` stays the base. Packed two bits a
   move SLOT (`ppUpsAt()`, `ppUpAdd()`): `PartyMon::reserved[1]`, `Pet::ppUps`
   (pet checkpoint `PET_CORE_VERSION` 7, `PET_TAIL_PPUPS`), `Combatant::ppUps`.
-  **Per slot, kept when the slot's move changes** -- simpler than the games
-  (which lose them with a forgotten move) and it cannot drift between the many
-  places a move is written; flagged to the owner.
+  **Per slot, kept when the slot's move changes** -- any move placed in a slot
+  gets that slot's Ups, permanently. See "PP Up: per slot" below.
+- **PP Up: per slot, ACCEPTED FOR NOW** (owner, 2026-10-30). The owner wanted
+  PP Ups tied to the MOVE on that creature ("this Pikachu's TACKLE is boosted
+  for good"); they accepted per slot as a storage limit. Why it does not fit: a
+  creature stores only `moves[4]` (move indices 0-240, every bit used -- no
+  spare bits) and has no stored learned-move list (the picker derives it from
+  species, level and owned TMs). The one free byte, `PartyMon::reserved[2]`,
+  could name at most two boosted moves. Options weighed: (1) the games' rule --
+  a slot's Ups reset when its move changes, all move writers through one
+  function, no format change, but the free picker would throw $30,000 away on a
+  swap; (2) per move for good -- a list of ~8 (move, ups) pairs on the creature,
+  slot Ups derived at fight start, ~10-12 bytes more on `PartyMon` (§ 5:
+  party/PC read by stride already; the pet checkpoint appends; `TRADE_PROTO`
+  bump; `SAVE_IMPORT_MAX` hardcodes 64 and must use `sizeof(PartyMon)`).
+  **Whenever `PartyMon` grows for any other reason, raise moving PP Ups to
+  option 2 with the owner** -- the migration cost is then already being paid.
 - The PP book still stores USED; `ppLeft/ppLeftSlot/ppRecord` take the Ups and
   count from `ppMaxFor()`. `ppLoad()` clamps used to the 3-Up max, not the base
   (else a boosted move got PP back on every boot). Banking, `switchTo()`,

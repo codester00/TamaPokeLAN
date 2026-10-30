@@ -120,8 +120,10 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 
 1. ~~Selling, and fewer drops~~ **done in v3.90.**
 2. ~~New items~~ **done**: vitamins and X items in v3.91, PP Up in v3.92.
-   **For the owner**: PP Ups are kept per move SLOT, so a slot keeps its Ups
-   when its move changes (the games lose them with a forgotten move); asked.
+   **PP Ups are per move SLOT, accepted by the owner for now** (2026-10-30):
+   any move in a slot gets its Ups, for good. The owner's intended rule is per
+   MOVE; it does not fit the creature record. **If `PartyMon` grows for any
+   reason, raise it again** -- CLAUDE.md "PP Up: per slot" has the options.
 3. **Rerun the playthrough with realistic walking**: the board counts steps
    only while powered (screen off still counts), battery life is unmeasured,
    and children leave it home for school and sports. Profiles: school child
