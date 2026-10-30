@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.79"
+#define FW_VERSION "3.80"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -2232,6 +2232,28 @@ static void drawCreatureMark(bool cheated, int y) {
   gfx->print(t);
 }
 
+// The gender symbol (v3.80), drawn: the font has no glyph for it (non-ASCII is
+// banned). Blue mars, red venus, as in the games; centred on (cx, cy), r the
+// ring's radius. Nothing for GENDER_NONE.
+void drawGenderIcon(int cx, int cy, uint8_t g, int r) {
+  if (g == GENDER_MALE) {
+    const uint16_t c = 0x339C;   // (0x30, 0x70, 0xe0)
+    gfx->drawCircle(cx - 1, cy + 1, r, c);
+    gfx->drawCircle(cx - 1, cy + 1, r - 1, c);
+    int ax = cx - 1 + r * 7 / 10, ay = cy + 1 - r * 7 / 10;   // the arrow, up and right
+    gfx->drawLine(ax, ay, ax + r, ay - r, c);
+    gfx->drawLine(ax + 1, ay, ax + r + 1, ay - r, c);
+    gfx->drawFastHLine(ax + r - r / 2, ay - r, r / 2 + 2, c);
+    gfx->drawFastVLine(ax + r + 1, ay - r, r / 2 + 1, c);
+  } else if (g == GENDER_FEMALE) {
+    const uint16_t c = 0xE20A;   // (0xe0, 0x40, 0x50)
+    gfx->drawCircle(cx, cy - r / 2, r, c);
+    gfx->drawCircle(cx, cy - r / 2, r - 1, c);
+    gfx->fillRect(cx - 1, cy + r / 2, 2, r, c);                // the cross, below
+    gfx->fillRect(cx - r / 2, cy + r, r, 2, c);
+  }
+}
+
 void renderMonSheet(const PartyMon &m, bool fromBox) {
   const DexEntry &d = DEX_TBL[m.dex];
   gfx->fillScreen(RGB565_BLACK);
@@ -2243,6 +2265,7 @@ void renderMonSheet(const PartyMon &m, bool fromBox) {
   gfx->setTextSize(2);
   gfx->setCursor(CX - (int)strlen(head) * 6, 40);
   gfx->print(head);
+  drawGenderIcon(CX + (int)strlen(head) * 6 + 10, 47, creatureGender(m.dex, m.uid), 5);
   char ty[24];
   if (d.type2 == T_NONE) snprintf(ty, sizeof(ty), "%s", typeName(d.type1));
   else snprintf(ty, sizeof(ty), "%s/%s", typeName(d.type1), typeName(d.type2));
@@ -5549,6 +5572,9 @@ void renderCardProfile() {
   gfx->setTextSize(hts);
   gfx->setCursor(CX - hlen * (hts == 3 ? 9 : 6), hts == 3 ? 34 : 40);
   gfx->print(head);
+  // the gender (v3.80), just after the name
+  drawGenderIcon(CX + hlen * (hts == 3 ? 9 : 6) + (hts == 3 ? 12 : 10), hts == 3 ? 45 : 47,
+                 pet.gender(), hts == 3 ? 6 : 5);
   if (pet.nick[0]) {  // especie real bajo el apodo
     gfx->setTextColor(UI_INK_SOFT);
     gfx->setTextSize(2);

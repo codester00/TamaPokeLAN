@@ -935,6 +935,27 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1f.
 
+### Done: gender (v3.80, on the branch)
+
+Plan § E4. `gender_test`; six guards negative-checked. Nothing saved.
+
+- **`creatureGender(dex, uid)`** (pet.cpp) is THE gender: `DEX_GENDER_RATE`
+  (generated from PokeAPI's `gender_rate` by `fetch_species_rates.py` ->
+  `dex_rates.py` -> `gen_dex.py`) forces -1 none, 0 male, 8 female; anything
+  else is 50/50 by an FNV hash of the WHOLE `CreatureUid` (owner), never the
+  serial's parity (it alternates in hatch order -- negative-checked). No ID
+  (a wild foe) = none. `Pet::gender()` asks it for the live pet.
+- **`GENDER_EVOS`** (generated, same script, from `pokemon_evolution.csv`'s
+  level-up rows with a gender where the genders really differ): Burmy -> 413
+  F / 414 M, Combee -> 416 F, Salandit -> 758 F. `Pet::genderTarget()` gives
+  the target, -1 = the other gender's only (FINAL, so `evolutionAhead()` holds
+  no farewell). Asked inside `evoInfo()`, so the card, `evolve()` and the
+  farewell agree. `gen_dex.py` adds the targets to the evolution-only set
+  (Mothim stopped hatching); `dexdata_test` counts them as reachable.
+- **`drawGenderIcon()`** draws the symbols (the font has no glyphs): the
+  creature card's name line and `renderMonSheet()`. Kirlia's/Snorunt's Dawn
+  Stone come with the stones (v3.81).
+
 ### Done: chain levels and prize money (v3.79, on the branch)
 
 Plan § E11 and § E5's money (owner, 2026-10-29). `prize_test`, `dexdata_test`;

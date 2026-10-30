@@ -204,6 +204,10 @@ int main(){
     for (int i = 0; i < TRADE_EVO_COUNT; i++)
       if (TRADE_EVOS[i].to >= 1 && TRADE_EVOS[i].to <= DEX_COUNT)
         isTarget[TRADE_EVOS[i].to] = true;
+    // and so is a gender branch (v3.80): Mothim is Burmy's, for a male
+    for (int i = 0; i < GENDER_EVO_COUNT; i++)
+      if (GENDER_EVOS[i].to >= 1 && GENDER_EVOS[i].to <= DEX_COUNT)
+        isTarget[GENDER_EVOS[i].to] = true;
 
     int hatchable = 0;
     for (int16_t d = 1; d <= DEX_COUNT; d++)

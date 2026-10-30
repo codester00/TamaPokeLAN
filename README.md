@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.79-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.80-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -417,6 +417,16 @@ While **awake**:
 - Triggers when **level ≥ its evolution level** (16 for most base forms; ~25
   for friendship-style like GOLBAT → CROBAT, ~30 for stone-style) **and every
   stat ≥ 40** at that moment.
+- **Gender (v3.80).** Every creature has one, fixed by its own ID when it
+  hatches or is caught, so it never changes and travels with it in a trade.
+  The games' one-gender species are forced (Tauros and Hitmonlee always male,
+  Chansey and Jynx always female), the genderless ones have none (Magnemite,
+  Staryu, the legendaries), and everything else is **50/50**. The card and the
+  party sheet show it beside the name, blue ♂ or red ♀. It decides three
+  evolutions, as in the games: **BURMY** at 20 becomes WORMADAM if female and
+  MOTHIM if male; only a **female COMBEE** (21) becomes VESPIQUEN and only a
+  **female SALANDIT** (33) SALAZZLE -- a male one is a final form (its farewell
+  does not wait). MOTHIM no longer hatches from eggs.
 - **No chain evolves twice at once (v3.79).** Where a creature's second
   evolution sat at or below its first, it now comes **ten levels after the
   first**: URSALUNA 40 (Teddiursa → Ursaring at 30), MAMOSWINE 43 (33),

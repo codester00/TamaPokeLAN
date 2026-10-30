@@ -140,6 +140,14 @@ enum : uint16_t {
 };
 #define MED_COUNT 8
 
+// Gender (v3.80, plan § E4): hidden, decided by the creature's own ID so it
+// never changes, travels with trades, and needs nothing saved. The games'
+// one-gender and genderless species are forced (DEX_GENDER_RATE); every other
+// is 50/50 by a mixed bit of the WHOLE ID -- the serial alone counts up by one
+// per creature, so its parity would alternate in hatch order.
+enum : uint8_t { GENDER_NONE = 0, GENDER_MALE, GENDER_FEMALE };
+uint8_t creatureGender(int16_t dex, const CreatureUid &u);
+
 uint8_t moveUnlockLevel(int16_t dex, uint8_t idx);
 // The same question for one of the PLAYER's creatures (v3.51): a TM move is
 // learnable only once the player owns that TM, and then at any level. Level-up
@@ -705,6 +713,12 @@ public:
     bool byTrade;         // this evolution is the trade one
   };
   EvoInfo evoInfo() const;
+  // The creature's gender (v3.80): creatureGender() of its species and ID.
+  uint8_t gender() const { return isEgg() ? GENDER_NONE : creatureGender(speciesId, uid); }
+  // A gender-decided level evolution (GENDER_EVOS): the target this gender
+  // takes, -1 when only the other gender evolves (a male Combee is final), 0
+  // when the species has no such rule.
+  static int16_t genderTarget(int16_t dex, uint8_t gender);
   // What `dex` evolves into by trade (0 if it does not), given what it was
   // traded FOR -- Karrablast and Shelmet only for each other. CLAMPERL has two
   // trade targets; the creature's own ID picks one, so declining and re-asking

@@ -2056,3 +2056,11 @@ GENDER_RATE = {
     1024: 4,
     1025: -1,
 }
+
+# (from, to, gender, level): a level-up evolution only that gender takes
+GENDER_EVOS = [
+    (412, 413, 'F', 20),
+    (412, 414, 'M', 20),
+    (415, 416, 'F', 21),
+    (757, 758, 'F', 33),
+]

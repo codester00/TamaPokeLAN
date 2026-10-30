@@ -2078,6 +2078,11 @@ Pet::EvoInfo Pet::evoInfo() const {
   }
   if (d.evolvesTo == 0) return e;
   e.target = d.evolvesTo;   // EEVEE: evolve() picks the branch
+  // A gender-decided evolution (v3.80): Burmy splits, and a male Combee or
+  // Salandit is final -- its farewell then waits for nothing.
+  int16_t g = genderTarget(speciesId, gender());
+  if (g < 0) { e.target = 0; return e; }
+  if (g > 0) e.target = g;
   // Pure trade evolution, the owner's call: the table's level for these is
   // not a route here. POLIWHIRL and SLOWPOKE keep theirs -- trading reaches
   // their OTHER form, so onlyByTrade() is false for them.
@@ -2914,4 +2919,30 @@ uint32_t trainerPrize(uint8_t region, uint8_t idx, bool hard, bool firstWin) {
   if (!hard) pay /= 2;
   if (!firstWin) pay /= 2;
   return pay;
+}
+
+uint8_t creatureGender(int16_t dex, const CreatureUid &u) {
+  if (dex < 1 || dex > DEX_COUNT) return GENDER_NONE;
+  int8_t rate = DEX_GENDER_RATE[dex];
+  if (rate < 0) return GENDER_NONE;
+  if (rate == 0) return GENDER_MALE;
+  if (rate == 8) return GENDER_FEMALE;
+  if (!u.valid()) return GENDER_NONE;   // a creature with no ID yet (a wild foe)
+  uint32_t h = 2166136261u;             // FNV-1a over the whole ID, then mixed
+  for (uint8_t b : u.mac) h = (h ^ b) * 16777619u;
+  h = (h ^ (u.salt & 0xFF)) * 16777619u;
+  h = (h ^ (u.salt >> 8)) * 16777619u;
+  for (int k = 0; k < 4; k++) h = (h ^ ((u.serial >> (8 * k)) & 0xFF)) * 16777619u;
+  h ^= h >> 16; h *= 0x85EBCA6Bu; h ^= h >> 13;
+  return (h >> 7) & 1 ? GENDER_FEMALE : GENDER_MALE;
+}
+
+int16_t Pet::genderTarget(int16_t dex, uint8_t gender) {
+  bool any = false;
+  for (int i = 0; i < GENDER_EVO_COUNT; i++) {
+    if (GENDER_EVOS[i].from != dex) continue;
+    any = true;
+    if ((GENDER_EVOS[i].female != 0) == (gender == GENDER_FEMALE)) return GENDER_EVOS[i].to;
+  }
+  return any ? -1 : 0;
 }

@@ -11,6 +11,12 @@ fetch_weights.py does.
   The Safari ball (wild.cpp) runs the games' catch formula on it.
 - gender_rate is the games' eighths of a female: -1 genderless, 0 always male,
   8 always female, anything between has two genders.
+- GENDER_EVOS (v3.80), from pokemon_evolution.csv: the level-up evolutions
+  that depend on the creature's gender -- only those where the genders really
+  differ (Burmy splits, only a female Combee or Salandit evolves). Meowstic
+  and Oinkologne differ only in form here, so they are left out. Item
+  evolutions with a gender (Kirlia's and Snorunt's Dawn Stone) come with the
+  stones.
 
 Fails loudly rather than writing a partial table.
 """
@@ -23,6 +29,10 @@ import sys
 
 URL = ('https://raw.githubusercontent.com/PokeAPI/pokeapi/master/'
        'data/v2/csv/pokemon_species.csv')
+EVO_URL = ('https://raw.githubusercontent.com/PokeAPI/pokeapi/master/'
+           'data/v2/csv/pokemon_evolution.csv')
+LEVEL_UP = '1'                     # evolution_triggers.csv
+GENDER_NAME = {'1': 'F', '2': 'M'}  # genders.csv
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'dex_rates.py')
 
@@ -59,6 +69,32 @@ def main():
     lines.append('GENDER_RATE = {\n')
     lines += [f'    {n}: {gender[n]},\n' for n in range(1, DEX_COUNT + 1)]
     lines.append('}\n')
+
+    # The gender-decided level-up evolutions.
+    evo = subprocess.run(['curl', '-sSfL', EVO_URL], check=True,
+                         capture_output=True).stdout.decode('utf-8')
+    origin = {int(r['id']): int(r['evolves_from_species_id'] or 0)
+              for r in csv.DictReader(io.StringIO(raw))}
+    by_from = {}
+    for r in csv.DictReader(io.StringIO(evo)):
+        if r['gender_id'] and r['evolution_trigger_id'] == LEVEL_UP and not r['trigger_item_id']:
+            to = int(r['evolved_species_id'])
+            frm = origin[to]
+            if to <= DEX_COUNT:
+                by_from.setdefault(frm, set()).add(
+                    (to, GENDER_NAME[r['gender_id']], int(r['minimum_level'] or 0)))
+    rows = []
+    for frm, opts in sorted(by_from.items()):
+        if {g for _t, g, _l in opts} == {'F', 'M'} and len({t for t, _g, _l in opts}) == 1:
+            continue                     # both genders, one species: a form only
+        rows += sorted(opts)
+    if not rows:
+        sys.exit('no gender evolutions found -- not writing')
+    lines.append('\n# (from, to, gender, level): a level-up evolution only that gender takes\n')
+    lines.append('GENDER_EVOS = [\n')
+    for to, g, lvl in rows:
+        lines.append(f'    ({origin[to]}, {to}, {g!r}, {lvl}),\n')
+    lines.append(']\n')
     open(OUT, 'w').write(''.join(lines))
     print(f'wrote {OUT}: {len(catch)} species')
 

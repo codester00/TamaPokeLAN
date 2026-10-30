@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dex_data import DEX, TYPE_ACCENTS, CLASSIC, RARE, LEGENDARY, REGIONS, EEVEE_BRANCHES
 from dex_stats import BASE_STATS
 from dex_weights import WEIGHT_HG
-from dex_rates import CATCH_RATE
+from dex_rates import CATCH_RATE, GENDER_RATE, GENDER_EVOS
 from dex_trade import TRADE_EVOS
 from dex_types import TYPES, TYPE_ORDER, CHART
 
@@ -102,7 +102,8 @@ def main():
     # same rule as EEVEE's branches. Without this POLITOED, SLOWKING and
     # GOREBYSS, which nothing's evolvesTo points at, came out as hatchable bases.
     evolved = ({d[4] for d in DEX if d[4]} | set(EEVEE_BRANCHES) |
-               {to for _f, to, _p in TRADE_EVOS})
+               {to for _f, to, _p in TRADE_EVOS} |
+               {to for _f, to, _g, _l in GENDER_EVOS})
     rarities = []
     out.append("static const DexEntry DEX_TBL[DEX_COUNT + 1] = {\n")
     out.append('  { "?", 0, 0, 0, 0x2946, 50, 50, 50, 50, 50, 50, 0 },  // 0: sin usar\n')
@@ -142,6 +143,22 @@ def main():
     for num, *_ in DEX:
         out.append(("\n  " if num % 16 == 0 else " ") + f"{CATCH_RATE[num]},")
     out.append("\n};\n\n")
+    out.append("// The games' gender rate (v3.80): eighths female, -1 genderless, 0 all\n"
+               "// male, 8 all female. Anything between is 50/50 by the creature's ID\n"
+               "// (owner) -- creatureGender() in pet.cpp.\n")
+    out.append("static const int8_t DEX_GENDER_RATE[DEX_COUNT + 1] = {\n  -1,")
+    for num, *_ in DEX:
+        out.append(("\n  " if num % 16 == 0 else " ") + f"{GENDER_RATE[num]},")
+    out.append("\n};\n\n")
+    out.append("// Level-up evolutions only one gender takes (v3.80), from PokeAPI via\n"
+               "// tools/fetch_species_rates.py: Burmy splits, a male Combee or Salandit\n"
+               "// never evolves. The level is the species' own evolveLevel.\n")
+    out.append("struct GenderEvo {\n  int16_t from, to;\n  uint8_t female;\n};\n")
+    out.append("#define GENDER_EVO_COUNT %d\n" % len(GENDER_EVOS))
+    out.append("static const GenderEvo GENDER_EVOS[GENDER_EVO_COUNT] = {\n")
+    for f, t, g, _l in GENDER_EVOS:
+        out.append(f"  {{ {f}, {t}, {1 if g == 'F' else 0} }},\n")
+    out.append("};\n\n")
     out.append("// Evolutions that happen by TRADE, from PokeAPI via tools/fetch_trade_evos.py.\n"
                "// Where `to` is the species' own evolvesTo, trading is its ONLY route: the\n"
                "// level in the table is not used (see Pet::evoInfo()). partner, if set, is the\n"
