@@ -35,7 +35,7 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 ---
 
-## 1g. START HERE -- handoff as of v3.84 (2026-10-30)
+## 1g. START HERE -- handoff as of v3.85 (2026-10-30)
 
 This section is the description of the repo today; § 1f below (v3.74) is the
 stretch before it and its "How the owner works", decisions, lessons and known
@@ -46,10 +46,10 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 
 | | |
 |---|---|
-| Version | **3.84** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.84 |
+| Version | **3.85** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.85 |
 | `main` | still at v3.74 (`6abaf47`). Nothing since is merged; the installer serves v3.74 |
-| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.84 on top of `main` (one commit per version) |
-| On a board | **None of v3.75-v3.84 has run on a board.** All emulator-only |
+| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.85 on top of `main` (one commit per version) |
+| On a board | **None of v3.75-v3.85 has run on a board.** All emulator-only |
 | Tests | 91 `*_test.cpp` suites. `run.sh` recompiles the whole sketch per suite (over an hour in a cloud container); compiling the shared sources once and the suites in parallel takes minutes |
 | Formats | `LINK_PROTO` 9, **`TRADE_PROTO` 3** (v3.83), `MOVE_COUNT` 241, pet checkpoint **`PET_CORE_VERSION` 6** (v3.83), player checkpoint **`PLAYER_VERSION` 10** (v3.77), `SAVE_VERSION` 2, `SET_COUNT` 13 |
 | Plan | `docs/explore-specialty-build-plan.md` revision 8 -- everything the owner decided in it is built, except what "Left" says below |
@@ -81,6 +81,9 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 - **v3.84** Stones drop in the wild only in the areas the four decompiled
   games leave them (37 areas, ~1 win in 10 there); Unova onward, the Ice Stone
   and the Black Augurite stay Mart-only.
+- **v3.85** Stones in every region (Unova onward from Bulbapedia's item pages,
+  NOT VERIFIED, the parser checked against the decomps), the Ice Stone found
+  too; one win in 25 instead of ~1 in 10; Safari areas' stones come with a catch.
 
 ### Left from the plan, and open questions for the owner
 
@@ -89,7 +92,7 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 - **Offered, not answered**: a second Kecleon one-off on Route 119 (Emerald
   has seven Kecleon; v3.77 placed the Route 120 one whose script sets the
   level).
-- **Merge and installer**: v3.75-v3.84 wait for the owner's "push to main and
+- **Merge and installer**: v3.75-v3.85 wait for the owner's "push to main and
   update the installer" (`bash tools/build_web.sh` after the last edit, then
   fast-forward `main`). Tagging is still held on Actions minutes.
 - **Board checks wanted first**: a Safari encounter by hand (the four cells,
@@ -105,6 +108,9 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
   script sets a level; Kanto's only ground Leaf Stones are in the Safari Zone,
   where nothing is won. Read the source before writing the rule, and let the
   generator refuse what it cannot place (`stone_areas()`, `fixed_encounters()`).
+- **Check a scraped source against a known one.** Bulbapedia's stone tables
+  agree with the decomps for four regions, which is what lets them stand for the
+  other five; the check found one entry that is really a gift (Mossdeep).
 - **A test's earlier decline leaks into the next check.** branch_test's Nincada
   would not evolve because a KEEP had set the declined level; clear pending
   offers and raise the level past it.

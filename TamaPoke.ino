@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.84"
+#define FW_VERSION "3.85"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -6520,26 +6520,21 @@ static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
 void wildGrantDrops() {   // not static: tm_test drives it
   wildDropN = 0;
   uint8_t n = wildDropCount(btlHard, (uint8_t)random(100));
-  // The area's evolution stones (v3.84) are one more band of the draw, there
-  // only: a stone already found this win is out of it, like any item.
-  uint8_t st[EVO_STONE_COUNT];
-  uint8_t ns = wildAreaNow == WILD_NO_AREA ? 0 : wildAreaStones(wildAreaNow, st, EVO_STONE_COUNT);
   for (uint8_t i = 0; i < n && i < 4; i++) {
-    ItemKey left[EVO_STONE_COUNT];
-    uint8_t nl = 0;
-    for (uint8_t j = 0; j < ns; j++) {
-      ItemKey s = (ItemKey)(IT_FIRESTONE + st[j]);
-      bool had = false;
-      for (uint8_t d = 0; d < wildDropN; d++) if (wildDrops[d] == s) had = true;
-      if (!had) left[nl++] = s;
-    }
-    uint32_t items = bag.weightTotal(wildDrops, wildDropN);
-    uint32_t total = items + (nl ? WILD_STONE_DROP_WEIGHT : 0);
+    uint32_t total = bag.weightTotal(wildDrops, wildDropN);
     if (!total) break;
-    uint32_t roll = (uint32_t)random(total);
-    ItemKey k = roll < items ? bag.weightedDrop(roll, wildDrops, wildDropN)
-                             : left[random(nl)];
+    ItemKey k = bag.weightedDrop((uint32_t)random(total), wildDrops, wildDropN);
     if (!k) break;
+    bag.add(k);
+    wildDrops[wildDropN++] = k;
+    btlSay(T(S_FOUND_ITEM), itemEntry(k).name);
+  }
+  // An evolution stone, only where the games leave one (v3.84, one roll a win
+  // since v3.85). A catch is a win too, so a Safari area's stones come with a
+  // catch -- the only way a Safari encounter is won.
+  int stone = wildStoneFind(wildAreaNow, (uint8_t)random(100), (uint32_t)random(65536));
+  if (stone >= 0 && wildDropN < 4) {
+    ItemKey k = (ItemKey)(IT_FIRESTONE + stone);
     bag.add(k);
     wildDrops[wildDropN++] = k;
     btlSay(T(S_FOUND_ITEM), itemEntry(k).name);

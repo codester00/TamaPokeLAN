@@ -39,6 +39,15 @@ NAME_MAX = 16
 # list stays short.
 KANTO = {
     'region': 0,
+    'bulba': {'rows': [['FRLG']],
+              # Where a Bulbapedia name is not an area's map. Bulbapedia is read for
+              # this region only to check the parser against the decomp (v3.85).
+              'places': {
+                  'Kanto Power Plant': ('POWER PLANT', 'POWER_PLANT'),
+                  'Team Rocket Hideout': (None, 'Celadon has no area (decomp: the same)'),
+                  'Joyful Game Corner': (None, 'Celadon has no area; no map item in the decomp'),
+                  'Ruin Valley': ('SIX ISLAND', 'SIX_ISLAND_RUIN_VALLEY'),
+              }},
     'source': 'frlg',
     # The best rod's catch is held back until the badge the game hands the rod
     # out at, the same gate rule an area or a legendary has -- and, by the
@@ -188,6 +197,7 @@ KANTO = {
 # KANTO files but are the road to Johto's own Elite Four, so they are Johto's.
 JOHTO = {
     'region': 1,
+    'bulba': {'rows': [['GSC']], 'versions': {'C'}},
     'source': 'crystal',
     # Crystal's Super Rod is handed out on Kanto's Route 12, which a Johto
     # player only reaches after the champion.
@@ -290,6 +300,11 @@ JOHTO = {
 # champion.
 HOENN = {
     'region': 2,
+    'bulba': {'rows': [['RSE']],
+              'places': {
+                  'Meteor Falls': ('METEOR FALLS', 'METEOR_FALLS_1F_1R'),
+                  'Mossdeep Space Center': (None, 'a man gives it (giveitem in its script): not a find'),
+              }},
     'source': 'emerald',
     # Emerald's Super Rod is in a Mossdeep house, reached after Winona.
     'super_rod': {'gate': 6, 'script': 'MossdeepCity_House3'},
@@ -419,6 +434,17 @@ HOENN = {
 # Snowpoint Temple are after the champion.
 SINNOH = {
     'region': 3,
+    'bulba': {'rows': [['DPPt']], 'versions': {'Pt'},
+              'places': {
+                  'Solaceon Ruins': ('SOLACEON RUINS', 'its dead ends'),
+                  'Floaroma Meadow': ('ROUTE 205', 'as the decomp table places it'),
+                  'Mt. Coronet/moon-stone': ('MT. CORONET PEAK', 'MT_CORONET_OUTSIDE_NORTH'),
+                  'Mount Coronet/sun-stone': ('MT. CORONET PEAK', 'MT_CORONET_4F_ROOMS_1_AND_2'),
+                  'Mount Coronet/dawn-stone': ('MT. CORONET', 'MT_CORONET_1F_SOUTH'),
+                  'Route 210': ('ROUTE 210 NORTH', 'ROUTE_210_NORTH'),
+                  'Team Galactic HQ': ('ROUTE 215', 'the Veilstone warehouse, as the decomp table places it'),
+                  'Victory Road': ('VICTORY RD BACK', 'VICTORY_ROAD_1F_ROOM_2'),
+              }},
     'source': 'platinum',
     # Platinum's Super Rod is the Fight Area's fisherman, in the Battle Zone.
     'super_rod': {'gate': GATE_CHAMPION, 'script': 'fight_area'},
@@ -592,6 +618,11 @@ SINNOH = {
 # Dreamyard, Pinwheel Forest, Icirrus, Twist Mountain, Dragonspiral Tower.
 UNOVA = {
     'region': 4,
+    'bulba': {'rows': [['B2W2']],
+              'places': {
+                  'Lentimas Town': ('REVERSAL MTN', 'Lentimas lies past Reversal Mountain'),
+                  'Nimbasa City': ('ROUTE 5', 'Nimbasa\'s road west, to Driftveil'),
+              }},
     'source': 'pokeapi-b2w2',
     'versions': ['black-2', 'white-2'],
     'pokeapi_region': 5,
@@ -693,6 +724,10 @@ UNOVA = {
 # Victory Road. Terminus Cave opens with Olympia, Zygarde after the champion.
 KALOS = {
     'region': 5,
+    'bulba': {'rows': [['XY']],
+              'places': {
+                  'Anistar City': ('ROUTE 17', 'Anistar is reached by Route 17'),
+              }},
     'source': 'pokeapi-xy',
     'versions': ['x', 'y'],
     'pokeapi_region': 6,
@@ -762,6 +797,10 @@ KALOS = {
 # Nanu, whose grand trial sends you there in the game.
 ALOLA = {
     'region': 6,
+    'bulba': {'rows': [['SMUSUM'], ['SM']], 'versions': {'S', 'M'},
+              'places': {
+                  'Po Town': ('ROUTE 17', 'Po Town is reached by Route 17'),
+              }},
     'source': 'pokeapi-sm',
     'versions': ['sun', 'moon'],
     'pokeapi_region': 7,
@@ -899,6 +938,14 @@ ALOLA = {
 # first (checked against the data, 2026-10-21).
 GALAR = {
     'region': 7,
+    'bulba': {'rows': [['SwSh']],
+              'places': {
+                  'Route 2': ('ROUTE 2', 'the route, not its lake'),
+                  'Turffield': ('ROUTE 4', 'Turffield is at the end of Route 4'),
+                  'Route 8': ('ROUTE 8', 'the route, not Steamdrift Way'),
+                  'Stow-on-Side': ('ROUTE 6', 'Stow-on-Side is at the end of Route 6'),
+                  'Route 9': ('ROUTE 9', 'the route, not its bay or Spikemuth'),
+              }},
     'source': 'pokeapi-swsh',
     'versions': ['sword', 'shield'],
     'pokeapi_region': 8,
@@ -1000,6 +1047,11 @@ GALAR = {
 # them there anyway. No fishing in Paldea, so no rod to wait for.
 PALDEA = {
     'region': 8,
+    'bulba': {'rows': [['SV']],
+              'places': {
+                  'Cascarrafa': ('WEST PROV. 2', 'Cascarrafa stands in West Province (Area Two)'),
+                  'Levincia': ('EAST PROV. 3', 'Levincia borders East Province (Area Three)'),
+              }},
     'source': 'pkhex-sv',
     'pkhex_max_location': 132,     # Kitakami and Blueberry start here: egg-only
     'area_zero': 'Area Zero',      # its spawns are the table's a_w23 fields

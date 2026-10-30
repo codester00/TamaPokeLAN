@@ -619,6 +619,13 @@ uint8_t wildAreaStones(uint16_t area, uint8_t *out, uint8_t max) {
   return n;
 }
 
+int wildStoneFind(uint16_t area, uint8_t roll, uint32_t pick) {
+  if (area == WILD_NO_AREA || roll >= WILD_STONE_PCT) return -1;
+  uint8_t st[16];
+  uint8_t n = wildAreaStones(area, st, sizeof(st));
+  return n ? st[pick % n] : -1;
+}
+
 uint8_t wildSwarmLevel(uint8_t i, uint32_t roll) {
   if (i >= WILD_SWARM_COUNT) return 1;
   const WildSwarm &s = WILD_SWARMS[i];

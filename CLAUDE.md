@@ -935,6 +935,31 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: stones in every region, rarer, and in the Safari (v3.85, on the branch)
+
+Owner, 2026-10-30. `stonedrop_test` (rewritten); three firmware guards and two
+generator refusals negative-checked.
+
+- **Unova onward from Bulbapedia** (NOT VERIFIED): only its MediaWiki API answers
+  scripted requests (`BULBA` in gen_wild.py; the pages 403, Serebii does not
+  resolve). `bulba_rows()` reads each stone page's `ItemAvailability` tables;
+  only the SECOND column (found in the field) is read. `bulba_places()` drops a
+  place with a note other than a count (gifts, rewards), plain text, and a
+  version tag (`{{sup/N|...}}`, `BULBA_TAG`) outside the region's `versions`;
+  an unknown tag or template refuses. Each region's `'bulba'` in wild_areas.py
+  names its game rows (base game only: no IA/CT/TM/ID) and `places` -- a name
+  (or `name/stone-slug`) that matches no area's maps, or several, must be placed
+  there or the generator refuses.
+- **The parser is checked against the decomps**: for Kanto to Sinnoh Bulbapedia
+  is read too and must agree with the map scan area for area (`stone_areas()`;
+  a difference must be listed in `'known'` with a reason -- none today). It
+  caught Emerald's Mossdeep Sun Stone, which Bulbapedia lists as a find and
+  the script `giveitem`s. 128 stone areas; only the Black Augurite is Mart-only.
+- **One roll a win**: `wildStoneFind(area, roll, pick)` = `WILD_STONE_PCT` (4,
+  one in 25, either difficulty), on top of the item draws -- the v3.84 band of
+  weight 9 gave ~9% easy and more on hard. **Safari areas keep their finds**;
+  a catch calls `wildGrantDrops()` like a win, so their stones come with a catch.
+
 ### Done: stones in the wild (v3.84, on the branch)
 
 Plan § E5. `stonedrop_test`; three firmware guards and two generator

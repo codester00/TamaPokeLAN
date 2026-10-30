@@ -1279,12 +1279,12 @@ def stone_finds(src, refresh=False):
     return out
 
 
-def stone_areas(areas, refresh=False):
-    """(area, stone, [where]) for every area a stone is found in (v3.84), sorted.
-    A find on a map no area holds must be placed by the region's 'stones' table
-    in tools/wild_areas.py -- an area name, or None with a reason -- or this
-    refuses, so nothing is dropped by accident. A find in a Safari area is left
-    out (a Safari encounter is never won, so nothing drops there)."""
+def decomp_stone_areas(areas, refresh=False):
+    """{(area, stone): [where]} for the four decompiled regions (v3.84). A find
+    on a map no area holds must be placed by the region's 'stones' table in
+    tools/wild_areas.py -- an area name, or None with a reason -- or this
+    refuses, so nothing is dropped by accident. A Safari area keeps its finds:
+    there a stone comes with a catch (v3.85)."""
     found = {}
     for reg in WA.REGIONS:
         src = reg['source']
@@ -1308,14 +1308,226 @@ def stone_areas(areas, refresh=False):
             else:
                 sys.exit('gen_wild: a %s on %s (%s), which no area holds: place it in %s\'s '
                          '\'stones\' table' % (it, mp, src, reg['source']))
-            if areas[i]['mode']:
-                print('gen_wild: %s on %s is in Safari area %r -- left out' % (it, mp, areas[i]['name']))
-                continue
             st = EVO_STONES.index(STONE_CONST[it])
             found.setdefault((i, st), []).append('%s %s' % (mp, kind))
         for mp in table:
             if mp not in used:
                 sys.exit('gen_wild: stones table entry %s matches no find' % mp)
+    return found
+
+
+# Bulbapedia (v3.85): where each stone lies in the field, for the regions no
+# decomp covers. Only the MediaWiki API answers scripted requests (the pages
+# themselves return 403). Facts only -- place names -- never its prose.
+BULBA = ('https://bulbapedia.bulbagarden.net/w/api.php?action=parse&page=%s'
+         '&prop=wikitext&format=json&redirects=1')
+BULBA_PAGE = {'fire-stone': 'Fire_Stone', 'water-stone': 'Water_Stone',
+              'thunder-stone': 'Thunder_Stone', 'leaf-stone': 'Leaf_Stone',
+              'moon-stone': 'Moon_Stone', 'sun-stone': 'Sun_Stone',
+              'shiny-stone': 'Shiny_Stone', 'dusk-stone': 'Dusk_Stone',
+              'dawn-stone': 'Dawn_Stone', 'ice-stone': 'Ice_Stone',
+              'black-augurite': 'Black_Augurite'}
+# A {{sup/N|TAG}} after a place says which versions have it there.
+BULBA_TAG = {'C': {'C'}, 'DP': {'D', 'P'}, 'Pt': {'Pt'}, 'SM': {'S', 'M'},
+             'USUM': {'US', 'UM'}, 'M': {'M'}, 'UM': {'UM'}, 'SUS': {'S', 'US'}}
+
+
+def bulba_rows(text):
+    """The rows of a stone page's acquisition tables: (games, field cell). The
+    second column is where the item lies in the field (item balls and hidden
+    items); the third (held items, Pickup, prizes) is never read."""
+    out = []
+    i = text.find('{{ItemAvailability/head')
+    while i >= 0:
+        ends = [x for x in (text.find('|}', i), text.find('{{ItemAvailability/foot', i)) if x >= 0]
+        end = min(ends) if ends else len(text)
+        for r in re.split(r'\n\|-[^\n]*', text[i:end])[1:]:
+            cells = re.split(r'\n\|(?!\})', '\n' + r.strip('\n'))[1:]
+            if len(cells) >= 2:
+                out.append((tuple(re.findall(r'gameabbrev[0-9a-z]*\|([A-Za-z0-9]+)', cells[0])),
+                            cells[1].strip()))
+        i = text.find('{{ItemAvailability/head', end)
+    return out
+
+
+def split_top(seg):
+    """Split a cell at its top-level commas and ' and ' (not inside [[ ]], {{ }}, ( ))."""
+    parts, depth, cur, k = [], 0, '', 0
+    while k < len(seg):
+        c2 = seg[k:k + 2]
+        if c2 in ('[[', '{{'):
+            depth += 1; cur += c2; k += 2; continue
+        if c2 in (']]', '}}'):
+            depth -= 1; cur += c2; k += 2; continue
+        if seg[k] == '(':
+            depth += 1
+        elif seg[k] == ')':
+            depth -= 1
+        if depth == 0 and (seg[k] == ',' or seg.startswith(' and ', k)):
+            parts.append(cur)
+            cur = ''
+            k += 1 if seg[k] == ',' else 5
+            continue
+        cur += seg[k]
+        k += 1
+    parts.append(cur)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def bulba_places(cell, versions, page):
+    """The place names in a field cell that hold in `versions` (None = every
+    version). A place with a note in brackets other than a count -- a gift, a
+    reward -- is not a find, nor is a line of plain text."""
+    out = []
+    for seg in re.split(r'<br\s*/?>', cell):
+        for part in split_top(seg):
+            tags = re.findall(r'\{\{sup/\d\|([^}]*)\}\}', part)
+            for t in tags:
+                if t not in BULBA_TAG:
+                    sys.exit('gen_wild: %s: unknown version tag %r' % (page, t))
+            if tags and versions is not None and not set().union(*(BULBA_TAG[t] for t in tags)) & versions:
+                continue
+            bare = re.sub(r'\{\{sup/\d\|[^}]*\}\}', '', part)
+            outside = re.sub(r'\[\[[^\]]*\]\]|\{\{[^}]*\}\}', '', bare)   # a link may hold brackets
+            notes = re.findall(r'\(([^()]*)\)', outside)
+            if any(not re.fullmatch(r'[\s×x0-9,]*', n) for n in notes):
+                continue                          # (from Bill's grandfather), (reward for ...)
+            for n in re.findall(r'\([^()]*\)', outside):
+                bare = bare.replace(n, '')
+            bare = bare.strip()
+            m = (re.match(r'^(?:\[\[Route\]\]s )?\{\{rtn?\|(\d+)\|[^}]*\}\}$', bare) or
+                 None)
+            if m:
+                out.append('Route ' + m.group(1)); continue
+            m = re.match(r'^\{\{(?:ka|jo|ho|si|un|kl|al|ga|pa)\|([^}|]*)\}\}$', bare)
+            if m:
+                out.append(m.group(1)); continue
+            m = re.match(r'^\{\{OBP\|([^}|]*)\|[^}]*\}\}$', bare) or re.match(r'^\{\{FB\|[^}|]*\|([^}|]*)\}\}$', bare)
+            if m:
+                out.append(m.group(1)); continue
+            if re.match(r'^\{\{safari\|[^}]*\}\}$', bare):
+                out.append('Safari Zone'); continue
+            m = re.match(r'^\[\[([^\]|]*)(?:\|[^\]]*)?\]\]$', bare)
+            if m:
+                out.append(m.group(1)); continue
+            if not bare.startswith(('[[', '{{')):
+                continue                          # plain text: "Reward for registering ...", "Purchased by ..."
+            sys.exit('gen_wild: %s: cannot read the place %r' % (page, part))
+    return out
+
+
+def norm_name(name):
+    return re.sub(r'[^A-Z0-9]', '', name.upper().replace('É', 'E'))
+
+
+def bulba_candidates(reg, areas, name):
+    """The areas of `reg` whose maps a Bulbapedia place name names."""
+    hits = set()
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower().replace('é', 'e').replace("'", '')).strip('-')
+    nn = norm_name(name)
+    for i, a in enumerate(areas):
+        if a['region'] != reg['region']:
+            continue
+        for mp in a['maps']:
+            base = mp.split('/')[0]
+            if reg['source'].startswith('pokeapi'):
+                pre = base[:-len(slug) - 1] if base.endswith('-' + slug) else None
+                if base == slug or pre in ('unova', 'kalos', 'alola', 'galar'):
+                    hits.add(i)
+            elif reg['source'] == 'pkhex-sv':
+                if mp == name:
+                    hits.add(i)
+            else:
+                mn = mp.replace('_', '')
+                # ROUTE21 must not take ROUTE210; MTCORONET does take MTCORONET1FSOUTH
+                if mn == nn or (mn.startswith(nn) and not (nn[-1].isdigit() and mn[len(nn)].isdigit())):
+                    hits.add(i)
+    return hits
+
+
+def bulba_stone_areas(areas, refresh=False):
+    """{region: {(area, stone): [place]}} from Bulbapedia, for every region with
+    a 'bulba' entry. A place name that names no area, or more than one, must be
+    placed by the entry's 'places' (an area name, a list of them, or None with a
+    reason) or this refuses; an entry that matches nothing refuses too."""
+    pages = {}
+    for st, slug in enumerate(EVO_STONES):
+        text = json.loads(fetch(BULBA % BULBA_PAGE[slug], 'bulba_%s.json' % BULBA_PAGE[slug],
+                                refresh))['parse']['wikitext']['*']
+        pages[st] = bulba_rows(text)
+    out = {}
+    for reg in WA.REGIONS:
+        cfg = reg.get('bulba')
+        if not cfg:
+            continue
+        names = {a['name']: i for i, a in enumerate(areas) if a['region'] == reg['region']}
+        places = cfg.get('places', {})
+        used = set()
+        found = {}
+        for st, rows in pages.items():
+            for games, cell in rows:
+                if games not in [tuple(g) for g in cfg['rows']]:
+                    continue
+                for name in bulba_places(cell, cfg.get('versions'), BULBA_PAGE[EVO_STONES[st]]):
+                    key = name + '/' + EVO_STONES[st]       # one stone's spot in a big place
+                    if key not in places:
+                        key = name
+                    if key in places:
+                        used.add(key)
+                        place = places[key][0]
+                        if place is None:
+                            continue
+                        hit = set()
+                        for pl in (place if isinstance(place, list) else [place]):
+                            if pl not in names:
+                                sys.exit('gen_wild: bulba places name unknown area %r' % pl)
+                            hit.add(names[pl])
+                    else:
+                        hit = bulba_candidates(reg, areas, name)
+                        if len(hit) != 1:
+                            sys.exit('gen_wild: Bulbapedia\'s %s for %s names %d areas of region %d: '
+                                     'place it in that region\'s bulba places'
+                                     % (name, EVO_STONES[st], len(hit), reg['region']))
+                    for i in hit:
+                        found.setdefault((i, st), []).append(name)
+        for name in places:
+            if name not in used:
+                sys.exit('gen_wild: bulba places entry %r matches no place' % name)
+        out[reg['region']] = found
+    return out
+
+
+def stone_areas(areas, refresh=False):
+    """(area, stone, [where]) for every area a stone is found in, sorted: the
+    decomp's map scan for Kanto to Sinnoh, Bulbapedia for Unova onward (NOT
+    VERIFIED). For the decomp regions Bulbapedia is read too and must agree,
+    area for area, but for the differences each region's bulba 'known' lists
+    with a reason -- that is what says the parser can be trusted elsewhere."""
+    decomp = decomp_stone_areas(areas, refresh)
+    bulba = bulba_stone_areas(areas, refresh)
+    found = dict(decomp)
+    for reg in WA.REGIONS:
+        r = reg['region']
+        if r not in bulba:
+            continue
+        b = bulba[r]
+        if reg['source'] in GEN3 or reg['source'] in ('crystal', 'platinum'):
+            d = {k for k in decomp if areas[k[0]]['region'] == r}
+            known = reg['bulba'].get('known', {})
+            seen = set()
+            for k in sorted(d ^ set(b)):
+                key = '%s %s' % (areas[k[0]]['name'], EVO_STONES[k[1]])
+                if key not in known:
+                    sys.exit('gen_wild: Bulbapedia and the decomp disagree on %s (%s): '
+                             'fix the parser or list it in that region\'s bulba known'
+                             % (key, 'decomp only' if k in d else 'Bulbapedia only'))
+                seen.add(key)
+            for key in known:
+                if key not in seen:
+                    sys.exit('gen_wild: bulba known %r is no longer a difference' % key)
+        else:
+            for k, where in b.items():
+                found[k] = ['Bulbapedia: ' + w for w in where]
     return [(i, st, where) for (i, st), where in sorted(found.items())]
 
 
