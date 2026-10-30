@@ -138,6 +138,9 @@ bool sdSerialCommand(const String &) { return false; }
 // --- RTC / battery / PMU ---
 static uint32_t g_epoch = 0;
 bool rtcBegin() { return true; }
+// clock.cpp's 64-bit clock; a test that keeps its own millis() and does not link
+// clock.cpp (sprite_test) gets this stand-in, which wraps as millis() does.
+__attribute__((weak)) uint64_t emuMillis64() { return millis(); }
 uint32_t rtcEpoch() { return g_epoch + (uint32_t)(emuMillis64() / 1000); }
 void rtcSetEpoch(uint32_t e) { g_epoch = e - (uint32_t)(emuMillis64() / 1000); }
 bool batBegin() { return true; }
