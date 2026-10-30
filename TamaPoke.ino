@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.88"
+#define FW_VERSION "3.89"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -359,6 +359,7 @@ bool boxViewAt(uint16_t idx, PartyMon &out);
 bool boxViewSwap(uint8_t partyIdx, uint16_t idx);
 bool boxViewRelease(uint16_t idx);
 uint8_t ownedCount(int16_t dex);
+bool dexObtained(int16_t dex);
 // The hidden screens (v3.59), defined beside the halls but reached from the
 // gesture handlers and the Memory game well above and below them.
 extern bool codesOpen;
@@ -11537,6 +11538,22 @@ uint8_t ownedCount(int16_t dex) {
   return n > 255 ? 255 : (uint8_t)n;
 }
 
+// The Pokedex's filled entry (owner, v3.89): the species has been the player's.
+// Raised (registered), held right now, or a legendary or one-off already caught
+// -- the ones that do not come back if traded away; their caught bits are
+// saved already, so this needs no new save data. An ordinary species released
+// or traded away to the last one goes back to its silhouette, and is easy to
+// meet again. The green dot is registered: raised and fully logged.
+bool dexObtained(int16_t dex) {
+  if (dex < 1 || dex > DEX_COUNT) return false;
+  if (pet.isRegistered(dex) || ownedCount(dex)) return true;
+  for (uint8_t i = 0; i < wildLegendCount(); i++)
+    if (wildLegendDex(i) == dex && pet.legendCaught(i)) return true;
+  for (uint8_t i = 0; i < wildFixedCount(); i++)
+    if (wildFixedDex(i) == dex && pet.fixedCaught(i)) return true;
+  return false;
+}
+
 // The first boot of v3.61 moves the NVS box into the PC, once. Each creature
 // already in the PC (a power cut part-way through an earlier attempt) is
 // skipped, so it cannot arrive twice. What does not fit -- more than six of a
@@ -12298,7 +12315,7 @@ void renderGallery() {
     gfx->fillScreen(RGB565_BLACK);
     gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
     const DexEntry &d = DEX_TBL[galleryDetail];
-    bool reg = pet.isRegistered(galleryDetail);
+    bool reg = dexObtained(galleryDetail);   // name and colour once it is yours (v3.89)
     char head[24];
     snprintf(head, sizeof(head), "N.%03d %s%s", galleryDetail,
              pet.isShinyRegistered(galleryDetail) ? "*" : "", reg ? d.name : "???");
@@ -12308,6 +12325,8 @@ void renderGallery() {
     gfx->setTextSize(gts);
     gfx->setCursor(CX - glen * (gts == 3 ? 9 : 6), gts == 3 ? 56 : 60);
     gfx->print(head);
+    if (pet.isRegistered(galleryDetail))     // the grid's dot: raised and fully logged
+      gfx->fillCircle(CX - glen * (gts == 3 ? 9 : 6) - 14, gts == 3 ? 66 : 67, 6, UI_BAR_OK);
     if (galleryPmd.loaded) {
       // animado y a color si esta registrado; silueta estatica si no (estilo "?")
       drawPmdActM(galleryPmd, PMD_IDLE, CX, 300, reg ? millis() : 0, true, !reg, 6);
@@ -12350,11 +12369,11 @@ void renderGallery() {
       if (dex > GAL_HI || dex > DEX_COUNT) break;
       int x = GAL_X + c * GAL_CELL, y = GAL_Y + r * GAL_CELL;
       const uint8_t *t = thumbs.get(dex);
-      // OWNED (v3.63): one in the PC, the party or the live pet right now
-      if (ownedCount(dex)) gfx->fillCircle(x + 9, y + 9, 5, UI_BAR_OK);
+      // the dot: raised and fully logged (v3.89; it meant "held now" before)
+      if (pet.isRegistered(dex)) gfx->fillCircle(x + 9, y + 9, 5, UI_BAR_OK);
       if (dex == galleryJumpMark) gfx->drawRoundRect(x, y, GAL_CELL, GAL_CELL, 12, UI_BAR_WARN);
       if (t) {
-        drawThumb(t, x, y, 2, !pet.isRegistered(dex));
+        drawThumb(t, x, y, 2, !dexObtained(dex));     // filled once it is yours
         if (pet.isShinyRegistered(dex)) {
           gfx->setTextColor(UI_BAR_WARN);
           gfx->setTextSize(2);

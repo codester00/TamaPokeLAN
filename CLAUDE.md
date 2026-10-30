@@ -935,6 +935,26 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: the Pokedex shows what you have (v3.89, on the branch)
+
+Owner, 2026-10-30. `dexfill_test` (reads the panel, cell by cell); four guards
+negative-checked.
+
+- **`dexObtained(dex)` is THE filled entry**: registered, OR `ownedCount()` > 0,
+  OR a legendary/one-off whose caught bit is set (`legendCaught()`,
+  `fixedCaught()` -- the ones a player might trade away and never meet again).
+  No new save data, by the owner's call (six PC slots a species make releases
+  rare). The grid's thumbnail and a creature's page (name, colour) ask it.
+- **The green dot is REGISTERED** (raised, fully logged) on the grid and beside
+  the name on a creature's page; it meant `ownedCount()` before. The region
+  chooser's counts are unchanged (REGISTERED and OWNED).
+- An ordinary species released or traded away to the last one goes back to a
+  silhouette. If that ever matters, a per-species "obtained" bitmap is ~129
+  bytes in the player record's tail.
+- `dexfill_test` counts colours in each cell's MIDDLE: the rim scrollbar crosses
+  the bottom-right cell, and counting its pixels made a silhouette look filled
+  (the first negative check missed because of it).
+
 ### Done: wrap-safe timers, the Pokedex's BACK and footer (v3.88, on the branch)
 
 Owner, 2026-10-30. `timerwrap_test`, `dexnav_test`; seven guards negative-checked.

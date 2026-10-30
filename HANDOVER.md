@@ -35,7 +35,7 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 ---
 
-## 1g. START HERE -- handoff as of v3.87 (2026-10-30)
+## 1g. START HERE -- handoff as of v3.89 (2026-10-30)
 
 This section is the description of the repo today; § 1f below (v3.74) is the
 stretch before it and its "How the owner works", decisions, lessons and known
@@ -46,11 +46,11 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 
 | | |
 |---|---|
-| Version | **3.87** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.87 |
+| Version | **3.89** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.89 |
 | `main` | still at v3.74 (`6abaf47`). Nothing since is merged; the installer serves v3.74 |
-| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.87 on top of `main` (one commit per version, plus tooling) |
-| On a board | **None of v3.75-v3.87 has run on a board.** All emulator-only |
-| Tests | 93 `*_test.cpp` suites (all pass at v3.87) (all clean under ASan + UBSan at v3.85). `run.sh` recompiles the whole sketch per suite (over an hour in a cloud container); compiling the shared sources once and the suites in parallel takes minutes |
+| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.89 on top of `main` (one commit per version, plus tooling) |
+| On a board | **None of v3.75-v3.89 has run on a board.** All emulator-only |
+| Tests | 96 `*_test.cpp` suites (all pass at v3.89) (all clean under ASan + UBSan at v3.85). `run.sh` recompiles the whole sketch per suite (over an hour in a cloud container); compiling the shared sources once and the suites in parallel takes minutes |
 | Formats | `LINK_PROTO` 9, **`TRADE_PROTO` 3** (v3.83), `MOVE_COUNT` 241, pet checkpoint **`PET_CORE_VERSION` 6** (v3.83), player checkpoint **`PLAYER_VERSION` 10** (v3.77), `SAVE_VERSION` 2, `SET_COUNT` 13 |
 | Plan | `docs/explore-specialty-build-plan.md` revision 8 -- everything the owner decided in it is built, except what "Left" says below |
 
@@ -103,9 +103,35 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 - **Offered, not answered**: a second Kecleon one-off on Route 119 (Emerald
   has seven Kecleon; v3.77 placed the Route 120 one whose script sets the
   level).
-- **millis() wrap** (v3.87 finding, not fixed): eleven `millis() > until`
-  timers misfire if one starts within its length of the 49.7-day wrap; the
-  ceremony in `Pet::update()` would hold ~49 days. Ask before changing.
+- **v3.88** Wrap-safe timers (`timers.h`, every deadline); the Pokedex
+  footer's garbage text (an unfilled buffer since v3.63, on `main`); a BACK
+  button on every Pokedex screen, one level up; GO TO # moved to the header.
+- **v3.89** The Pokedex fills a species once it has been yours (`dexObtained()`:
+  registered, held now, or a legendary/one-off caught); the green dot is
+  REGISTERED. No new save data.
+
+### NEXT, agreed with the owner 2026-10-30, in this order
+
+1. **Selling, and fewer drops.** A SELL function in the Mart at a balanced
+   price (the games sell back at half; the owner left the price to us), and
+   wild drops cut from 2-3 items a fight to 1-2 (the owner found a surplus
+   after a few days). Found stones pile up too (100 Dusk Stones in one run).
+2. **New items** (owner's answers): vitamins usable on a STORED creature, +10,
+   $9,800 (today +5, live pet only -- worse than the free training games, which
+   pay up to 18 a session for energy and food); X Attack/Defense/Sp. Atk/Sp.
+   Def/Speed at +2 stages (Gen 7+) and the games' prices, usable in gym fights
+   (the bag is already open there, closed in LAN); PP Up stored ON THE CREATURE
+   (a spare `PartyMon::reserved` byte -> `TRADE_PROTO`/`LINK_PROTO` bumps).
+   NO separate special vitamins: special stats ride on Attack/Defense training.
+3. **Rerun the playthrough with realistic walking**: the board counts steps
+   only while powered (screen off still counts), battery life is unmeasured,
+   and children leave it home for school and sports. Profiles: school child
+   (~300 on school days, ~3,000 weekend days), weekend walker, daily adult
+   (~4,000, upper bound). Teach the bot vitamins, X items, PP Ups and selling.
+   Owner may measure one board's battery (screen off) and a week of steps
+   (`STATS`) first. Then set prices.
+4. **Possibly a post-game battle league** (entry fees are a money sink).
+5. **The guide**: brief in `docs/guide-notes.md`.
 - **From the playthrough, the owner's call**: Slowking (Linking Cord on a
   Slowpoke) and Kleavor (Black Augurite before any cord) are invisible to a
   player who does not know; the wallet caps at $999,999 by day 154-518; hard

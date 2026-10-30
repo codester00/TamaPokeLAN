@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.88-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.89-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1203,16 +1203,25 @@ would bring in a seventh with a full party is refused at **ACCEPT** ("NO ROOM").
   where the PC holds that species, **outlined** where only your party or the
   creature you are raising does, **grey** otherwise. Tap a species for its ring of
   six: a creature's sheet offers **TO PARTY** and **RELEASE**.
-- **GO TO #** (the footer, in the PC and the Pokédex) jumps to any number.
+- **GO TO #** jumps to any number: the PC grid's footer, the Pokédex grid's
+  header (under the region name, with the page). Every Pokédex screen has a
+  **BACK** button at the bottom that goes up one level (v3.88).
   **MISSING ONLY** lists just the species you do not own.
 - The first boot on v3.61 moved the old box in; more than six of one species stay
   put, reached from the grid's header (**+N MORE**). Backups carry the PC; one taken
   before v3.61 still restores, and its box moves into the PC again.
 
+**The Pokédex grid** (v3.89): a species is drawn **in colour** once it has been
+yours — raised, held right now (the PC, the party or the creature you are
+raising), or a legendary or one-off you caught, even if you later traded it
+away. Anything else is a silhouette. The **green dot** means **REGISTERED**:
+you raised it, and it is fully logged. Releasing or trading away the last of an
+ordinary species turns it back into a silhouette; it is easy to meet again.
+
 **OWNED** (v3.63): a species you have right now — in the PC, the party, or as the
-creature you are raising. The Pokédex marks it with a green dot, and its region
-chooser counts it beside REGISTERED. Releasing the last one takes it off again. It is **not** added to the Pokédex on capture: registration
-means "you raised this", so it happens when you actually make it the one you raise.
+creature you are raising. The region chooser counts it beside REGISTERED. It is
+**not** registered on capture: registration means "you raised this", so it
+happens when you actually make it the one you raise.
 
 **Losing.** When a gym or wild fight is lost, the screen goes dark: you have
 **blacked out**, and Mom is waiting at home to tell you your team is all better.
