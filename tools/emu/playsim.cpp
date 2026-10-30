@@ -107,6 +107,7 @@ static void run(uint64_t ms, uint32_t slice = 60000) {
 }
 
 // ---- bookkeeping ------------------------------------------------------------------
+static int nRaised = 0;
 static int nFights = 0, nWild = 0, nCatch = 0, nCatchFail = 0, nGym = 0, nGymWin = 0, nBlack = 0;
 static int nFarewell = 0, nEvolve = 0, nStonesFound = 0, nStonesBought = 0, nCords = 0, nSwaps = 0;
 static uint64_t moneyIn = 0, moneyOut = 0;
@@ -361,6 +362,53 @@ static void swapInEvolutions(int budget) {
   }
 }
 
+// Something still wanted past d by a level: the one route a creature reaches by
+// being raised as the live pet, with nothing to buy or trade.
+static bool levelAheadWanted(int16_t d) {
+  int16_t t = DEX_TBL[d].evolvesTo;
+  if (!t || DEX_TBL[d].evolveLevel == 0) return false;
+  for (int k = 0; k < ITEM_EVO_COUNT; k++) if (ITEM_EVOS[k].from == d) return false;
+  for (int k = 0; k < TRADE_EVO_COUNT; k++) if (TRADE_EVOS[k].from == d) return false;
+  return chainHasUnregistered(t);
+}
+// When the live pet has nothing left to give the collection, a collector raises
+// a stored creature that only needs levels instead: the one closest to its
+// evolution, from the party or the PC, kept as the live pet (it ages, evolves and
+// says its farewell like any other).
+static void raiseStored() {
+  if (pet.isEgg() || pet.ceremony != CER_NONE || pet.wantFarewellButton()) return;
+  if (levelAheadWanted(pet.speciesId)) return;
+  int bestGap = 999, bestSlot = -1; int16_t bestDex = 0; uint8_t bestPc = 0;
+  for (int i = 0; i < PARTY_SLOTS; i++) {
+    const PartyMon &m = party.slots[i];
+    if (m.empty() || !levelAheadWanted(m.dex)) continue;
+    int gap = DEX_TBL[m.dex].evolveLevel - m.level;
+    if (gap < bestGap) { bestGap = gap; bestSlot = i; bestDex = 0; }
+  }
+  for (int16_t d = 1; d <= DEX_COUNT; d++) {
+    if (!pcCount(d) || !levelAheadWanted(d)) continue;
+    for (uint8_t k = 0; k < pcCount(d); k++) {
+      PartyMon m;
+      if (!pcGet(d, k, m) || m.empty()) continue;
+      int gap = DEX_TBL[d].evolveLevel - m.level;
+      if (gap < bestGap) { bestGap = gap; bestSlot = -1; bestDex = d; bestPc = k; }
+    }
+  }
+  if (bestGap == 999) return;
+  if (bestDex) {                                 // out of the PC, into the party's weakest slot
+    int weak = 0, weakLvl = 999;
+    for (int i = 0; i < PARTY_SLOTS; i++) {
+      int l = party.slots[i].empty() ? -1 : party.slots[i].level;
+      if (l < weakLvl) { weakLvl = l; weak = i; }
+    }
+    if (!boxViewSwap((uint8_t)weak, boxViewIndexOf(bestDex, bestPc))) return;
+    bestSlot = weak;
+  }
+  int16_t want = party.slots[bestSlot].dex;
+  focusSwap((uint8_t)bestSlot);
+  if (pet.speciesId == want) { nRaised++; ev("\"ev\":\"raise\",\"dex\":%d,\"lvl\":%u", want, pet.level()); }
+}
+
 // ---- learning moves -------------------------------------------------------------------
 static void tendLearning() {
   for (int g = 0; g < 8 && pet.hasLearnOffer(); g++) {
@@ -425,7 +473,17 @@ static uint16_t pickArea(uint8_t *region) {
       if (!wildAreaUnlocked(a, pet) || wildAreaState(a, when, pet) != WILD_AREA_LIVE) continue;
       // a legendary waiting at home is a certain new species
       int score = unregisteredIn(a, when) && (wildAreaLegendDue(a, pet) || wildAreaFixedDue(a, pet)) ? 100000 : 0;
-      score += wantedShare(a, when) * 100;
+      // a met but uncaught legendary or one-off turns up WILD_LEGEND_PCT of the time,
+      // in place of the ordinary pick: count it at that chance, per 256 encounters
+      int share = wantedShare(a, when), extra = 0;
+      for (uint8_t i = 0; i < wildLegendCount(); i++)
+        if (wanted(wildLegendDex(i)) && wildLegendLive(i, pet) &&
+            (wildLegendHome(i) == a || (wildLegendRoams(i) && WILD_AREAS[wildLegendHome(i)].region == r)))
+          extra += 256 * WILD_LEGEND_PCT / 100;
+      for (uint8_t i = 0; i < wildFixedCount(); i++)
+        if (wildFixedArea(i) == a && wanted(wildFixedDex(i)) && wildFixedLive(i, pet))
+          extra += 256 * WILD_LEGEND_PCT / 100;
+      score += (extra + share * (100 - (extra ? WILD_LEGEND_PCT : 0)) / 100) * 100;
       // a light pull towards areas at the team's level, for training and stones
       score -= abs((int)wildAreaLvMax(a) - teamLevel(3));
       if (score > best) { best = score; bestA = a; *region = r; }
@@ -475,6 +533,7 @@ static void session(int s) {
   stockBalls();
   tendEvolution("offered");
   if (P.swapIn) swapInEvolutions(2);
+  raiseStored();                                // every profile: it is just choosing who to raise
   int fights = P.fights / P.sessions;
   int gymFights = 0;                            // at most half the session's fights
   for (int f = 0; f < fights; f++) {
@@ -611,10 +670,10 @@ int main(int argc, char **argv) {
         ev("\"ev\":\"week\",\"reg\":%u,\"left\":%d,\"badges_easy\":%d,\"badges_hard\":%d,\"fights\":%d,\"wild\":%d,"
            "\"catch\":%d,\"miss\":%d,\"gym\":%d,\"gymwin\":%d,\"blackouts\":%d,\"farewells\":%d,\"evolves\":%d,"
            "\"stones_found\":%d,\"stones_bought\":%d,\"cords\":%d,\"swaps\":%d,\"wallet\":%u,\"in\":%llu,\"out\":%llu,"
-           "\"pet\":%d,\"lvl\":%u",
+           "\"pet\":%d,\"lvl\":%u,\"raised\":%d",
            registeredNow(), left, badgesE, badgesH, nFights, nWild, nCatch, nCatchFail, nGym, nGymWin, nBlack,
            nFarewell, nEvolve, nStonesFound, nStonesBought, nCords, nSwaps, pet.wallet,
-           (unsigned long long)moneyIn, (unsigned long long)moneyOut, pet.speciesId, pet.level());
+           (unsigned long long)moneyIn, (unsigned long long)moneyOut, pet.speciesId, pet.level(), nRaised);
         fflush(stdout);
         if (left == 0) { ev("\"ev\":\"done\""); break; }
       }
