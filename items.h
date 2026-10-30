@@ -32,6 +32,8 @@ enum : uint8_t {
   IT_FIRESTONE, IT_WATERSTONE, IT_THUNDERSTONE, IT_LEAFSTONE, IT_MOONSTONE,
   IT_SUNSTONE, IT_SHINYSTONE, IT_DUSKSTONE, IT_DAWNSTONE, IT_ICESTONE,
   IT_BLACKAUGURITE,
+  // v3.91: the X items, in the battle engine's stat order (SI_ATK..SI_SPE)
+  IT_XATTACK, IT_XDEFENSE, IT_XSPATK, IT_XSPDEF, IT_XSPEED,
   ITEM_COUNT,
 };
 
@@ -42,6 +44,7 @@ enum ItemCategory : uint8_t {
   IC_TRAIN,      // permanently raises one training stat, out of battle
   IC_LINK,       // the Linking Cord: marks the live pet to evolve by trade
   IC_STONE,      // v3.81: evolves the live pet on the spot (param: EVO_STONES index)
+  IC_XSTAT,      // v3.91: an X item, in battle (param: SI_* stat, amount: stages)
 };
 
 // A ball whose param is this catches without rolling. It is a sentinel rather
@@ -77,9 +80,11 @@ static const ItemEntry ITEM_TBL[ITEM_COUNT] = {
   { "SUPER POTION", IC_HEAL,  50,                     0, 10, 700 },
   { "HYPER POTION", IC_HEAL,  120,                    0, 4,  1200 },
   { "FULL HEAL",    IC_CURE,  0,                      0, 10, 600 },
-  { "PROTEIN",      IC_TRAIN, TRAIN_ATK,              5, 8,  9800 },
-  { "IRON",         IC_TRAIN, TRAIN_DEF,              5, 8,  9800 },
-  { "CARBOS",       IC_TRAIN, TRAIN_SPE,              5, 8,  9800 },
+  // +10 since v3.91 (it was +5, for the live pet only -- worse than the free
+  // training games); usable on a party creature too, without swapping it in.
+  { "PROTEIN",      IC_TRAIN, TRAIN_ATK,              10, 8, 9800 },
+  { "IRON",         IC_TRAIN, TRAIN_DEF,              10, 8, 9800 },
+  { "CARBOS",       IC_TRAIN, TRAIN_SPE,              10, 8, 9800 },
   // Priced with the vitamins, the dearest things on sale -- about a day's walk
   // per evolution -- by the owner's call, not copied from a game. Never drops:
   // walking for it is the point.
@@ -98,6 +103,15 @@ static const ItemEntry ITEM_TBL[ITEM_COUNT] = {
   { "DAWN STONE",   IC_STONE, 8,                      0, 0,  2100 },
   { "ICE STONE",    IC_STONE, 9,                      0, 0,  2100 },
   { "BLACK AUGURITE", IC_STONE, 10,                   0, 0,  3000 },
+  // The X items (v3.91): +2 stages in battle, Gen 7 onward's rule, at Sun/Moon
+  // and Sword/Shield's prices (Bulbapedia's item pages). param is the battle
+  // engine's SI_* (battle.h): ATK 0, DEF 1, SP.ATK 2, SP.DEF 3, SPEED 4.
+  // Mart only, never dropped.
+  { "X ATTACK",     IC_XSTAT, 0,                      2, 0,  1000 },
+  { "X DEFENSE",    IC_XSTAT, 1,                      2, 0,  2000 },
+  { "X SP. ATK",    IC_XSTAT, 2,                      2, 0,  1000 },
+  { "X SP. DEF",    IC_XSTAT, 3,                      2, 0,  2000 },
+  { "X SPEED",      IC_XSTAT, 4,                      2, 0,  1000 },
 };
 
 inline bool itemValid(ItemKey k) { return k > ITEM_NONE && k < ITEM_COUNT; }
@@ -125,7 +139,7 @@ inline bool itemUsableInField(ItemKey k) {
 inline bool itemUsableInBattle(ItemKey k) {
   if (!itemValid(k)) return false;
   uint8_t c = itemEntry(k).category;
-  return c == IC_BALL || c == IC_HEAL || c == IC_CURE;
+  return c == IC_BALL || c == IC_HEAL || c == IC_CURE || c == IC_XSTAT;
 }
 
 // The Poke Mart's catalogue, derived from `price` rather than restated as its

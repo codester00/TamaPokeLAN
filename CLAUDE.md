@@ -935,6 +935,26 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: vitamins on the party, X items (v3.91, on the branch)
+
+Owner, 2026-10-30 (the items step of HANDOVER's NEXT list). `items_test`
+(through the bag, the party ring and the battle bag); four guards negative-checked.
+
+- **`vitaminInto()` is THE vitamin rule** (+`amount`, never past
+  `Pet::trMaxFor(iv)`), for the live pet (`bagUseOnPet()`) and a party
+  creature (`vitaminOnParty()`, saved through `party.replaceAt()`). Vitamins
+  are +10 (were +5, live pet only -- worse than the free training games, which
+  pay up to 18 a session). With a party, the bag sets `vitPick` and opens the
+  ring like the Linking Cord's partner pick: a slot, the hub (the live pet), or
+  the top strip/close to cancel (kept). Not the PC: withdraw first.
+- **X items** (`IT_XATTACK`..`IT_XSPEED`, appended; `IC_XSTAT`, param = SI_*,
+  amount 2 stages -- Gen 7+, Bulbapedia's prices: $1,000, $2,000 for the two
+  defenses; Mart only). `btlUseItem()` raises `btlYou.stage[]` to at most +6,
+  refuses at +6 (kept), narrates with the move's own `S_BTL_STAT_UP(2)` and
+  costs the turn. A `static_assert` keeps `SI_*` and `S_ST_*` in one order.
+- Separate special vitamins were declined (owner): special stats ride on the
+  Attack/Defense training.
+
 ### Done: selling at the Mart, and fewer wild drops (v3.90, on the branch)
 
 Owner, 2026-10-30: the bag filled with unused items within days, and a sell

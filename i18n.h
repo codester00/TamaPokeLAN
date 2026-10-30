@@ -302,6 +302,7 @@ enum StrId : uint16_t {
   S_EVO_STEPS_FMT,  // Meltan's card line (v3.83)
   S_BTN_BACK,  // the Pokedex's BACK button (v3.88)
   S_MART_TAB_BUY, S_MART_TAB_SELL, S_MART_SELL_Q, S_MART_PAYS_FMT, S_MART_NOTHING,  // selling (v3.90)
+  S_VIT_PICK, S_VIT_LIVE,  // a vitamin's target, on the party ring (v3.91)
   STR_COUNT
 };
 

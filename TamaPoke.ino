@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.90"
+#define FW_VERSION "3.91"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -158,6 +158,7 @@ bool partyPick = false;
 // The Linking Cord on a KARRABLAST or SHELMET: the party ring is open to pick
 // the creature to link with. Cancelling keeps the cord.
 bool cordPick = false;
+uint8_t vitPick = 0;   // a vitamin waiting for its target on the party ring (v3.91), 0 = none
 uint8_t partyDetail = 0;   // 0 = the grid, else slot + 1
 // The box, reached from the party screen. `boxSwapFrom` is the party slot
 // waiting for something to trade with, 0 when nothing is pending.
@@ -383,6 +384,7 @@ uint8_t hallPrizePages();
 bool storeNewCreature(const PartyMon &m);
 void cordFromBag();
 void cordPickTap(int16_t x, int16_t y);
+void vitPickTap(int16_t x, int16_t y);
 uint8_t bagPages();
 void renderMart();
 void martTap(int16_t x, int16_t y);
@@ -2504,6 +2506,7 @@ int uiButtonHitR() { return BTN_HIT; }
 
 void partyTap(int16_t x, int16_t y) {
   if (cordPick) { cordPickTap(x, y); return; }
+  if (vitPick) { vitPickTap(x, y); return; }
   if (pcOpen) { pcTap(x, y); return; }
   if (boxOpen) { boxTap(x, y); return; }
   // The SHEET IS CHECKED FIRST, and that is not cosmetic ordering. It covers the
@@ -3293,6 +3296,7 @@ void uiTileGo(int i) {
   areaListOpen = false;
   hallOpen = 0;
   cordPick = false;
+  vitPick = 0;
   boxOpen = false;
   boxDetail = partyDetail = 0;
   galleryDetail = 0;
@@ -6796,12 +6800,20 @@ static void btlUseItem(ItemKey k) {
   const ItemEntry &e = itemEntry(k);
   bool useful = (e.category == IC_HEAL) ? btlYou.hp < btlYou.maxHp
               : (e.category == IC_CURE) ? btlYou.ailment != AIL_NONE
+              : (e.category == IC_XSTAT) ? e.param < SI_COUNT && btlYou.stage[e.param] < 6
               : false;
   if (!useful) { sfxPlay(SFX_DENY); btlSay("%s", T(S_ITEM_NOUSE)); btlMenu = 0; return; }
   if (!bag.consume(k)) { sfxPlay(SFX_DENY); return; }
+  int8_t rose = 0;   // an X item's stages, after the cap
   if (e.category == IC_HEAL) {
     uint32_t hp = (uint32_t)btlYou.hp + (uint16_t)e.param;
     btlYou.hp = hp > btlYou.maxHp ? btlYou.maxHp : (uint16_t)hp;
+  } else if (e.category == IC_XSTAT) {
+    // the same -6..+6 stages a move raises; they last while it stays in
+    int8_t to = (int8_t)(btlYou.stage[e.param] + e.amount);
+    if (to > 6) to = 6;
+    rose = (int8_t)(to - btlYou.stage[e.param]);
+    btlYou.stage[e.param] = to;
   } else {
     btlYou.ailment = AIL_NONE;
     btlYou.ailTurns = 0;
@@ -6810,6 +6822,8 @@ static void btlUseItem(ItemKey k) {
   btlMenu = 0;
   sfxPlay(SFX_TAP);
   btlSay(T(S_ITEM_USED), e.name);
+  if (rose) btlSay(T(rose >= 2 ? S_BTL_STAT_UP2 : S_BTL_STAT_UP), btlYou.name,
+                   T((StrId)(S_ST_ATTACK + e.param)));   // S_ST_* follow SI_* (asserted below)
   btlResolve(0);   // using an item costs the turn, as it does in the real games
 }
 
@@ -9748,23 +9762,38 @@ static void bagSay(const char *fmt, const char *arg) {
 // Applies a field item to the live pet. Returns false when the item was valid
 // but had nothing to do -- a fully trained stat, say -- which the caller reports
 // rather than silently consuming the item.
-static bool bagUseOnPet(ItemKey k) {
+// THE vitamin rule (v3.91), for the live pet and a party creature alike: one
+// training stat up by the item's amount, never past its IV-bound ceiling --
+// exactly as the punching bag and a gym reward. An item that could push past
+// trMaxFor() would make the IV roll decorative, which it must not be.
+// False when the stat is already at its ceiling (the item is kept).
+static bool vitaminInto(uint8_t k, uint8_t &trA, uint8_t &trD, uint8_t &trS,
+                        uint8_t ivA, uint8_t ivD, uint8_t ivS) {
   const ItemEntry &e = itemEntry(k);
   if (e.category != IC_TRAIN) return false;
-  // The IV-bound ceiling applies here exactly as it does to the punching bag and
-  // to a gym reward. An item that could push past trMaxFor() would make the IV
-  // roll decorative, which is the one thing it must not be.
   uint8_t *cur;
   uint8_t cap;
   switch ((uint8_t)e.param) {
-    case TRAIN_ATK: cur = &pet.trAtk; cap = pet.trMaxAtk(); break;
-    case TRAIN_DEF: cur = &pet.trDef; cap = pet.trMaxDef(); break;
-    default:        cur = &pet.trSpe; cap = pet.trMaxSpe(); break;
+    case TRAIN_ATK: cur = &trA; cap = Pet::trMaxFor(ivA); break;
+    case TRAIN_DEF: cur = &trD; cap = Pet::trMaxFor(ivD); break;
+    default:        cur = &trS; cap = Pet::trMaxFor(ivS); break;
   }
   if (*cur >= cap) return false;
   uint16_t next = (uint16_t)*cur + e.amount;
   *cur = next > cap ? cap : (uint8_t)next;
+  return true;
+}
+static bool bagUseOnPet(ItemKey k) {
+  if (!vitaminInto(k, pet.trAtk, pet.trDef, pet.trSpe, pet.ivAtk, pet.ivDef, pet.ivSpe)) return false;
   pet.saveNow();
+  return true;
+}
+// The same on a party creature, saved with the party. Not the PC: withdraw it.
+bool vitaminOnParty(uint8_t k, uint8_t slot) {
+  if (slot >= PARTY_SLOTS || party.slots[slot].empty() || tradeLocked(party.slots[slot])) return false;
+  PartyMon m = party.slots[slot];
+  if (!vitaminInto(k, m.trAtk, m.trDef, m.trSpe, m.ivAtk, m.ivDef, m.ivSpe)) return false;
+  party.replaceAt(slot, m);
   return true;
 }
 
@@ -9858,6 +9887,12 @@ void cordFromBag() {
 // An evolution stone (or the Black Augurite) from the bag, on the live pet
 // (v3.81). Every decision is Pet::stoneTarget()'s; it is spent only when the
 // creature really evolves, and the bag closes so the evolution is seen.
+// An X item's param indexes both the battle engine's stages and the stage
+// names (v3.91): both lists must keep this order.
+static_assert(SI_ATK == 0 && SI_DEF == 1 && SI_SPA == 2 && SI_SPD == 3 && SI_SPE == 4 &&
+              S_ST_DEFENSE == S_ST_ATTACK + 1 && S_ST_SPATK == S_ST_ATTACK + 2 &&
+              S_ST_SPDEF == S_ST_ATTACK + 3 && S_ST_SPEED == S_ST_ATTACK + 4,
+              "X items: SI_* and S_ST_* must stay in the same order");
 static_assert(IT_BLACKAUGURITE - IT_FIRESTONE + 1 == EVO_STONE_COUNT,
               "items.h's stones must follow EVO_STONES (dex.h), one for one");
 void stoneFromBag(uint8_t k) {
@@ -9916,6 +9951,28 @@ void cordPickTap(int16_t x, int16_t y) {
   bagSay(T(S_ITEM_USED), itemEntry(IT_LINKCORD).name);
 }
 
+// A vitamin's target (v3.91): the hub is the creature being raised, a slot a
+// party creature. Back to the bag either way, with a toast; spent only when it
+// took. Same cancel strip as the Linking Cord's partner pick.
+void vitPickTap(int16_t x, int16_t y) {
+  int i = partySlotAt(x, y);
+  bool hub = partyHubAt(x, y);
+  bool cancel = (y >= PARTYCLOSE_Y && y <= PARTYCLOSE_Y + PARTYCLOSE_H &&
+                 x >= PARTYCLOSE_X && x <= PARTYCLOSE_X + PARTYCLOSE_W) || y < 34;
+  if (i < 0 && !hub && !cancel) return;               // a miss on the ring: nothing
+  if (i >= 0 && (party.slots[i].empty() || tradeLocked(party.slots[i]))) { sfxPlay(SFX_DENY); return; }
+  uint8_t k = vitPick;
+  vitPick = 0;
+  partyOpen = false;
+  bagOpen = true;
+  if (!hub && i < 0) { sfxPlay(SFX_TAP); return; }   // cancelled: kept
+  bool took = hub ? bagUseOnPet(k) : vitaminOnParty(k, (uint8_t)i);
+  if (!took) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
+  bag.consume(k);
+  sfxPlay(SFX_TAP);
+  bagSay(T(S_ITEM_USED), itemEntry(k).name);
+}
+
 void bagTap(int16_t x, int16_t y) {
   uint8_t n = bag.distinctCount();
   for (uint8_t i = 0; i < BAG_PER_PAGE; i++) {
@@ -9927,6 +9984,17 @@ void bagTap(int16_t x, int16_t y) {
     if (!itemUsableInField(k) || pet.isEgg()) { sfxPlay(SFX_DENY); return; }
     if (k == IT_LINKCORD) { cordFromBag(); return; }
     if (itemEntry(k).category == IC_STONE) { stoneFromBag(k); return; }
+    if (itemEntry(k).category == IC_TRAIN && party.count()) {
+      // a vitamin with a party to choose from (v3.91): who gets it, on the ring
+      bagOpen = false;
+      partyOpen = true;
+      partyDetail = 0;
+      boxSwapFrom = 0;
+      boxSel = 0;
+      vitPick = k;
+      sfxPlay(SFX_TAP);
+      return;
+    }
     if (!bagUseOnPet(k)) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
     bag.consume(k);
     sfxPlay(SFX_TAP);
@@ -12203,13 +12271,15 @@ void renderParty() {
   char head[24];
   snprintf(head, sizeof(head), T(S_PARTY_FMT), party.count());
   gfx->setTextColor(UI_INK);
-  if (cordPick) {
-    // The Linking Cord asking for KARRABLAST's or SHELMET's partner: the
-    // question REPLACES the title. Under it, it collided with the size-3
-    // header; the count is not what anybody is looking at here.
+  if (cordPick || vitPick) {
+    // The Linking Cord asking for KARRABLAST's or SHELMET's partner, or a
+    // vitamin for its target: the question REPLACES the title. Under it, it
+    // collided with the size-3 header; the count is not what anybody is
+    // looking at here.
+    const char *ask = T(cordPick ? S_CORD_PICK : S_VIT_PICK);
     gfx->setTextSize(2);
-    gfx->setCursor(CX - (int)strlen(T(S_CORD_PICK)) * 6, 52);
-    gfx->print(T(S_CORD_PICK));
+    gfx->setCursor(CX - (int)strlen(ask) * 6, 52);
+    gfx->print(ask);
   } else {
     gfx->setTextSize(3);
     gfx->setCursor(CX - (int)strlen(head) * 9, 42);
@@ -12218,7 +12288,10 @@ void renderParty() {
 
   // the box lives behind the hub in the middle of the ring; it also shows how
   // full it is, so the player knows there is anything in there without opening
-  if ((!partyPick && !cordPick) || pcSeventhDue()) {
+  if (vitPick && !pet.isEgg()) {
+    // the hub is the creature being raised
+    drawPartyHub(pet.nick[0] ? pet.nick : DEX_TBL[pet.speciesId].name, T(S_VIT_LIVE), true);
+  } else if ((!partyPick && !cordPick && !vitPick) || pcSeventhDue()) {
     char bl[24];
     snprintf(bl, sizeof(bl), "%u", (unsigned)(pcTotal() + party.boxCount()));
     drawPartyHub(bl, T(S_PC_BTN), boxSwapFrom != 0 || partyPick);

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.90-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.91-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1154,9 +1154,10 @@ right way to catch it instead of a race:
 It spends its **action** fleeing rather than fleeing *and* attacking, and a fight
 it leaves pays nothing.
 
-**Rewards.** A win grants **1** weighted item on normal and **2** on hard, plus one
-independent **30 %** roll for a bonus. Each draw excludes every earlier one, so a
-settlement can never list the same item twice.
+**Rewards.** A win grants **1** weighted item, and a second one **25 %** of the
+time on normal or **50 %** on hard (v3.90; it was 1 or 2 and a 30 % bonus).
+Each draw excludes every earlier one, so a settlement can never list the same
+item twice.
 
 | Item | Weight | What it does |
 |---|---|---|
@@ -1164,7 +1165,7 @@ settlement can never list the same item twice.
 | Potion | 20 | +20 HP |
 | Great Ball | 15 | catch ×150 |
 | Super Potion / Full Heal | 10 each | +50 HP · clears an ailment |
-| Protein / Iron / Carbos | 8 each | +5 STRENGTH / DEFENCE / SPEED |
+| Protein / Iron / Carbos | 8 each | +10 STRENGTH / DEFENCE / SPEED (+5 before v3.91) |
 | Ultra Ball | 6 | catch ×200 |
 | Hyper Potion | 4 | +120 HP |
 | **Master Ball** | **1** | catches without fail |
@@ -1191,7 +1192,18 @@ The **BAG** menu row is the field bag, and it only offers the vitamins: the pet 
 no persistent HP or ailment outside a fight, so a potion in the field would have
 nothing to act on. Vitamins respect the same **IV-bound training ceiling**
 (`trMaxFor`) as the punching bag and a gym reward — an item that could push past it
-would make the IV roll decorative.
+would make the IV roll decorative. **Since v3.91 a vitamin gives +10 and works
+on a party creature too**: with anyone in the party, the bag opens the party
+ring and asks who gets it — a slot, or the middle for the creature you are
+raising — so a team for hard mode can be trained without swapping each one in.
+A creature in Bill's PC is withdrawn to the party first.
+
+**X items (v3.91)** are for battle: **X Attack, X Defense, X Sp. Atk, X Sp. Def,
+X Speed** each raise that stat **two stages** (Gen 7 onward's rule) for as long
+as the creature stays in, up to the usual +6, and cost the turn like every item.
+They go past anything training can reach, which is the point: a well-stocked bag
+can out-stat a leader. Sold at the Mart only, never dropped, and not usable in a
+LAN battle (no items are).
 
 A caught creature takes a party slot, then a place in **Bill's PC**, then asks —
 the same path a farewell already uses.
@@ -1395,6 +1407,8 @@ every game:
 | Linking Cord | $9,800 |
 | Fire / Water / Thunder / Leaf / Moon / Sun / Shiny / Dusk / Dawn / Ice Stone | $2,100 each |
 | Black Augurite | $3,000 |
+| X Attack / X Sp. Atk / X Speed | $1,000 each |
+| X Defense / X Sp. Def | $2,000 each |
 
 The **Linking Cord** is the one item that is *not* a real Poké Mart price: it
 comes from *Legends: Arceus*, and its price was set to match the vitamins —
