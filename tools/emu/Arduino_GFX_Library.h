@@ -34,6 +34,9 @@ public:
   uint16_t textColor = 0xFFFF;
   uint8_t textSize = 1;
   volatile bool frameReady = false;
+  // Draw nothing (playsim.cpp: a year of play is ~95% pixels otherwise). Every
+  // frame still runs, so anything the firmware times by frames is unchanged.
+  static inline bool skipDraw = false;
 
   Arduino_Canvas(int16_t w, int16_t h, Arduino_CO5300 *p)
       : _w(w), _h(h), _panel(p), fb(w * h, 0) {}
@@ -43,13 +46,14 @@ public:
   const uint16_t *buffer() const { return fb.data(); }
 
   inline void px(int x, int y, uint16_t c) {
+    if (skipDraw) return;
     if (x < 0 || y < 0 || x >= _w || y >= _h) return;
     fb[(size_t)y * _w + x] = c;
   }
 
-  void fillScreen(uint16_t c) { std::fill(fb.begin(), fb.end(), c); }
+  void fillScreen(uint16_t c) { if (skipDraw) return; std::fill(fb.begin(), fb.end(), c); }
 
-  void fillRect(int x, int y, int w, int h, uint16_t c) {
+  void fillRect(int x, int y, int w, int h, uint16_t c) { if (skipDraw) return;
     if (w < 0) { x += w; w = -w; }
     if (h < 0) { y += h; h = -h; }
     for (int j = 0; j < h; j++)
@@ -91,14 +95,14 @@ public:
     if (dx == 0 || dy == 0) return true;
     return dx * dx + dy * dy <= r * r;
   }
-  void fillRoundRect(int x, int y, int w, int h, int r, uint16_t c) {
+  void fillRoundRect(int x, int y, int w, int h, int r, uint16_t c) { if (skipDraw) return;
     if (w <= 0 || h <= 0) return;
     r = std::min(r, std::min(w / 2, h / 2));
     for (int j = y; j < y + h; j++)
       for (int i = x; i < x + w; i++)
         if (inRR(i, j, x, y, w, h, r)) px(i, j, c);
   }
-  void drawRoundRect(int x, int y, int w, int h, int r, uint16_t c) {
+  void drawRoundRect(int x, int y, int w, int h, int r, uint16_t c) { if (skipDraw) return;
     if (w <= 0 || h <= 0) return;
     r = std::min(r, std::min(w / 2, h / 2));
     for (int j = y; j < y + h; j++)

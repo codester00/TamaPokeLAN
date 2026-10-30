@@ -694,6 +694,9 @@ void Pet::newEgg() {
   uid = CreatureUid();   // an egg is not a creature yet; hatch() mints its ID
   tradeEvo = false;
   cheated = false;
+  // A move offered to the creature that just ended goes with it (v3.87): left
+  // queued, the learn screen drew the egg as species -1 and a tap taught it.
+  learnQCount = 0;
   for (int i = 0; i < REGION_COUNT; i++) eggByRegion[i] = 0;
   // Asked BEFORE the roll: whether the net is in play depends on what is still
   // unregistered, and the egg about to be laid is not registered until it hatches.

@@ -935,6 +935,36 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: the simulated playthrough, and the bug it found (v3.87, on the branch)
+
+Owner, 2026-10-30: play a fresh save to every badge and every obtainable
+species, and report. `tools/emu/playsim.cpp` (built and run by
+`tools/emu/playsim.sh <casual|regular|dedicated> <seed> <days>`, summarised by
+`tools/emu/playsim_report.py`) is a bot over the REAL sketch: it cares, walks,
+fights through `battleTap()` (the AI's move, balls from the battle bag), catches
+what it lacks, buys balls, stones and cords, evolves, swaps creatures in, picks
+the farewell egg's region, and logs one JSON line per event. The report itself
+is an artifact, not in the repo.
+
+- **Found: a move offer outlived its creature** (on `main` too). `newEgg()` did
+  not clear `learnQCount`, so a creature that ended (a runaway needs no tap)
+  with "learn a new move?" pending left the offer on the EGG: `renderLearn()`
+  read `DEX_TBL[-1]` and a tap would have taught the egg. Found as a crash under
+  ASan. `endoffer_test` (farewell, runaway, release); failed 3/3 before the fix.
+- **The emulator's clock, for simulations**: the RTC read 32-bit `millis()`, so
+  a run past 49.7 days went back to its first day (`emuMillis64()` now; the
+  board's RTC is its own chip). `millis()` also added real elapsed time, so a
+  run's result depended on the host's speed: `emuVirtualClock(true)` moves time
+  only by `emuAdvanceMs()`. `Arduino_Canvas::skipDraw` draws nothing (rendering
+  was 95% of the run); the bot checks the same seed gives the same run with and
+  without drawing. All three are off by default; the SDL app and tests are
+  unchanged.
+- **Not fixed, for the owner**: eleven firmware timers compare
+  `millis() > until`, which misfires if a timer starts within its duration of
+  the 49.7-day wrap (the board running seven weeks without a reset). The worst
+  is the ceremony in `Pet::update()` (pet.cpp, ~824), which would hold for ~49
+  days; the rest are seconds of UI. The fix is `(int32_t)(millis() - until) >= 0`.
+
 ### Done: the pre-merge audit, and backups hold everything (v3.86, on the branch)
 
 Owner, 2026-10-30: an audit of v3.75-v3.85 before `main`. Results:

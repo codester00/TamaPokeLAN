@@ -138,8 +138,8 @@ bool sdSerialCommand(const String &) { return false; }
 // --- RTC / battery / PMU ---
 static uint32_t g_epoch = 0;
 bool rtcBegin() { return true; }
-uint32_t rtcEpoch() { return g_epoch + millis() / 1000; }
-void rtcSetEpoch(uint32_t e) { g_epoch = e - millis() / 1000; }
+uint32_t rtcEpoch() { return g_epoch + (uint32_t)(emuMillis64() / 1000); }
+void rtcSetEpoch(uint32_t e) { g_epoch = e - (uint32_t)(emuMillis64() / 1000); }
 bool batBegin() { return true; }
 void pmuEnablePanel() {}
 int batPercent() { return 87; }
