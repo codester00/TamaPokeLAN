@@ -37,7 +37,21 @@ volatile int g_touchX = 0, g_touchY = 0;
 volatile bool g_touchDown = false;
 
 // millis() lives in clock.cpp so the headless tests share it
-void FakeESP::restart() { Serial.println("emu: ESP.restart() -> exiting"); exit(0); }
+// The board's NVS and PC partition survive a restart; so must the emulator's.
+// It used to save only on a clean quit, so IMPORT and WIPE (both end in a
+// restart) were lost the moment they rebooted -- invisible in the suites, which
+// import in-process, and only found driving a v3.74 backup into v3.85.
+static const char *g_savePath = nullptr;
+void nvsSave(const char *path);
+void pcfsHostSave(const char *path);
+void FakeESP::restart() {
+  Serial.println("emu: ESP.restart() -> exiting");
+  if (g_savePath) {
+    nvsSave(g_savePath);
+    pcfsHostSave((std::string(g_savePath) + ".pc").c_str());
+  }
+  exit(0);
+}
 
 // --- stdin-backed serial ---
 static std::deque<std::string> g_lines;
@@ -625,6 +639,7 @@ int main(int argc, char **argv) {
   g_crashFile = std::string(save) + ".crash";
   crashRestore();     // a simulated panic left its breadcrumb here
   nvsLoad(save);
+  g_savePath = save;
   pcfsHostLoad((std::string(save) + ".pc").c_str());   // Bill's PC, beside the save
 
   if (SDL_Init(SDL_INIT_VIDEO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }

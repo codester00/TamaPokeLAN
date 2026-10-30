@@ -304,6 +304,23 @@ int main() {
     ck(!(s.A.box[3].flags & PMON_TRADE_EVO), "and nothing else is");
   }
 
+  // --- 1b. a Meltan's walk crosses with it (v3.83: PartyMon::reserved[0])
+  {
+    Sim s;
+    s.A.box[3].dex = 808;            // a2 becomes a Meltan 4,300 steps into its walk
+    s.A.box[3].reserved[0] = 43;
+    s.a2 = s.A.box[3];
+    s.session();
+    s.step(500);
+    s.offerAndAccept(s.a2, s.b2);
+    s.step(3000);
+    const PartyMon *got = nullptr;
+    for (auto &m : s.B.party) if (m.uid == s.a2.uid) got = &m;
+    for (auto &m : s.B.box) if (m.uid == s.a2.uid) got = &m;
+    ck(s.dealt() && got && got->dex == 808 && got->reserved[0] == 43,
+       "a Meltan arrives with the steps it has walked");
+  }
+
   // --- 2. changing an offer voids the acceptance
   {
     Sim t;
@@ -359,6 +376,15 @@ int main() {
     hello[5] = 0xC0;
     v.ta.onPacket(hello, sizeof(hello));
     ck(v.ta.state == TRADE_REFUSED && v.ta.refusal == TREF_VERSION, "a different build is refused");
+    Sim old;                         // a v3.82 board: protocol 2, before Meltan's walk travelled
+    old.session();
+    uint8_t h2[2 + 25] = {};
+    memcpy(h2, hello, sizeof(h2));
+    h2[2] = TRADE_PROTO - 1;
+    h2[3] = (uint8_t)(tradeBuildTag() & 0xFF); h2[4] = (uint8_t)(tradeBuildTag() >> 8);
+    old.ta.onPacket(h2, sizeof(h2));
+    ck(old.ta.state == TRADE_REFUSED && old.ta.refusal == TREF_VERSION,
+       "an older protocol is refused even with a matching build tag");
     Sim w;
     memcpy(w.B.id, w.A.id, 6);
     w.session();

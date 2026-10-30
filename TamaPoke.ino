@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.85"
+#define FW_VERSION "3.86"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -1764,6 +1764,10 @@ void handleSerial() {
     // Streamed since v3.61: Bill's PC rides in the same backup and a full one
     // (~400 KB) does not fit in RAM. The byte count is known before the first
     // line, so the header still declares it -- the installer checks against it.
+    // The backup reads flash, so write what the player has first (v3.85): a TM
+    // or a medal not saved yet was missing from it, and the installer backs up
+    // right before flashing. Never after a WIPE or IMPORT waiting to reboot.
+    if (!saveInhibited) { ppFlush(); pet.saveNow(); }
     size_t n = saveExportStream(
         [](size_t total) {
           Serial.printf("# TamaPoke save, %u bytes. Paste this whole block back.\n", (unsigned)total);

@@ -719,7 +719,7 @@ public:
   };
   EvoInfo evoInfo() const;
   // The creature's gender (v3.80): creatureGender() of its species and ID.
-  uint8_t gender() const { return isEgg() ? GENDER_NONE : creatureGender(speciesId, uid); }
+  uint8_t gender() const { return isEgg() ? (uint8_t)GENDER_NONE : creatureGender(speciesId, uid); }
   // A gender-decided level evolution (GENDER_EVOS): the target this gender
   // takes, -1 when only the other gender evolves (a male Combee is final), 0
   // when the species has no such rule.

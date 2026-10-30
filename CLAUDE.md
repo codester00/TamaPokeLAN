@@ -935,6 +935,44 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: the pre-merge audit, and backups hold everything (v3.86, on the branch)
+
+Owner, 2026-10-30: an audit of v3.75-v3.85 before `main`. Results:
+
+- **Upgrade from v3.74**: a heavy v3.74 save (raised pet, full party, 347 in
+  Bill's PC, all TMs, money, items) boots on v3.85 identical field for field,
+  twice over; a v3.85 backup restores identically; a v3.74 backup restores into
+  v3.85 exactly as into v3.74.
+- **Found: EXPORT read flash, not the game** (on `main` too). The save is
+  batched, so a TM or medal not yet written was missing from a backup -- the
+  installer backs up right before installing. EXPORT now does `ppFlush()` +
+  `pet.saveNow()` first (never while `saveInhibited`). `console_test` gives a TM
+  in RAM only after the fixture's save; it failed before the fix.
+- **Found: the emulator lost IMPORT and WIPE** -- it wrote its save file only on
+  a clean quit, and both end in `ESP.restart()`. `FakeESP::restart()` in
+  main_sdl.cpp saves first now, as the board's flash would keep it. Tooling only.
+- **ASan + UBSan**: all 91 suites clean. **All warnings**: one new warning in
+  this stretch (`Pet::gender()`'s enum conditional), fixed; the rest predate it
+  and are benign (`%u` for `uint32_t`, zero-filled initialisers). **NVS**: a
+  worst-case save is ~292 of 504 usable entries (was ~215); every key is in
+  `SAVE_FIELDS`.
+- **`evoaudit_test`** (new, permanent): every drawable species through every
+  route the firmware has (level, stone, trade/cord, choice, steps, Eevee's bond
+  by day/night/Fairy), 12 IDs each: every table route happens or is refused for
+  no art (13, the rule), nothing unlisted, no double evolution at one level,
+  nothing stuck at 100, no farewell held by an item or trade evolution, Shedinja
+  comes. 981 of 984 drawable species obtainable; the three known (Escavalier,
+  Accelgor, Toucannon -- each needs an art-less creature). A trade with a named
+  partner needs the partner obtainable. Negative-checked three ways.
+- **`tools/emu/odds_report.cpp`** (a report, not a test): each species' best
+  chance by area, band and weather through `wildAreaPick()`, swarms, specials,
+  eggs. Every base form hatches or is a guaranteed meeting; the 55 under 1% in
+  the wild are all evolved forms (Volcarona 0.06%). 91 species are egg-only
+  (47 rare, 36 legendary tier, 8 common), ~1-1.4% a farewell egg once their
+  region is complete.
+- **Trades**: `trade_test` sends a Meltan's walk across (reserved[0] survives)
+  and refuses an older protocol even with a matching build tag (negative-checked).
+
 ### Done: stones in every region, rarer, and in the Safari (v3.85, on the branch)
 
 Owner, 2026-10-30. `stonedrop_test` (rewritten); three firmware guards and two

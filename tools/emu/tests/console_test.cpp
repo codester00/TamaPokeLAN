@@ -9,6 +9,7 @@
 #include "Arduino_GFX_Library.h"
 #include "Preferences.h"
 #include "pet.h"
+#include "tms.h"
 #include "party.h"
 #include "save.h"
 #include <cstdio>
@@ -75,6 +76,10 @@ int main(){
   for (int i=0;i<3;i++){ PartyMon m; m.dex=100+i; m.level=44+i;
     m.ivAtk=m.ivDef=m.ivSpe=m.ivHp=17; party.replaceAt(i,m); }
   pet.renameTrainer("ASH");        // persists everything above
+  // ...and this does NOT: a TM given since the last save is in RAM only, as
+  // anything the game has not got round to writing yet is. A backup must hold
+  // what the player has, not what flash last saw (v3.85: EXPORT saves first).
+  pet.giveTm(TM_MOVES[0]);
 
   unsigned long unwaited = Serial.txUnwaited;
   std::string out = runConsole({"EXPORT"});
@@ -133,6 +138,7 @@ int main(){
      "so did the creature and its age");
   ck(p2.ivAtk==29 && p2.ivHp==13 && p2.badges==0x0055 && p2.streak==8,
      "and the IVs, badges and streak -- not the RAM creature's, flushed on restart");
+  ck(p2.hasTm(TM_MOVES[0]), "and a TM the player had not saved yet");
   saveInhibited = false;   // the reboot would clear it; this process carries on
   ck(q2.count()==3 && q2.slots[1].dex==101 && q2.slots[1].level==45,
      "and the party");
