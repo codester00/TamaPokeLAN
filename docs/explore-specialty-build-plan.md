@@ -739,6 +739,10 @@ becomes evolution-only and stops hatching.
 
 ### E11. Chains that evolve twice at once (found 2026-10-29)
 
+**BUILT as v3.79** with the owner's rule: the second evolution ten levels
+after the first (Azumarill 35 and Blissey 40, not the babies moved down). The
+gym prize money of § E5 shipped in the same version.
+
 Evolution is offered when the level reaches the stand-in, so if a creature's
 next stand-in is at or below the level it just evolved at, it is offered the
 next evolution straight away. A sweep of `dex.h` finds eleven such chains, plus

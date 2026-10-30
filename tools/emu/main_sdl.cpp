@@ -227,7 +227,7 @@ extern bool gymHard, pickOpen;
 extern uint8_t partyDetail;
 extern bool boxOpen; extern uint8_t boxSwapFrom;
 extern bool pcOpen, pcPick; extern uint8_t pcRegion, pcPage; extern int16_t pcSpecies;
-extern bool btlNewBadge; extern uint32_t btlWinUntil;
+extern bool btlNewBadge; extern uint32_t btlWinUntil, btlPrize;
 extern uint8_t pickTrainer, pickPage;
 void pickDefault(uint8_t cap);
 extern bool pickHard;
@@ -489,6 +489,7 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
     startTrainerBattle(2, true);
     btlNewBadge = true; btlWinUntil = 60000; pet.badgesHard = 0x07;
     btlTrainGain = 8; btlTrainWhich = 2;
+    btlPrize = trainerPrize(0, 2, true, true);   // Lt. Surge, first win on hard
   }
   else if (!strcmp(screen, "pmon")) {
     Pet t; t.dbgHatchAs(131,false); t.ivAtk=t.ivDef=t.ivSpe=t.ivHp=27;

@@ -2904,3 +2904,14 @@ void Pet::load() {
   // siembra: la mascota actual cuenta como criada (guardados antiguos)
   if (speciesId >= 1) registerSpecies(speciesId);
 }
+
+uint32_t trainerPrize(uint8_t region, uint8_t idx, bool hard, bool firstWin) {
+  if (region >= GYM_REGIONS || idx >= TRAINER_COUNT) return 0;
+  const Trainer &t = TRAINER_SETS[region].list[idx];
+  if (!t.count) return 0;
+  uint32_t cls = idx == TRAINER_COUNT - 1 ? 50 : 25;   // the champion, Emerald's 50
+  uint32_t pay = 4u * t.team[t.count - 1].level * cls;
+  if (!hard) pay /= 2;
+  if (!firstWin) pay /= 2;
+  return pay;
+}

@@ -68,6 +68,33 @@ int main(){
     ck(loops == 0, "every evolution chain ends rather than looping");
   }
 
+  // --- no chain evolves twice at once (v3.79). Evolution is offered when the
+  //     level reaches the stand-in, so a second stand-in at or below the first
+  //     came straight after it. Trade evolutions do not wait on a level. The
+  //     four stone chains are waiting for the stones (plan § E1), which give
+  //     them no level at all; they leave this list then.
+  {
+    static const int16_t STONE_PENDING[] = { 82, 603, 608, 680 };   // Magneton, Eelektrik, Lampent, Doublade
+    int twice = 0;
+    for (int16_t d = 1; d <= DEX_COUNT; d++) {
+      int16_t mid = DEX_TBL[d].evolvesTo;
+      if (!mid || mid > DEX_COUNT || !DEX_TBL[mid].evolvesTo) continue;
+      bool trade = false, pending = false;
+      for (int i = 0; i < TRADE_EVO_COUNT; i++) if (TRADE_EVOS[i].from == mid) trade = true;
+      for (int16_t p : STONE_PENDING) if (p == mid) pending = true;
+      if (trade || pending) continue;
+      if (DEX_TBL[mid].evolveLevel <= DEX_TBL[d].evolveLevel) {
+        printf("      %s -> %s at %u, then -> %s at %u\n", DEX_TBL[d].name, DEX_TBL[mid].name,
+               DEX_TBL[d].evolveLevel, DEX_TBL[DEX_TBL[mid].evolvesTo].name, DEX_TBL[mid].evolveLevel);
+        twice++;
+      }
+    }
+    ck(twice == 0, "no chain evolves twice at once (its second level is above its first)");
+    ck(DEX_TBL[217].evolveLevel == 40 && DEX_TBL[221].evolveLevel == 43 && DEX_TBL[625].evolveLevel == 62 &&
+       DEX_TBL[183].evolveLevel == 35 && DEX_TBL[113].evolveLevel == 40 && DEX_TBL[1011].evolveLevel == 40,
+       "Ursaluna 40, Mamoswine 43, Kingambit 62, Azumarill 35, Blissey 40, Hydrapple 40 (owner: +10)");
+  }
+
   // Species that genuinely have no attacking move in the games either. Cocoons
   // learn HARDEN and nothing else; DITTO has Transform, UNOWN has Hidden Power,
   // WOBBUFFET and WYNAUT counter rather than attack, SMEARGLE only Sketches.

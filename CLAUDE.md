@@ -935,6 +935,26 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1f.
 
+### Done: chain levels and prize money (v3.79, on the branch)
+
+Plan § E11 and § E5's money (owner, 2026-10-29). `prize_test`, `dexdata_test`;
+six guards negative-checked.
+
+- **Second evolutions ten levels after the first** (owner's +10 rule):
+  Ursaluna 40, Mamoswine 43, Kingambit 62, Azumarill 35, Blissey 40, Hydrapple
+  40 -- edited in `dex_data.py` (pokeapi.co is blocked here, so not through
+  `gen_dex_data.py`; its `KNOWN` table records them) and regenerated. Explore's
+  evolved floors followed (`gen_wild.py`). `dexdata_test` fails if any chain's
+  second stand-in is at or below its first, trade evolutions aside and four
+  stone chains pending § E1 (`STONE_PENDING`: Magneton, Eelektrik, Lampent,
+  Doublade -- remove them when the stones land).
+- **`trainerPrize(region, idx, hard, firstWin)`** (pet.cpp) is THE prize: Gen
+  3's 4 x last creature's level x class (25; 50 for the champion, Emerald's),
+  halved on easy, halved again on a rematch. First win = the badge not yet held
+  on that difficulty, asked BEFORE `winBadge()`. Paid in `btlResolve()`'s win
+  branch (trainer fights only, never LAN) through `Pet::earnMoney()`, shown on
+  the win screen (`btlPrize`, `S_WIN_PRIZE_FMT`).
+
 ### Done: swarms (v3.78, on the branch)
 
 Plan § 5. `swarm_test`; six guards negative-checked. Nothing saved.

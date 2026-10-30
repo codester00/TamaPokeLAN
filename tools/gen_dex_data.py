@@ -67,6 +67,16 @@ KNOWN = {
     (44, 'level'): "hand data evolves this by stone at 36; see STONE_LEVEL",
     (61, 'level'): "as Gloom",
     (70, 'level'): "as Gloom",
+    # v3.79 (owner): a chain whose second evolution's stand-in was at or
+    # below its first evolved twice at once. The second now comes ten levels
+    # after the first: Ursaluna 40, Mamoswine 43, Kingambit 62, Azumarill 35,
+    # Blissey 40, Hydrapple 40. dexdata_test fails if one comes back.
+    (113, 'level'): "Blissey: Happiny -> Chansey at 30, so Chansey -> Blissey at 40",
+    (183, 'level'): "Azumarill: Azurill -> Marill at 25, so Marill -> Azumarill at 35",
+    (217, 'level'): "Ursaluna: Teddiursa -> Ursaring at 30, so 40",
+    (221, 'level'): "Mamoswine: Swinub -> Piloswine at 33, so 43",
+    (625, 'level'): "Kingambit: Pawniard -> Bisharp at 52, so 62",
+    (1011, 'level'): "Hydrapple: Applin -> Dipplin at 30, so 40",
 }
 
 

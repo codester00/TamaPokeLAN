@@ -465,6 +465,13 @@ public:
     wallet += (n < room) ? n : room;
     pendingSave = true;
   }
+  // Money that is not steps (v3.79: a trainer win's prize). Clamped at the
+  // cap like the wallet's every other way in; saved with the caller's save.
+  void earnMoney(uint32_t n) {
+    uint32_t room = WALLET_CAP - wallet;
+    wallet += (n < room) ? n : room;
+    pendingSave = true;
+  }
   // A Mart purchase: rare and player-initiated, so unlike addSteps() this saves
   // immediately -- the same as winBadge()/renameTrainer(). Returns false (and
   // spends nothing) if the wallet is short.
@@ -973,3 +980,11 @@ private:
   void load();
   static uint8_t clamp100(int v) { return v < 0 ? 0 : (v > 100 ? 100 : v); }
 };
+
+// A trainer win's prize money (v3.79), Gen 3's rule (GetTrainerMoneyToGive()
+// in pokefirered/pokeemerald): 4 x the level of the trainer's LAST creature x
+// the class value -- 25 for gym leaders and the Elite Four, 50 for a champion
+// (Emerald's). Hard pays that; easy half (owner); a win after the first (the
+// badge already held on that difficulty) half again. THE answer the win and
+// the tests both ask.
+uint32_t trainerPrize(uint8_t region, uint8_t idx, bool hard, bool firstWin);

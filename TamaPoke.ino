@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.78"
+#define FW_VERSION "3.79"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -420,6 +420,7 @@ Combatant btlYou, btlFoe;
 bool btlOver = false;
 bool btlWon = false;
 bool btlNewBadge = false;
+uint32_t btlPrize = 0;   // the win's prize money, for the win screen (v3.79)
 uint32_t btlWinUntil = 0;   // the win screen is up
 // A gym win waits for its last turn to be read: the final hit, the bar draining
 // and the faint play out first, and the badge screen opens on the tap that
@@ -6871,6 +6872,15 @@ static void btlResolve(uint8_t yourMove) {
     if (btlYou.fainted()) btlFaintArm(0);
     btlNewBadge = false;
     btlTrainGain = 0;
+    btlPrize = 0;
+    if (btlWon && btlTrainer >= 0 && !btlLink) {
+      // The prize (v3.79): full on the first win of this leader on this
+      // difficulty, which is exactly when the badge is new; asked BEFORE the
+      // badge is written.
+      btlPrize = trainerPrize(btlRegion, (uint8_t)btlTrainer, btlHard,
+                              !pet.hasBadge(btlRegion, btlTrainer, btlHard));
+      pet.earnMoney(btlPrize);
+    }
     if (btlWon && btlTrainer >= 0 && !pet.hasBadge(btlRegion, btlTrainer, btlHard)) {
       pet.winBadge(btlRegion, btlTrainer, btlHard);
       btlNewBadge = true;
@@ -7118,6 +7128,13 @@ void renderWin() {
       gfx->setCursor(CX - strlen(T(S_BTL_NEWBADGE)) * 6, 286);
       gfx->print(T(S_BTL_NEWBADGE));
     }
+  }
+  if (btlPrize) {
+    snprintf(l, sizeof(l), T(S_WIN_PRIZE_FMT), (unsigned long)btlPrize);
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(l) * 6, 256);
+    gfx->print(l);
   }
   snprintf(l, sizeof(l), T(S_BADGES_FMT), pet.badgeCountIn(btlRegion, btlHard));
   gfx->setTextColor(UI_INK);
