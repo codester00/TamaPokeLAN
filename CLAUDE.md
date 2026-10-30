@@ -935,6 +935,23 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1f.
 
+### Done: Melmetal by walking (v3.83, on the branch)
+
+Plan § E7. `meltan_test`; five guards negative-checked.
+
+- `BR_STEPS` in `BRANCH_EVOS` (PokeAPI's `meltan-candies` trigger, arg 100 =
+  hundreds of steps, owner's 10,000). Melmetal is evolution-only now.
+- **`Pet::evoSteps`** (hundreds walked as THIS creature): `addSteps()` calls
+  `creditEvoSteps()` (only a BR_STEPS species, only while live and growing);
+  `evoInfo()` returns `EVO_STEPS` with `stepsLeft` (`S_EVO_STEPS_FMT` on the
+  card; `evolutionAhead()` holds no farewell) until it reaches the arg, then
+  READY/BLOCKED by care. Reset by `evolveInto()`, `newEgg()`, the switches.
+- **Saved in two places**: `PartyMon::reserved[0]` (toPartyMon / switchTo /
+  reviveFrom) and the pet checkpoint's `PET_TAIL_STEPS` byte
+  (`PET_CORE_VERSION` 6). `tradeMonValid()` lets reserved[0] through
+  (reserved[1-2] still refused), so **`TRADE_PROTO` 3**: a v3.82 board refuses
+  the trade rather than drop the steps. `tpsave.py` decodes both.
+
 ### Done: evolution branches without items (v3.82, on the branch)
 
 Plan § E3, E6, E8. `branch_test`; seven guards negative-checked. Nothing saved.

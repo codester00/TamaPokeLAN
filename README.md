@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.82-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.83-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -482,6 +482,10 @@ While **awake**:
   **SHEDINJA** joins too. The evolution question now names what it becomes.
   Hitmonchan, Hitmontop, Cascoon, Shedinja, Appletun, Dipplin and Ceruledge
   no longer hatch.
+- **MELTAN walks to MELMETAL (v3.83)**: **10,000 steps** walked while it is
+  the live pet (a nod to Pokémon GO's 400 candies), counted in hundreds and
+  kept by the creature through banking and trades. The card counts down the
+  steps; its farewell does not wait for the walk. Melmetal no longer hatches.
 - *Eevee* follows the stones: Water, Thunder, Fire, Leaf and Ice give
   Vaporeon, Jolteon, Flareon, Leafeon and Glaceon. Its other three need **bond
   40 and two days of age** (48 hours: the daily bond cap resets at midnight, so

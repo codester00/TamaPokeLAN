@@ -55,7 +55,9 @@ bool tradeMonValid(const PartyMon &m) {
       m.weight > 100 || m.bond > 100) return false;
   if (!m.uid.valid()) return false;
   if (m.flags & ~(PMON_TRADE_EVO | PMON_CHEATED)) return false;   // a bit no build defines
-  for (uint8_t r : m.reserved) if (r) return false;
+  // reserved[0] is Meltan's walk since v3.83 (hundreds of steps); the rest
+  // are still reserved.
+  if (m.reserved[1] || m.reserved[2]) return false;
   return true;
 }
 

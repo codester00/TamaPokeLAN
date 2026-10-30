@@ -18,7 +18,8 @@ fetch_weights.py does.
   apples and Charcadet's armours, chosen at the level), 'stat' (Tyrogue's
   Attack against Defense), 'split' (two level-up targets at one level with no
   other condition: Wurmple, Cosmoem -- decided by the creature's ID) and
-  'shed' (Nincada's Shedinja).
+  'shed' (Nincada's Shedinja) and 'steps' (v3.83: Meltan's candies become
+  10,000 steps walked while it is the live pet, in hundreds).
 - GENDER_EVOS (v3.80), from pokemon_evolution.csv: the level-up evolutions
   that depend on the creature's gender -- only those where the genders really
   differ (Burmy splits, only a female Combee or Salandit evolves). Meowstic
@@ -54,6 +55,8 @@ EVO_STONES = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone',
 CHOICE_ITEMS = ['tart-apple', 'sweet-apple', 'syrupy-apple',
                 'auspicious-armor', 'malicious-armor']
 SHED = '4'                          # evolution_triggers.csv: Nincada's shell
+CANDIES = '17'                      # meltan-candies: walking, here (owner: GO's 400 x 25)
+MELTAN_STEPS_HUNDREDS = 100         # 10,000 steps
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'dex_rates.py')
 
@@ -154,6 +157,8 @@ def main():
             branch.add((frm, to, 'choice', 0))
         elif trig == SHED:
             branch.add((frm, to, 'shed', 0))
+        elif trig == CANDIES:
+            branch.add((frm, to, 'steps', MELTAN_STEPS_HUNDREDS))
         elif trig == LEVEL_UP and r['relative_physical_stats']:
             branch.add((frm, to, 'stat', int(r['relative_physical_stats'])))
         elif (trig == LEVEL_UP and r['minimum_level'] and not r['gender_id'] and
@@ -165,7 +170,7 @@ def main():
             for to, _l in opts:
                 branch.add((frm, to, 'split', 0))
     kinds = {k for _f, _t, k, _a in branch}
-    if kinds != {'choice', 'stat', 'split', 'shed'}:
+    if kinds != {'choice', 'stat', 'split', 'shed', 'steps'}:
         sys.exit(f'branch kinds {sorted(kinds)} -- the parse broke, not writing')
     lines.append('\n# (from, to, gender, level): a level-up evolution only that gender takes\n')
     lines.append('GENDER_EVOS = [\n')

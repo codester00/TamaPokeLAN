@@ -299,6 +299,7 @@ enum StrId : uint16_t {
   S_EVO_ITEM_FMT,  // the card's line for a stone evolution (v3.81)
   S_EVO_EEVEE,  // Eevee's card line: stones, or bond and two days (v3.81)
   S_EVO_INTO_FMT, S_EVO_PICK,  // the evolution dialog names its target; Applin's and Charcadet's choice (v3.82)
+  S_EVO_STEPS_FMT,  // Meltan's card line (v3.83)
   STR_COUNT
 };
 

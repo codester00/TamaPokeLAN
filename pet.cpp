@@ -198,7 +198,8 @@ static constexpr uint32_t PET_CORE_MAGIC = 0x31504B54UL;  // "TKP1"
 // v3 appended the live creature's CreatureUid after the handover record.
 // v4 appended a flags byte (+3 reserved) after the CreatureUid: the pending
 // trade evolution.
-static constexpr uint16_t PET_CORE_VERSION = 5;
+// v6 (v3.83) appended one byte after them: evoSteps, Meltan's walk.
+static constexpr uint16_t PET_CORE_VERSION = 6;
 // Generous enough to read a record from a later build; see ckptRead().
 static constexpr size_t PET_CORE_CAP = 192;
 
@@ -279,7 +280,8 @@ static constexpr size_t PET_TAIL_UID = PET_TAIL_MON + sizeof(PartyMon);
 static constexpr size_t PET_TAIL_FLAGS = PET_TAIL_UID + sizeof(CreatureUid);   // v4, u8 + 3 reserved
 // v5 uses those 3 reserved bytes: u16 untended minutes (GRACE_MIN), then u8
 // the petting step. Spare bytes the reader already skipped, so nothing moved.
-static constexpr size_t PET_BODY = PET_TAIL_FLAGS + 4;
+static constexpr size_t PET_TAIL_STEPS = PET_TAIL_FLAGS + 4;   // v6, u8: Meltan's walk
+static constexpr size_t PET_BODY = PET_TAIL_STEPS + 1;
 static_assert(PET_BODY + CKPT_CRC <= PET_CORE_CAP, "raise PET_CORE_CAP");
 
 // Takes a validated blob and copies whatever body prefix the stored record and
@@ -685,6 +687,7 @@ void Pet::newEgg() {
   neglectTicks = 0;
   unattended = 0;     // a different creature: a fresh grace window
   petStep = 0;
+  evoSteps = 0;
   weight = WEIGHT_START;
   speciesId = -1;
   prevSpeciesId = -1;
@@ -902,6 +905,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   neglectTicks = 0;
   unattended = 0;     // a different creature: a fresh grace window
   petStep = 0;
+  evoSteps = 0;
   speciesId = m.dex;
   prevSpeciesId = -1;
   eggTaps = 0;
@@ -930,6 +934,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   nick[sizeof(nick) - 1] = 0;
   uid = m.uid;   // the same creature, so the same identity
   setMonFlags(m.flags);
+  evoSteps = m.reserved[0];   // Meltan's walk (v3.83)
   registerSpecies(speciesId);
   save();
 }
@@ -970,6 +975,7 @@ PartyMon Pet::toPartyMon() const {
   m.ageMinutes = ageMinutes;
   m.uid = uid;
   m.flags = monFlags();
+  m.reserved[0] = evoSteps;   // Meltan's walk (v3.83)
   return m;
 }
 
@@ -982,6 +988,7 @@ bool Pet::switchTo(const PartyMon &m) {
   neglectTicks = 0;
   unattended = 0;     // a different creature: a fresh grace window
   petStep = 0;
+  evoSteps = 0;
   speciesId = m.dex;
   prevSpeciesId = -1;
   eggTaps = 0;
@@ -1029,6 +1036,7 @@ bool Pet::switchTo(const PartyMon &m) {
   nick[sizeof(nick) - 1] = 0;
   uid = m.uid;   // the same creature, so the same identity
   setMonFlags(m.flags);
+  evoSteps = m.reserved[0];   // Meltan's walk (v3.83)
   // An empty slot takes a level-up move it has already passed (v3.72): the
   // creature raised here should never stand at full level with slots empty
   // and moves to spare. Fill only -- what you chose is never overwritten, and
@@ -2062,7 +2070,7 @@ bool Pet::applyCordPair(PartyMon &partner) {
 }
 
 Pet::EvoInfo Pet::evoInfo() const {
-  EvoInfo e = { EVO_FINAL, 0, 0, false, 0xFF };
+  EvoInfo e = { EVO_FINAL, 0, 0, false, 0xFF, 0 };
   if (isEgg()) return e;
   const DexEntry &d = DEX_TBL[speciesId];
   // A creature that arrived by trade evolves by trade, at any level -- as in
@@ -2075,6 +2083,20 @@ Pet::EvoInfo Pet::evoInfo() const {
       e.status = lowestStat() >= 40 ? EVO_READY : EVO_BLOCKED;
       return e;
     }
+  }
+  // Meltan (v3.83): no table route -- it walks there.
+  for (int i = 0; i < BRANCH_EVO_COUNT; i++) {
+    const BranchEvo &r = BRANCH_EVOS[i];
+    if (r.from != speciesId || r.kind != BR_STEPS) continue;
+    e.target = r.to;
+    if (evoSteps >= (uint8_t)r.arg) {
+      e.status = lowestStat() >= 40 ? EVO_READY : EVO_BLOCKED;
+    } else {
+      e.status = EVO_STEPS;
+      uint32_t left = (uint32_t)((uint8_t)r.arg - evoSteps) * 100 - stepsTotal % 100;
+      e.stepsLeft = left > 0xFFFF ? 0xFFFF : (uint16_t)left;
+    }
+    return e;
   }
   if (d.evolvesTo == 0) return e;
   e.target = d.evolvesTo;   // EEVEE: evolve() picks the branch
@@ -2160,6 +2182,7 @@ void Pet::evolveInto(int16_t next, bool byTrade) {
   for (uint8_t i = 0; i < wildLegendCount(); i++)
     if (wildLegendDex(i) == next) setLegendCaught(i);
   if (byTrade) tradeEvo = false;   // spent: PORYGON2 needs a trade of its own
+  evoSteps = 0;
   registerSpecies(speciesId);
   // The new form learns every level-up move it has already passed (v3.72),
   // not only one gated at this very level: the gates ran against the OLD
@@ -2532,6 +2555,7 @@ bool Pet::saveCoreSnapshot() {
   buf[PET_TAIL_FLAGS] = monFlags();
   ckptWr16(buf + PET_TAIL_FLAGS + 1, unattended);
   buf[PET_TAIL_FLAGS + 3] = petStep;   // v5; see caress()
+  buf[PET_TAIL_STEPS] = evoSteps;      // v6
 
   uint16_t total = ckptSeal(buf, PET_BODY, PET_CORE_MAGIC, PET_CORE_VERSION, nextGen);
   const char *key = ckptSlot(nextGen, "petA", "petB");
@@ -2585,6 +2609,7 @@ bool Pet::loadCoreSnapshot() {
   tradeEvo = false;      // absent before v4: nothing was ever traded
   unattended = 0;        // absent before v5
   petStep = 0;
+  evoSteps = 0;          // absent before v6
   if (body >= PET_TAIL_MON) {
     size_t monLen = ckptRd16(buf + PET_TAIL_MONLEN);
     // v3: the live creature's ID follows the handover at its STORED length.
@@ -2597,6 +2622,8 @@ bool Pet::loadCoreSnapshot() {
     // A v4 record reads 0 here (its reserved bytes were zero): a fresh window.
     if (monLen && fl + 3 <= body) unattended = ckptRd16(buf + fl + 1);
     if (monLen && fl + 4 <= body) petStep = buf[fl + 3] < PET_JOY_STEP_COUNT ? buf[fl + 3] : 0;
+    // v6: Meltan's walk. Absent reads as none walked.
+    if (monLen && fl + 5 <= body) evoSteps = buf[fl + 4];
     if (monLen && PET_TAIL_MON + monLen <= body) {
       // Prefix rule again: a record from before PartyMon grew lands in the front
       // and the care block keeps its initialisers, which stateVersion 0 already
@@ -3059,4 +3086,16 @@ bool Pet::evolveChoice(int16_t to) {
   for (uint8_t i = 0; i < n; i++)
     if (opts[i] == to) { evolveInto(to, false); return true; }
   return false;
+}
+
+void Pet::creditEvoSteps(uint32_t totalBefore, uint32_t n) {
+  if (isEgg() || !grows()) return;
+  for (int i = 0; i < BRANCH_EVO_COUNT; i++) {
+    const BranchEvo &r = BRANCH_EVOS[i];
+    if (r.from != speciesId || r.kind != BR_STEPS) continue;
+    uint32_t h = (totalBefore + n) / 100 - totalBefore / 100;   // hundreds crossed
+    uint32_t v = evoSteps + h;
+    evoSteps = v > 250 ? 250 : (uint8_t)v;
+    return;
+  }
 }

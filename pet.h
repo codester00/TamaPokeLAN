@@ -468,6 +468,7 @@ public:
   // CLAUDE.md's NVS section warns about.
   void addSteps(uint32_t n) {
     if (!n) return;
+    creditEvoSteps(stepsTotal, n);   // Meltan's walk (v3.83), before the total moves
     stepsTotal += n;
     uint32_t room = WALLET_CAP - wallet;
     wallet += (n < room) ? n : room;
@@ -706,6 +707,7 @@ public:
     EVO_BLOCKED,      // due, but a need is under 40
     EVO_READY,        // due and cared for
     EVO_NEEDS_ITEM,   // v3.81: evolves only with an item from the bag (a stone)
+    EVO_STEPS,        // v3.83: Meltan, stepsLeft more steps walked as the live pet
   };
   struct EvoInfo {
     uint8_t status;
@@ -713,6 +715,7 @@ public:
     uint16_t levelsLeft;  // EVO_LEVELS only
     bool byTrade;         // this evolution is the trade one
     uint8_t stone;        // EVO_NEEDS_ITEM: the EVO_STONES index; else 0xFF
+    uint16_t stepsLeft;   // EVO_STEPS only
   };
   EvoInfo evoInfo() const;
   // The creature's gender (v3.80): creatureGender() of its species and ID.
@@ -743,6 +746,11 @@ public:
   // Set by evolveInto() when a Nincada becomes a Ninjask: the sketch then
   // spends a Poke Ball on the Shedinja, if there is one and room (RAM only).
   bool shedPending = false;
+  // Meltan (v3.83, plan § E7): hundreds of steps walked while THIS creature
+  // was the live pet. Travels with it: PartyMon::reserved[0], the pet
+  // checkpoint's v6 byte. Melmetal at BR_STEPS' arg (100 = 10,000 steps).
+  uint8_t evoSteps = 0;
+  void creditEvoSteps(uint32_t totalBefore, uint32_t n);
   static int itemEvoRow(int16_t dex, int16_t to);   // index into ITEM_EVOS, or -1
   // What using `stone` on this creature would make RIGHT NOW, 0 = no effect (an
   // egg, a frozen companion, mid-ceremony, already marked for its trade

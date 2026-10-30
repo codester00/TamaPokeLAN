@@ -177,12 +177,14 @@ def main():
                "// tools/fetch_species_rates.py. BR_CHOICE: the player picks at the species'\n"
                "// level (Applin, Charcadet). BR_STAT: Tyrogue by Attack against Defense\n"
                "// (arg 1 higher, -1 lower, 0 equal). BR_SPLIT: by the creature's ID\n"
-               "// (Wurmple, Cosmoem). BR_SHED: Nincada's Shedinja, a second creature.\n")
-    out.append("enum : uint8_t { BR_CHOICE = 0, BR_STAT, BR_SPLIT, BR_SHED };\n")
+               "// (Wurmple, Cosmoem). BR_SHED: Nincada's Shedinja, a second creature.\n"
+               "// BR_STEPS: Meltan, arg hundreds of steps walked as the live pet (v3.83).\n")
+    out.append("enum : uint8_t { BR_CHOICE = 0, BR_STAT, BR_SPLIT, BR_SHED, BR_STEPS };\n")
     out.append("struct BranchEvo {\n  int16_t from, to;\n  uint8_t kind;\n  int8_t arg;\n};\n")
     out.append("#define BRANCH_EVO_COUNT %d\n" % len(BRANCH_EVOS))
     out.append("static const BranchEvo BRANCH_EVOS[BRANCH_EVO_COUNT] = {\n")
-    kinds = {'choice': 'BR_CHOICE', 'stat': 'BR_STAT', 'split': 'BR_SPLIT', 'shed': 'BR_SHED'}
+    kinds = {'choice': 'BR_CHOICE', 'stat': 'BR_STAT', 'split': 'BR_SPLIT', 'shed': 'BR_SHED',
+             'steps': 'BR_STEPS'}
     for f, t, k, a in BRANCH_EVOS:
         out.append(f"  {{ {f}, {t}, {kinds[k]}, {a} }},\n")
     out.append("};\n\n")

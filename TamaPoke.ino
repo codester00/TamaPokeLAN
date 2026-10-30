@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.82"
+#define FW_VERSION "3.83"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -9488,6 +9488,9 @@ const char *uiEvoLine(char *buf, size_t n, uint16_t *col) {
   switch (ei.status) {
     case Pet::EVO_FINAL: return T(S_FINAL_FORM);
     case Pet::EVO_NEEDS_TRADE: return T(S_EVO_TRADE);
+    case Pet::EVO_STEPS:        // v3.83: Meltan
+      snprintf(buf, n, T(S_EVO_STEPS_FMT), (unsigned)ei.stepsLeft);
+      return buf;
     case Pet::EVO_NEEDS_ITEM:   // v3.81: "Evolves with THUNDERSTONE"
       if (ei.stone == 0xFF) return T(S_EVO_EEVEE);   // Eevee: any of its stones, or bond
       snprintf(buf, n, T(S_EVO_ITEM_FMT), itemEntry((ItemKey)(IT_FIRESTONE + ei.stone)).name);

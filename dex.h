@@ -869,7 +869,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "BLACEPHALON", 0, 0, R_RARO, 0xEA87, 53, 127, 53, 107, 151, 79, 3, T_FIRE, T_GHOST },  // 806 fire/ghost
   { "ZERAORA", 0, 0, R_LEGENDARIO, 0xBCA1, 88, 112, 75, 143, 102, 80, 0, T_ELECTRIC, T_NONE },  // 807 electric
   { "MELTAN", 0, 0, R_LEGENDARIO, 0x6BF1, 46, 65, 65, 34, 55, 35, 4, T_STEEL, T_NONE },  // 808 steel
-  { "MELMETAL", 0, 0, R_LEGENDARIO, 0x6BF1, 135, 143, 143, 34, 80, 65, 4, T_STEEL, T_NONE },  // 809 steel
+  { "MELMETAL", 0, 0, R_EVO, 0x6BF1, 135, 143, 143, 34, 80, 65, 4, T_STEEL, T_NONE },  // 809 steel
   { "GROOKEY", 811, 16, R_RARO, 0x3C49, 50, 65, 50, 65, 40, 40, 2, T_GRASS, T_NONE },  // 810 grass
   { "THWACKEY", 812, 35, R_EVO, 0x3C49, 70, 85, 70, 80, 55, 60, 2, T_GRASS, T_NONE },  // 811 grass
   { "RILLABOOM", 0, 0, R_EVO, 0x3C49, 100, 125, 90, 85, 60, 70, 2, T_GRASS, T_NONE },  // 812 grass
@@ -1384,13 +1384,14 @@ static const ItemEvo ITEM_EVOS[ITEM_EVO_COUNT] = {
 // level (Applin, Charcadet). BR_STAT: Tyrogue by Attack against Defense
 // (arg 1 higher, -1 lower, 0 equal). BR_SPLIT: by the creature's ID
 // (Wurmple, Cosmoem). BR_SHED: Nincada's Shedinja, a second creature.
-enum : uint8_t { BR_CHOICE = 0, BR_STAT, BR_SPLIT, BR_SHED };
+// BR_STEPS: Meltan, arg hundreds of steps walked as the live pet (v3.83).
+enum : uint8_t { BR_CHOICE = 0, BR_STAT, BR_SPLIT, BR_SHED, BR_STEPS };
 struct BranchEvo {
   int16_t from, to;
   uint8_t kind;
   int8_t arg;
 };
-#define BRANCH_EVO_COUNT 13
+#define BRANCH_EVO_COUNT 14
 static const BranchEvo BRANCH_EVOS[BRANCH_EVO_COUNT] = {
   { 236, 106, BR_STAT, 1 },
   { 236, 107, BR_STAT, -1 },
@@ -1400,6 +1401,7 @@ static const BranchEvo BRANCH_EVOS[BRANCH_EVO_COUNT] = {
   { 290, 292, BR_SHED, 0 },
   { 790, 791, BR_SPLIT, 0 },
   { 790, 792, BR_SPLIT, 0 },
+  { 808, 809, BR_STEPS, 100 },
   { 840, 841, BR_CHOICE, 0 },
   { 840, 842, BR_CHOICE, 0 },
   { 840, 1011, BR_CHOICE, 0 },
