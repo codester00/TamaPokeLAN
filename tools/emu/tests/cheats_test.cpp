@@ -133,7 +133,9 @@ int main() {
   LinkMon lm; linkMonFrom(lm, cb);
   Combatant back; linkMonTo(back, lm);
   ck(back.cheated, "and so does the LAN wire");
-  ck(sizeof(LinkMon) == 34, "LinkMon kept its size");
+  // 34 until v3.92 added ppUps (LINK_PROTO 10); the build fingerprint in the
+  // hello carries this size, so two builds that disagree refuse to pair
+  ck(sizeof(LinkMon) == 36, "LinkMon is the size both boards expect");
 
   // --- the egg cheats
   pet.dbgHatchAs(1, false);

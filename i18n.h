@@ -303,6 +303,7 @@ enum StrId : uint16_t {
   S_BTN_BACK,  // the Pokedex's BACK button (v3.88)
   S_MART_TAB_BUY, S_MART_TAB_SELL, S_MART_SELL_Q, S_MART_PAYS_FMT, S_MART_NOTHING,  // selling (v3.90)
   S_VIT_PICK, S_VIT_LIVE,  // a vitamin's target, on the party ring (v3.91)
+  S_PPUP_PICK,  // PP UP's move (v3.92)
   STR_COUNT
 };
 

@@ -59,8 +59,8 @@ int main() {
   q.switchTo(m);
   ck(q.evoSteps == 43, "and raised again, so does the creature");
   ck(tradeMonValid(m), "a Meltan with a walk under way can be traded");
-  PartyMon bad1 = m; bad1.reserved[1] = 1;
-  ck(!tradeMonValid(bad1), "the other reserved bytes stay reserved");
+  PartyMon bad1 = m; bad1.reserved[2] = 1;   // reserved[1] is PP Ups since v3.92
+  ck(!tradeMonValid(bad1), "the byte still reserved stays reserved");
   ck(TRADE_PROTO >= 3, "and the trade protocol moved, so an older board refuses rather than drops them");
   p.saveNow();
   Pet r; r.begin();

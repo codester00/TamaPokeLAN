@@ -199,7 +199,7 @@ static constexpr uint32_t PET_CORE_MAGIC = 0x31504B54UL;  // "TKP1"
 // v4 appended a flags byte (+3 reserved) after the CreatureUid: the pending
 // trade evolution.
 // v6 (v3.83) appended one byte after them: evoSteps, Meltan's walk.
-static constexpr uint16_t PET_CORE_VERSION = 6;
+static constexpr uint16_t PET_CORE_VERSION = 7;
 // Generous enough to read a record from a later build; see ckptRead().
 static constexpr size_t PET_CORE_CAP = 192;
 
@@ -281,7 +281,8 @@ static constexpr size_t PET_TAIL_FLAGS = PET_TAIL_UID + sizeof(CreatureUid);   /
 // v5 uses those 3 reserved bytes: u16 untended minutes (GRACE_MIN), then u8
 // the petting step. Spare bytes the reader already skipped, so nothing moved.
 static constexpr size_t PET_TAIL_STEPS = PET_TAIL_FLAGS + 4;   // v6, u8: Meltan's walk
-static constexpr size_t PET_BODY = PET_TAIL_STEPS + 1;
+static constexpr size_t PET_TAIL_PPUPS = PET_TAIL_STEPS + 1;   // v7, u8: PP Ups (v3.92)
+static constexpr size_t PET_BODY = PET_TAIL_PPUPS + 1;
 static_assert(PET_BODY + CKPT_CRC <= PET_CORE_CAP, "raise PET_CORE_CAP");
 
 // Takes a validated blob and copies whatever body prefix the stored record and
@@ -688,6 +689,7 @@ void Pet::newEgg() {
   unattended = 0;     // a different creature: a fresh grace window
   petStep = 0;
   evoSteps = 0;
+  ppUps = 0;          // a new creature has no PP Ups
   weight = WEIGHT_START;
   speciesId = -1;
   prevSpeciesId = -1;
@@ -938,6 +940,7 @@ void Pet::reviveFrom(const PartyMon &m) {
   uid = m.uid;   // the same creature, so the same identity
   setMonFlags(m.flags);
   evoSteps = m.reserved[0];   // Meltan's walk (v3.83)
+  ppUps = m.reserved[1];      // PP Ups (v3.92)
   registerSpecies(speciesId);
   save();
 }
@@ -979,6 +982,7 @@ PartyMon Pet::toPartyMon() const {
   m.uid = uid;
   m.flags = monFlags();
   m.reserved[0] = evoSteps;   // Meltan's walk (v3.83)
+  m.reserved[1] = ppUps;      // PP Ups (v3.92)
   return m;
 }
 
@@ -1040,6 +1044,7 @@ bool Pet::switchTo(const PartyMon &m) {
   uid = m.uid;   // the same creature, so the same identity
   setMonFlags(m.flags);
   evoSteps = m.reserved[0];   // Meltan's walk (v3.83)
+  ppUps = m.reserved[1];      // PP Ups (v3.92)
   // An empty slot takes a level-up move it has already passed (v3.72): the
   // creature raised here should never stand at full level with slots empty
   // and moves to spare. Fill only -- what you chose is never overwritten, and
@@ -2559,6 +2564,7 @@ bool Pet::saveCoreSnapshot() {
   ckptWr16(buf + PET_TAIL_FLAGS + 1, unattended);
   buf[PET_TAIL_FLAGS + 3] = petStep;   // v5; see caress()
   buf[PET_TAIL_STEPS] = evoSteps;      // v6
+  buf[PET_TAIL_PPUPS] = ppUps;         // v7
 
   uint16_t total = ckptSeal(buf, PET_BODY, PET_CORE_MAGIC, PET_CORE_VERSION, nextGen);
   const char *key = ckptSlot(nextGen, "petA", "petB");
@@ -2613,6 +2619,7 @@ bool Pet::loadCoreSnapshot() {
   unattended = 0;        // absent before v5
   petStep = 0;
   evoSteps = 0;          // absent before v6
+  ppUps = 0;             // absent before v7
   if (body >= PET_TAIL_MON) {
     size_t monLen = ckptRd16(buf + PET_TAIL_MONLEN);
     // v3: the live creature's ID follows the handover at its STORED length.
@@ -2627,6 +2634,8 @@ bool Pet::loadCoreSnapshot() {
     if (monLen && fl + 4 <= body) petStep = buf[fl + 3] < PET_JOY_STEP_COUNT ? buf[fl + 3] : 0;
     // v6: Meltan's walk. Absent reads as none walked.
     if (monLen && fl + 5 <= body) evoSteps = buf[fl + 4];
+    // v7: PP Ups. Absent reads as none.
+    if (monLen && fl + 6 <= body) ppUps = buf[fl + 5];
     if (monLen && PET_TAIL_MON + monLen <= body) {
       // Prefix rule again: a record from before PartyMon grew lands in the front
       // and the care block keeps its initialisers, which stateVersion 0 already

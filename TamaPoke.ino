@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.91"
+#define FW_VERSION "3.92"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -159,6 +159,11 @@ bool partyPick = false;
 // the creature to link with. Cancelling keeps the cord.
 bool cordPick = false;
 uint8_t vitPick = 0;   // a vitamin waiting for its target on the party ring (v3.91), 0 = none
+// PP UP's move pick (v3.92), on the bag screen: whose moves -- PPUP_LIVE for the
+// creature being raised, else a party slot. PPUP_NONE when not picking.
+#define PPUP_NONE 0xFF
+#define PPUP_LIVE 0xFE
+uint8_t ppUpWho = PPUP_NONE;
 uint8_t partyDetail = 0;   // 0 = the grid, else slot + 1
 // The box, reached from the party screen. `boxSwapFrom` is the party slot
 // waiting for something to trade with, 0 when nothing is pending.
@@ -533,6 +538,7 @@ void galleryHeaderText(char *buf, size_t n);
 bool uiOnControl(int16_t x, int16_t y);
 static void drawEggRegion();          // defined with the egg screen helpers
 static void drawBackPill(int y);      // the Pokedex's BACK button, with the gallery
+static bool ppUpTarget(uint8_t who, const uint8_t **moves, uint8_t *ups, const CreatureUid **uid);   // with the bag
 static int eggRegionTap(int16_t x, int16_t y);
 static void drawBtlBack();
 static void btlLinkPoll();   // defined with the battle code, called from render()
@@ -2289,7 +2295,7 @@ void renderMonSheet(const PartyMon &m, bool fromBox) {
 
   for (int i = 0; i < MOVE_SLOTS; i++) {
     drawMoveRow(78 + i * 52, m.moves[i], false, m.dex);
-    drawMovePp(78 + i * 52, m.uid, i, m.moves[i]);
+    drawMovePp(78 + i * 52, m.uid, i, m.moves[i], m.reserved[1]);
   }
 
   char st[40];
@@ -3297,6 +3303,7 @@ void uiTileGo(int i) {
   hallOpen = 0;
   cordPick = false;
   vitPick = 0;
+  ppUpWho = PPUP_NONE;
   boxOpen = false;
   boxDetail = partyDetail = 0;
   galleryDetail = 0;
@@ -5748,11 +5755,12 @@ void drawMoveRow(int y, uint8_t mv, bool highlight, int16_t dex) {
 
 // PP left on one of a creature's moves, top right of its drawMoveRow() row.
 // Red at zero. Read from the PP book, so it is what the next fight starts with.
-void drawMovePp(int y, const CreatureUid &uid, uint8_t slot, uint8_t mv) {
+void drawMovePp(int y, const CreatureUid &uid, uint8_t slot, uint8_t mv, uint8_t ups) {
   if (!mv || mv >= MOVE_COUNT) return;
-  uint8_t left = ppLeftSlot(uid, slot, mv);
+  uint8_t u = ppUpsAt(ups, slot);
+  uint8_t left = ppLeftSlot(uid, slot, mv, u);
   char pp[12];
-  snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), left, ppMax(mv));
+  snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), left, ppMaxFor(mv, u));
   gfx->setTextSize(1);
   gfx->setTextColor(left ? UI_INK : UI_BAR_BAD);
   gfx->setCursor(384 - (int)strlen(pp) * 6, y + 12);
@@ -5767,7 +5775,7 @@ void renderCardMoves() {
   gfx->print(T(S_MOVES));
   for (int i = 0; i < MOVE_SLOTS; i++) {
     drawMoveRow(MOVE_ROW_Y(i), pet.moves[i], false, pet.speciesId);
-    drawMovePp(MOVE_ROW_Y(i), pet.uid, i, pet.moves[i]);
+    drawMovePp(MOVE_ROW_Y(i), pet.uid, i, pet.moves[i], pet.ppUps);
   }
   gfx->setTextColor(UI_INK_SOFT);
   gfx->setTextSize(1);
@@ -6111,7 +6119,8 @@ static void foeFromSpecies(Combatant &c, int16_t dex, uint8_t lvl, bool hard) {
 // Your creatures carry their PP from fight to fight (pp.h); an opponent's
 // stays full.
 static void btlLoadPp(Combatant &c) {
-  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppLeftSlot(c.uid, (uint8_t)i, c.moves[i]);
+  for (int i = 0; i < MOVE_SLOTS; i++)
+    c.pp[i] = ppLeftSlot(c.uid, (uint8_t)i, c.moves[i], ppUpsAt(c.ppUps, i));
 }
 
 // THE one way a fight changes a creature's moves (v3.69): SKETCH turned slot
@@ -6156,7 +6165,7 @@ static void btlSketched(bool ours, const TurnLog &lg) {
 // turn, so no way a fight ends can lose it; RAM only until loop() flushes.
 static void btlRecordPp() {
   if (btlLink || !btlYou.ppOn) return;
-  ppRecord(btlYou.uid, btlYou.moves, btlYou.pp);
+  ppRecord(btlYou.uid, btlYou.moves, btlYou.pp, btlYou.ppUps);
 }
 
 // Your side: the live pet first, then the banked party.
@@ -6403,7 +6412,7 @@ static void btlApplyResult() {
     if (btlSquadAt < lan.mineN) lan.mine[btlSquadAt].moves[i] = to;   // for a rematch
   }
   for (int i = 0; i < MOVE_SLOTS; i++) {   // the host spends PP; we show it
-    uint8_t mx = ppMax(btlYou.moves[i]);
+    uint8_t mx = ppMaxFor(btlYou.moves[i], ppUpsAt(btlYou.ppUps, i));
     btlYou.pp[i] = r.guestPp[i] > mx ? mx : r.guestPp[i];
   }
   if (youIn) btlHpShown[0] = btlYou.hp;
@@ -7433,7 +7442,7 @@ void renderBattle() {
       // the move is refused (battleTap asks the same battleSlotReady()).
       if (btlYou.ppOn) {
         char pp[12];
-        snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), btlYou.pp[i], ppMax(mv));
+        snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), btlYou.pp[i], ppMaxFor(mv, ppUpsAt(btlYou.ppUps, i)));
         gfx->setTextSize(1);
         gfx->setTextColor(battleSlotReady(btlYou, i) ? UI_INK : UI_BAR_BAD);
         gfx->setCursor(x + BTL_CELL_W - 8 - (int)strlen(pp) * 6, y + 38);
@@ -9808,12 +9817,41 @@ void renderBag() {
   uint8_t n = bag.distinctCount();
   uint8_t pages = bagPages();
   if (bagPage >= pages) bagPage = 0;
-  if (!n) {
+  const uint8_t *pmoves = nullptr; uint8_t pups = 0; const CreatureUid *puid = nullptr;
+  bool picking = ppUpWho != PPUP_NONE && ppUpTarget(ppUpWho, &pmoves, &pups, &puid);
+  if (ppUpWho != PPUP_NONE && !picking) ppUpWho = PPUP_NONE;   // the creature went
+  if (picking) {
+    // PP UP's move (v3.92): the four slots, each with its PP and Ups so far
+    gfx->fillRect(60, 30, 346, 30, UI_BG_DAY);
+    gfx->setTextColor(UI_INK);
+    gfx->setCursor(CX - (int)strlen(T(S_PPUP_PICK)) * 6, 40);
+    gfx->print(T(S_PPUP_PICK));
+    for (int s = 0; s < MOVE_SLOTS; s++) {
+      uint8_t mv = pmoves[s];
+      if (!mv || mv >= MOVE_COUNT) continue;
+      uint8_t u = ppUpsAt(pups, s);
+      bool can = u < PP_UPS_MAX && mv != MV_STRUGGLE;
+      int y = BAG_ROW_Y(s);
+      gfx->fillRoundRect(76, y, 314, 50, 10, can ? UI_WHITE : UI_TRACK);
+      gfx->drawRoundRect(76, y, 314, 50, 10, UI_INK);
+      gfx->setTextColor(can ? UI_INK : 0x8410);
+      gfx->setTextSize(2);
+      gfx->setCursor(92, y + 9);
+      gfx->print(moveName(mv));
+      char pl[24];
+      snprintf(pl, sizeof(pl), "%s %u/%u  +%u", T(S_PP), ppLeftSlot(*puid, (uint8_t)s, mv, u),
+               ppMaxFor(mv, u), u);
+      gfx->setTextSize(1);
+      gfx->setCursor(92, y + 31);
+      gfx->print(pl);
+    }
+  }
+  if (!n && !picking) {
     gfx->setTextColor(UI_INK_SOFT);
     gfx->setCursor(CX - (int)strlen(T(S_BAG_EMPTY)) * 6, CY - 8);
     gfx->print(T(S_BAG_EMPTY));
   }
-  for (uint8_t i = 0; i < BAG_PER_PAGE; i++) {
+  for (uint8_t i = 0; i < BAG_PER_PAGE && !picking; i++) {
     uint8_t idx = (uint8_t)(bagPage * BAG_PER_PAGE + i);
     if (idx >= n) break;
     ItemKey k = bag.keyAt(idx);
@@ -9832,7 +9870,7 @@ void renderBag() {
   }
   // A page NUMBER, not a dot row: the catalogue is append-only and a dot per
   // page stopped fitting the round panel once the Pokedex reached 25 of them.
-  if (pages > 1) {
+  if (pages > 1 && !picking) {
     char pg[12];
     snprintf(pg, sizeof(pg), "%u/%u", bagPage + 1, pages);
     gfx->setTextColor(UI_INK);
@@ -9966,6 +10004,11 @@ void vitPickTap(int16_t x, int16_t y) {
   partyOpen = false;
   bagOpen = true;
   if (!hub && i < 0) { sfxPlay(SFX_TAP); return; }   // cancelled: kept
+  if (itemEntry(k).category == IC_PPUP) {             // whose, then which move
+    ppUpWho = hub ? PPUP_LIVE : (uint8_t)i;
+    sfxPlay(SFX_TAP);
+    return;
+  }
   bool took = hub ? bagUseOnPet(k) : vitaminOnParty(k, (uint8_t)i);
   if (!took) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
   bag.consume(k);
@@ -9973,7 +10016,49 @@ void vitPickTap(int16_t x, int16_t y) {
   bagSay(T(S_ITEM_USED), itemEntry(k).name);
 }
 
+// The creature PP UP's move pick is about (v3.92): its moves and PP Ups. False
+// if it is gone (an egg, an emptied slot).
+static bool ppUpTarget(uint8_t who, const uint8_t **moves, uint8_t *ups, const CreatureUid **uid) {
+  if (who == PPUP_LIVE) {
+    if (pet.isEgg()) return false;
+    *moves = pet.moves; *ups = pet.ppUps; *uid = &pet.uid;
+    return true;
+  }
+  if (who >= PARTY_SLOTS || party.slots[who].empty()) return false;
+  *moves = party.slots[who].moves; *ups = party.slots[who].reserved[1]; *uid = &party.slots[who].uid;
+  return true;
+}
+// One PP Up on `slot` of the creature `who`, saved. False when the slot has no
+// move or is at PP_UPS_MAX (the item is kept). The one way it is applied.
+bool ppUpOn(uint8_t who, int slot) {
+  if (who == PPUP_LIVE) {
+    if (pet.isEgg() || !ppUpAdd(pet.ppUps, pet.moves, slot)) return false;
+    pet.saveNow();
+    return true;
+  }
+  if (who >= PARTY_SLOTS || party.slots[who].empty() || tradeLocked(party.slots[who])) return false;
+  PartyMon m = party.slots[who];
+  if (!ppUpAdd(m.reserved[1], m.moves, slot)) return false;
+  party.replaceAt(who, m);
+  return true;
+}
+static void ppUpPickTap(int16_t x, int16_t y) {
+  uint8_t who = ppUpWho;
+  ppUpWho = PPUP_NONE;
+  for (int s = 0; s < MOVE_SLOTS; s++) {
+    int ry = BAG_ROW_Y(s);
+    if (x < 76 || x > 390 || y < ry || y > ry + 50) continue;
+    if (!ppUpOn(who, s)) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
+    bag.consume(IT_PPUP);
+    sfxPlay(SFX_TAP);
+    bagSay(T(S_ITEM_USED), itemEntry(IT_PPUP).name);
+    return;
+  }
+  sfxPlay(SFX_TAP);   // anywhere else: cancelled, the PP UP is kept
+}
+
 void bagTap(int16_t x, int16_t y) {
+  if (ppUpWho != PPUP_NONE) { ppUpPickTap(x, y); return; }
   uint8_t n = bag.distinctCount();
   for (uint8_t i = 0; i < BAG_PER_PAGE; i++) {
     uint8_t idx = (uint8_t)(bagPage * BAG_PER_PAGE + i);
@@ -9984,7 +10069,12 @@ void bagTap(int16_t x, int16_t y) {
     if (!itemUsableInField(k) || pet.isEgg()) { sfxPlay(SFX_DENY); return; }
     if (k == IT_LINKCORD) { cordFromBag(); return; }
     if (itemEntry(k).category == IC_STONE) { stoneFromBag(k); return; }
-    if (itemEntry(k).category == IC_TRAIN && party.count()) {
+    if (itemEntry(k).category == IC_PPUP && !party.count()) {
+      ppUpWho = PPUP_LIVE;                 // no party: straight to the live pet's moves
+      sfxPlay(SFX_TAP);
+      return;
+    }
+    if ((itemEntry(k).category == IC_TRAIN || itemEntry(k).category == IC_PPUP) && party.count()) {
       // a vitamin with a party to choose from (v3.91): who gets it, on the ring
       bagOpen = false;
       partyOpen = true;

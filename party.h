@@ -110,8 +110,10 @@ struct PartyMon {
   // PMON_TRADE_EVO: received in a trade, and will evolve by trade the next
   // time it is the live pet (Pet::evoInfo()). Set by Pet::markTraded(), cleared
   // by the evolution. PMON_CHEATED (v3.60): a cheat changed it, for good.
-  // The three reserved bytes keep the record 4-aligned and
-  // are zero; tradeMonValid() refuses a record where they are not.
+  // The three reserved bytes keep the record 4-aligned. reserved[0] is
+  // Meltan's walk (v3.83); reserved[1] the PP Ups (v3.92: two bits a move
+  // SLOT, 0-3 used on it -- ppUpsAt()); reserved[2] is zero, and
+  // tradeMonValid() refuses a record where it is not.
   uint8_t flags = 0;
   uint8_t reserved[3] = { 0, 0, 0 };
 

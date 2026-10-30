@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.91-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.92-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -568,6 +568,15 @@ Opponents always start full. **A LAN battle counts PP too** (since v3.55):
 both sides start full and spend PP as they fight, so a long fight runs out the
 same way a gym does — but your saved PP is left alone, before and after. Both
 boards need v3.55 to fight each other (the link refuses an older build).
+
+**PP UP** (since v3.92, $10,000 at the Mart). From the bag it asks whose move
+(the party ring, or the creature you are raising when there is no party), then
+which move, and raises that move's PP by **a fifth of its base, rounded down —
+three times at most**: TACKLE 35 → 42 → 49 → 56, SURF 15 → 18 → 21 → 24. The
+PP Ups belong to the creature (they travel with it through the party, Bill's PC,
+trades and LAN battles) and to the move SLOT: teaching a new move in that slot
+keeps them, which is simpler than the games, where a forgotten move loses its
+PP Ups. A trade or a LAN battle needs v3.92 on both boards.
 
 **The battle AI and healing.** The smart AI heals when it is hurt, as it always
 has; what ends a heal loop is **PP**: RECOVER has 5, so a leader can heal five
@@ -1409,6 +1418,7 @@ every game:
 | Black Augurite | $3,000 |
 | X Attack / X Sp. Atk / X Speed | $1,000 each |
 | X Defense / X Sp. Def | $2,000 each |
+| PP Up | $10,000 (Scarlet/Violet's, the only game that sells it) |
 
 The **Linking Cord** is the one item that is *not* a real Poké Mart price: it
 comes from *Legends: Arceus*, and its price was set to match the vitamins —

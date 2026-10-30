@@ -26,7 +26,8 @@ void combatantFromPet(Combatant &c, const Pet &p) {
   snprintf(c.name, sizeof(c.name), "%s", nm);
   // PP starts full; the player's side then reads what is left from the PP
   // book (buildSquad), opponents keep it full.
-  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMax(c.moves[i]);
+  c.ppUps = p.ppUps;
+  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMaxFor(c.moves[i], ppUpsAt(c.ppUps, i));
   c.ppOn = true;
   c.uid = p.uid;
 }
@@ -41,7 +42,8 @@ void combatantFromParty(Combatant &c, const PartyMon &m) {
   snprintf(c.name, sizeof(c.name), "%s", nm);
   // PP starts full; the player's side then reads what is left from the PP
   // book (buildSquad), opponents keep it full.
-  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMax(c.moves[i]);
+  c.ppUps = m.reserved[1];
+  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMaxFor(c.moves[i], ppUpsAt(c.ppUps, i));
   c.ppOn = true;
   c.uid = m.uid;
 }
@@ -158,7 +160,7 @@ static void heal(Combatant &c, uint16_t amount) {
 // ---------- PP ----------
 
 void battleFullPp(Combatant &c) {
-  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMax(c.moves[i]);
+  for (int i = 0; i < MOVE_SLOTS; i++) c.pp[i] = ppMaxFor(c.moves[i], ppUpsAt(c.ppUps, i));
   c.ppOn = true;
 }
 
@@ -273,7 +275,7 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
     atk.lastMove = mv;
     if (!t || slot < 0) { log.failed = true; return; }
     atk.moves[slot] = t;
-    atk.pp[slot] = ppMax(t);
+    atk.pp[slot] = ppMaxFor(t, ppUpsAt(atk.ppUps, slot));   // the slot keeps its PP Ups
     log.sketched = t;
     log.sketchSlot = slot;
     return;

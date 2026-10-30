@@ -37,21 +37,34 @@ static_assert(sizeof(PpEntry) == 20, "PpEntry is on-disk format");
 // Full PP for a move: its table value, never 0 for a real move.
 uint8_t ppMax(uint8_t move);
 
+// PP Ups (v3.92), the games' rule: each adds a fifth of the move's base PP,
+// rounded down, up to 3 (35 PP -> 42, 49, 56). A creature's Ups are packed two
+// bits a move SLOT (PartyMon::reserved[1], Pet::ppUps, Combatant::ppUps): the
+// slot keeps them if its move changes -- simpler than the games, which lose
+// them with a forgotten move, and it cannot drift between the many places a
+// move is written.
+#define PP_UPS_MAX 3
+uint8_t ppMaxFor(uint8_t move, uint8_t ups);
+inline uint8_t ppUpsAt(uint8_t packed, int slot) { return (uint8_t)((packed >> (2 * slot)) & 3); }
+// One more Up on a slot. False if the slot has no real move or is at PP_UPS_MAX.
+bool ppUpAdd(uint8_t &packed, const uint8_t moves[MOVE_SLOTS], int slot);
+
 // What is left of `move` for creature `uid`. An invalid uid (an egg, a foe)
 // is always full.
-uint8_t ppLeft(const CreatureUid &uid, uint8_t move);
+uint8_t ppLeft(const CreatureUid &uid, uint8_t move, uint8_t ups = 0);
 // The same for the move in one SLOT: a move held in several slots (SKETCH, up
 // to four, v3.69) keeps a count per slot. Falls back to ppLeft() when the
 // book's entry has another move in that slot.
-uint8_t ppLeftSlot(const CreatureUid &uid, uint8_t slot, uint8_t move);
+uint8_t ppLeftSlot(const CreatureUid &uid, uint8_t slot, uint8_t move, uint8_t ups = 0);
 
 // Records what a battle left: `moves` and the PP still LEFT on each. Called
 // after every turn, so no ending path can lose it -- but only in RAM: a turn
 // is not worth a flash write. ppFlush() writes it, from loop() once the fight
 // is over and from flushBeforePowerLoss().
 // A move at full PP stores nothing; an entry with nothing used is removed.
+// `ups` is the creature's packed PP Ups: what is USED is counted from its max.
 void ppRecord(const CreatureUid &uid, const uint8_t moves[MOVE_SLOTS],
-              const uint8_t left[MOVE_SLOTS]);
+              const uint8_t left[MOVE_SLOTS], uint8_t ups = 0);
 
 // Everyone's PP back. Returns true if anything was refilled (so a caller can
 // tell a rest that mattered from one that did not).

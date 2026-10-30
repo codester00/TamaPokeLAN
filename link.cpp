@@ -43,6 +43,7 @@ void linkMonFrom(LinkMon &out, const Combatant &c) {
   for (int i = 0; i < MOVE_SLOTS; i++) out.moves[i] = c.moves[i];
   out.shiny = c.shiny ? 1 : 0;
   out.flags = c.cheated ? PMON_CHEATED : 0;
+  out.ppUps = c.ppUps;
   snprintf(out.name, sizeof(out.name), "%s", c.name);
 }
 
@@ -60,6 +61,7 @@ void linkMonTo(Combatant &out, const LinkMon &m) {
   for (int i = 0; i < MOVE_SLOTS; i++) out.moves[i] = linkSafeMove(m.moves[i]);
   out.shiny = m.shiny != 0;
   out.cheated = (m.flags & PMON_CHEATED) != 0;
+  out.ppUps = m.ppUps;   // any byte is four valid 2-bit counts
   // NOT snprintf("%s"): a name off the wire need not be terminated, and reading
   // it as a C string would run off the end of the struct.
   uint8_t n = sizeof(out.name) - 1;

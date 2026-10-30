@@ -751,6 +751,9 @@ public:
   // was the live pet. Travels with it: PartyMon::reserved[0], the pet
   // checkpoint's v6 byte. Melmetal at BR_STEPS' arg (100 = 10,000 steps).
   uint8_t evoSteps = 0;
+  // PP Ups on the live pet's move slots (v3.92), packed as ppUpsAt() reads them.
+  // Travels with it: PartyMon::reserved[1], the pet checkpoint's v7 byte.
+  uint8_t ppUps = 0;
   void creditEvoSteps(uint32_t totalBefore, uint32_t n);
   static int itemEvoRow(int16_t dex, int16_t to);   // index into ITEM_EVOS, or -1
   // What using `stone` on this creature would make RIGHT NOW, 0 = no effect (an

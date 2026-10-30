@@ -122,6 +122,7 @@ FRIENDLY_NAMES = {
     "unattended": "Awake minutes since last FULLY cared for (8-hour window = 480; v3.34)",
     "petStep": "Petting worn out: 0 = fresh (+10 joy) .. 5 = no effect until a joy game (v3.34)",
     "evoSteps": "Meltan's walk: hundreds of steps as the live pet; Melmetal at 100 (v3.83)",
+    "ppUps": "PP Ups, two bits a move slot (0-3 each; v3.92)",
     # the player -- outlives every creature (save.cpp's SAVE_FIELDS)
     "tnam": "Trainer name", "avtr": "Avatar index", "badg": "Kanto badges (easy, bitmask)",
     "reg": "Current region", "eggR": "Egg region history (bytes)",
@@ -341,8 +342,9 @@ PARTY_MON_FIELDS = [
     # v3.31: CreatureUid -- board MAC, per-boot salt, serial (0 = no ID yet)
     ("uidMac", "6s"), ("uidSalt", "H"), ("uidSerial", "I"),
     # v3.32: flags (bit0 = evolves by trade when next raised) + 3 reserved;
-    # v3.83: the first is Meltan's walk, hundreds of steps as the live pet
-    ("flags", "B"), ("evoSteps", "B"), ("_rsvd", "2x"),
+    # v3.83: the first is Meltan's walk, hundreds of steps as the live pet;
+    # v3.92: the second the PP Ups, two bits a move slot
+    ("flags", "B"), ("evoSteps", "B"), ("ppUps", "B"), ("_rsvd", "x"),
 ]
 PARTY_MON_FMT = "<" + "".join(f for _, f in PARTY_MON_FIELDS)
 PARTY_MON_SIZE = struct.calcsize(PARTY_MON_FMT)
@@ -595,6 +597,9 @@ def decode_pet_checkpoint(raw: bytes) -> dict:
         # v6 (v3.83): Meltan's walk, hundreds of steps
         if mon_len and at + 12 + 5 <= body_len and version >= 6:
             d["evoSteps"] = raw[at + 16]
+        # v7 (v3.92): PP Ups, two bits a move slot
+        if mon_len and at + 12 + 6 <= body_len and version >= 7:
+            d["ppUps"] = raw[at + 17]
     return d
 
 

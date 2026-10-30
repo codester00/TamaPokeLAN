@@ -13,6 +13,21 @@ uint8_t ppMax(uint8_t move) {
   return MOVE_TBL[move].pp ? MOVE_TBL[move].pp : 1;
 }
 
+uint8_t ppMaxFor(uint8_t move, uint8_t ups) {
+  uint8_t base = ppMax(move);
+  if (ups > PP_UPS_MAX) ups = PP_UPS_MAX;
+  return (uint8_t)(base + (base / 5) * ups);
+}
+
+bool ppUpAdd(uint8_t &packed, const uint8_t moves[MOVE_SLOTS], int slot) {
+  if (slot < 0 || slot >= MOVE_SLOTS || !moves[slot] || moves[slot] >= MOVE_COUNT) return false;
+  if (moves[slot] == MV_STRUGGLE) return false;
+  uint8_t u = ppUpsAt(packed, slot);
+  if (u >= PP_UPS_MAX) return false;
+  packed = (uint8_t)((packed & ~(3 << (2 * slot))) | ((u + 1) << (2 * slot)));
+  return true;
+}
+
 static int find(const CreatureUid &uid) {
   if (!uid.valid()) return -1;
   for (uint8_t i = 0; i < gCount; i++) if (gBook[i].uid == uid) return i;
@@ -48,12 +63,14 @@ void ppLoad() {
   for (uint8_t i = 0; i < gCount; i++)
     for (int s = 0; s < MOVE_SLOTS; s++) {
       if (gBook[i].move[s] >= MOVE_COUNT) gBook[i].move[s] = 0;
-      if (gBook[i].used[s] > ppMax(gBook[i].move[s])) gBook[i].used[s] = ppMax(gBook[i].move[s]);
+      // the most a move can have used is its max with every PP Up (v3.92)
+      if (gBook[i].used[s] > ppMaxFor(gBook[i].move[s], PP_UPS_MAX))
+        gBook[i].used[s] = ppMaxFor(gBook[i].move[s], PP_UPS_MAX);
     }
 }
 
-uint8_t ppLeft(const CreatureUid &uid, uint8_t move) {
-  uint8_t mx = ppMax(move);
+uint8_t ppLeft(const CreatureUid &uid, uint8_t move, uint8_t ups) {
+  uint8_t mx = ppMaxFor(move, ups);
   int i = find(uid);
   if (i < 0) return mx;
   for (int s = 0; s < MOVE_SLOTS; s++)
@@ -62,22 +79,22 @@ uint8_t ppLeft(const CreatureUid &uid, uint8_t move) {
   return mx;
 }
 
-uint8_t ppLeftSlot(const CreatureUid &uid, uint8_t slot, uint8_t move) {
+uint8_t ppLeftSlot(const CreatureUid &uid, uint8_t slot, uint8_t move, uint8_t ups) {
   int i = find(uid);
-  if (i < 0 || slot >= MOVE_SLOTS || gBook[i].move[slot] != move) return ppLeft(uid, move);
-  uint8_t mx = ppMax(move);
+  if (i < 0 || slot >= MOVE_SLOTS || gBook[i].move[slot] != move) return ppLeft(uid, move, ups);
+  uint8_t mx = ppMaxFor(move, ups);
   return gBook[i].used[slot] >= mx ? 0 : (uint8_t)(mx - gBook[i].used[slot]);
 }
 
 void ppRecord(const CreatureUid &uid, const uint8_t moves[MOVE_SLOTS],
-              const uint8_t left[MOVE_SLOTS]) {
+              const uint8_t left[MOVE_SLOTS], uint8_t ups) {
   if (!uid.valid()) return;
   PpEntry e;
   e.uid = uid;
   bool any = false;
   for (int s = 0; s < MOVE_SLOTS; s++) {
     e.move[s] = moves[s] < MOVE_COUNT ? moves[s] : 0;
-    uint8_t mx = ppMax(e.move[s]);
+    uint8_t mx = ppMaxFor(e.move[s], ppUpsAt(ups, s));
     e.used[s] = (e.move[s] && left[s] < mx) ? (uint8_t)(mx - left[s]) : 0;
     if (e.used[s]) any = true;
   }

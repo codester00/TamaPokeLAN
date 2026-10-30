@@ -39,7 +39,7 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 9        // bump on ANY wire change; a mismatch is refused
+#define LINK_PROTO 10       // bump on ANY wire change; a mismatch is refused (10: LinkMon::ppUps, v3.92)
                             // (8, v3.64: LinkResult carries the turn's beats;
                             // 9, v3.69: SKETCH in the beats, the guest's moves)
                             // (6, v3.58: the stats a LinkMon carries scale
@@ -122,6 +122,7 @@ struct LinkMon {
   uint8_t shiny;
   char name[LINK_NAME_LEN];
   uint8_t flags;   // PMON_CHEATED (v3.60); sat in the struct's tail padding, so the size held
+  uint8_t ppUps;   // PP Ups (v3.92): the host counts the guest's PP from them (LINK_PROTO 10)
 };
 
 // What the host tells the guest happened. Everything the guest needs to render

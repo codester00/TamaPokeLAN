@@ -34,6 +34,7 @@ struct Combatant {
   // PP book -- only the host spends, and LinkResult carries the guest's.
   uint8_t pp[MOVE_SLOTS] = { 0, 0, 0, 0 };
   bool ppOn = false;
+  uint8_t ppUps = 0;         // the creature's PP Ups (v3.92), packed as ppUpsAt() reads them
   CreatureUid uid;           // whose PP book entry; invalid for an opponent
   // The last move this creature used in the fight, for the foe's SKETCH to
   // copy (v3.69). Per creature for the whole fight; 0 = none yet.

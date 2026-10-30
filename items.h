@@ -34,6 +34,7 @@ enum : uint8_t {
   IT_BLACKAUGURITE,
   // v3.91: the X items, in the battle engine's stat order (SI_ATK..SI_SPE)
   IT_XATTACK, IT_XDEFENSE, IT_XSPATK, IT_XSPDEF, IT_XSPEED,
+  IT_PPUP,       // v3.92
   ITEM_COUNT,
 };
 
@@ -45,6 +46,7 @@ enum ItemCategory : uint8_t {
   IC_LINK,       // the Linking Cord: marks the live pet to evolve by trade
   IC_STONE,      // v3.81: evolves the live pet on the spot (param: EVO_STONES index)
   IC_XSTAT,      // v3.91: an X item, in battle (param: SI_* stat, amount: stages)
+  IC_PPUP,       // v3.92: one more PP Up on a move slot of the live pet or a party creature
 };
 
 // A ball whose param is this catches without rolling. It is a sentinel rather
@@ -112,6 +114,9 @@ static const ItemEntry ITEM_TBL[ITEM_COUNT] = {
   { "X SP. ATK",    IC_XSTAT, 2,                      2, 0,  1000 },
   { "X SP. DEF",    IC_XSTAT, 3,                      2, 0,  2000 },
   { "X SPEED",      IC_XSTAT, 4,                      2, 0,  1000 },
+  // PP UP (v3.92): a fifth more of the move's base PP, three a move (pp.h).
+  // $10,000 is Scarlet/Violet's, the only game that sells it. Mart only.
+  { "PP UP",        IC_PPUP,  0,                      1, 0,  10000 },
 };
 
 inline bool itemValid(ItemKey k) { return k > ITEM_NONE && k < ITEM_COUNT; }
@@ -128,7 +133,8 @@ inline bool itemIsBall(ItemKey k) {
 inline bool itemUsableInField(ItemKey k) {
   return itemValid(k) && (itemEntry(k).category == IC_TRAIN ||
                           itemEntry(k).category == IC_LINK ||
-                          itemEntry(k).category == IC_STONE);
+                          itemEntry(k).category == IC_STONE ||
+                          itemEntry(k).category == IC_PPUP);
 }
 // Usable from inside a fight. Training is permanent and belongs to the care
 // sim, so it stays out of the battle bag.

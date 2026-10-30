@@ -35,7 +35,7 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 ---
 
-## 1g. START HERE -- handoff as of v3.91 (2026-10-30)
+## 1g. START HERE -- handoff as of v3.92 (2026-10-30)
 
 This section is the description of the repo today; § 1f below (v3.74) is the
 stretch before it and its "How the owner works", decisions, lessons and known
@@ -46,12 +46,12 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 
 | | |
 |---|---|
-| Version | **3.91** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.91 |
+| Version | **3.92** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.92 |
 | `main` | still at v3.74 (`6abaf47`). Nothing since is merged; the installer serves v3.74 |
-| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.91 on top of `main` (one commit per version, plus tooling) |
-| On a board | **None of v3.75-v3.91 has run on a board.** All emulator-only |
-| Tests | 98 `*_test.cpp` suites (all pass at v3.91) (all clean under ASan + UBSan at v3.85). `run.sh` recompiles the whole sketch per suite (over an hour in a cloud container); compiling the shared sources once and the suites in parallel takes minutes |
-| Formats | `LINK_PROTO` 9, **`TRADE_PROTO` 3** (v3.83), `MOVE_COUNT` 241, pet checkpoint **`PET_CORE_VERSION` 6** (v3.83), player checkpoint **`PLAYER_VERSION` 10** (v3.77), `SAVE_VERSION` 2, `SET_COUNT` 13 |
+| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.92 on top of `main` (one commit per version, plus tooling) |
+| On a board | **None of v3.75-v3.92 has run on a board.** All emulator-only |
+| Tests | 99 `*_test.cpp` suites (all pass at v3.92) (all clean under ASan + UBSan at v3.85). `run.sh` recompiles the whole sketch per suite (over an hour in a cloud container); compiling the shared sources once and the suites in parallel takes minutes |
+| Formats | **`LINK_PROTO` 10** (v3.92), **`TRADE_PROTO` 4** (v3.92), `MOVE_COUNT` 241, pet checkpoint **`PET_CORE_VERSION` 7** (v3.92), player checkpoint **`PLAYER_VERSION` 10** (v3.77), `SAVE_VERSION` 2, `SET_COUNT` 13 |
 | Plan | `docs/explore-specialty-build-plan.md` revision 8 -- everything the owner decided in it is built, except what "Left" says below |
 
 ### What this stretch built (v3.75-v3.84), one line each
@@ -113,15 +113,15 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
   `martSellOne()`); wild drops 1 + 25% easy / 50% hard (were 1-2 / 2-3).
 - **v3.91** Vitamins +10 and usable on a party creature (the bag opens the ring);
   X items (+2 stages, Gen 7+ prices) in the battle bag.
+- **v3.92** PP Up ($10,000), stored on the creature: two bits a move slot in
+  `PartyMon::reserved[1]` / `Pet::ppUps`; `TRADE_PROTO` 4, `LINK_PROTO` 10.
 
 ### NEXT, agreed with the owner 2026-10-30, in this order
 
 1. ~~Selling, and fewer drops~~ **done in v3.90.**
-2. **New items**: vitamins and X items **done in v3.91**. Left: **PP Up**,
-   stored ON THE CREATURE (owner) -- a spare `PartyMon::reserved` byte (2 bits a
-   move) -> `TRADE_PROTO`/`LINK_PROTO` bumps, `tradeMonValid()`, the pet
-   checkpoint. Price **$10,000** (Scarlet/Violet, the only game that sells it;
-   not $9,800 as said earlier). +20% of the move's base PP a use, 3 a move.
+2. ~~New items~~ **done**: vitamins and X items in v3.91, PP Up in v3.92.
+   **For the owner**: PP Ups are kept per move SLOT, so a slot keeps its Ups
+   when its move changes (the games lose them with a forgotten move); asked.
 3. **Rerun the playthrough with realistic walking**: the board counts steps
    only while powered (screen off still counts), battery life is unmeasured,
    and children leave it home for school and sports. Profiles: school child

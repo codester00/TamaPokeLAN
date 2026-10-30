@@ -935,6 +935,34 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: PP Up, stored on the creature (v3.92, on the branch)
+
+Owner, 2026-10-30: PP Up stored ON THE CREATURE so it travels. `ppup_test`
+(the bag, the ring, a fight, banking, the save, trades, LAN); five guards
+negative-checked -- the book's reload clamp only after the test spent MORE than
+the base PP (it first spent 16 of 35, which no clamp touches).
+
+- **`ppMaxFor(move, ups)`** (pp.cpp) is THE max: base + base/5 per Up, up to
+  `PP_UPS_MAX` 3 (the games' rule). `ppMax()` stays the base. Packed two bits a
+  move SLOT (`ppUpsAt()`, `ppUpAdd()`): `PartyMon::reserved[1]`, `Pet::ppUps`
+  (pet checkpoint `PET_CORE_VERSION` 7, `PET_TAIL_PPUPS`), `Combatant::ppUps`.
+  **Per slot, kept when the slot's move changes** -- simpler than the games
+  (which lose them with a forgotten move) and it cannot drift between the many
+  places a move is written; flagged to the owner.
+- The PP book still stores USED; `ppLeft/ppLeftSlot/ppRecord` take the Ups and
+  count from `ppMaxFor()`. `ppLoad()` clamps used to the 3-Up max, not the base
+  (else a boosted move got PP back on every boot). Banking, `switchTo()`,
+  `reviveFrom()`, `combatantFrom*()`, `battleFullPp()`, SKETCH, the guest's
+  PP clamp and both PP displays all pass them; `newEgg()` clears them,
+  `evolveInto()` keeps them.
+- **Wire**: `TRADE_PROTO` 4 (`tradeMonValid()` accepts reserved[1]; reserved[2]
+  still refused), `LINK_PROTO` 10 (`LinkMon::ppUps`, 34 -> 36 bytes; the hello's
+  build fingerprint carries the size). `tpsave.py` decodes both.
+- **The item**: `IT_PPUP` / `IC_PPUP`, $10,000 (Scarlet/Violet, the only game
+  that sells it), Mart only. From the bag: with a party, `vitPick` (the ring)
+  then `ppUpWho`; without, straight to `PPUP_LIVE`. The bag screen draws the
+  four moves (PP and Ups) while `ppUpWho` is set; `ppUpOn()` is the one apply.
+
 ### Done: vitamins on the party, X items (v3.91, on the branch)
 
 Owner, 2026-10-30 (the items step of HANDOVER's NEXT list). `items_test`
