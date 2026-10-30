@@ -681,6 +681,9 @@ value**: 25 for gym leaders and the Elite Four, 25 for FireRed's champion and
 
 ### E6. Branches that need no item
 
+**BUILT as v3.82**, with E3's Applin/Charcadet choice and E8's Cosmoem. Melmetal
+(E7) and the stone drops (E5) remain.
+
 - **TYROGUE at 20:** higher Attack -> Hitmonlee, higher Defense ->
   Hitmonchan, equal -> Hitmontop. Exact here, since our creatures have Attack
   and Defense.

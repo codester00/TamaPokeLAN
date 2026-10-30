@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.81"
+#define FW_VERSION "3.82"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -2929,6 +2929,22 @@ void onTap(int16_t x, int16_t y) {
     gameTap(x, y);
     return;
   }
+  if (choiceKind == 4) {     // Applin's and Charcadet's choice (v3.82)
+    int16_t opts[4];
+    uint8_t n = pet.evoChoices(opts);
+    if (x < CONFIRM_BTN_X || x > CONFIRM_BTN_X + CONFIRM_BTN_W) return;
+    for (uint8_t i = 0; i <= n; i++) {
+      int t, b;
+      evoPickRect(i, &t, &b);
+      if (y < t || y > b) continue;
+      if (i == n) pet.declineEvolve();
+      else { int16_t old = pet.speciesId; if (pet.evolveChoice(opts[i])) evoPmd.load(old, pet.shiny); }
+      choiceKind = 0;
+      shedinjaCheck();
+      return;
+    }
+    return;                  // between the buttons: nothing
+  }
   if (choiceKind) {          // dialogo de decision: boton accion (arriba) / mantener (abajo)
     int c1t, c1b, c2t, c2b;
     uiConfirmRects(&c1t, &c1b, &c2t, &c2b);
@@ -2936,7 +2952,7 @@ void onTap(int16_t x, int16_t y) {
     bool b1 = inX && y >= c1t && y <= c1b;   // accion
     bool b2 = inX && y >= c2t && y <= c2b;   // mantener / quedaros
     if (choiceKind == 1) {                 // evolucion
-      if (b1) { int16_t old = pet.speciesId; pet.evolve(); evoPmd.load(old, pet.shiny); }
+      if (b1) { int16_t old = pet.speciesId; pet.evolve(); evoPmd.load(old, pet.shiny); shedinjaCheck(); }
       else if (b2) pet.declineEvolve();
     } else if (choiceKind == 3) {          // retirada a peticion
       if (b1) pet.startRetire();
@@ -2978,7 +2994,9 @@ void onTap(int16_t x, int16_t y) {
   // boton de evolucion: abre el dialogo evolucionar/mantener
   if (pet.wantEvolveButton() && x >= EVO_BTN_X && x <= EVO_BTN_X + EVO_BTN_W &&
       y >= EVO_BTN_Y && y <= EVO_BTN_Y + EVO_BTN_H) {
-    choiceKind = 1; choiceUntil = millis() + 12000;
+    int16_t opts[4];
+    choiceKind = pet.evoChoices(opts) > 1 ? 4 : 1;   // Applin, Charcadet: pick (v3.82)
+    choiceUntil = millis() + 12000;
     return;
   }
   // botones de final (mismo recuadro): escapada directa; despedida abre dialogo.
@@ -9833,6 +9851,27 @@ void stoneFromBag(uint8_t k) {
   bagOpen = false;
 }
 
+// Nincada's shell (v3.82, plan § E6): when it becomes a Ninjask with a Poke
+// Ball in the bag and room for one more, the ball is spent and a Shedinja --
+// the same level, the same individual values, an ID of its own -- is stored
+// like a catch. No ball or no room: only the Ninjask, as in the games.
+void shedinjaCheck() {
+  if (!pet.shedPending) return;
+  pet.shedPending = false;
+  const int16_t SHEDINJA = 292;
+  if (!bag.count(IT_POKEBALL) || !roomFor(SHEDINJA) || !speciesShowable(SHEDINJA)) return;
+  Pet t;
+  t.dbgHatchAs(SHEDINJA, pet.shiny);
+  t.ivAtk = pet.ivAtk; t.ivDef = pet.ivDef; t.ivSpe = pet.ivSpe; t.ivHp = pet.ivHp;
+  t.ageMinutes = pet.ageMinutes;
+  t.relearnFromLevel();
+  PartyMon m = t.toPartyMon();
+  m.uid = pet.mintUid();
+  if (!storeNewCreature(m)) return;
+  bag.consume(IT_POKEBALL);
+  pet.saveNow();
+}
+
 // The partner pick. Returns to the bag either way, with a toast saying what
 // happened; only a real pair spends the cord.
 void cordPickTap(int16_t x, int16_t y) {
@@ -12444,9 +12483,13 @@ void drawConfirmPanel(const char *q, const char *sub1, const char *sub2,
   gfx->fillRoundRect(CONFIRM_X, CONFIRM_Y, CONFIRM_W, CONFIRM_H, 16, UI_WHITE);
   gfx->drawRoundRect(CONFIRM_X, CONFIRM_Y, CONFIRM_W, CONFIRM_H, 16, UI_INK);
   gfx->setTextColor(UI_INK);
-  gfx->setTextSize(2);
-  gfx->setCursor(CX - (int)strlen(q) * 6, 176);
+  // a long question (an evolution names its target) drops a size, so it
+  // never runs past the panel's 320 px
+  int qs = (int)strlen(q) * 12 <= CONFIRM_W - 16 ? 2 : 1;
+  gfx->setTextSize(qs);
+  gfx->setCursor(CX - (int)strlen(q) * 3 * qs, qs == 2 ? 176 : 180);
   gfx->print(q);
+  gfx->setTextSize(2);
   if (sub1 || sub2) {
     gfx->setTextSize(1);
     gfx->setTextColor(subCol);
@@ -12471,12 +12514,54 @@ void drawConfirmPanel(const char *q, const char *sub1, const char *sub2,
   gfx->print(o2);
 }
 
+// Where the main screen's EVOLVE button is, so a test taps what is drawn.
+void uiEvolveBtnCenter(int *x, int *y) { *x = EVO_BTN_X + EVO_BTN_W / 2; *y = EVO_BTN_Y + EVO_BTN_H / 2; }
+
+// Applin's and Charcadet's choice (v3.82): one button per branch, then KEEP.
+// The geometry is a function so the test taps what the panel draws.
+#define EVOPICK_Y0 150
+#define EVOPICK_STEP 58
+void evoPickRect(int i, int *top, int *bot) {
+  *top = EVOPICK_Y0 + i * EVOPICK_STEP;
+  *bot = *top + CONFIRM_BTN_H;
+}
+void drawEvoPickDialog() {
+  int16_t opts[4];
+  uint8_t n = pet.evoChoices(opts);
+  int t, b;
+  evoPickRect(n, &t, &b);
+  gfx->fillRoundRect(CONFIRM_X, EVOPICK_Y0 - 44, CONFIRM_W, b - EVOPICK_Y0 + 56, 16, UI_WHITE);
+  gfx->drawRoundRect(CONFIRM_X, EVOPICK_Y0 - 44, CONFIRM_W, b - EVOPICK_Y0 + 56, 16, UI_INK);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(T(S_EVO_PICK)) * 6, EVOPICK_Y0 - 30);
+  gfx->print(T(S_EVO_PICK));
+  for (uint8_t i = 0; i <= n; i++) {
+    evoPickRect(i, &t, &b);
+    bool keep = (i == n);
+    gfx->fillRoundRect(CONFIRM_BTN_X, t, CONFIRM_BTN_W, CONFIRM_BTN_H, 12, keep ? UI_TRACK : UI_BAR_BAD);
+    gfx->setTextColor(keep ? UI_INK : UI_WHITE);
+    const char *l = keep ? T(S_EVO_KEEP) : DEX_TBL[opts[i]].name;
+    gfx->setCursor(CX - (int)strlen(l) * 6, t + 18);
+    gfx->print(l);
+  }
+}
+
 void drawChoiceDialog() {
+  if (choiceKind == 4) { drawEvoPickDialog(); return; }
   const char *q, *o1, *o2;
   const char *sub1 = nullptr, *sub2 = nullptr;
   uint16_t c1, c2, t1, t2;
-  if (choiceKind == 1) {  // evolucion
-    q = T(S_EVO_Q); o1 = T(S_EVO_TAP); o2 = T(S_EVO_KEEP);
+  static char evoQ[40];
+  if (choiceKind == 1) {  // evolucion: the question names what it becomes (v3.82)
+    int16_t t = pet.evoInfo().target;
+    if (t >= 1 && t <= DEX_COUNT) {
+      snprintf(evoQ, sizeof(evoQ), T(S_EVO_INTO_FMT), DEX_TBL[t].name);
+      q = evoQ;
+    } else {
+      q = T(S_EVO_Q);
+    }
+    o1 = T(S_EVO_TAP); o2 = T(S_EVO_KEEP);
     c1 = UI_BAR_BAD; t1 = UI_WHITE; c2 = UI_TRACK; t2 = UI_INK;
   } else if (choiceKind == 3) {   // retirada a peticion
     q = T(S_RETIRE_Q); o1 = T(S_FAR_GO); o2 = T(S_FAR_STAY);

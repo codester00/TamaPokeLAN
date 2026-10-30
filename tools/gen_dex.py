@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dex_data import DEX, TYPE_ACCENTS, CLASSIC, RARE, LEGENDARY, REGIONS, EEVEE_BRANCHES
 from dex_stats import BASE_STATS
 from dex_weights import WEIGHT_HG
-from dex_rates import CATCH_RATE, GENDER_RATE, GENDER_EVOS, ITEM_EVOS, EVO_STONES
+from dex_rates import CATCH_RATE, GENDER_RATE, GENDER_EVOS, ITEM_EVOS, EVO_STONES, BRANCH_EVOS
 from dex_trade import TRADE_EVOS
 from dex_types import TYPES, TYPE_ORDER, CHART
 
@@ -104,7 +104,8 @@ def main():
     evolved = ({d[4] for d in DEX if d[4]} | set(EEVEE_BRANCHES) |
                {to for _f, to, _p in TRADE_EVOS} |
                {to for _f, to, _g, _l in GENDER_EVOS} |
-               {to for _f, to, _s, _g in ITEM_EVOS})
+               {to for _f, to, _s, _g in ITEM_EVOS} |
+               {to for _f, to, _k, _a in BRANCH_EVOS})
     rarities = []
     out.append("static const DexEntry DEX_TBL[DEX_COUNT + 1] = {\n")
     out.append('  { "?", 0, 0, 0, 0x2946, 50, 50, 50, 50, 50, 50, 0 },  // 0: sin usar\n')
@@ -171,6 +172,19 @@ def main():
     out.append("static const ItemEvo ITEM_EVOS[ITEM_EVO_COUNT] = {\n")
     for f, t, st, g in ITEM_EVOS:
         out.append(f"  {{ {f}, {t}, {st}, {dict(M=1, F=2).get(g, 0)} }},  // {EVO_STONES[st]}\n")
+    out.append("};\n\n")
+    out.append("// Branches decided without an item (v3.82), from PokeAPI via\n"
+               "// tools/fetch_species_rates.py. BR_CHOICE: the player picks at the species'\n"
+               "// level (Applin, Charcadet). BR_STAT: Tyrogue by Attack against Defense\n"
+               "// (arg 1 higher, -1 lower, 0 equal). BR_SPLIT: by the creature's ID\n"
+               "// (Wurmple, Cosmoem). BR_SHED: Nincada's Shedinja, a second creature.\n")
+    out.append("enum : uint8_t { BR_CHOICE = 0, BR_STAT, BR_SPLIT, BR_SHED };\n")
+    out.append("struct BranchEvo {\n  int16_t from, to;\n  uint8_t kind;\n  int8_t arg;\n};\n")
+    out.append("#define BRANCH_EVO_COUNT %d\n" % len(BRANCH_EVOS))
+    out.append("static const BranchEvo BRANCH_EVOS[BRANCH_EVO_COUNT] = {\n")
+    kinds = {'choice': 'BR_CHOICE', 'stat': 'BR_STAT', 'split': 'BR_SPLIT', 'shed': 'BR_SHED'}
+    for f, t, k, a in BRANCH_EVOS:
+        out.append(f"  {{ {f}, {t}, {kinds[k]}, {a} }},\n")
     out.append("};\n\n")
     out.append("// Evolutions that happen by TRADE, from PokeAPI via tools/fetch_trade_evos.py.\n"
                "// Where `to` is the species' own evolvesTo, trading is its ONLY route: the\n"

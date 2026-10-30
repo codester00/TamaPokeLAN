@@ -203,6 +203,8 @@ int main(){
         isTarget[TRADE_EVOS[i].to] = true;
     // and so is an item's (v3.81): Bellossom, Gallade, Froslass, Kleavor
     for (int i = 0; i < ITEM_EVO_COUNT; i++) isTarget[ITEM_EVOS[i].to] = true;
+    // and a branch's (v3.82): Hitmonchan, Cascoon, Shedinja, Appletun...
+    for (int i = 0; i < BRANCH_EVO_COUNT; i++) isTarget[BRANCH_EVOS[i].to] = true;
     // and so is a gender branch (v3.80): Mothim is Burmy's, for a male
     for (int i = 0; i < GENDER_EVO_COUNT; i++)
       if (GENDER_EVOS[i].to >= 1 && GENDER_EVOS[i].to <= DEX_COUNT)

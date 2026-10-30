@@ -167,7 +167,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "CUBONE", 105, 28, R_COMUN, 0xB447, 50, 50, 95, 35, 40, 50, 4, T_GROUND, T_NONE },  // 104 ground
   { "MAROWAK", 0, 0, R_EVO, 0xB447, 60, 80, 110, 45, 50, 80, 4, T_GROUND, T_NONE },  // 105 ground
   { "HITMONLEE", 0, 0, R_EVO, 0xA2A5, 50, 120, 53, 87, 35, 110, 0, T_FIGHTING, T_NONE },  // 106 fighting
-  { "HITMONCHAN", 0, 0, R_RARO, 0xA2A5, 50, 105, 79, 76, 35, 110, 0, T_FIGHTING, T_NONE },  // 107 fighting
+  { "HITMONCHAN", 0, 0, R_EVO, 0xA2A5, 50, 105, 79, 76, 35, 110, 0, T_FIGHTING, T_NONE },  // 107 fighting
   { "LICKITUNG", 463, 30, R_RARO, 0x8C4D, 90, 55, 75, 30, 60, 75, 0, T_NORMAL, T_NONE },  // 108 normal
   { "KOFFING", 110, 35, R_COMUN, 0x8A73, 40, 65, 95, 35, 60, 45, 0, T_POISON, T_NONE },  // 109 poison
   { "WEEZING", 0, 0, R_EVO, 0x8A73, 65, 90, 120, 60, 85, 70, 0, T_POISON, T_NONE },  // 110 poison
@@ -297,7 +297,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "STANTLER", 899, 30, R_RARO, 0x8C4D, 73, 95, 62, 85, 85, 65, 0, T_NORMAL, T_NONE },  // 234 normal
   { "SMEARGLE", 0, 0, R_RARO, 0x8C4D, 55, 20, 35, 75, 20, 45, 0, T_NORMAL, T_NONE },  // 235 normal
   { "TYROGUE", 106, 20, R_COMUN, 0xA2A5, 35, 35, 35, 35, 35, 35, 0, T_FIGHTING, T_NONE },  // 236 fighting
-  { "HITMONTOP", 0, 0, R_RARO, 0xA2A5, 50, 95, 95, 70, 35, 110, 0, T_FIGHTING, T_NONE },  // 237 fighting
+  { "HITMONTOP", 0, 0, R_EVO, 0xA2A5, 50, 95, 95, 70, 35, 110, 0, T_FIGHTING, T_NONE },  // 237 fighting
   { "SMOOCHUM", 124, 30, R_RARO, 0x4DB8, 45, 30, 15, 65, 85, 65, 5, T_ICE, T_PSYCHIC },  // 238 ice/psychic
   { "ELEKID", 125, 30, R_RARO, 0xBCA1, 45, 63, 37, 95, 65, 55, 0, T_ELECTRIC, T_NONE },  // 239 electric
   { "MAGBY", 126, 30, R_RARO, 0xEA87, 45, 75, 37, 83, 70, 55, 3, T_FIRE, T_NONE },  // 240 fire
@@ -328,7 +328,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "WURMPLE", 266, 7, R_COMUN, 0x7CC4, 45, 45, 35, 20, 20, 30, 2, T_BUG, T_NONE },  // 265 bug
   { "SILCOON", 267, 10, R_EVO, 0x7CC4, 50, 35, 55, 15, 25, 25, 2, T_BUG, T_NONE },  // 266 bug
   { "BEAUTIFLY", 0, 0, R_EVO, 0x7CC4, 60, 70, 50, 65, 100, 50, 2, T_BUG, T_FLYING },  // 267 bug/flying
-  { "CASCOON", 269, 10, R_COMUN, 0x7CC4, 50, 35, 55, 15, 25, 25, 2, T_BUG, T_NONE },  // 268 bug
+  { "CASCOON", 269, 10, R_EVO, 0x7CC4, 50, 35, 55, 15, 25, 25, 2, T_BUG, T_NONE },  // 268 bug
   { "DUSTOX", 0, 0, R_EVO, 0x7CC4, 60, 50, 70, 65, 50, 90, 2, T_BUG, T_POISON },  // 269 bug/poison
   { "LOTAD", 271, 14, R_COMUN, 0x4C98, 40, 30, 30, 30, 40, 50, 1, T_WATER, T_GRASS },  // 270 water/grass
   { "LOMBRE", 272, 30, R_EVO, 0x4C98, 60, 50, 50, 50, 60, 70, 1, T_WATER, T_GRASS },  // 271 water/grass
@@ -352,7 +352,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "SLAKING", 0, 0, R_EVO, 0x8C4D, 150, 160, 100, 100, 95, 65, 0, T_NORMAL, T_NONE },  // 289 normal
   { "NINCADA", 291, 20, R_COMUN, 0x7CC4, 31, 45, 90, 40, 30, 30, 2, T_BUG, T_GROUND },  // 290 bug/ground
   { "NINJASK", 0, 0, R_EVO, 0x7CC4, 61, 90, 45, 160, 50, 50, 2, T_BUG, T_FLYING },  // 291 bug/flying
-  { "SHEDINJA", 0, 0, R_RARO, 0x7CC4, 1, 90, 45, 40, 30, 30, 2, T_BUG, T_GHOST },  // 292 bug/ghost
+  { "SHEDINJA", 0, 0, R_EVO, 0x7CC4, 1, 90, 45, 40, 30, 30, 2, T_BUG, T_GHOST },  // 292 bug/ghost
   { "WHISMUR", 294, 20, R_COMUN, 0x8C4D, 64, 51, 23, 28, 51, 23, 0, T_NORMAL, T_NONE },  // 293 normal
   { "LOUDRED", 295, 40, R_EVO, 0x8C4D, 84, 71, 43, 48, 71, 43, 0, T_NORMAL, T_NONE },  // 294 normal
   { "EXPLOUD", 0, 0, R_EVO, 0x8C4D, 104, 91, 63, 68, 91, 73, 0, T_NORMAL, T_NONE },  // 295 normal
@@ -852,7 +852,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "COSMOG", 790, 43, R_LEGENDARIO, 0xD28F, 43, 29, 31, 37, 29, 31, 0, T_PSYCHIC, T_NONE },  // 789 psychic
   { "COSMOEM", 791, 53, R_EVO, 0xD28F, 43, 29, 131, 37, 29, 131, 0, T_PSYCHIC, T_NONE },  // 790 psychic
   { "SOLGALEO", 0, 0, R_EVO, 0xD28F, 137, 137, 107, 97, 113, 89, 0, T_PSYCHIC, T_STEEL },  // 791 psychic/steel
-  { "LUNALA", 0, 0, R_LEGENDARIO, 0xD28F, 137, 113, 89, 97, 137, 107, 0, T_PSYCHIC, T_GHOST },  // 792 psychic/ghost
+  { "LUNALA", 0, 0, R_EVO, 0xD28F, 137, 113, 89, 97, 137, 107, 0, T_PSYCHIC, T_GHOST },  // 792 psychic/ghost
   { "NIHILEGO", 0, 0, R_RARO, 0x9407, 109, 53, 47, 103, 127, 131, 4, T_ROCK, T_POISON },  // 793 rock/poison
   { "BUZZWOLE", 0, 0, R_RARO, 0x7CC4, 107, 139, 139, 79, 53, 53, 2, T_BUG, T_FIGHTING },  // 794 bug/fighting
   { "PHEROMOSA", 0, 0, R_RARO, 0x7CC4, 71, 137, 37, 151, 137, 37, 2, T_BUG, T_FIGHTING },  // 795 bug/fighting
@@ -902,7 +902,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "COALOSSAL", 0, 0, R_EVO, 0x9407, 110, 80, 120, 30, 80, 90, 4, T_ROCK, T_FIRE },  // 839 rock/fire
   { "APPLIN", 841, 30, R_COMUN, 0x3C49, 40, 40, 80, 20, 40, 40, 2, T_GRASS, T_DRAGON },  // 840 grass/dragon
   { "FLAPPLE", 0, 0, R_EVO, 0x3C49, 70, 110, 80, 70, 95, 60, 2, T_GRASS, T_DRAGON },  // 841 grass/dragon
-  { "APPLETUN", 0, 0, R_RARO, 0x3C49, 110, 85, 80, 30, 100, 80, 2, T_GRASS, T_DRAGON },  // 842 grass/dragon
+  { "APPLETUN", 0, 0, R_EVO, 0x3C49, 110, 85, 80, 30, 100, 80, 2, T_GRASS, T_DRAGON },  // 842 grass/dragon
   { "SILICOBRA", 844, 36, R_COMUN, 0xB447, 52, 57, 75, 46, 35, 50, 4, T_GROUND, T_NONE },  // 843 ground
   { "SANDACONDA", 0, 0, R_EVO, 0xB447, 72, 107, 125, 71, 65, 70, 4, T_GROUND, T_NONE },  // 844 ground
   { "CRAMORANT", 0, 0, R_RARO, 0x7C7A, 70, 85, 55, 85, 85, 95, 0, T_FLYING, T_WATER },  // 845 flying/water
@@ -997,7 +997,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "GARGANACL", 0, 0, R_EVO, 0x9407, 100, 100, 130, 35, 45, 90, 4, T_ROCK, T_NONE },  // 934 rock
   { "CHARCADET", 936, 30, R_COMUN, 0xEA87, 40, 50, 40, 35, 50, 40, 3, T_FIRE, T_NONE },  // 935 fire
   { "ARMAROUGE", 0, 0, R_EVO, 0xEA87, 85, 60, 100, 75, 125, 80, 3, T_FIRE, T_PSYCHIC },  // 936 fire/psychic
-  { "CERULEDGE", 0, 0, R_RARO, 0xEA87, 75, 125, 80, 85, 60, 100, 3, T_FIRE, T_GHOST },  // 937 fire/ghost
+  { "CERULEDGE", 0, 0, R_EVO, 0xEA87, 75, 125, 80, 85, 60, 100, 3, T_FIRE, T_GHOST },  // 937 fire/ghost
   { "TADBULB", 939, 30, R_COMUN, 0xBCA1, 61, 31, 41, 45, 59, 35, 0, T_ELECTRIC, T_NONE },  // 938 electric
   { "BELLIBOLT", 0, 0, R_EVO, 0xBCA1, 109, 64, 91, 45, 103, 83, 0, T_ELECTRIC, T_NONE },  // 939 electric
   { "WATTREL", 941, 25, R_COMUN, 0xBCA1, 40, 40, 35, 70, 55, 40, 0, T_ELECTRIC, T_FLYING },  // 940 electric/flying
@@ -1071,7 +1071,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "MIRAIDON", 0, 0, R_LEGENDARIO, 0xBCA1, 100, 85, 100, 135, 135, 115, 0, T_ELECTRIC, T_DRAGON },  // 1008 electric/dragon
   { "WALKING WAKE", 0, 0, R_RARO, 0x4C98, 99, 83, 91, 109, 125, 83, 1, T_WATER, T_DRAGON },  // 1009 water/dragon
   { "IRON LEAVES", 0, 0, R_RARO, 0x3C49, 90, 130, 88, 104, 70, 108, 2, T_GRASS, T_PSYCHIC },  // 1010 grass/psychic
-  { "DIPPLIN", 1019, 40, R_RARO, 0x3C49, 80, 80, 110, 40, 95, 80, 2, T_GRASS, T_DRAGON },  // 1011 grass/dragon
+  { "DIPPLIN", 1019, 40, R_EVO, 0x3C49, 80, 80, 110, 40, 95, 80, 2, T_GRASS, T_DRAGON },  // 1011 grass/dragon
   { "POLTCHAGEIST", 1013, 30, R_COMUN, 0x3C49, 40, 45, 45, 50, 74, 54, 2, T_GRASS, T_GHOST },  // 1012 grass/ghost
   { "SINISTCHA", 0, 0, R_EVO, 0x3C49, 71, 60, 106, 70, 121, 80, 2, T_GRASS, T_GHOST },  // 1013 grass/ghost
   { "OKIDOGI", 0, 0, R_LEGENDARIO, 0x8A73, 88, 128, 115, 80, 58, 86, 0, T_POISON, T_FIGHTING },  // 1014 poison/fighting
@@ -1377,6 +1377,34 @@ static const ItemEvo ITEM_EVOS[ITEM_EVO_COUNT] = {
   { 938, 939, 2, 0 },  // thunder-stone
   { 951, 952, 0, 0 },  // fire-stone
   { 974, 975, 9, 0 },  // ice-stone
+};
+
+// Branches decided without an item (v3.82), from PokeAPI via
+// tools/fetch_species_rates.py. BR_CHOICE: the player picks at the species'
+// level (Applin, Charcadet). BR_STAT: Tyrogue by Attack against Defense
+// (arg 1 higher, -1 lower, 0 equal). BR_SPLIT: by the creature's ID
+// (Wurmple, Cosmoem). BR_SHED: Nincada's Shedinja, a second creature.
+enum : uint8_t { BR_CHOICE = 0, BR_STAT, BR_SPLIT, BR_SHED };
+struct BranchEvo {
+  int16_t from, to;
+  uint8_t kind;
+  int8_t arg;
+};
+#define BRANCH_EVO_COUNT 13
+static const BranchEvo BRANCH_EVOS[BRANCH_EVO_COUNT] = {
+  { 236, 106, BR_STAT, 1 },
+  { 236, 107, BR_STAT, -1 },
+  { 236, 237, BR_STAT, 0 },
+  { 265, 266, BR_SPLIT, 0 },
+  { 265, 268, BR_SPLIT, 0 },
+  { 290, 292, BR_SHED, 0 },
+  { 790, 791, BR_SPLIT, 0 },
+  { 790, 792, BR_SPLIT, 0 },
+  { 840, 841, BR_CHOICE, 0 },
+  { 840, 842, BR_CHOICE, 0 },
+  { 840, 1011, BR_CHOICE, 0 },
+  { 935, 936, BR_CHOICE, 0 },
+  { 935, 937, BR_CHOICE, 0 },
 };
 
 // Evolutions that happen by TRADE, from PokeAPI via tools/fetch_trade_evos.py.

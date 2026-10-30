@@ -2068,6 +2068,24 @@ GENDER_EVOS = [
 # Evolution items, in items.h order (IT_FIRESTONE onwards). APPEND-ONLY.
 EVO_STONES = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone', 'moon-stone', 'sun-stone', 'shiny-stone', 'dusk-stone', 'dawn-stone', 'ice-stone', 'black-augurite']
 
+# (from, to, kind, arg): branches decided without an item. arg is the
+# Attack-against-Defense sign for 'stat' (1 higher, -1 lower, 0 equal)
+BRANCH_EVOS = [
+    (236, 106, 'stat', 1),
+    (236, 107, 'stat', -1),
+    (236, 237, 'stat', 0),
+    (265, 266, 'split', 0),
+    (265, 268, 'split', 0),
+    (290, 292, 'shed', 0),
+    (790, 791, 'split', 0),
+    (790, 792, 'split', 0),
+    (840, 841, 'choice', 0),
+    (840, 842, 'choice', 0),
+    (840, 1011, 'choice', 0),
+    (935, 936, 'choice', 0),
+    (935, 937, 'choice', 0),
+]
+
 # (from, to, stone index, gender or ''): evolves when that item is used
 ITEM_EVOS = [
     (25, 26, 2, ''),  # thunder-stone

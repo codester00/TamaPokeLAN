@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.81-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.82-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -468,6 +468,20 @@ While **awake**:
   A stone is spent only when the creature really evolves, and only into a
   creature whose region's pack is on the card. Bellossom, Gallade, Froslass
   and Kleavor no longer hatch.
+- **Branches without an item (v3.82).** **TYROGUE** at 20 becomes HITMONLEE
+  if its Attack is higher than its Defense, HITMONCHAN if lower, HITMONTOP if
+  equal. **WURMPLE** at 7 becomes SILCOON or CASCOON, and **COSMOEM** at 53
+  SOLGALEO or LUNALA, each 50/50 by the creature's own ID (fixed for good, and
+  not tied to its gender) -- except that a player who already owns one of
+  Solgaleo and Lunala always gets the other. Evolving a Cosmoem owns that
+  legendary as a catch would: it stops appearing in Explore, and the other's
+  guaranteed meeting there is still due. **APPLIN** and **CHARCADET** offer a
+  choice at 30 (FLAPPLE / APPLETUN / DIPPLIN, ARMAROUGE / CERULEDGE) -- the
+  games' apples and armours are not items here. When **NINCADA** becomes
+  NINJASK with a Poké Ball in the bag and room, the ball is spent and a
+  **SHEDINJA** joins too. The evolution question now names what it becomes.
+  Hitmonchan, Hitmontop, Cascoon, Shedinja, Appletun, Dipplin and Ceruledge
+  no longer hatch.
 - *Eevee* follows the stones: Water, Thunder, Fire, Leaf and Ice give
   Vaporeon, Jolteon, Flareon, Leafeon and Glaceon. Its other three need **bond
   40 and two days of age** (48 hours: the daily bond cap resets at midnight, so

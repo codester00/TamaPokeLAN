@@ -298,6 +298,7 @@ enum StrId : uint16_t {
   S_WIN_PRIZE_FMT,  // a trainer win's prize money (v3.79)
   S_EVO_ITEM_FMT,  // the card's line for a stone evolution (v3.81)
   S_EVO_EEVEE,  // Eevee's card line: stones, or bond and two days (v3.81)
+  S_EVO_INTO_FMT, S_EVO_PICK,  // the evolution dialog names its target; Applin's and Charcadet's choice (v3.82)
   STR_COUNT
 };
 

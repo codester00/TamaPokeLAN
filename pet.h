@@ -732,6 +732,17 @@ public:
   static constexpr uint32_t EEVEE_AGE_MIN = 48UL * 60;
   static constexpr int16_t DEX_ESPEON = 196, DEX_UMBREON = 197, DEX_SYLVEON = 700;
   int16_t eeveeBondTarget() const;
+  // Branches with no item (v3.82, BRANCH_EVOS). branchTarget(): Tyrogue's
+  // by Attack against Defense, Wurmple's and Cosmoem's by the creature's ID
+  // (Cosmoem forced to the one of Solgaleo/Lunala the player does not own),
+  // else 0. evoChoices(): Applin's and Charcadet's targets this card can draw,
+  // for the player to pick from when it evolves; evolveChoice() takes one.
+  int16_t branchTarget() const;
+  uint8_t evoChoices(int16_t out[4]) const;
+  bool evolveChoice(int16_t to);
+  // Set by evolveInto() when a Nincada becomes a Ninjask: the sketch then
+  // spends a Poke Ball on the Shedinja, if there is one and room (RAM only).
+  bool shedPending = false;
   static int itemEvoRow(int16_t dex, int16_t to);   // index into ITEM_EVOS, or -1
   // What using `stone` on this creature would make RIGHT NOW, 0 = no effect (an
   // egg, a frozen companion, mid-ceremony, already marked for its trade

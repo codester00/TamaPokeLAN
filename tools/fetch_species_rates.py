@@ -14,6 +14,11 @@ fetch_weights.py does.
 - ITEM_EVOS (v3.81), from pokemon_evolution.csv: the evolutions by one of
   EVO_STONES used from the bag. Rows that need a regional form or a region
   (Alolan Ninetales, Hisuian Electrode...) are left out: this dex has no forms.
+- BRANCH_EVOS (v3.82), from pokemon_evolution.csv: 'choice' (Applin's
+  apples and Charcadet's armours, chosen at the level), 'stat' (Tyrogue's
+  Attack against Defense), 'split' (two level-up targets at one level with no
+  other condition: Wurmple, Cosmoem -- decided by the creature's ID) and
+  'shed' (Nincada's Shedinja).
 - GENDER_EVOS (v3.80), from pokemon_evolution.csv: the level-up evolutions
   that depend on the creature's gender -- only those where the genders really
   differ (Burmy splits, only a female Combee or Salandit evolves). Meowstic
@@ -44,6 +49,11 @@ USE_ITEM = '3'                     # evolution_triggers.csv
 EVO_STONES = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone',
               'moon-stone', 'sun-stone', 'shiny-stone', 'dusk-stone',
               'dawn-stone', 'ice-stone', 'black-augurite']
+# Branches decided without an item (v3.82, plan § E3/E6/E8). The apples and
+# armours are NOT items here (owner): the player picks at the species' level.
+CHOICE_ITEMS = ['tart-apple', 'sweet-apple', 'syrupy-apple',
+                'auspicious-armor', 'malicious-armor']
+SHED = '4'                          # evolution_triggers.csv: Nincada's shell
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'dex_rates.py')
 
@@ -126,6 +136,37 @@ def main():
         item_rows.add((frm, to, EVO_STONES.index(name), GENDER_NAME.get(r['gender_id'], '')))
     if len(item_rows) < 45:
         sys.exit(f'only {len(item_rows)} item evolutions -- the parse broke, not writing')
+
+    # The branches with no item (v3.82).
+    branch = set()
+    levelups = {}
+    for r in csv.DictReader(io.StringIO(evo)):
+        to = int(r['evolved_species_id'])
+        frm = origin[to]
+        if frm > DEX_COUNT or to > DEX_COUNT:
+            continue
+        if r['region_id'] or (r['evolved_pokemon_form_id'] and int(r['evolved_pokemon_form_id']) != to):
+            continue
+        if r['required_pokemon_form_id'] and int(r['required_pokemon_form_id']) != frm:
+            continue                     # Galarian Meowth, Paldean Wooper: not in this dex
+        trig = r['evolution_trigger_id']
+        if trig == USE_ITEM and items.get(r['trigger_item_id']) in CHOICE_ITEMS:
+            branch.add((frm, to, 'choice', 0))
+        elif trig == SHED:
+            branch.add((frm, to, 'shed', 0))
+        elif trig == LEVEL_UP and r['relative_physical_stats']:
+            branch.add((frm, to, 'stat', int(r['relative_physical_stats'])))
+        elif (trig == LEVEL_UP and r['minimum_level'] and not r['gender_id'] and
+              not r['held_item_id'] and not r['time_of_day'] and not r['known_move_type_id'] and
+              not r['location_id'] and not r['party_species_id'] and not r['minimum_happiness']):
+            levelups.setdefault(frm, set()).add((to, int(r['minimum_level'])))
+    for frm, opts in levelups.items():
+        if len({t for t, _l in opts}) > 1 and len({l for _t, l in opts}) == 1:
+            for to, _l in opts:
+                branch.add((frm, to, 'split', 0))
+    kinds = {k for _f, _t, k, _a in branch}
+    if kinds != {'choice', 'stat', 'split', 'shed'}:
+        sys.exit(f'branch kinds {sorted(kinds)} -- the parse broke, not writing')
     lines.append('\n# (from, to, gender, level): a level-up evolution only that gender takes\n')
     lines.append('GENDER_EVOS = [\n')
     for to, g, lvl in rows:
@@ -133,6 +174,12 @@ def main():
     lines.append(']\n')
     lines.append('\n# Evolution items, in items.h order (IT_FIRESTONE onwards). APPEND-ONLY.\n')
     lines.append(f'EVO_STONES = {EVO_STONES!r}\n')
+    lines.append('\n# (from, to, kind, arg): branches decided without an item. arg is the\n'
+                 '# Attack-against-Defense sign for \'stat\' (1 higher, -1 lower, 0 equal)\n')
+    lines.append('BRANCH_EVOS = [\n')
+    for frm, to, kind, arg in sorted(branch):
+        lines.append(f'    ({frm}, {to}, {kind!r}, {arg}),\n')
+    lines.append(']\n')
     lines.append('\n# (from, to, stone index, gender or \'\'): evolves when that item is used\n')
     lines.append('ITEM_EVOS = [\n')
     for frm, to, st, g in sorted(item_rows):

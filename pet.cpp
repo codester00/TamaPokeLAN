@@ -2084,6 +2084,8 @@ Pet::EvoInfo Pet::evoInfo() const {
   int16_t g = genderTarget(speciesId, gender());
   if (g < 0) { e.target = 0; return e; }
   if (g > 0) e.target = g;
+  int16_t br = branchTarget();     // Tyrogue, Wurmple, Cosmoem (v3.82)
+  if (br > 0) e.target = br;
   // EEVEE follows the stones (v3.81, plan § E2): five branches from the bag,
   // and Espeon (day), Umbreon (night) and Sylveon (knowing a Fairy move) once
   // bond is 40 AND it is two days old -- the age closes the daily bond cap's
@@ -2148,6 +2150,15 @@ void Pet::evolve() {
 void Pet::evolveInto(int16_t next, bool byTrade) {
   prevSpeciesId = speciesId;
   speciesId = next;
+  // Nincada's shell (v3.82): the sketch decides whether a Shedinja comes too.
+  for (int i = 0; i < BRANCH_EVO_COUNT; i++)
+    if (BRANCH_EVOS[i].kind == BR_SHED && BRANCH_EVOS[i].from == prevSpeciesId &&
+        DEX_TBL[prevSpeciesId].evolvesTo == next) shedPending = true;
+  // A legendary with an Explore home reached by evolving (Cosmoem's Solgaleo or
+  // Lunala) is owned, exactly as if caught: it stops appearing there, and the
+  // other one's guaranteed meeting is still due (plan § E8).
+  for (uint8_t i = 0; i < wildLegendCount(); i++)
+    if (wildLegendDex(i) == next) setLegendCaught(i);
   if (byTrade) tradeEvo = false;   // spent: PORYGON2 needs a trade of its own
   registerSpecies(speciesId);
   // The new form learns every level-up move it has already passed (v3.72),
@@ -2994,4 +3005,58 @@ int16_t Pet::eeveeBondTarget() const {
   int h = lastSeenEpoch ? (int)((lastSeenEpoch / 3600) % 24) : 12;   // no clock: day
   int16_t t = fairy ? DEX_SYLVEON : (h >= 6 && h < 18) ? DEX_ESPEON : DEX_UMBREON;
   return speciesShowable(t) ? t : 0;
+}
+
+// A second mixed bit of the ID, independent of the gender's (creatureGender()).
+static bool uidSplitBit(const CreatureUid &u) {
+  uint32_t h = 0x811C9DC5u;
+  for (uint8_t b : u.mac) h = (h ^ b) * 16777619u;
+  h = (h ^ (u.salt & 0xFF)) * 16777619u;
+  h = (h ^ (u.salt >> 8)) * 16777619u;
+  for (int k = 0; k < 4; k++) h = (h ^ ((u.serial >> (8 * k)) & 0xFF)) * 16777619u;
+  h ^= h >> 15; h *= 0x2C1B3C6Du; h ^= h >> 12;
+  return (h >> 19) & 1;
+}
+
+int16_t Pet::branchTarget() const {
+  int16_t split[2] = { 0, 0 };
+  uint8_t ns = 0;
+  for (int i = 0; i < BRANCH_EVO_COUNT; i++) {
+    const BranchEvo &r = BRANCH_EVOS[i];
+    if (r.from != speciesId) continue;
+    if (r.kind == BR_STAT) {
+      int a = atkStat(), d = defStat();
+      int sign = a > d ? 1 : a < d ? -1 : 0;
+      if (r.arg == sign) return r.to;
+    } else if (r.kind == BR_SPLIT && ns < 2) {
+      split[ns++] = r.to;
+    }
+  }
+  if (ns < 2) return 0;
+  // Cosmoem (owner): forced to whichever of the pair the player does not own,
+  // a catch or an evolution alike. Neither or both: the ID decides.
+  bool owned[2] = { false, false };
+  for (uint8_t i = 0; i < wildLegendCount(); i++)
+    for (uint8_t k = 0; k < 2; k++)
+      if (wildLegendDex(i) == split[k] && legendCaught(i)) owned[k] = true;
+  if (owned[0] != owned[1]) return owned[0] ? split[1] : split[0];
+  return split[uid.valid() && uidSplitBit(uid) ? 1 : 0];
+}
+
+uint8_t Pet::evoChoices(int16_t out[4]) const {
+  uint8_t n = 0;
+  for (int i = 0; i < BRANCH_EVO_COUNT && n < 4; i++) {
+    const BranchEvo &r = BRANCH_EVOS[i];
+    if (r.from == speciesId && r.kind == BR_CHOICE && speciesShowable(r.to)) out[n++] = r.to;
+  }
+  return n;
+}
+
+bool Pet::evolveChoice(int16_t to) {
+  if (!canEvolveNow()) return false;
+  int16_t opts[4];
+  uint8_t n = evoChoices(opts);
+  for (uint8_t i = 0; i < n; i++)
+    if (opts[i] == to) { evolveInto(to, false); return true; }
+  return false;
 }
