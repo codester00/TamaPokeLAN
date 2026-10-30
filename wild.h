@@ -238,6 +238,29 @@ int wildFixedFor(uint16_t area, const Pet &p, uint32_t roll);
 bool wildAreaFixedDue(uint16_t area, const Pet &p);
 
 // ---------------------------------------------------------------------------
+// Swarms (WILD_SWARMS, v3.78, docs/explore-specialty-build-plan.md § 5): the
+// games' own -- Crystal's phone-call swarms, Emerald's TV outbreaks,
+// Platinum's daily swarm after the National Dex. A region has ONE a day,
+// drawn by a hash of the day (and the re-roll cheat's salt) among the swarms
+// whose gate is open. No clock, no swarm. Nothing is saved: the day decides.
+// On that day the swarm's area gives its species WildSwarm::share per mille of
+// encounters on top of the ordinary draw, which the generator worked out to
+// land on the game's own swarm-day odds.
+uint8_t wildSwarmCount();
+int16_t wildSwarmDex(uint8_t i);
+uint16_t wildSwarmArea(uint8_t i);
+uint16_t wildSwarmShare(uint8_t i);
+// Today's swarm in `region` (an index into WILD_SWARMS), or -1.
+int wildSwarmToday(uint8_t region, const Pet &p);
+// Today's swarm if it is in `area` and can be met (art, pack), else -1.
+// THE answer the encounter and the status line's SWARM both ask.
+int wildSwarmAt(uint16_t area, const Pet &p);
+// Does today's swarm in `area` take this encounter? `roll` 0..999.
+bool wildSwarmTakes(uint8_t i, uint16_t roll);
+// The level a swarm creature is met at: the area's band, at least its floor.
+uint8_t wildSwarmLevel(uint8_t i, uint32_t roll);
+
+// ---------------------------------------------------------------------------
 // Safari encounters (v3.75, v3.76; docs/explore-specialty-build-plan.md § 1-2).
 // A Safari area keeps its ordinary table; what changes is the fight: no team,
 // a fresh SAFARI_BALLS per encounter, and each game's own items. The rules are

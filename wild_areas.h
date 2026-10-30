@@ -73,6 +73,14 @@ struct WildFixed {
   uint8_t flags;     // WILD_FIXED_SHINY
   uint8_t days;      // weekdays it is there, bit 0 = Sunday; 0x7F = every day
 };
+// A region's swarms (v3.78): one a day, by the day hash. Not saved.
+struct WildSwarm {
+  int16_t dex;
+  uint16_t area;     // where it swarms, into WILD_AREAS
+  uint16_t share;    // per mille of that area's encounters it takes over
+  uint8_t gate;      // ladder position it waits for (the rod, the National Dex)
+  uint8_t floor;     // lowest level it may appear at, 0 = none
+};
 
 static const WildSlot WILD_SLOTS[] = {
   // ROUTE 1
@@ -15745,6 +15753,40 @@ static const WildFixed WILD_FIXED[] = {
   { 352, 93, 30, 5, 0, 0x7F },  // KECLEON, ROUTE 120
 };
 #define WILD_FIXED_COUNT 8
+
+static const WildSwarm WILD_SWARMS[] = {
+  { 206, 41, 196, 0, 0 },  // DUNSPARCE, DARK CAVE (DARK_CAVE_VIOLET_ENTRANCE)
+  { 193, 49, 146, 2, 0 },  // YANMA, ROUTE 35 (ROUTE_35)
+  { 211, 42, 137, 13, 0 },  // QWILFISH, ROUTE 32 (ROUTE_32)
+  { 273, 72, 277, 0, 0 },  // SEEDOT, ROUTE 102 (ROUTE102)
+  { 274, 86, 124, 3, 14 },  // NUZLEAF, ROUTES 113-114 (ROUTE114)
+  { 273, 81, 277, 2, 0 },  // SEEDOT, ROUTE 117 (ROUTE117)
+  { 273, 93, 277, 5, 0 },  // SEEDOT, ROUTE 120 (ROUTE120)
+  { 300, 77, 500, 0, 0 },  // SKITTY, ROUTE 116 (ROUTE116)
+  { 84, 114, 400, 13, 0 },  // DODUO, ROUTE 201 (ROUTE_201)
+  { 263, 116, 400, 13, 0 },  // ZIGZAGOON, ROUTE 202 (ROUTE_202)
+  { 104, 117, 222, 13, 0 },  // CUBONE, ROUTE 203 (ROUTE_203)
+  { 246, 130, 400, 13, 0 },  // LARVITAR, ROUTE 206 (ROUTE_206)
+  { 231, 121, 400, 13, 0 },  // PHANPY, ROUTE 207 (ROUTE_207)
+  { 206, 132, 222, 13, 0 },  // DUNSPARCE, ROUTE 208 (ROUTE_208)
+  { 209, 133, 222, 13, 0 },  // SNUBBULL, ROUTE 209 (ROUTE_209)
+  { 325, 140, 222, 13, 0 },  // SPOINK, ROUTE 214 (ROUTE_214)
+  { 96, 137, 400, 13, 0 },  // DROWZEE, ROUTE 215 (ROUTE_215)
+  { 225, 153, 133, 13, 0 },  // DELIBIRD, ROUTES 216-217 (ROUTE_217)
+  { 100, 147, 222, 13, 0 },  // VOLTORB, ROUTE 218 (ROUTE_218)
+  { 83, 150, 222, 13, 0 },  // FARFETCHD, ROUTES 219-221 (ROUTE_221)
+  { 300, 158, 222, 13, 0 },  // SKITTY, ROUTE 222 (ROUTE_222)
+  { 177, 162, 222, 13, 0 },  // NATU, ROUTE 224 (ROUTE_224)
+  { 296, 163, 111, 13, 0 },  // MAKUHITA, ROUTES 225-226 (ROUTE_225)
+  { 98, 163, 111, 13, 0 },  // KRABBY, ROUTES 225-226 (ROUTE_226)
+  { 327, 164, 111, 13, 0 },  // SPINDA, ROUTES 227-228 (ROUTE_227)
+  { 374, 164, 111, 13, 0 },  // BELDUM, ROUTES 227-228 (ROUTE_228)
+  { 127, 166, 111, 13, 0 },  // PINSIR, ROUTES 229-230 (ROUTE_229)
+  { 222, 166, 111, 13, 0 },  // CORSOLA, ROUTES 229-230 (ROUTE_230)
+  { 309, 124, 222, 13, 0 },  // ELECTRIKE, VALLEY WINDWORKS (VALLEY_WINDWORKS_OUTSIDE)
+  { 287, 126, 400, 13, 0 },  // SLAKOTH, ETERNA FOREST (ETERNA_FOREST)
+};
+#define WILD_SWARM_COUNT 30
 
 static const WildSafariFlee WILD_SAFARI_FLEE[] = {
   { 29, 0, 50 },  // NIDORAN H

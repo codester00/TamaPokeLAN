@@ -1077,6 +1077,138 @@ def fixed_encounters(areas, refresh=False):
     return out
 
 
+def swarm_tables(reg, data, refresh=False):
+    """The game's swarms for one region, each as (map, method, dex, gate,
+    data'): the region's encounter data with that swarm's day swapped in, the
+    way the game swaps it. Read from the disassemblies, never typed:
+      Crystal  data/wild/swarm_grass.asm (a phone call: the map's grass table
+               is replaced) and GetFishGroupIndex in engine/events/fish.asm
+               (the Qwilfish and Remoraid fish groups swap to their _Swarm
+               groups).
+      Emerald  src/tv.c's sPokeOutbreakSpeciesList: a TV bulletin; on that
+               map DoMassOutbreakEncounterTest gives the outbreak species to
+               outbreakPokemonProbability (50) % of LAND encounters.
+      Platinum src/overlay006/swarm.c's sSwarmMapIdTable: the map's own
+               `swarms` species replaces grass slots 0 and 1. Swarms start
+               with the National Pokedex, so they wait for the champion.
+    Other sources have none."""
+    import copy
+    out = []
+    src = reg['source']
+    (ver, maps), = data.items() if len(data) == 1 else ((None, None),)
+    if src == 'crystal':
+        g = lambda p: fetch(CRYSTAL + p, 'crystal_' + p.replace('/', '_'), refresh)
+        grass_r = crystal_prob(g('data/wild/probabilities.asm'), 'GrassMonProbTable')
+        text = g('data/wild/swarm_grass.asm')
+        for name, mp, body in re.findall(r';\s*(\w+) swarm\s*\n\s*map_id (\w+)(.*?)(?=\n;\s*\w+ swarm|db -1)',
+                                         text, re.S):
+            fake = 'def_grass_wildmons %s%s\nend_grass_wildmons' % (mp, body)
+            table = crystal_wild(fake, 'grass', grass_r)[mp]
+            d = copy.deepcopy(data)
+            d[ver].setdefault(mp, {})['land'] = table
+            out.append((mp, 'land', dex_of(name.upper()), 0, d))
+        eng = g('engine/events/fish.asm')
+        maps_asm = g('data/maps/maps.asm')
+        fish = g('data/wild/fish.asm')
+        for grp in re.findall(r'cp (FISHGROUP_\w+)\s*\n\s*jr z, \.\w+', eng.split('GetFishGroupIndex:')[1]):
+            swapped = grp + '_SWARM'
+            if swapped.replace('FISHGROUP_', '') not in fish.upper().replace(' ', ''):
+                sys.exit('gen_wild: %s has no swarm group in fish.asm' % grp)
+            with_grp = {camel_to_const(m) for m in
+                        re.findall(r'^\s*map (\w+),.*\b%s\s*$' % grp, maps_asm, re.M)}
+            on = [mp for mp in maps if mp in with_grp]
+            if not on:
+                # Crystal's Remoraid swarm: the phone call names Route 44, but
+                # Route 44's map header says FISHGROUP_POND, so the swap never
+                # finds it and the swarm never happens in the game either.
+                print('gen_wild: no map fishes from %s -- that swarm never happens' % grp)
+            fake_maps = re.sub(r'\b%s\b' % grp, swapped, maps_asm)
+            sw = crystal_fish(fish, fake_maps, set(on))
+            for mp in on:
+                d = copy.deepcopy(data)
+                d[ver][mp]['fishing'] = sw[mp]
+                dex = dex_of(grp.replace('FISHGROUP_', ''))
+                out.append((mp, 'fishing', dex, 0, d))
+    elif src == 'emerald':
+        tv = fetch(EMERALD + 'src/tv.c', 'emerald_src_tv.c', refresh)
+        wild = fetch(EMERALD + 'src/wild_encounter.c', 'emerald_src_wild_encounter.c', refresh)
+        pct = re.search(r'massOutbreak\.probability = (\d+);', tv)
+        if not pct or 'DoMassOutbreakEncounterTest() == TRUE && SetUpMassOutbreakEncounter' not in wild:
+            sys.exit('gen_wild: Emerald\'s outbreak rule moved')
+        share = int(pct.group(1)) / 100
+        block = tv.split('sPokeOutbreakSpeciesList[] = {')[1].split('};')[0]
+        for sp, mp in re.findall(r'\.species = (SPECIES_\w+),.*?\.location = MAP_NUM\(MAP_(\w+)\)',
+                                 block, re.S):
+            dex = dex_of(sp)
+            land = maps.get(mp, {}).get('land')
+            if not land:
+                sys.exit('gen_wild: outbreak map %s has no land table' % mp)
+            tot = sum(s[2] for s in land)
+            d = copy.deepcopy(data)
+            d[ver][mp]['land'] = [(s[0], s[1], s[2] * (1 - share), s[3]) for s in land] + \
+                                 [(dex, land[0][1], tot * share, ANY)]
+            out.append((mp, 'land', dex, 0, d))
+    elif src == 'platinum':
+        sw = fetch(PLATINUM + 'src/overlay006/swarm.c', 'platinum_src_overlay006_swarm.c', refresh)
+        if 'encounterData.swarmEncounters[0]' not in sw:
+            sys.exit('gen_wild: Platinum\'s swarm species rule moved')
+        for mp in re.findall(r'MAP_HEADER_(\w+)', sw.split('sSwarmMapIdTable')[1].split('};')[0]):
+            j = json.loads(fetch(PLATINUM + 'res/field/encounters/encounters_%s.json' % mp.lower(),
+                                 'platinum_encounters_%s.json' % mp.lower(), refresh))
+            dex = dex_of(j['swarms'][0])
+            land = maps.get(mp, {}).get('land')
+            if not land:
+                sys.exit('gen_wild: swarm map %s has no land table' % mp)
+            d = copy.deepcopy(data)
+            d[ver][mp]['land'] = [((dex,) + s[1:]) if i < 2 else s for i, s in enumerate(land)]
+            out.append((mp, 'land', dex, WA.GATE_CHAMPION, d))
+    return out
+
+
+def swarms(areas, refresh=False):
+    """Every region's swarms (v3.78), each the extra share of its area's
+    encounters the species takes on its day: with p the species' chance on an
+    ordinary day and q on the swarm's, the firmware gives it the encounter
+    with chance s = (q - p) / (1 - p) and otherwise draws as usual, which
+    lands on exactly q. Averaged over the time bands, in per mille."""
+    pre = pre_evolutions()
+    out = []
+    for reg in WA.REGIONS:
+        if reg['source'] not in ('crystal', 'emerald', 'platinum'):
+            continue
+        data = load_source(reg, refresh)
+        versions = sorted(data)
+        rod = super_rod_gate(reg, refresh)
+        hidden = {'fishing': rod, 'water': water_gate(reg)}
+        idx_of = {}
+        for i, a in enumerate(areas):
+            if a['region'] == reg['region']:
+                for mp in a['maps']:
+                    idx_of[mp] = i
+        for mp, method, dex, gate, d in swarm_tables(reg, data, refresh):
+            if mp not in idx_of:
+                print('gen_wild: swarm of #%d on %s, which no area holds -- left out' % (dex, mp))
+                continue
+            i = idx_of[mp]
+            a = areas[i]
+            if a['mode']:
+                sys.exit('gen_wild: a swarm in Safari area %r' % a['name'])
+            gates = {m: g for m, g in hidden.items() if g > a['gate']}
+            gate = max(gate, gates.get(method, 0), a['gate'])
+            shares = []
+            for when in BANDS:
+                p = sum(v for (dx, _g), v in mix_band(data, versions, a['maps'], when).items() if dx == dex)
+                q = sum(v for (dx, _g), v in mix_band(d, versions, a['maps'], when).items() if dx == dex)
+                if q <= p:
+                    sys.exit('gen_wild: the %s swarm of #%d adds nothing' % (mp, dex))
+                shares.append((q - p) / (1 - p))
+            share = round(1000 * sum(shares) / len(shares))
+            floor = pre.get(dex, 0) if dex in pre else 0
+            out.append({'dex': dex, 'area': i, 'share': share, 'gate': gate,
+                        'floor': floor or 0, 'map': mp})
+    return out
+
+
 # The Safari rules each source plays by (wild.cpp's SAFARI_* enum, in order).
 SAFARI_RULES = {'frlg': 0, 'emerald': 1, 'platinum': 2}
 
@@ -1147,7 +1279,7 @@ WHEN_NAME = {ANY: 'WILD_WHEN_ANY', MORN: 'WILD_WHEN_MORN', DAY: 'WILD_WHEN_DAY',
              DAY | NITE: 'WILD_WHEN_DAY | WILD_WHEN_NITE'}
 
 
-def emit(areas, legends, flee=(), fixed=()):
+def emit(areas, legends, flee=(), fixed=(), swarm=()):
     n_regions = len(DEX_REGIONS)
     o = []
     o.append('// GENERATED by tools/gen_wild.py -- do not edit. The hand-written half\n'
@@ -1212,6 +1344,14 @@ def emit(areas, legends, flee=(), fixed=()):
              '  uint8_t gate;      // ladder position that lets it appear\n'
              '  uint8_t flags;     // WILD_FIXED_SHINY\n'
              '  uint8_t days;      // weekdays it is there, bit 0 = Sunday; 0x7F = every day\n'
+             '};\n'
+             '// A region\'s swarms (v3.78): one a day, by the day hash. Not saved.\n'
+             'struct WildSwarm {\n'
+             '  int16_t dex;\n'
+             '  uint16_t area;     // where it swarms, into WILD_AREAS\n'
+             '  uint16_t share;    // per mille of that area\'s encounters it takes over\n'
+             '  uint8_t gate;      // ladder position it waits for (the rod, the National Dex)\n'
+             '  uint8_t floor;     // lowest level it may appear at, 0 = none\n'
              '};\n\n')
     o.append('static const WildSlot WILD_SLOTS[] = {\n')
     first = 0
@@ -1278,6 +1418,14 @@ def emit(areas, legends, flee=(), fixed=()):
     if not fixed:
         o.append('  { 0, 0, 1, 0, 0, 0 },\n')
     o.append('};\n#define WILD_FIXED_COUNT %d\n\n' % len(fixed))
+    o.append('static const WildSwarm WILD_SWARMS[] = {\n')
+    for s in swarm:
+        o.append('  { %d, %d, %d, %d, %d },  // %s, %s (%s)\n'
+                 % (s['dex'], s['area'], s['share'], s['gate'], s['floor'],
+                    DEX[s['dex'] - 1][2], areas[s['area']]['name'], s['map']))
+    if not swarm:
+        o.append('  { 0, 0, 0, 0, 0 },\n')
+    o.append('};\n#define WILD_SWARM_COUNT %d\n\n' % len(swarm))
     o.append('static const WildSafariFlee WILD_SAFARI_FLEE[] = {\n')
     for dex, rules, rate in flee:
         o.append('  { %d, %d, %d },  // %s\n' % (dex, rules, rate, DEX[dex - 1][2]))
@@ -1307,12 +1455,13 @@ def main():
     areas, legends = build(refresh)
     check(areas)
     fixed = fixed_encounters(areas, refresh)
-    text = emit(areas, legends, safari_flee_rates(areas, refresh), fixed)
+    swarm = swarms(areas, refresh)
+    text = emit(areas, legends, safari_flee_rates(areas, refresh), fixed, swarm)
     with open(OUT, 'w') as f:
         f.write(text)
-    print('wrote %s: %d areas, %d slots, %d legendaries, %d fixed'
+    print('wrote %s: %d areas, %d slots, %d legendaries, %d fixed, %d swarms'
           % (os.path.relpath(OUT, ROOT), len(areas),
-             sum(len(a['slots']) for a in areas), len(legends), len(fixed)))
+             sum(len(a['slots']) for a in areas), len(legends), len(fixed), len(swarm)))
 
 
 if __name__ == '__main__':

@@ -20,6 +20,7 @@ static_assert(WILD_LEGEND_COUNT <= 8 * LEGEND_BYTES,
 static_assert(WILD_FIXED_COUNT <= 8 * FIXED_BYTES,
               "the save's fixed one-off bitmasks are full -- raise FIXED_BYTES (pet.h)");
 static_assert(sizeof(((WildFixed *)0)->area) >= 2, "WildFixed::area must hold an area index past 255");
+static_assert(sizeof(((WildSwarm *)0)->area) >= 2, "WildSwarm::area must hold an area index past 255");
 
 static uint8_t shinyBonus(uint8_t bonus) {
   return bonus > WILD_SHINY_BONUS_MAX ? WILD_SHINY_BONUS_MAX : bonus;
@@ -566,4 +567,54 @@ bool wildAreaFixedDue(uint16_t area, const Pet &p) {
   for (uint8_t i = 0; i < WILD_FIXED_COUNT; i++)
     if (WILD_FIXED[i].area == area && !p.fixedMet(i) && wildFixedLive(i, p)) return true;
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// Swarms (v3.78).
+
+uint8_t wildSwarmCount() { return WILD_SWARM_COUNT; }
+int16_t wildSwarmDex(uint8_t i) { return i < WILD_SWARM_COUNT ? WILD_SWARMS[i].dex : 0; }
+uint16_t wildSwarmArea(uint8_t i) { return i < WILD_SWARM_COUNT ? WILD_SWARMS[i].area : WILD_NO_AREA; }
+uint16_t wildSwarmShare(uint8_t i) { return i < WILD_SWARM_COUNT ? WILD_SWARMS[i].share : 0; }
+
+static bool swarmOpen(uint8_t i, const Pet &p) {
+  const WildSwarm &s = WILD_SWARMS[i];
+  return gateOpen(WILD_AREAS[s.area].region, s.gate, p);
+}
+
+int wildSwarmToday(uint8_t region, const Pet &p) {
+  uint32_t day = p.today();
+  if (!day) return -1;
+  uint8_t n = 0;
+  for (uint8_t i = 0; i < WILD_SWARM_COUNT; i++)
+    if (WILD_AREAS[WILD_SWARMS[i].area].region == region && swarmOpen(i, p)) n++;
+  if (!n) return -1;
+  uint32_t h = 0x811C9DC5u ^ (region * 0x01000193u);   // the same day mix as the weather
+  h ^= day * 0x9E3779B1u;
+  h ^= p.daySalt * 0x27D4EB2Fu;                          // the re-roll cheat (0: none)
+  h ^= h >> 16; h *= 0x85EBCA6Bu; h ^= h >> 13; h *= 0xC2B2AE35u; h ^= h >> 16;
+  uint8_t k = (uint8_t)(h % n);
+  for (uint8_t i = 0; i < WILD_SWARM_COUNT; i++)
+    if (WILD_AREAS[WILD_SWARMS[i].area].region == region && swarmOpen(i, p) && k-- == 0)
+      return i;
+  return -1;
+}
+
+int wildSwarmAt(uint16_t area, const Pet &p) {
+  if (area >= WILD_AREA_COUNT) return -1;
+  int i = wildSwarmToday(WILD_AREAS[area].region, p);
+  if (i < 0 || WILD_SWARMS[i].area != area) return -1;
+  int16_t dex = WILD_SWARMS[i].dex;
+  return wildHasArt(dex) && regionAvailable(regionOfDex(dex)) ? i : -1;
+}
+
+bool wildSwarmTakes(uint8_t i, uint16_t roll) {
+  return i < WILD_SWARM_COUNT && roll % 1000 < WILD_SWARMS[i].share;
+}
+
+uint8_t wildSwarmLevel(uint8_t i, uint32_t roll) {
+  if (i >= WILD_SWARM_COUNT) return 1;
+  const WildSwarm &s = WILD_SWARMS[i];
+  uint8_t lvl = wildAreaLevel(s.area, s.dex, roll);
+  return lvl < s.floor ? s.floor : lvl;
 }

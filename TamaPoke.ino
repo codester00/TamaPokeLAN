@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.77"
+#define FW_VERSION "3.78"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -1684,12 +1684,13 @@ void handleSerial() {
     for (uint8_t i = 0; i < n; i++) {
       uint16_t a = (uint16_t)(first + i);
       int8_t wx = wildAreaWeather(a, pet);
-      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s%s%s%s%s\n", a == cur ? '>' : ' ', i,
+      Serial.printf("%c%2u %-16s gate %-2u Lv.%u-%u%s%s%s%s%s%s\n", a == cur ? '>' : ' ', i,
                     wildAreaName(a), wildAreaGate(a), wildAreaLvMin(a), wildAreaLvMax(a),
                     wildAreaUnlocked(a, pet) ? "" : "  locked",
                     wildAreaLegendDue(a, pet) ? "  legendary due"
                     : wildAreaHasLegend(a, pet) ? "  legendary" : "",
                     wildAreaFixedDue(a, pet) ? "  one-off due" : "",
+                    wildSwarmAt(a, pet) >= 0 ? "  swarm today" : "",
                     wx >= 0 ? "  today: " : "", wildWeatherName(wx));
     }
     Serial.println("DONE");
@@ -3670,7 +3671,10 @@ void areaStatusText(uint16_t a, char *buf, size_t n) {
       // A Galar Wild Area zone says today's weather: it decides who is out.
       int8_t wx = wildAreaWeather(a, pet);
       if (wx >= 0 && len > 0 && (size_t)len < n)
-        snprintf(buf + len, n - len, " %s", T((StrId)(S_WX_CLEAR + wx)));
+        len += snprintf(buf + len, n - len, " %s", T((StrId)(S_WX_CLEAR + wx)));
+      // Today's swarm, after the weather (v3.78).
+      if (wildSwarmAt(a, pet) >= 0 && len > 0 && (size_t)len < n)
+        snprintf(buf + len, n - len, " %s", T(S_SWARM));
       break;
     }
     case WILD_AREA_NEEDS_PACK: snprintf(buf, n, "%s", T(S_NEED_PACK)); break;
@@ -9995,6 +9999,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   uint8_t lvl = 1;
   int legend = -1;
   int fixed = -1;
+  int swarm = -1;
   bool safari = false;
   wildCheated = false;
   if (wildRegionHasAreas(region)) {
@@ -10029,6 +10034,11 @@ bool startWildBattle(uint8_t region, bool hard) {
     } else if (fixed >= 0) {
       dex = wildFixedDex((uint8_t)fixed);
       lvl = wildFixedLevel((uint8_t)fixed);
+    } else if ((swarm = wildSwarmAt(area, pet)) >= 0 && !safari &&
+               wildSwarmTakes((uint8_t)swarm, (uint16_t)random(1000))) {
+      // Today's swarm (v3.78) takes its share of the area's encounters.
+      dex = wildSwarmDex((uint8_t)swarm);
+      lvl = wildSwarmLevel((uint8_t)swarm, (uint32_t)random(65536));
     } else {
       dex = wildAreaPick(area, wildTimeBand(exploreHour()), pet,
                          (uint32_t)random(65536) * 31u + random(31));

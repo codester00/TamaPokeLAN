@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.77-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.78-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1006,6 +1006,21 @@ a rare repeat. Levels are read from the games' scripts:
 | Lapras | Union Cave B2F | 20 | **Fridays only**, by the board's clock (none without one), repeats too |
 | Gyarados | Lake of Rage | 30 | **always shiny** -- the red one, repeats too |
 | Kecleon | Route 120 | 30 | Emerald's Devon Scope Kecleon |
+
+**Swarms (v3.78).** Each region with swarms in its game has **one a day**, chosen
+by the board's date (none without a clock) and changing at midnight; the area's
+row adds **SWARM** after its band and weather. On that day the swarm creature
+takes a share of the area's encounters worked out from the game's own swarm-day
+tables, at the area's usual levels:
+
+| Region | Swarms | Share of the area | Opens |
+|---|---|---|---|
+| Johto (Crystal's phone calls) | Dunsparce, Dark Cave; Yanma, Route 35 (their grass tables replaced); Qwilfish, Route 32 (the best rod's) | 20 %, 15 %, 14 % | with the area; Qwilfish with the best rod |
+| Hoenn (Emerald's TV outbreaks) | Seedot, Routes 102, 117, 120; Nuzleaf, Route 114; Skitty, Route 116 | 50 % of the route's grass | with the area |
+| Sinnoh (Platinum, daily) | the 22 of `sSwarmMapIdTable`, the swarm species taking grass slots 0 and 1 | 11-40 % | the champion (the National Dex) |
+
+Crystal's Remoraid swarm never happens in the game (Route 44's map fishes from
+the Pond group, not the Remoraid one the swarm swaps), so it is not here.
 
 **Story legendaries are caught, not hatched.** A legendary with a home is never
 in an egg. **Mythicals** (Mew, Celebi and the rest) have no home in any game's

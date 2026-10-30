@@ -321,6 +321,11 @@ first meeting (for both markers).
 
 ## 5. v3.79 -- swarms (S-M)
 
+**BUILT as v3.78** (2026-10-30). Remoraid is NOT reachable: Crystal's Remoraid
+swarm never happens in the game (Route 44's map header fishes from the Pond
+group, which the swap does not touch), so the data leaves it out. Swarm levels
+follow the area's band, like every other Explore creature, not the game's.
+
 **What the games did.** One place in the region holds a swarm of one species
 on a given day:
 - **Johto (Crystal):** a phone call from a contact starts it. The swarm tables
