@@ -4,8 +4,8 @@ Written 2026-08-20, updated through 2026-08-23, so work could resume after a
 restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 **authoritative wherever the two disagree**.
 
-> **§ 1f is the newest (2026-10-29, v3.74) and describes the repo as it is
-> now. Read it first.** § 1e (2026-10-20) is the state before it and still holds
+> **§ 1g is the newest (2026-10-30, v3.84) and describes the repo as it is
+> now. Read it first, then § 1f (v3.74), whose working rules still hold.** § 1e (2026-10-20) is the state before it and still holds
 > the cloud-container build setup. § 1d (2026-10-12) is the state before it; everything below
 > that is history, kept for the reasoning.
 >
@@ -32,6 +32,85 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 > accelerometer samples does, confirmed on real hardware with a calibrated
 > threshold, after a second, unrelated bug (`getDataReady()`) nearly hid that
 > too.
+
+---
+
+## 1g. START HERE -- handoff as of v3.84 (2026-10-30)
+
+This section is the description of the repo today; § 1f below (v3.74) is the
+stretch before it and its "How the owner works", decisions, lessons and known
+issues all STILL HOLD -- read them too. `CLAUDE.md` wins wherever they differ;
+its § TODO "Done: ..." entries hold every version below in full, newest first.
+
+### State
+
+| | |
+|---|---|
+| Version | **3.84** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.84 |
+| `main` | still at v3.74 (`6abaf47`). Nothing since is merged; the installer serves v3.74 |
+| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.84 on top of `main` (one commit per version) |
+| On a board | **None of v3.75-v3.84 has run on a board.** All emulator-only |
+| Tests | 91 `*_test.cpp` suites. `run.sh` recompiles the whole sketch per suite (over an hour in a cloud container); compiling the shared sources once and the suites in parallel takes minutes |
+| Formats | `LINK_PROTO` 9, **`TRADE_PROTO` 3** (v3.83), `MOVE_COUNT` 241, pet checkpoint **`PET_CORE_VERSION` 6** (v3.83), player checkpoint **`PLAYER_VERSION` 10** (v3.77), `SAVE_VERSION` 2, `SET_COUNT` 13 |
+| Plan | `docs/explore-specialty-build-plan.md` revision 8 -- everything the owner decided in it is built, except what "Left" says below |
+
+### What this stretch built (v3.75-v3.84), one line each
+
+- **v3.75** Kanto's Safari Zone as FireRed plays it (no team, 30 Safari Balls,
+  BAIT/ROCK, FireRed's catch and flee); Fuchsia's water to Routes 12-15.
+- **v3.76** Hoenn's Safari (Emerald: GO NEAR, POKEBLOCK) and Sinnoh's Great
+  Marsh (Platinum: BAIT/MUD, per-species flee rates).
+- **v3.77** Fixed one-offs: two Snorlax, two Electrode, Sudowoodo, Friday
+  Lapras, the red Gyarados (always shiny), Kecleon. Met once for certain, then
+  rare until caught; stay in eggs. Row markers now mean ONLY a certain meeting
+  is due (`* AREA *` legendary, `! AREA !` one-off).
+- **v3.78** Swarms, read from Crystal, Emerald and Platinum; one a day per
+  region, shown on the area row.
+- **v3.79** Broken chains fixed (second evolution 10 levels after the first:
+  Ursaluna 40, Mamoswine 43, Kingambit 62, Azumarill 35, Blissey 40, Hydrapple
+  40); gym prize money (Gen 3's formula, easy half, rematch half again).
+- **v3.80** Gender from the creature's ID, forced where the games force it;
+  Burmy/Combee/Salandit by gender; symbols on the card and sheet.
+- **v3.81** Evolution stones as items ($2,100; Black Augurite $3,000), no level
+  route for stone evolutions; Eevee by stones and bond (40 + 48 h age).
+- **v3.82** Branches with no items: Tyrogue by stats, Wurmple/Cosmoem split by
+  ID (Cosmoem forced to the unowned legendary), Applin/Charcadet choose at
+  their level, Shedinja for a spare Poke Ball.
+- **v3.83** Meltan -> Melmetal by 10,000 steps walked as the live pet (saved
+  on the creature, travels in trades: `TRADE_PROTO` 3).
+- **v3.84** Stones drop in the wild only in the areas the four decompiled
+  games leave them (37 areas, ~1 win in 10 there); Unova onward, the Ice Stone
+  and the Black Augurite stay Mart-only.
+
+### Left from the plan, and open questions for the owner
+
+- **Deferred by the owner**: Pokemon Tower's ghosts, the Bug-Catching Contest,
+  the Ruins of Alph puzzle, the Friend Safari.
+- **Offered, not answered**: a second Kecleon one-off on Route 119 (Emerald
+  has seven Kecleon; v3.77 placed the Route 120 one whose script sets the
+  level).
+- **Merge and installer**: v3.75-v3.84 wait for the owner's "push to main and
+  update the installer" (`bash tools/build_web.sh` after the last edit, then
+  fast-forward `main`). Tagging is still held on Actions minutes.
+- **Board checks wanted first**: a Safari encounter by hand (the four cells,
+  out of balls), the evolve-branch dialog (Applin) and the Shedinja hand-off,
+  the gender symbols' colours on the panel, a trade between a v3.83+ board and
+  an older one (it must refuse), and the save carrying over from v3.74
+  (player checkpoint 9 -> 10, pet checkpoint 5 -> 6).
+
+### Lessons from this stretch
+
+- **The data surprises.** Crystal's Remoraid swarm never happens (Route 44
+  fishes the POND group); Emerald places seven Kecleon but only Route 120's
+  script sets a level; Kanto's only ground Leaf Stones are in the Safari Zone,
+  where nothing is won. Read the source before writing the rule, and let the
+  generator refuse what it cannot place (`stone_areas()`, `fixed_encounters()`).
+- **A test's earlier decline leaks into the next check.** branch_test's Nincada
+  would not evolve because a KEEP had set the declined level; clear pending
+  offers and raise the level past it.
+- **Evolution has one exit now: `evolveInto()`** (level, stone, branch, trade);
+  anything an evolution must also do -- legend caught bits, Shedinja, the save
+  -- goes there, never into one caller.
 
 ---
 
