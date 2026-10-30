@@ -933,7 +933,30 @@ half; Cosmoem is FORCED to whichever of Solgaleo/Lunala the player does not
 own. Revision 8: Applin/Charcadet choose at 30, Hydrapple moves to 40;
 easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
-a new session is HANDOVER.md § 1f.
+a new session is HANDOVER.md § 1g.
+
+### Done: stones in the wild (v3.84, on the branch)
+
+Plan § E5. `stonedrop_test`; three firmware guards and two generator
+refusals negative-checked.
+
+- **`WILD_STONES {area, stone}`** (generated, sorted by area; stone =
+  `EVO_STONES` index) by `stone_finds()` / `stone_areas()` in gen_wild.py, read
+  from the maps: Gen 3 `map.json` object events whose script is `finditem` in
+  `item_ball_scripts.inc` plus `hidden_item` bg events; Crystal `itemball` /
+  `hiddenitem` in `maps/*.asm`; Platinum `VisibleItems_<Map>_<Item>` scripts
+  and `hidden_items.h`'s `FLAG_OBTAINED_HIDDEN_<MAP>_<ITEM>`. Gifts and prizes
+  are not finds. `fetch_all()` fetches the ~1,600 map files 16 at a time.
+- **A find on a map no area holds REFUSES the generator** until the region's
+  `'stones'` table in `tools/wild_areas.py` places it (an area, or None with a
+  reason); an entry that matches no find refuses too. Finds in a Safari area are
+  left out (a Safari encounter is never won). 37 areas; Kanto's Leaf Stone and
+  the Ice Stone / Black Augurite (and Unova onward) are Mart-only.
+- **`wildAreaStones(area)`** is the table's one reader. `wildAreaNow` (set by
+  `startWildBattle()`, `WILD_NO_AREA` for the region-wide pool) is the fight's
+  area; `wildGrantDrops()` adds a band of `WILD_STONE_DROP_WEIGHT` (9) to each
+  draw while the area holds a stone not yet found this win, and a draw in it
+  picks one of those. ~8.9% of easy wins in Mt. Moon. Nothing saved.
 
 ### Done: Melmetal by walking (v3.83, on the branch)
 

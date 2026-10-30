@@ -260,6 +260,16 @@ bool wildSwarmTakes(uint8_t i, uint16_t roll);
 // The level a swarm creature is met at: the area's band, at least its floor.
 uint8_t wildSwarmLevel(uint8_t i, uint32_t roll);
 
+// ---- evolution stones found in an area (v3.84) ------------------------------
+// The games leave stones only in some places, so a win drops one only there
+// (owner): about one win in ten, never elsewhere. The stones of an area are
+// the generated WILD_STONES, read from the games' item balls and hidden items.
+// A drop draw adds this weight to the item table's (~120) when the area holds
+// a stone not dropped yet this win, and a draw in it picks one of them.
+constexpr uint8_t WILD_STONE_DROP_WEIGHT = 9;
+// The stones (EVO_STONES indices) this area holds, at most `max`; the count.
+uint8_t wildAreaStones(uint16_t area, uint8_t *out, uint8_t max);
+
 // ---------------------------------------------------------------------------
 // Safari encounters (v3.75, v3.76; docs/explore-specialty-build-plan.md § 1-2).
 // A Safari area keeps its ordinary table; what changes is the fight: no team,

@@ -612,6 +612,13 @@ bool wildSwarmTakes(uint8_t i, uint16_t roll) {
   return i < WILD_SWARM_COUNT && roll % 1000 < WILD_SWARMS[i].share;
 }
 
+uint8_t wildAreaStones(uint16_t area, uint8_t *out, uint8_t max) {
+  uint8_t n = 0;
+  for (uint16_t i = 0; i < WILD_STONE_COUNT && n < max; i++)
+    if (WILD_STONES[i].area == area) out[n++] = WILD_STONES[i].stone;
+  return n;
+}
+
 uint8_t wildSwarmLevel(uint8_t i, uint32_t roll) {
   if (i >= WILD_SWARM_COUNT) return 1;
   const WildSwarm &s = WILD_SWARMS[i];

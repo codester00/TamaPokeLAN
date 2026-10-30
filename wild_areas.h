@@ -81,6 +81,12 @@ struct WildSwarm {
   uint8_t gate;      // ladder position it waits for (the rod, the National Dex)
   uint8_t floor;     // lowest level it may appear at, 0 = none
 };
+// Where the games leave an evolution stone (v3.84): an item ball or a
+// hidden item on a map of this area. Sorted by area; stone = EVO_STONES index.
+struct WildStone {
+  uint16_t area;
+  uint8_t stone;
+};
 
 static const WildSlot WILD_SLOTS[] = {
   // ROUTE 1
@@ -15787,6 +15793,47 @@ static const WildSwarm WILD_SWARMS[] = {
   { 287, 126, 400, 13, 0 },  // SLAKOTH, ETERNA FOREST (ETERNA_FOREST)
 };
 #define WILD_SWARM_COUNT 30
+
+static const WildStone WILD_STONES[] = {
+  { 5, 4 },  // MT. MOON, MOON-STONE (MT_MOON_1F ball, MT_MOON_B2F hidden)
+  { 18, 1 },  // SEAFOAM ISLANDS, WATER-STONE (SEAFOAM_ISLANDS_B1F ball, SEAFOAM_ISLANDS_B4F hidden)
+  { 19, 2 },  // POWER PLANT, THUNDER-STONE (POWER_PLANT ball, POWER_PLANT hidden)
+  { 20, 4 },  // POKEMON MANSION, MOON-STONE (POKEMON_MANSION_1F hidden)
+  { 23, 0 },  // MT. EMBER, FIRE-STONE (MT_EMBER_EXTERIOR ball, MT_EMBER_EXTERIOR hidden)
+  { 32, 5 },  // SIX ISLAND, SUN-STONE (SIX_ISLAND_RUIN_VALLEY ball)
+  { 43, 4 },  // RUINS OF ALPH, MOON-STONE (RUINS_OF_ALPH_AERODACTYL_ITEM_ROOM ball)
+  { 67, 4 },  // TOHJO FALLS, MOON-STONE (TOHJO_FALLS ball)
+  { 83, 2 },  // NEW MAUVILLE, THUNDER-STONE (NEW_MAUVILLE_INSIDE ball)
+  { 85, 0 },  // FIERY PATH, FIRE-STONE (FIERY_PATH ball)
+  { 87, 4 },  // METEOR FALLS, MOON-STONE (METEOR_FALLS_1F_1R ball)
+  { 91, 1 },  // ABANDONED SHIP, WATER-STONE (ABANDONED_SHIP_HIDDEN_FLOOR_ROOMS ball)
+  { 92, 3 },  // ROUTE 119, LEAF-STONE (ROUTE119 ball)
+  { 125, 3 },  // ROUTE 205, LEAF-STONE (FLOAROMA_MEADOW ball)
+  { 129, 8 },  // MT. CORONET, DAWN-STONE (MT_CORONET_1F_SOUTH ball)
+  { 131, 7 },  // WAYWARD CAVE, DUSK-STONE (WAYWARD_CAVE_B1F hidden)
+  { 135, 0 },  // SOLACEON RUINS, FIRE-STONE (SOLACEON_RUINS_ROOM_1_NORTHWEST_DEAD_END hidden)
+  { 135, 1 },  // SOLACEON RUINS, WATER-STONE (SOLACEON_RUINS_ROOM_3_SOUTHWEST_DEAD_END hidden)
+  { 135, 2 },  // SOLACEON RUINS, THUNDER-STONE (SOLACEON_RUINS_ROOM_5_SOUTHEAST_DEAD_END hidden)
+  { 137, 7 },  // ROUTE 215, DUSK-STONE (VEILSTONE_CITY_GALACTIC_WAREHOUSE ball)
+  { 138, 8 },  // ROUTE 212, DAWN-STONE (ROUTE_212_SOUTH hidden)
+  { 142, 5 },  // VALOR LAKEFRONT, SUN-STONE (VALOR_LAKEFRONT hidden)
+  { 143, 1 },  // ROUTE 213, WATER-STONE (ROUTE_213 ball)
+  { 145, 6 },  // ROUTE 210 NORTH, SHINY-STONE (ROUTE_210_NORTH hidden)
+  { 148, 0 },  // FUEGO IRONWORKS, FIRE-STONE (FUEGO_IRONWORKS_BUILDING ball)
+  { 149, 4 },  // ETERNA CITY, MOON-STONE (ETERNA_CITY hidden)
+  { 151, 6 },  // IRON ISLAND, SHINY-STONE (IRON_ISLAND_B3F ball)
+  { 155, 4 },  // MT. CORONET PEAK, MOON-STONE (MT_CORONET_OUTSIDE_NORTH hidden)
+  { 155, 5 },  // MT. CORONET PEAK, SUN-STONE (MT_CORONET_4F_ROOMS_1_AND_2 hidden)
+  { 158, 2 },  // ROUTE 222, THUNDER-STONE (SUNYSHORE_CITY ball)
+  { 161, 7 },  // VICTORY RD BACK, DUSK-STONE (VICTORY_ROAD_1F_ROOM_2 ball)
+  { 163, 3 },  // ROUTES 225-226, LEAF-STONE (ROUTE_225 hidden)
+  { 163, 8 },  // ROUTES 225-226, DAWN-STONE (ROUTE_225 ball)
+  { 164, 6 },  // ROUTES 227-228, SHINY-STONE (ROUTE_228 ball)
+  { 165, 0 },  // STARK MOUNTAIN, FIRE-STONE (STARK_MOUNTAIN_ROOM_2 hidden)
+  { 166, 1 },  // ROUTES 229-230, WATER-STONE (ROUTE_230 hidden)
+  { 166, 2 },  // ROUTES 229-230, THUNDER-STONE (ROUTE_229 hidden)
+};
+#define WILD_STONE_COUNT 37
 
 static const WildSafariFlee WILD_SAFARI_FLEE[] = {
   { 29, 0, 50 },  // NIDORAN H

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.83-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.84-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -467,7 +467,9 @@ While **awake**:
   whichever comes first: a Scyther marked for its trade refuses the augurite.
   A stone is spent only when the creature really evolves, and only into a
   creature whose region's pack is on the card. Bellossom, Gallade, Froslass
-  and Kleavor no longer hatch.
+  and Kleavor no longer hatch. Stones are sold at the Mart and, since v3.84,
+  found after wins in the areas where the games leave them (see the wild
+  battle rewards).
 - **Branches without an item (v3.82).** **TYROGUE** at 20 becomes HITMONLEE
   if its Attack is higher than its Defense, HITMONCHAN if lower, HITMONTOP if
   equal. **WURMPLE** at 7 becomes SILCOON or CASCOON, and **COSMOEM** at 53
@@ -1161,6 +1163,20 @@ settlement can never list the same item twice.
 | Ultra Ball | 6 | catch ×200 |
 | Hyper Potion | 4 | +120 HP |
 | **Master Ball** | **1** | catches without fail |
+| *an evolution stone* | **9** | only in its own areas — see below |
+
+**Stones in the wild (v3.84).** An evolution stone drops only where the games
+leave one — an item ball or a hidden item on the area's maps, read from
+FireRed, Crystal, Emerald and Platinum: Mt. Moon's Moon Stone, the Power Plant's
+Thunderstone, Mt. Ember's Fire Stone, Solaceon Ruins' Fire, Water and
+Thunder Stones, and 33 more areas. There, every draw has one more band of
+weight **9** (one of the area's stones, never one already found that win), so
+about **one win in ten** finds a stone; anywhere else, never. A place the
+games leave a stone with no area of its own lends it to the area beside it
+(Floaroma Meadow to Route 205, the Veilstone warehouse to Route 215). The
+Safari Zone's and Great Marsh's Leaf Stones stay out — a Safari encounter is
+never won. The Ice Stone and the Black Augurite, and every stone in Unova
+onward, come from the Mart only.
 
 A new save starts with **5 Poké Balls and 3 Potions**. Stacks cap at 99.
 

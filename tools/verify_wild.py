@@ -52,7 +52,8 @@ def main():
     areas, legends = G.build(refresh)
     G.check(areas)
     fresh = G.emit(areas, legends, G.safari_flee_rates(areas, refresh),
-                   G.fixed_encounters(areas, refresh), G.swarms(areas, refresh))
+                   G.fixed_encounters(areas, refresh), G.swarms(areas, refresh),
+                   G.stone_areas(areas, refresh))
     try:
         committed = open(G.OUT).read()
     except FileNotFoundError:

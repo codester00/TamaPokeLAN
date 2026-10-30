@@ -147,6 +147,10 @@ KANTO = {
     ],
     # Maps with encounters that are deliberately NOT an area. Empty for Kanto:
     # every FireRed/LeafGreen map with wild creatures belongs to one.
+    # Evolution stones found on maps no area holds (v3.84).
+    'stones': {
+        'ROCKET_HIDEOUT_B2F': (None, 'Celadon has no area; Mt. Moon and the Mansion hold Moon Stones'),
+    },
     'skip': {},
     # The legendaries that live in this region, ONE HOME PER SPECIES. FireRed's
     # roaming Raikou/Entei/Suicune are Johto's and get their home there.
@@ -241,6 +245,11 @@ JOHTO = {
                                              'SILVER_CAVE_ROOM_3', 'SILVER_CAVE_ITEM_ROOMS']),
     ],
     # Johto maps the source has encounters on that are deliberately not here.
+    # Evolution stones found on maps no area holds (v3.84).
+    'stones': {
+        'RUINS_OF_ALPH_AERODACTYL_ITEM_ROOM': ('RUINS OF ALPH', 'a room of the ruins'),
+        'MOUNT_MOON_SQUARE': (None, 'Kanto\'s Mt. Moon: Johto has no area there'),
+    },
     'skip': {},
     # Fixed one-offs (see Kanto's). Lapras comes out only on Fridays and the
     # Lake of Rage's Gyarados is always the red one: gen_wild.py checks each
@@ -359,6 +368,10 @@ HOENN = {
         ('ALTERING CAVE',    GATE_CHAMPION, ['ALTERING_CAVE']),
         ('STEVENS CAVE',     GATE_CHAMPION, ['METEOR_FALLS_STEVENS_CAVE']),
     ],
+    # Evolution stones found on maps no area holds (v3.84): the area beside them.
+    'stones': {
+        'ABANDONED_SHIP_HIDDEN_FLOOR_ROOMS': ('ABANDONED SHIP', 'the ship\'s hidden floor'),
+    },
     'skip': {
         'CAVE_OF_ORIGIN_UNUSED_RUBY_SAPPHIRE_MAP1': 'left over from Ruby/Sapphire, unreachable in Emerald',
         'CAVE_OF_ORIGIN_UNUSED_RUBY_SAPPHIRE_MAP2': 'left over from Ruby/Sapphire, unreachable in Emerald',
@@ -523,6 +536,15 @@ SINNOH = {
                                              'SNOWPOINT_TEMPLE_B2F', 'SNOWPOINT_TEMPLE_B3F',
                                              'SNOWPOINT_TEMPLE_B4F', 'SNOWPOINT_TEMPLE_B5F']),
     ],
+    # Evolution stones found on maps no area holds (v3.84): the area beside them.
+    'stones': {
+        'FLOAROMA_MEADOW': ('ROUTE 205', 'the meadow opens off Floaroma Town, on Route 205'),
+        'FUEGO_IRONWORKS_BUILDING': ('FUEGO IRONWORKS', 'inside the ironworks'),
+        'SOLACEON_RUINS_ROOM_1_NORTHWEST_DEAD_END': ('SOLACEON RUINS', 'a dead end of the ruins'),
+        'SOLACEON_RUINS_ROOM_3_SOUTHWEST_DEAD_END': ('SOLACEON RUINS', 'a dead end of the ruins'),
+        'SOLACEON_RUINS_ROOM_5_SOUTHEAST_DEAD_END': ('SOLACEON RUINS', 'a dead end of the ruins'),
+        'VEILSTONE_CITY_GALACTIC_WAREHOUSE': ('ROUTE 215', 'Veilstone City, at the end of Route 215'),
+    },
     'skip': {},
     'legends': [
         # The lake guardians wait in caverns with no wild tables, so each

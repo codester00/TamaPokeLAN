@@ -58,6 +58,7 @@ sys.path.insert(0, HERE)
 sys.dont_write_bytecode = True
 from dex_data import DEX, REGIONS as DEX_REGIONS, EEVEE_BRANCHES   # noqa: E402
 from dex_trade import TRADE_EVOS                                   # noqa: E402
+from dex_rates import EVO_STONES                                   # noqa: E402
 import wild_areas as WA                                            # noqa: E402
 
 CACHE = os.path.join(HERE, 'wild_cache')
@@ -1209,6 +1210,115 @@ def swarms(areas, refresh=False):
     return out
 
 
+# The games' item constants for the stones, by EVO_STONES name (v3.84).
+STONE_CONST = {'FIRE_STONE': 'fire-stone', 'WATER_STONE': 'water-stone',
+               'THUNDER_STONE': 'thunder-stone', 'THUNDERSTONE': 'thunder-stone',
+               'LEAF_STONE': 'leaf-stone', 'MOON_STONE': 'moon-stone',
+               'SUN_STONE': 'sun-stone', 'SHINY_STONE': 'shiny-stone',
+               'DUSK_STONE': 'dusk-stone', 'DAWN_STONE': 'dawn-stone',
+               'ICE_STONE': 'ice-stone'}
+
+
+def fetch_all(jobs, refresh=False):
+    """fetch() many (url, cache name) pairs at once; the map scans read hundreds."""
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(16) as ex:
+        return list(ex.map(lambda j: fetch(j[0], j[1], refresh), jobs))
+
+
+def stone_finds(src, refresh=False):
+    """Every evolution stone a game leaves on its maps: (map, item constant,
+    'ball' or 'hidden'). Gifts and prizes are not finds. Read from the maps'
+    own data: Gen 3's map.json object events (an item ball's script is
+    `finditem ITEM_X`) and hidden-item bg events; Crystal's `itemball` /
+    `hiddenitem`; Platinum's visible-item scripts (VisibleItems_<Map>_<Item>)
+    and its hidden-item table (FLAG_OBTAINED_HIDDEN_<MAP>_<ITEM>)."""
+    out = []
+    if src in GEN3:
+        base = GEN3[src]
+        groups = json.loads(fetch(base + 'data/maps/map_groups.json', src + '_map_groups.json', refresh))
+        balls = fetch(base + 'data/scripts/item_ball_scripts.inc', src + '_item_balls.inc', refresh)
+        ball_item = dict(re.findall(r'^(\w+)::\s*\n\s*finditem ITEM_(\w+)', balls, re.M))
+        names = [n for g in groups['group_order'] for n in groups[g]]
+        texts = fetch_all([(base + 'data/maps/%s/map.json' % n, '%s_map_%s.json' % (src, n))
+                           for n in names], refresh)
+        for text in texts:
+            mj = json.loads(text)
+            mp = mj['id'][len('MAP_'):]
+            for o in mj.get('object_events') or []:
+                it = ball_item.get(o.get('script', ''))
+                if it in STONE_CONST:
+                    out.append((mp, it, 'ball'))
+            for b in mj.get('bg_events') or []:
+                if b.get('type') == 'hidden_item' and b['item'][len('ITEM_'):] in STONE_CONST:
+                    out.append((mp, b['item'][len('ITEM_'):], 'hidden'))
+    elif src == 'crystal':
+        maps_asm = fetch(CRYSTAL + 'data/maps/maps.asm', 'crystal_data_maps_maps.asm', refresh)
+        names = sorted(set(re.findall(r'^\s*map (\w+),', maps_asm, re.M)))
+        texts = fetch_all([(CRYSTAL + 'maps/%s.asm' % n, 'crystal_maps_%s.asm' % n)
+                           for n in names], refresh)
+        for n, text in zip(names, texts):
+            for kind, it in re.findall(r'^\s*(itemball|hiddenitem) (\w+)', text, re.M):
+                if it in STONE_CONST:
+                    out.append((camel_to_const(n), it, 'ball' if kind == 'itemball' else 'hidden'))
+    elif src == 'platinum':
+        vis = fetch(PLATINUM + 'res/field/scripts/scripts_visible_items.s',
+                    'platinum_visible_items.s', refresh)
+        for label, it in re.findall(r'^VisibleItems_(\w+):\s*\n(?:.*\n){0,3}?\s*SetVar VAR_0x8008, ITEM_(\w+)',
+                                    vis, re.M):
+            if it in STONE_CONST:
+                camel = label.rsplit('_', 1)[0]
+                mp = re.sub(r'(?<=[0-9])(?=[A-Z][a-z])', '_', camel_to_const(camel))
+                out.append((mp, it, 'ball'))
+        hid = fetch(PLATINUM + 'include/data/field/hidden_items.h', 'platinum_hidden_items.h', refresh)
+        for it, flag in re.findall(r'HIDDEN_ITEM_ENTRY\(ITEM_(\w+),[^)]*FLAG_OBTAINED_HIDDEN_(\w+)\)', hid):
+            if it in STONE_CONST:
+                if not flag.endswith('_' + it):
+                    sys.exit('gen_wild: hidden %s flag %s does not end in its item' % (it, flag))
+                out.append((flag[:-len(it) - 1], it, 'hidden'))
+    return out
+
+
+def stone_areas(areas, refresh=False):
+    """(area, stone, [where]) for every area a stone is found in (v3.84), sorted.
+    A find on a map no area holds must be placed by the region's 'stones' table
+    in tools/wild_areas.py -- an area name, or None with a reason -- or this
+    refuses, so nothing is dropped by accident. A find in a Safari area is left
+    out (a Safari encounter is never won, so nothing drops there)."""
+    found = {}
+    for reg in WA.REGIONS:
+        src = reg['source']
+        if src not in GEN3 and src not in ('crystal', 'platinum'):
+            continue
+        names = {a['name']: i for i, a in enumerate(areas) if a['region'] == reg['region']}
+        idx_of = {mp: i for i, a in enumerate(areas) if a['region'] == reg['region'] for mp in a['maps']}
+        table = reg.get('stones', {})
+        used = set()
+        for mp, it, kind in stone_finds(src, refresh):
+            if mp in table:
+                used.add(mp)
+                place = table[mp][0]
+                if place is None:
+                    continue
+                if place not in names:
+                    sys.exit('gen_wild: stones table names unknown area %r' % place)
+                i = names[place]
+            elif mp in idx_of:
+                i = idx_of[mp]
+            else:
+                sys.exit('gen_wild: a %s on %s (%s), which no area holds: place it in %s\'s '
+                         '\'stones\' table' % (it, mp, src, reg['source']))
+            if areas[i]['mode']:
+                print('gen_wild: %s on %s is in Safari area %r -- left out' % (it, mp, areas[i]['name']))
+                continue
+            st = EVO_STONES.index(STONE_CONST[it])
+            found.setdefault((i, st), []).append('%s %s' % (mp, kind))
+        for mp in table:
+            if mp not in used:
+                sys.exit('gen_wild: stones table entry %s matches no find' % mp)
+    return [(i, st, where) for (i, st), where in sorted(found.items())]
+
+
 # The Safari rules each source plays by (wild.cpp's SAFARI_* enum, in order).
 SAFARI_RULES = {'frlg': 0, 'emerald': 1, 'platinum': 2}
 
@@ -1279,7 +1389,7 @@ WHEN_NAME = {ANY: 'WILD_WHEN_ANY', MORN: 'WILD_WHEN_MORN', DAY: 'WILD_WHEN_DAY',
              DAY | NITE: 'WILD_WHEN_DAY | WILD_WHEN_NITE'}
 
 
-def emit(areas, legends, flee=(), fixed=(), swarm=()):
+def emit(areas, legends, flee=(), fixed=(), swarm=(), stones=()):
     n_regions = len(DEX_REGIONS)
     o = []
     o.append('// GENERATED by tools/gen_wild.py -- do not edit. The hand-written half\n'
@@ -1352,6 +1462,12 @@ def emit(areas, legends, flee=(), fixed=(), swarm=()):
              '  uint16_t share;    // per mille of that area\'s encounters it takes over\n'
              '  uint8_t gate;      // ladder position it waits for (the rod, the National Dex)\n'
              '  uint8_t floor;     // lowest level it may appear at, 0 = none\n'
+             '};\n'
+             '// Where the games leave an evolution stone (v3.84): an item ball or a\n'
+             '// hidden item on a map of this area. Sorted by area; stone = EVO_STONES index.\n'
+             'struct WildStone {\n'
+             '  uint16_t area;\n'
+             '  uint8_t stone;\n'
              '};\n\n')
     o.append('static const WildSlot WILD_SLOTS[] = {\n')
     first = 0
@@ -1426,6 +1542,13 @@ def emit(areas, legends, flee=(), fixed=(), swarm=()):
     if not swarm:
         o.append('  { 0, 0, 0, 0, 0 },\n')
     o.append('};\n#define WILD_SWARM_COUNT %d\n\n' % len(swarm))
+    o.append('static const WildStone WILD_STONES[] = {\n')
+    for a, st, where in stones:
+        o.append('  { %d, %d },  // %s, %s (%s)\n'
+                 % (a, st, areas[a]['name'], EVO_STONES[st].upper(), ', '.join(where)))
+    if not stones:
+        o.append('  { 0, 0 },\n')
+    o.append('};\n#define WILD_STONE_COUNT %d\n\n' % len(stones))
     o.append('static const WildSafariFlee WILD_SAFARI_FLEE[] = {\n')
     for dex, rules, rate in flee:
         o.append('  { %d, %d, %d },  // %s\n' % (dex, rules, rate, DEX[dex - 1][2]))
@@ -1456,12 +1579,14 @@ def main():
     check(areas)
     fixed = fixed_encounters(areas, refresh)
     swarm = swarms(areas, refresh)
-    text = emit(areas, legends, safari_flee_rates(areas, refresh), fixed, swarm)
+    stones = stone_areas(areas, refresh)
+    text = emit(areas, legends, safari_flee_rates(areas, refresh), fixed, swarm, stones)
     with open(OUT, 'w') as f:
         f.write(text)
-    print('wrote %s: %d areas, %d slots, %d legendaries, %d fixed, %d swarms'
+    print('wrote %s: %d areas, %d slots, %d legendaries, %d fixed, %d swarms, %d stone areas'
           % (os.path.relpath(OUT, ROOT), len(areas),
-             sum(len(a['slots']) for a in areas), len(legends), len(fixed), len(swarm)))
+             sum(len(a['slots']) for a in areas), len(legends), len(fixed), len(swarm),
+             len(stones)))
 
 
 if __name__ == '__main__':

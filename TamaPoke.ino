@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.83"
+#define FW_VERSION "3.84"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -868,6 +868,7 @@ bool wildCaught = false;
 // What a win handed over, for the settlement lines on the win screen.
 ItemKey wildDrops[4] = { ITEM_NONE, ITEM_NONE, ITEM_NONE, ITEM_NONE };
 uint8_t wildDropN = 0;
+uint16_t wildAreaNow = WILD_NO_AREA;   // the area this wild fight is in (v3.84: its stones)
 uint8_t btlBagPage = 0;
 // The battle bag's list: what may be used in a fight (itemUsableInBattle()),
 // four to a page, paged along the rim (v3.71). Drawing, tapping and the rim
@@ -6519,10 +6520,25 @@ static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
 void wildGrantDrops() {   // not static: tm_test drives it
   wildDropN = 0;
   uint8_t n = wildDropCount(btlHard, (uint8_t)random(100));
+  // The area's evolution stones (v3.84) are one more band of the draw, there
+  // only: a stone already found this win is out of it, like any item.
+  uint8_t st[EVO_STONE_COUNT];
+  uint8_t ns = wildAreaNow == WILD_NO_AREA ? 0 : wildAreaStones(wildAreaNow, st, EVO_STONE_COUNT);
   for (uint8_t i = 0; i < n && i < 4; i++) {
-    uint32_t total = bag.weightTotal(wildDrops, wildDropN);
+    ItemKey left[EVO_STONE_COUNT];
+    uint8_t nl = 0;
+    for (uint8_t j = 0; j < ns; j++) {
+      ItemKey s = (ItemKey)(IT_FIRESTONE + st[j]);
+      bool had = false;
+      for (uint8_t d = 0; d < wildDropN; d++) if (wildDrops[d] == s) had = true;
+      if (!had) left[nl++] = s;
+    }
+    uint32_t items = bag.weightTotal(wildDrops, wildDropN);
+    uint32_t total = items + (nl ? WILD_STONE_DROP_WEIGHT : 0);
     if (!total) break;
-    ItemKey k = bag.weightedDrop((uint32_t)random(total), wildDrops, wildDropN);
+    uint32_t roll = (uint32_t)random(total);
+    ItemKey k = roll < items ? bag.weightedDrop(roll, wildDrops, wildDropN)
+                             : left[random(nl)];
     if (!k) break;
     bag.add(k);
     wildDrops[wildDropN++] = k;
@@ -10108,12 +10124,14 @@ bool startWildBattle(uint8_t region, bool hard) {
   int swarm = -1;
   bool safari = false;
   wildCheated = false;
+  wildAreaNow = WILD_NO_AREA;
   if (wildRegionHasAreas(region)) {
     // A region with areas draws from the one the player chose, weighted by the
     // game's own encounter rates, at the level band its gym ladder sets.
     // Difficulty does not touch either: hard is the smart AI (btlHard below).
     uint16_t area = exploreAreaOf(region);
     if (area == WILD_NO_AREA || !wildAreaUnlocked(area, pet)) return false;
+    wildAreaNow = area;
     safari = wildAreaMode(area) == WILD_MODE_SAFARI;
     // A legendary first: its guaranteed meeting at home, or the rare repeat.
     // It is MET as the fight starts, and saved then: wild battles end in half a
