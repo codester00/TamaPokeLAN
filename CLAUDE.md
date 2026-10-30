@@ -935,6 +935,32 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: selling at the Mart, and fewer wild drops (v3.90, on the branch)
+
+Owner, 2026-10-30: the bag filled with unused items within days, and a sell
+function solves that and adds income from play rather than walking.
+`sell_test` (through the screen's taps), `wild_test`; four guards
+negative-checked.
+
+- **`itemSellPrice(k)`** (items.h) is THE sell price: half `price`, the games'
+  rule, so buy-then-sell always loses (the test checks every item); 0 for what
+  the Mart never sells (Master Ball). **`martSellOne(k)`** is the one way an
+  item is sold: refused with none in the bag or when the money would pass
+  `WALLET_CAP` (it would be thrown away); the item is consumed (saved) BEFORE
+  the money is paid (saved), so a power cut loses a sale, never duplicates money.
+- **The title pill is the BUY | SELL switch** (`martTabAt()`, `martSelling`,
+  reset to BUY whenever the Mart opens). SELL's rows are `martSellCount()` /
+  `martSellAt()` (the bag's sellable items, in bag order), through the same
+  `martRowCount()` the drawing, taps and `martPages()` already ask; a row shows
+  the count and the price, behind the confirm dialog (`martConfirmSell`,
+  `S_MART_SELL_Q`/`S_MART_PAYS_FMT`). An empty list reads `S_MART_NOTHING`.
+- **Drops**: `wildDropCount()` is 1 + a second at `WILD_BONUS_DROP_CHANCE` 25
+  (easy) / `WILD_BONUS_DROP_CHANCE_HARD` 50 (hard) -- was 1-2 easy, 2-3 hard.
+  Stones (`wildStoneFind`) and TMs stay separate rolls on top.
+- `martSellAt()`/`martSellOne()` take `uint8_t`: the emulator's generated
+  prototypes sit above `items.h`, so an `ItemKey` signature does not compile
+  there.
+
 ### Done: the Pokedex shows what you have (v3.89, on the branch)
 
 Owner, 2026-10-30. `dexfill_test` (reads the panel, cell by cell); four guards

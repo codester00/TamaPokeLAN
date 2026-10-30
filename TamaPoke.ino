@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.89"
+#define FW_VERSION "3.90"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -834,6 +834,8 @@ uint8_t martPage = 0;
 // needs to remember WHICH row was tapped.
 ItemKey martConfirmItem = ITEM_NONE;
 uint8_t martConfirmTm = 0;   // a TM row being bought (a move index), 0 = none
+bool martSelling = false;    // the SELL half of the Mart (v3.90): the bag's items
+bool martConfirmSell = false;   // martConfirmItem is being SOLD, not bought
 #define MART_PER_PAGE 3
 // Rows start well below the wallet block -- it is bold/size-4 and, per
 // uiSafeHalfWidth(), needs to sit lower on the round panel than a plain title
@@ -2172,7 +2174,7 @@ void onSwipeV(int dir) {
     return;
   }
   if (martOpen) {
-    if (martConfirmItem || martConfirmTm) { if (back) { martConfirmItem = ITEM_NONE; martConfirmTm = 0; } return; }
+    if (martConfirmItem || martConfirmTm) { if (back) { martConfirmItem = ITEM_NONE; martConfirmTm = 0; martConfirmSell = false; } return; }
     if (back) uiTileGo(TILE_PET);
     return;
   }
@@ -3297,6 +3299,8 @@ void uiTileGo(int i) {
   martOpen = false;
   martConfirmItem = ITEM_NONE;
   martConfirmTm = 0;
+  martConfirmSell = false;
+  martSelling = false;           // the Mart always opens on BUY
   switch (TILE[i].scr) {
     // The two multi-region screens land on their CHOOSER, never on whichever
     // region was last set. Opening straight into it is how Johto and Hoenn came
@@ -9939,14 +9943,42 @@ void bagTap(int16_t x, int16_t y) {
 // rather than a second list kept here -- the same reasoning as the bag's
 // weighted drop table, so a future item only needs a price to appear.
 
-// The Mart's rows: every item with a price, then today's TMs (tms.h). One
-// count, one row lookup, so drawing and tapping cannot disagree.
+// SELL's rows (v3.90): what the bag holds that the Mart buys, in bag order.
+uint8_t martSellCount() {
+  uint8_t n = 0, d = bag.distinctCount();
+  for (uint8_t i = 0; i < d; i++) if (itemSellPrice(bag.keyAt(i))) n++;
+  return n;
+}
+// (uint8_t is an ItemKey: the emulator's generated prototypes sit above items.h)
+uint8_t martSellAt(uint8_t idx) {
+  uint8_t d = bag.distinctCount();
+  for (uint8_t i = 0; i < d; i++) {
+    ItemKey k = bag.keyAt(i);
+    if (!itemSellPrice(k)) continue;
+    if (!idx) return k;
+    idx--;
+  }
+  return ITEM_NONE;
+}
+// The BUY | SELL switch is the title pill (v3.90): 0 = BUY, 1 = SELL, -1 = not on it.
+#define MART_TAB_Y 28
+#define MART_TAB_H 54
+int martTabAt(int16_t x, int16_t y) {
+  if (y < MART_TAB_Y || y > MART_TAB_Y + MART_TAB_H || x < 78 || x > 388) return -1;
+  return x < CX ? 0 : 1;
+}
+
+// The Mart's rows: BUY is every item with a price, then today's TMs (tms.h);
+// SELL is martSellAt(). One count, one row lookup, so drawing and tapping
+// cannot disagree.
 static uint8_t martTmRow[MART_TM_PER_DAY];
 static uint8_t martRowCount() {
+  if (martSelling) return martSellCount();
   return (uint8_t)(martSellableCount() + martTmToday(pet, pet.today(), martTmRow));
 }
 // The row's TM (a move index) if it is a TM row, else 0.
 static uint8_t martRowTm(uint8_t idx) {
+  if (martSelling) return 0;
   uint8_t items = martSellableCount();
   uint8_t k = martTmToday(pet, pet.today(), martTmRow);
   return (idx >= items && idx < items + k) ? martTmRow[idx - items] : 0;
@@ -9962,12 +9994,19 @@ void renderMart() {
   gNight = pet.sleeping || h < 6 || h >= 20;
   drawScene(pet.isEgg() ? 0 : DEX_TBL[pet.speciesId].biome, millis(), gNight);
 
-  gfx->fillRoundRect(78, 28, 310, 54, 14, UI_BG_DAY);
-  gfx->drawRoundRect(78, 28, 310, 54, 14, UI_INK);
-  gfx->setTextColor(UI_INK);
-  gfx->setTextSize(3);
-  gfx->setCursor(CX - (int)strlen(T(S_MART)) * 9, 44);
-  gfx->print(T(S_MART));
+  // BUY | SELL (v3.90): the title pill is the switch, the active half filled
+  gfx->fillRoundRect(78, MART_TAB_Y, 310, MART_TAB_H, 14, UI_BG_DAY);
+  gfx->fillRoundRect(martSelling ? CX : 78, MART_TAB_Y, 155, MART_TAB_H, 14, UI_INK);
+  gfx->drawRoundRect(78, MART_TAB_Y, 310, MART_TAB_H, 14, UI_INK);
+  for (int t = 0; t < 2; t++) {
+    const char *lab = T(t ? S_MART_TAB_SELL : S_MART_TAB_BUY);
+    bool on = (t == 1) == martSelling;
+    int ts = strlen(lab) <= 7 ? 3 : 2;
+    gfx->setTextColor(on ? UI_WHITE : UI_INK);
+    gfx->setTextSize(ts);
+    gfx->setCursor((t ? CX + 77 : 78 + 77) - (int)strlen(lab) * 3 * ts, MART_TAB_Y + (ts == 3 ? 16 : 20));
+    gfx->print(lab);
+  }
 
   // Wallet is bold (size 4) and, unlike the title, sits directly on the night
   // scene rather than a light pill -- inkColor() is what the main screen's own
@@ -9997,9 +10036,10 @@ void renderMart() {
     uint8_t idx = (uint8_t)(martPage * MART_PER_PAGE + i);
     if (idx >= n) break;
     uint8_t tm = martRowTm(idx);
-    ItemKey k = tm ? ITEM_NONE : martKeyAt(idx);
-    uint16_t price = tm ? tmPrice(tm) : itemEntry(k).price;
-    bool afford = pet.wallet >= price;
+    ItemKey k = tm ? ITEM_NONE : (martSelling ? martSellAt(idx) : martKeyAt(idx));
+    uint32_t price = tm ? tmPrice(tm) : martSelling ? itemSellPrice(k) : itemEntry(k).price;
+    // SELL: green unless the money would not fit in the wallet
+    bool afford = martSelling ? pet.wallet + price <= Pet::WALLET_CAP : pet.wallet >= price;
     int y = MART_ROW_Y(i);
     // Green when affordable, matching Settings' SND ON pill (UI_BAR_OK /
     // UI_BG_DAY); grey/dimmed otherwise, matching the bag's unusable rows.
@@ -10021,11 +10061,22 @@ void renderMart() {
     } else {
       gfx->setCursor(92, y + 17);
       gfx->print(itemEntry(k).name);
+      if (martSelling) {                    // how many the bag holds
+        char cnt[8];
+        snprintf(cnt, sizeof(cnt), " x%u", bag.count(k));   // fits beside the longest name
+        gfx->print(cnt);
+      }
     }
-    char pr[10];
-    snprintf(pr, sizeof(pr), "$%u", price);
+    char pr[12];
+    snprintf(pr, sizeof(pr), "$%lu", (unsigned long)price);
     gfx->setCursor(374 - (int)strlen(pr) * 12, y + 17);
     gfx->print(pr);
+  }
+  if (!n) {                               // SELL with nothing the Mart buys
+    gfx->setTextColor(ink);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(T(S_MART_NOTHING)) * 6, MART_ROW_Y(0) + 17);
+    gfx->print(T(S_MART_NOTHING));
   }
   if (pages > 1) {
     char pg[12];
@@ -10046,10 +10097,13 @@ void renderMart() {
     char nm[32], q[48];
     if (martConfirmTm) snprintf(nm, sizeof(nm), "TM %s", moveName(martConfirmTm));
     else snprintf(nm, sizeof(nm), "%s", itemEntry(martConfirmItem).name);
-    snprintf(q, sizeof(q), T(S_MART_BUY_Q), nm);
+    snprintf(q, sizeof(q), T(martConfirmSell ? S_MART_SELL_Q : S_MART_BUY_Q), nm);
     char cost[24];
-    snprintf(cost, sizeof(cost), T(S_MART_PRICE_FMT),
-             (unsigned long)(martConfirmTm ? tmPrice(martConfirmTm) : itemEntry(martConfirmItem).price));
+    if (martConfirmSell)
+      snprintf(cost, sizeof(cost), T(S_MART_PAYS_FMT), (unsigned long)itemSellPrice(martConfirmItem));
+    else
+      snprintf(cost, sizeof(cost), T(S_MART_PRICE_FMT),
+               (unsigned long)(martConfirmTm ? tmPrice(martConfirmTm) : itemEntry(martConfirmItem).price));
     drawConfirmPanel(q, cost, nullptr, UI_INK_SOFT,
                      T(S_YES), UI_BAR_OK, UI_WHITE, T(S_NO), UI_TRACK, UI_INK);
   }
@@ -10057,12 +10111,30 @@ void renderMart() {
   gfx->flush();
 }
 
+// Sells one of k for itemSellPrice(k). The item goes first and the money after
+// (each saved): a power cut between them loses one sale, never duplicates
+// money. Refused when the Mart does not buy it, the bag has none, or the money
+// would overflow the wallet (it would be thrown away at the cap).
+bool martSellOne(uint8_t k) {
+  uint32_t p = itemSellPrice(k);
+  if (!p || !bag.count(k) || pet.wallet + p > Pet::WALLET_CAP) return false;
+  if (!bag.consume(k)) return false;
+  pet.earnMoney(p);
+  pet.saveNow();
+  return true;
+}
+
 void martTap(int16_t x, int16_t y) {
   if (martConfirmItem || martConfirmTm) {
     int b1Top, b1Bot, b2Top, b2Bot;
     uiConfirmRects(&b1Top, &b1Bot, &b2Top, &b2Bot);
     bool inX = (x >= CONFIRM_BTN_X && x <= CONFIRM_BTN_X + CONFIRM_BTN_W);
-    if (inX && y >= b1Top && y <= b1Bot) {           // YES
+    if (inX && y >= b1Top && y <= b1Bot && martConfirmSell) {   // YES, sell
+      // martSellOne() is the one way an item is sold (the bot uses it too)
+      sfxPlay(martSellOne(martConfirmItem) ? SFX_TAP : SFX_DENY);
+      martConfirmItem = ITEM_NONE;
+      martConfirmSell = false;
+    } else if (inX && y >= b1Top && y <= b1Bot) {    // YES
       uint32_t price = martConfirmTm ? tmPrice(martConfirmTm) : itemEntry(martConfirmItem).price;
       // a TM already owned (bought, then a drop arrived) is not charged twice
       if (martConfirmTm && pet.hasTm(martConfirmTm)) {
@@ -10079,7 +10151,15 @@ void martTap(int16_t x, int16_t y) {
     } else if (inX && y >= b2Top && y <= b2Bot) {     // NO
       martConfirmItem = ITEM_NONE;
       martConfirmTm = 0;
+      martConfirmSell = false;
     }
+    return;
+  }
+  int tab = martTabAt(x, y);
+  if (tab >= 0) {
+    martSelling = tab == 1;
+    martPage = 0;
+    sfxPlay(SFX_TAP);
     return;
   }
   uint8_t n = martRowCount();
@@ -10089,6 +10169,14 @@ void martTap(int16_t x, int16_t y) {
     int ry = MART_ROW_Y(i);
     if (x < 76 || x > 390 || y < ry || y > ry + 50) continue;
     uint8_t tm = martRowTm(idx);
+    if (martSelling) {
+      ItemKey k = martSellAt(idx);
+      if (pet.wallet + itemSellPrice(k) > Pet::WALLET_CAP) { sfxPlay(SFX_DENY); return; }
+      martConfirmItem = k;
+      martConfirmSell = true;
+      sfxPlay(SFX_TAP);
+      return;
+    }
     uint32_t price = tm ? tmPrice(tm) : itemEntry(martKeyAt(idx)).price;
     if (pet.wallet < price) { sfxPlay(SFX_DENY); return; }
     if (tm) martConfirmTm = tm;

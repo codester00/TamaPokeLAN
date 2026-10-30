@@ -76,8 +76,7 @@ uint8_t wildLevelMax(uint8_t playerLevel) {
 }
 
 uint8_t wildDropCount(bool hard, uint8_t bonusRoll) {
-  return (uint8_t)((hard ? 2 : 1) +
-                   (bonusRoll < WILD_BONUS_DROP_CHANCE ? 1 : 0));
+  return (uint8_t)(1 + (bonusRoll < (hard ? WILD_BONUS_DROP_CHANCE_HARD : WILD_BONUS_DROP_CHANCE) ? 1 : 0));
 }
 
 uint8_t wildEscapeChance(uint8_t playerLevel, uint8_t foeLevel) {

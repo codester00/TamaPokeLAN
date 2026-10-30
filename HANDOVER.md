@@ -35,7 +35,7 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 ---
 
-## 1g. START HERE -- handoff as of v3.89 (2026-10-30)
+## 1g. START HERE -- handoff as of v3.90 (2026-10-30)
 
 This section is the description of the repo today; § 1f below (v3.74) is the
 stretch before it and its "How the owner works", decisions, lessons and known
@@ -46,11 +46,11 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 
 | | |
 |---|---|
-| Version | **3.89** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.89 |
+| Version | **3.90** in `TamaPoke.ino` and the README badge. `web/manifest.json` still says **3.74**: the installer has NOT been rebuilt for v3.75-v3.90 |
 | `main` | still at v3.74 (`6abaf47`). Nothing since is merged; the installer serves v3.74 |
-| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.89 on top of `main` (one commit per version, plus tooling) |
-| On a board | **None of v3.75-v3.89 has run on a board.** All emulator-only |
-| Tests | 96 `*_test.cpp` suites (all pass at v3.89) (all clean under ASan + UBSan at v3.85). `run.sh` recompiles the whole sketch per suite (over an hour in a cloud container); compiling the shared sources once and the suites in parallel takes minutes |
+| Working branch | `ccr-c2040abf-fdum6b`, v3.75-v3.90 on top of `main` (one commit per version, plus tooling) |
+| On a board | **None of v3.75-v3.90 has run on a board.** All emulator-only |
+| Tests | 97 `*_test.cpp` suites (all pass at v3.90) (all clean under ASan + UBSan at v3.85). `run.sh` recompiles the whole sketch per suite (over an hour in a cloud container); compiling the shared sources once and the suites in parallel takes minutes |
 | Formats | `LINK_PROTO` 9, **`TRADE_PROTO` 3** (v3.83), `MOVE_COUNT` 241, pet checkpoint **`PET_CORE_VERSION` 6** (v3.83), player checkpoint **`PLAYER_VERSION` 10** (v3.77), `SAVE_VERSION` 2, `SET_COUNT` 13 |
 | Plan | `docs/explore-specialty-build-plan.md` revision 8 -- everything the owner decided in it is built, except what "Left" says below |
 
@@ -109,13 +109,12 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 - **v3.89** The Pokedex fills a species once it has been yours (`dexObtained()`:
   registered, held now, or a legendary/one-off caught); the green dot is
   REGISTERED. No new save data.
+- **v3.90** Selling at the Mart (BUY | SELL on the title pill, half price,
+  `martSellOne()`); wild drops 1 + 25% easy / 50% hard (were 1-2 / 2-3).
 
 ### NEXT, agreed with the owner 2026-10-30, in this order
 
-1. **Selling, and fewer drops.** A SELL function in the Mart at a balanced
-   price (the games sell back at half; the owner left the price to us), and
-   wild drops cut from 2-3 items a fight to 1-2 (the owner found a surplus
-   after a few days). Found stones pile up too (100 Dusk Stones in one run).
+1. ~~Selling, and fewer drops~~ **done in v3.90.**
 2. **New items** (owner's answers): vitamins usable on a STORED creature, +10,
    $9,800 (today +5, live pet only -- worse than the free training games, which
    pay up to 18 a session for energy and food); X Attack/Defense/Sp. Atk/Sp.

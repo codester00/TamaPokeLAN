@@ -23,7 +23,11 @@ constexpr uint8_t WILD_SHINY_BONUS_MAX = 15;
 // so an already-better roll is kept.
 constexpr uint8_t WILD_SHINY_IV_FLOOR = 20;
 
-constexpr uint8_t WILD_BONUS_DROP_CHANCE = 30;   // percent, one extra item
+// One item a win, and a chance of a second (v3.90: it was 1-2 easy and 2-3
+// hard, and the owner found the bag swamped within days). Hard keeps its edge
+// as a better chance of the second.
+constexpr uint8_t WILD_BONUS_DROP_CHANCE = 25;       // percent, easy
+constexpr uint8_t WILD_BONUS_DROP_CHANCE_HARD = 50;  // percent, hard
 constexpr uint8_t WILD_LEVEL_SPREAD = 5;         // either side of the player
 
 uint32_t wildShinyThreshold(uint8_t bonus);

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.89-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.90-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -173,6 +173,8 @@ until you actually raise it.
 
 Sits between EXPLORE and the gyms on the tile axis. Real steps become
 Pokédollars at 1:1 — see § Game manual below for the wallet cap and price list.
+The title pill is a **BUY | SELL** switch: SELL lists what your bag holds and
+pays half the Mart's price for each (v3.90).
 
 ### Training
 
@@ -1100,7 +1102,10 @@ Rainbow Badge). The gym ladder's level cap handicaps a strong
 early catch the same way it handles an over-raised pet.
 
 **Hard changes how the wild creature fights, not how strong it is**: same band,
-the smart battle AI, and two item drops instead of one. Every region has areas
+the smart battle AI, and a better chance of a second item. A won wild battle
+drops **one item, and a second 25% of the time on easy, 50% on hard** (v3.90;
+it was 1–2 easy and 2–3 hard, which filled the bag in days). Stones and TMs
+are separate rolls on top. Every region has areas
 since v3.49; the old region-wide pool below is only reached through ALL, which
 Explore keeps switched off:
 
@@ -1396,6 +1401,13 @@ comes from *Legends: Arceus*, and its price was set to match the vitamins —
 about a day's walking per evolution. See [trade evolution](#evolution-and-moves).
 The stones are the X/Y Stone Emporium's **$2,100**; the **Black Augurite**
 (*Legends: Arceus*, sold nowhere there) is **$3,000** by the owner's call.
+
+**Selling (v3.90).** Tap **SELL** on the Mart's title pill: it lists what your
+bag holds, with how many, and the Mart pays **half its price** for each — the
+games' own rule, so buying to sell back always loses. A stone found in the wild
+sells for $1,050, the Black Augurite $1,500, a Linking Cord $4,900. What the Mart
+never sells it never buys (the Master Ball). A sale that would push the wallet
+past $999,999 is refused rather than lose the money.
 
 **TMs.** Below the items the Mart sells **five TMs a day**, a different five
 each day (the same all day; with no clock set, always the same five). A TM you

@@ -132,6 +132,10 @@ inline bool itemUsableInBattle(ItemKey k) {
 // own list -- an item becomes sellable the moment it is given a price, the same
 // way an item becomes a possible wild drop the moment it is given a dropWeight.
 inline bool itemForSale(ItemKey k) { return itemValid(k) && itemEntry(k).price > 0; }
+// What the Mart pays for one (v3.90): half its price, the games' own rule, so
+// buying to sell back always loses. 0 = the Mart does not buy it -- what it
+// never sells (the Master Ball) it never buys either.
+inline uint32_t itemSellPrice(ItemKey k) { return itemForSale(k) ? itemEntry(k).price / 2u : 0; }
 inline uint8_t martSellableCount() {
   uint8_t n = 0;
   for (uint8_t k = 1; k < ITEM_COUNT; k++) if (itemForSale(k)) n++;

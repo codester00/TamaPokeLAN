@@ -117,10 +117,17 @@ int main(){
   ck(wildLevelMax(100)==MAX_LEVEL, "the band never exceeds the level cap");
 
   // ---- drops per win -------------------------------------------------------
-  ck(wildDropCount(false,29)==2 && wildDropCount(false,30)==1,
-     "the bonus drop flips exactly at 30%");
-  ck(wildDropCount(true,30)==2 && wildDropCount(true,29)==3,
-     "hard grants two, plus the same bonus roll");
+  // v3.90: one item, plus a chance of a second -- 25% easy, 50% hard
+  ck(wildDropCount(false,24)==2 && wildDropCount(false,25)==1,
+     "easy: the second drop flips exactly at 25%");
+  ck(wildDropCount(true,49)==2 && wildDropCount(true,50)==1,
+     "hard: the second drop flips exactly at 50%");
+  {
+    bool ok = true;
+    for (int r = 0; r < 100; r++)
+      for (int h = 0; h < 2; h++) { uint8_t n = wildDropCount(h, (uint8_t)r); if (n < 1 || n > 2) ok = false; }
+    ck(ok, "every win drops one or two items, never three");
+  }
 
   // ---- escape --------------------------------------------------------------
   ck(wildEscapeChance(50,50)==90 && wildEscapeChance(50,10)==90,
