@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.92"
+#define FW_VERSION "3.93"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -307,7 +307,7 @@ enum : uint8_t {
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
   SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_PC, SCR_PCPICK, SCR_PCRING, SCR_JUMP, SCR_COUNT
 };
-extern const char *const SCREEN_NAME[SCR_COUNT];   // const is internal linkage in C++
+extern const char *const SCREEN_NAME[];   // const is internal linkage in C++
 
 // Declared HERE, above every use. tools/emu/build.sh generates a proto.h with
 // every prototype at the top, so the emulator compiled these happily while
@@ -401,12 +401,16 @@ void focusSwap(uint8_t slot);
 void drawConfirmPanel(const char *q, const char *sub1, const char *sub2,
                       uint16_t subCol, const char *o1, uint16_t c1, uint16_t t1,
                       const char *o2, uint16_t c2, uint16_t t2);
-const char *const SCREEN_NAME[SCR_COUNT] = {
+const char *const SCREEN_NAME[] = {
   "starter", "region", "gallery", "dexpick", "movepick", "box",
   "party", "keyboard", "card", "player", "clock", "gym", "gympick",
   "explore", "mart", "lan", "pick", "battle", "win", "learn", "train", "menu",
-  "bag", "minigame", "main", "trade", "avatar", "blackout", "area", "hall"
+  "bag", "minigame", "main", "trade", "avatar", "blackout", "area", "hall",
+  "codes", "pc", "pcpick", "pcring", "jump"
 };
+// Unsized on purpose: sized by SCR_COUNT, five missing names compiled to null
+// and HEALTH and the crash breadcrumb printed "(null)" (v3.63-v3.92).
+static_assert(sizeof(SCREEN_NAME) / sizeof(SCREEN_NAME[0]) == SCR_COUNT, "a screen without a name");
 
 // Badge art for a region, or nullptr when that region has none yet.
 //
@@ -2820,7 +2824,7 @@ void onTap(int16_t x, int16_t y) {
     gymOpen = false;
     return;
   }
-  if (pet.hasLearnOffer()) {
+  if (uiCurrentScreen() == SCR_LEARN) {   // only when it is the screen drawn (v3.93)
     for (int i = 0; i < MOVE_SLOTS; i++) {
       int ry = LEARN_ROW_Y(i);
       if (x < 70 || x > 396 || y < ry || y > ry + 50) continue;
@@ -3214,6 +3218,11 @@ RTC_NOINIT_ATTR uint32_t gCrumbHeap;
 
 
 // Which screen is on the panel RIGHT NOW, in the same order render() tests.
+// onTap() asks it about the move offer (v3.93): the offer is drawn UNDER the
+// screens render() tests before it and over the ones after, and a tap must
+// go to what is drawn. The two orders disagreed (the offer above the games
+// and training here, the card above the offer), and onTap() had a third, so
+// a tap on the party ring could teach the pet a move from the hidden offer.
 uint8_t uiCurrentScreen() {
   if (pet.awaitingStarter()) return starterRegionDone ? SCR_STARTER : SCR_REGION;
   if (tradeOpen) return SCR_TRADE;
@@ -3224,10 +3233,10 @@ uint8_t uiCurrentScreen() {
   if (movePickOpen) return SCR_MOVEPICK;
   if (partyOpen && pcOpen) return pcPick ? SCR_PCPICK : pcSpecies ? SCR_PCRING : SCR_PC;
   if (partyOpen) return boxOpen ? SCR_BOX : SCR_PARTY;
+  if (gameOpen || sackOpen || spdOpen || catchOpen || miniGame) return SCR_GAME;
   if (bagOpen) return SCR_BAGSCR;
+  if (trainOpen) return SCR_TRAIN;
   if (kbOpen) return SCR_KEYBOARD;
-  if (cardOpen) return SCR_CARD;
-  if (playerOpen) return avatarPickOpen ? SCR_AVATAR : SCR_PLAYER;
   if (clockOpen) return SCR_CLOCK;
   if (btlWinUntil) return SCR_WIN;
   if (battleOpen) return SCR_BATTLE;
@@ -3236,9 +3245,9 @@ uint8_t uiCurrentScreen() {
   if (exploreOpen) return hallOpen ? SCR_HALL : areaListOpen ? SCR_AREA : SCR_EXPLORE;
   if (martOpen) return SCR_MART;
   if (gymOpen) return gymPick ? SCR_GYMPICK : SCR_GYM;
+  if (playerOpen) return avatarPickOpen ? SCR_AVATAR : SCR_PLAYER;
   if (pet.hasLearnOffer()) return SCR_LEARN;
-  if (gameOpen || sackOpen || spdOpen || catchOpen || miniGame) return SCR_GAME;
-  if (trainOpen) return SCR_TRAIN;
+  if (cardOpen) return SCR_CARD;
   if (menuOpen) return SCR_MENU;
   return SCR_MAIN;
 }

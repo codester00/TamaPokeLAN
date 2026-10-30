@@ -115,6 +115,9 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
   X items (+2 stages, Gen 7+ prices) in the battle bag.
 - **v3.92** PP Up ($10,000), stored on the creature: two bits a move slot in
   `PartyMon::reserved[1]` / `Pet::ppUps`; `TRADE_PROTO` 4, `LINK_PROTO` 10.
+- **v3.93** A move offer waiting under another screen took that screen's taps
+  (`onTap()` now asks `uiCurrentScreen()`, which follows `render()`'s order);
+  `SCREEN_NAME` named only 30 of 35 screens. Found by the playthrough rerun.
 
 ### NEXT, agreed with the owner 2026-10-30, in this order
 
@@ -124,7 +127,9 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
    any move in a slot gets its Ups, for good. The owner's intended rule is per
    MOVE; it does not fit the creature record. **If `PartyMon` grows for any
    reason, raise it again** -- CLAUDE.md "PP Up: per slot" has the options.
-3. **Rerun the playthrough with realistic walking**: the board counts steps
+3. ~~**Rerun the playthrough with realistic walking**~~ **done 2026-10-30**
+   (profiles child / walker / adult, two seeds, two years; report in the
+   owner's artifact). Prices still to set from it. Was: the board counts steps
    only while powered (screen off still counts), battery life is unmeasured,
    and children leave it home for school and sports. Profiles: school child
    (~300 on school days, ~3,000 weekend days), weekend walker, daily adult

@@ -935,6 +935,33 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: a move offer under another screen, and screen names (v3.93, on the branch)
+
+Found by the v3.92 playthrough rerun: the bot's vitamin tap on the party ring
+did nothing, because the pet had levelled up with a "wants to learn" offer
+waiting. `learnhide_test` (ten screens, the text drawn, the tap); four guards
+negative-checked -- the first try counted "an offer is waiting", which survives
+one answered move because the queue holds several (vacuous; it counts the queue
+now).
+
+- **Three opinions, now one.** `render()` draws the party, the move picker, the
+  Pokedex, the games, the training list, the keyboard and the clock OVER a
+  pending offer, and the offer over the card and the menu. `onTap()` answered
+  the offer before training, the menu, the picker, the party, the Pokedex, the
+  keyboard and the clock, so a tap on the visible screen could `acceptLearn()`
+  into a slot. `uiCurrentScreen()` (also the crash breadcrumb) had a third
+  order. It now follows `render()`'s, and `onTap()` asks
+  `uiCurrentScreen() == SCR_LEARN` -- trap 1 again. **Adding a screen to
+  `render()` means placing it in `uiCurrentScreen()` at the same point.**
+- **`SCREEN_NAME` was sized by `SCR_COUNT`** and listed 30 of 35 names, so the
+  last five (codes, pc, pcpick, pcring, jump) were null and `HEALTH` / the crash
+  line printed "(null)" since v3.63. It is unsized now, with a `static_assert`
+  that it has `SCR_COUNT` entries.
+- The playthrough itself (`tools/emu/playsim.cpp`, profiles child / walker /
+  adult with weekday and weekend steps; selling, vitamins, X items, potions and
+  PP Ups through the screens) is a report, not a test; results are in the
+  owner's artifact.
+
 ### Done: PP Up, stored on the creature (v3.92, on the branch)
 
 Owner, 2026-10-30: PP Up stored ON THE CREATURE so it travels. `ppup_test`

@@ -75,6 +75,7 @@ uint16_t boxViewIndexOf(int16_t dex, uint8_t slot);
 void stoneFromBag(uint8_t k);
 void shedinjaCheck();
 bool martSellOne(uint8_t k);
+uint8_t uiCurrentScreen();
 void onTap(int16_t x, int16_t y);
 void render();
 void partySlotPos(int i, int *cx, int *cy);
@@ -376,13 +377,16 @@ static void tapBagItem(ItemKey k) {
 }
 static void closeBag() { bagOpen = false; partyOpen = false; vitPick = 0; ppUpWho = 0xFF; render(); }
 // A vitamin on `who` (-1 the live pet, else a party slot), through the ring.
+static int missScrBag = -1, missScrRing = -1, missVitPick = -1;
 static bool vitaminOn(ItemKey k, int who) {
   uint8_t before = bag.count(k);
   tapBagItem(k);
+  missScrBag = uiCurrentScreen(); missVitPick = vitPick;
   if (party.count()) {
     if (who < 0) onTap(233, 233);
     else { int x, y; partySlotPos(who, &x, &y); onTap((int16_t)x, (int16_t)y); }
   }
+  missScrRing = uiCurrentScreen();
   bool ok = bag.count(k) < before;
   closeBag();
   return ok;
@@ -426,7 +430,15 @@ static void spendSurplus() {
     }
     if (bestWho == -2) { nVitMax++; break; }   // the whole team is trained to its ceiling
     if (!bag.count(bestK) && !buy(bestK)) break;
-    if (vitaminOn(bestK, bestWho)) nVit++; else { nUiMiss++; break; }
+    if (vitaminOn(bestK, bestWho)) nVit++;
+    else {
+      nUiMiss++;
+      const PartyMon *m = bestWho >= 0 ? &party.slots[bestWho] : nullptr;
+      ev("\"ev\":\"ui_miss\",\"what\":\"vitamin\",\"item\":%u,\"who\":%d,\"gap\":%d,\"party\":%u,\"dex\":%d,\"egg\":%d,\"sleep\":%d,\"bag\":%u,\"scr_after_bag\":%d,\"vitpick\":%d,\"scr_after_ring\":%d,\"learn\":%d,\"cer\":%d,\"bagpage\":%u,\"distinct\":%u",
+         (unsigned)bestK, bestWho, bestGap, party.count(), m ? m->dex : pet.speciesId, pet.isEgg(), pet.sleeping, bag.count(bestK), missScrBag, missVitPick, missScrRing,
+         pet.hasLearnOffer(), (int)pet.ceremony, bagPage, bag.distinctCount());
+      break;
+    }
   }
   // PP Up: only with real surplus, on the live pet's strongest move
   spendBucket = &outPpUp;
