@@ -2062,7 +2062,7 @@ bool Pet::applyCordPair(PartyMon &partner) {
 }
 
 Pet::EvoInfo Pet::evoInfo() const {
-  EvoInfo e = { EVO_FINAL, 0, 0, false };
+  EvoInfo e = { EVO_FINAL, 0, 0, false, 0xFF };
   if (isEgg()) return e;
   const DexEntry &d = DEX_TBL[speciesId];
   // A creature that arrived by trade evolves by trade, at any level -- as in
@@ -2078,11 +2078,35 @@ Pet::EvoInfo Pet::evoInfo() const {
   }
   if (d.evolvesTo == 0) return e;
   e.target = d.evolvesTo;   // EEVEE: evolve() picks the branch
+  e.stone = 0xFF;
   // A gender-decided evolution (v3.80): Burmy splits, and a male Combee or
   // Salandit is final -- its farewell then waits for nothing.
   int16_t g = genderTarget(speciesId, gender());
   if (g < 0) { e.target = 0; return e; }
   if (g > 0) e.target = g;
+  // EEVEE follows the stones (v3.81, plan § E2): five branches from the bag,
+  // and Espeon (day), Umbreon (night) and Sylveon (knowing a Fairy move) once
+  // bond is 40 AND it is two days old -- the age closes the daily bond cap's
+  // midnight loophole. No level route.
+  if (speciesId == DEX_EEVEE && !e.byTrade) {
+    int16_t b = eeveeBondTarget();
+    if (b) {
+      e.target = b;
+      e.status = lowestStat() >= 40 ? EVO_READY : EVO_BLOCKED;
+    } else {
+      e.status = EVO_NEEDS_ITEM;     // stone 0xFF: any of its stones
+    }
+    return e;
+  }
+  // A stone evolution happens ONLY with its stone (v3.81, owner): no level
+  // route. Kirlia's and Snorunt's table routes are levels, their Dawn Stone an
+  // extra branch, so they keep theirs.
+  int row = itemEvoRow(speciesId, e.target);
+  if (row >= 0) {
+    e.status = EVO_NEEDS_ITEM;
+    e.stone = ITEM_EVOS[row].stone;
+    return e;
+  }
   // Pure trade evolution, the owner's call: the table's level for these is
   // not a route here. POLIWHIRL and SLOWPOKE keep theirs -- trading reaches
   // their OTHER form, so onlyByTrade() is false for them.
@@ -2109,36 +2133,22 @@ Pet::EvoInfo Pet::evoInfo() const {
 bool Pet::evoTargetShowable() const {
   EvoInfo e = evoInfo();
   if (!e.target) return false;
-  if (!e.byTrade && speciesId == DEX_EEVEE) {
-    int16_t opts[EEVEE_EVO_COUNT];
-    return eeveeOptions(opts) > 0;
-  }
   return speciesShowable(e.target);
 }
 
 void Pet::evolve() {
   if (!canEvolveNow()) return;
   const EvoInfo e = evoInfo();
+  int16_t next = e.target;   // EEVEE: its bond branch, decided by evoInfo()
+  evolveInto(next, e.byTrade);
+}
+
+// The evolution itself, whatever brought it on: a level, a trade, a stone
+// (v3.81). One place, so every route learns its moves and saves alike.
+void Pet::evolveInto(int16_t next, bool byTrade) {
   prevSpeciesId = speciesId;
-  int16_t next = e.target;
-  if (!e.byTrade && speciesId == DEX_EEVEE) {
-    // Eevee's branch: all eight, preferring one still missing from the Pokedex,
-    // which is what makes raising Eevees a collection goal rather than a
-    // coin flip. Only ones this player can actually be shown -- see
-    // eeveeOptions(). If none qualify the table's own 134 stands, so a card with
-    // no packs at all still evolves rather than freezing.
-    int16_t opts[EEVEE_EVO_COUNT];
-    uint8_t n = eeveeOptions(opts);
-    if (n) {
-      int16_t fresh[EEVEE_EVO_COUNT];
-      uint8_t m = 0;
-      for (uint8_t i = 0; i < n; i++)
-        if (!isRegistered(opts[i])) fresh[m++] = opts[i];
-      next = m ? fresh[random(m)] : opts[random(n)];
-    }
-  }
   speciesId = next;
-  if (e.byTrade) tradeEvo = false;   // spent: PORYGON2 needs a trade of its own
+  if (byTrade) tradeEvo = false;   // spent: PORYGON2 needs a trade of its own
   registerSpecies(speciesId);
   // The new form learns every level-up move it has already passed (v3.72),
   // not only one gated at this very level: the gates ran against the OLD
@@ -2945,4 +2955,43 @@ int16_t Pet::genderTarget(int16_t dex, uint8_t gender) {
     if ((GENDER_EVOS[i].female != 0) == (gender == GENDER_FEMALE)) return GENDER_EVOS[i].to;
   }
   return any ? -1 : 0;
+}
+
+int16_t Pet::itemEvoTarget(int16_t dex, uint8_t stone, uint8_t gender) {
+  for (int i = 0; i < ITEM_EVO_COUNT; i++) {
+    const ItemEvo &r = ITEM_EVOS[i];
+    if (r.from == dex && r.stone == stone && (!r.gender || r.gender == gender)) return r.to;
+  }
+  return 0;
+}
+
+int Pet::itemEvoRow(int16_t dex, int16_t to) {
+  for (int i = 0; i < ITEM_EVO_COUNT; i++)
+    if (ITEM_EVOS[i].from == dex && ITEM_EVOS[i].to == to) return i;
+  return -1;
+}
+
+int16_t Pet::stoneTarget(uint8_t stone) const {
+  // A creature marked for its trade evolution is promised that one: Scyther
+  // marked for Scizor refuses the Black Augurite (owner: whichever first).
+  if (isEgg() || !grows() || tradeEvo || ceremony != CER_NONE) return 0;
+  int16_t t = itemEvoTarget(speciesId, stone, gender());
+  return (t && speciesShowable(t)) ? t : 0;
+}
+
+bool Pet::useStone(uint8_t stone) {
+  int16_t t = stoneTarget(stone);
+  if (!t) return false;
+  evolveInto(t, false);
+  return true;
+}
+
+int16_t Pet::eeveeBondTarget() const {
+  if (bond < EEVEE_BOND || ageMinutes < EEVEE_AGE_MIN) return 0;
+  bool fairy = false;
+  for (uint8_t i = 0; i < MOVE_SLOTS; i++)
+    if (moves[i] && moves[i] < MOVE_COUNT && MOVE_TBL[moves[i]].type == T_FAIRY) fairy = true;
+  int h = lastSeenEpoch ? (int)((lastSeenEpoch / 3600) % 24) : 12;   // no clock: day
+  int16_t t = fairy ? DEX_SYLVEON : (h >= 6 && h < 18) ? DEX_ESPEON : DEX_UMBREON;
+  return speciesShowable(t) ? t : 0;
 }

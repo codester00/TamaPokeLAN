@@ -17,6 +17,7 @@
 #include "pet.h"
 #include "dex.h"
 #include "noart.h"
+#include "moves.h"
 #include <cstdio>
 #include <cstring>
 uint32_t g_seed = 99;
@@ -68,35 +69,56 @@ int main(){
        "with only the Kanto pack, only Vaporeon/Jolteon/Flareon are offered");
   }
 
-  // and evolving really lands on one of them, not on a Kalos mon
+  // v3.81: Eevee follows the stones, and its bond branches wait for bond 40
+  // and two days. Every one is still filtered by art and pack.
+  auto eevee = [](Pet &q, uint32_t hours, uint8_t bond, uint32_t epoch) {
+    q.begin(); q.dbgHatchAs(DEX_EEVEE, false);
+    q.ageMinutes = hours * 60;
+    q.bond = bond;
+    q.lastSeenEpoch = epoch;
+    q.fullness = q.joy = q.energy = q.hygiene = 100;
+  };
+  const uint32_t NOON = 20000UL * 86400 + 12 * 3600, MIDNIGHT = 20000UL * 86400 + 1 * 3600;
   {
-    gRegionArt = 1u << 0;
-    bool everWrong = false;
-    for (int trial=0; trial<40; trial++) {
-      Pet q; q.begin(); q.dbgHatchAs(DEX_EEVEE, false);
-      q.ageMinutes = 60UL * 40;              // past the level-30 gate
-      q.fullness=q.joy=q.energy=q.hygiene=100;
-      if (!q.canEvolveNow()) { everWrong = true; break; }
-      q.evolve();
-      if (q.speciesId < 134 || q.speciesId > 136) { everWrong = true;
-        printf("      evolved into dex %d with only Kanto installed\n", q.speciesId); break; }
+    gRegionArt = 1u << 0;                    // KANTO only
+    Pet q;
+    eevee(q, 60, 0, NOON);
+    ck(q.evoInfo().status == Pet::EVO_NEEDS_ITEM && !q.canEvolveNow(),
+       "Eevee has no level route: at 60 hours it waits for a stone or its bond");
+    const int16_t want[3] = { 134, 135, 136 };
+    for (int s = 0; s < 3; s++) {            // water, thunder, fire
+      eevee(q, 20, 0, NOON);
+      uint8_t stone = (uint8_t)(s == 0 ? 1 : s == 1 ? 2 : 0);
+      ck(q.useStone(stone) && q.speciesId == want[s], "a Kanto stone evolves it into its Kanto branch");
     }
-    ck(!everWrong, "40 evolutions with only Kanto installed all stay in Kanto");
+    eevee(q, 20, 0, NOON);
+    ck(!q.useStone(3) && q.speciesId == DEX_EEVEE,
+       "a Leaf Stone does nothing with only the Kanto pack: Leafeon cannot be drawn");
+    eevee(q, 60, 60, NOON);
+    ck(!q.eeveeBondTarget() && !q.canEvolveNow(), "nor does its bond reach Espeon without Johto's pack");
   }
-
-  // negative check: that guard must be able to FAIL, so prove the same code
-  // reaches a later region once its pack is there
   {
     gRegionArt = 0xFFFF;
-    bool sawLater = false;
-    for (int trial=0; trial<60 && !sawLater; trial++) {
-      Pet q; q.begin(); q.dbgHatchAs(DEX_EEVEE, false);
-      q.ageMinutes = 60UL * 40;
-      q.fullness=q.joy=q.energy=q.hygiene=100;
-      q.evolve();
-      if (q.speciesId > 151) sawLater = true;
-    }
-    ck(sawLater, "and with every pack it does reach past Kanto (so the check above bites)");
+    Pet q;
+    eevee(q, 20, 0, NOON);
+    ck(q.useStone(3) && q.speciesId == 470, "with every pack the Leaf Stone reaches Leafeon (so the check bites)");
+    eevee(q, 60, 40, NOON);
+    ck(q.canEvolveNow() && q.evoInfo().target == 196, "bond 40 and two days old, by day: Espeon");
+    q.evolve();
+    ck(q.speciesId == 196, "and it evolves into it");
+    eevee(q, 60, 40, MIDNIGHT);
+    ck(q.evoInfo().target == 197, "by night: Umbreon");
+    eevee(q, 60, 40, 0);
+    ck(q.evoInfo().target == 196, "with no clock it counts as day");
+    eevee(q, 47, 100, NOON);
+    ck(!q.eeveeBondTarget(), "47 hours old is not enough, whatever the bond");
+    eevee(q, 60, 39, NOON);
+    ck(!q.eeveeBondTarget(), "bond 39 is not enough");
+    eevee(q, 60, 40, NOON);
+    int fairy = 0;
+    for (int m = 1; m < MOVE_COUNT && !fairy; m++) if (MOVE_TBL[m].type == T_FAIRY) fairy = m;
+    q.moves[0] = (uint8_t)fairy;
+    ck(fairy && q.evoInfo().target == 700, "knowing a Fairy move, it becomes Sylveon");
   }
 
   // no branch may be a species with no art, whatever the packs say

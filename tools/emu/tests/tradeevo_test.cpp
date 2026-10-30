@@ -144,7 +144,9 @@ int main() {
     PartyMon pw = banked(61, 40, 107);   // Poliwhirl, past its level 36
     pet.switchTo(pw);
     cared(pet);
-    ck(pet.evoInfo().target == 62 && pet.canEvolveNow(), "an untraded Poliwhirl still levels into Poliwrath");
+    // v3.81: Poliwrath is a Water Stone's, with no level route left
+    ck(pet.evoInfo().target == 62 && pet.evoInfo().status == Pet::EVO_NEEDS_ITEM && !pet.canEvolveNow(),
+       "an untraded Poliwhirl waits for a Water Stone to become Poliwrath");
     Pet::markTraded(pw, 25);
     pw.level = 10;
     pw.ageMinutes = 9 * MINUTES_PER_LEVEL;

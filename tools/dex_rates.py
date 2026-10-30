@@ -2064,3 +2064,59 @@ GENDER_EVOS = [
     (415, 416, 'F', 21),
     (757, 758, 'F', 33),
 ]
+
+# Evolution items, in items.h order (IT_FIRESTONE onwards). APPEND-ONLY.
+EVO_STONES = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone', 'moon-stone', 'sun-stone', 'shiny-stone', 'dusk-stone', 'dawn-stone', 'ice-stone', 'black-augurite']
+
+# (from, to, stone index, gender or ''): evolves when that item is used
+ITEM_EVOS = [
+    (25, 26, 2, ''),  # thunder-stone
+    (30, 31, 4, ''),  # moon-stone
+    (33, 34, 4, ''),  # moon-stone
+    (35, 36, 4, ''),  # moon-stone
+    (37, 38, 0, ''),  # fire-stone
+    (39, 40, 4, ''),  # moon-stone
+    (44, 45, 3, ''),  # leaf-stone
+    (44, 182, 5, ''),  # sun-stone
+    (58, 59, 0, ''),  # fire-stone
+    (61, 62, 1, ''),  # water-stone
+    (70, 71, 3, ''),  # leaf-stone
+    (82, 462, 2, ''),  # thunder-stone
+    (90, 91, 1, ''),  # water-stone
+    (102, 103, 3, ''),  # leaf-stone
+    (120, 121, 1, ''),  # water-stone
+    (123, 900, 10, ''),  # black-augurite
+    (133, 134, 1, ''),  # water-stone
+    (133, 135, 2, ''),  # thunder-stone
+    (133, 136, 0, ''),  # fire-stone
+    (133, 470, 3, ''),  # leaf-stone
+    (133, 471, 9, ''),  # ice-stone
+    (176, 468, 6, ''),  # shiny-stone
+    (191, 192, 5, ''),  # sun-stone
+    (198, 430, 7, ''),  # dusk-stone
+    (200, 429, 7, ''),  # dusk-stone
+    (271, 272, 1, ''),  # water-stone
+    (274, 275, 3, ''),  # leaf-stone
+    (281, 475, 8, 'M'),  # dawn-stone
+    (299, 476, 2, ''),  # thunder-stone
+    (300, 301, 4, ''),  # moon-stone
+    (315, 407, 6, ''),  # shiny-stone
+    (361, 478, 8, 'F'),  # dawn-stone
+    (511, 512, 3, ''),  # leaf-stone
+    (513, 514, 0, ''),  # fire-stone
+    (515, 516, 1, ''),  # water-stone
+    (517, 518, 4, ''),  # moon-stone
+    (546, 547, 5, ''),  # sun-stone
+    (548, 549, 5, ''),  # sun-stone
+    (572, 573, 6, ''),  # shiny-stone
+    (603, 604, 2, ''),  # thunder-stone
+    (608, 609, 7, ''),  # dusk-stone
+    (670, 671, 6, ''),  # shiny-stone
+    (680, 681, 7, ''),  # dusk-stone
+    (694, 695, 5, ''),  # sun-stone
+    (737, 738, 2, ''),  # thunder-stone
+    (739, 740, 9, ''),  # ice-stone
+    (938, 939, 2, ''),  # thunder-stone
+    (951, 952, 0, ''),  # fire-stone
+    (974, 975, 9, ''),  # ice-stone
+]

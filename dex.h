@@ -242,7 +242,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "MAREEP", 180, 15, R_COMUN, 0xBCA1, 55, 40, 40, 35, 65, 45, 0, T_ELECTRIC, T_NONE },  // 179 electric
   { "FLAAFFY", 181, 30, R_EVO, 0xBCA1, 70, 55, 55, 45, 80, 60, 0, T_ELECTRIC, T_NONE },  // 180 electric
   { "AMPHAROS", 0, 0, R_EVO, 0xBCA1, 90, 75, 85, 55, 115, 90, 0, T_ELECTRIC, T_NONE },  // 181 electric
-  { "BELLOSSOM", 0, 0, R_RARO, 0x3C49, 75, 80, 95, 50, 90, 100, 2, T_GRASS, T_NONE },  // 182 grass
+  { "BELLOSSOM", 0, 0, R_EVO, 0x3C49, 75, 80, 95, 50, 90, 100, 2, T_GRASS, T_NONE },  // 182 grass
   { "MARILL", 184, 35, R_EVO, 0x4C98, 70, 20, 50, 40, 20, 50, 1, T_WATER, T_FAIRY },  // 183 water/fairy
   { "AZUMARILL", 0, 0, R_EVO, 0x4C98, 100, 50, 80, 50, 60, 80, 1, T_WATER, T_FAIRY },  // 184 water/fairy
   { "SUDOWOODO", 0, 0, R_EVO, 0x9407, 70, 100, 115, 30, 30, 65, 4, T_ROCK, T_NONE },  // 185 rock
@@ -535,10 +535,10 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "GLISCOR", 0, 0, R_EVO, 0xB447, 75, 95, 125, 95, 45, 75, 4, T_GROUND, T_FLYING },  // 472 ground/flying
   { "MAMOSWINE", 0, 0, R_EVO, 0x4DB8, 110, 130, 80, 80, 70, 60, 5, T_ICE, T_GROUND },  // 473 ice/ground
   { "PORYGON Z", 0, 0, R_EVO, 0x8C4D, 85, 80, 70, 90, 135, 75, 0, T_NORMAL, T_NONE },  // 474 normal
-  { "GALLADE", 0, 0, R_RARO, 0xD28F, 68, 125, 65, 80, 65, 115, 0, T_PSYCHIC, T_FIGHTING },  // 475 psychic/fighting
+  { "GALLADE", 0, 0, R_EVO, 0xD28F, 68, 125, 65, 80, 65, 115, 0, T_PSYCHIC, T_FIGHTING },  // 475 psychic/fighting
   { "PROBOPASS", 0, 0, R_EVO, 0x9407, 60, 55, 145, 40, 75, 150, 4, T_ROCK, T_STEEL },  // 476 rock/steel
   { "DUSKNOIR", 0, 0, R_EVO, 0x6AD3, 45, 100, 135, 45, 65, 135, 0, T_GHOST, T_NONE },  // 477 ghost
-  { "FROSLASS", 0, 0, R_COMUN, 0x4DB8, 70, 80, 70, 110, 80, 70, 5, T_ICE, T_GHOST },  // 478 ice/ghost
+  { "FROSLASS", 0, 0, R_EVO, 0x4DB8, 70, 80, 70, 110, 80, 70, 5, T_ICE, T_GHOST },  // 478 ice/ghost
   { "ROTOM", 0, 0, R_RARO, 0xBCA1, 50, 50, 77, 91, 95, 77, 0, T_ELECTRIC, T_GHOST },  // 479 electric/ghost
   { "UXIE", 0, 0, R_LEGENDARIO, 0xD28F, 75, 75, 130, 95, 75, 130, 0, T_PSYCHIC, T_NONE },  // 480 psychic
   { "MESPRIT", 0, 0, R_LEGENDARIO, 0xD28F, 80, 105, 105, 80, 105, 105, 0, T_PSYCHIC, T_NONE },  // 481 psychic
@@ -960,7 +960,7 @@ static const DexEntry DEX_TBL[DEX_COUNT + 1] = {
   { "SPECTRIER", 0, 0, R_LEGENDARIO, 0x6AD3, 100, 65, 60, 130, 145, 80, 0, T_GHOST, T_NONE },  // 897 ghost
   { "CALYREX", 0, 0, R_LEGENDARIO, 0xD28F, 100, 80, 80, 80, 80, 80, 0, T_PSYCHIC, T_GRASS },  // 898 psychic/grass
   { "WYRDEER", 0, 0, R_EVO, 0x8C4D, 103, 105, 72, 65, 105, 75, 0, T_NORMAL, T_PSYCHIC },  // 899 normal/psychic
-  { "KLEAVOR", 0, 0, R_COMUN, 0x7CC4, 70, 135, 95, 85, 45, 70, 2, T_BUG, T_ROCK },  // 900 bug/rock
+  { "KLEAVOR", 0, 0, R_EVO, 0x7CC4, 70, 135, 95, 85, 45, 70, 2, T_BUG, T_ROCK },  // 900 bug/rock
   { "URSALUNA", 0, 0, R_EVO, 0xB447, 130, 140, 105, 50, 45, 80, 4, T_GROUND, T_NORMAL },  // 901 ground/normal
   { "BASCULEGION", 0, 0, R_EVO, 0x4C98, 120, 112, 65, 78, 80, 75, 1, T_WATER, T_GHOST },  // 902 water/ghost
   { "SNEASLER", 0, 0, R_COMUN, 0xA2A5, 80, 130, 60, 120, 40, 80, 0, T_FIGHTING, T_POISON },  // 903 fighting/poison
@@ -1314,6 +1314,69 @@ static const GenderEvo GENDER_EVOS[GENDER_EVO_COUNT] = {
   { 412, 414, 0 },
   { 415, 416, 1 },
   { 757, 758, 1 },
+};
+
+// Evolutions by an item used from the bag (v3.81): the ten stones and the
+// Black Augurite, from PokeAPI via tools/fetch_species_rates.py. `stone`
+// indexes EVO_STONES' order, which items.h appends from IT_FIRESTONE;
+// `gender` is 0 for either, else GENDER_MALE/FEMALE (pet.h). A species
+// whose table route is one of these has no level route (Pet::evoInfo()).
+#define EVO_STONE_COUNT 11
+struct ItemEvo {
+  int16_t from, to;
+  uint8_t stone, gender;
+};
+#define ITEM_EVO_COUNT 49
+static const ItemEvo ITEM_EVOS[ITEM_EVO_COUNT] = {
+  { 25, 26, 2, 0 },  // thunder-stone
+  { 30, 31, 4, 0 },  // moon-stone
+  { 33, 34, 4, 0 },  // moon-stone
+  { 35, 36, 4, 0 },  // moon-stone
+  { 37, 38, 0, 0 },  // fire-stone
+  { 39, 40, 4, 0 },  // moon-stone
+  { 44, 45, 3, 0 },  // leaf-stone
+  { 44, 182, 5, 0 },  // sun-stone
+  { 58, 59, 0, 0 },  // fire-stone
+  { 61, 62, 1, 0 },  // water-stone
+  { 70, 71, 3, 0 },  // leaf-stone
+  { 82, 462, 2, 0 },  // thunder-stone
+  { 90, 91, 1, 0 },  // water-stone
+  { 102, 103, 3, 0 },  // leaf-stone
+  { 120, 121, 1, 0 },  // water-stone
+  { 123, 900, 10, 0 },  // black-augurite
+  { 133, 134, 1, 0 },  // water-stone
+  { 133, 135, 2, 0 },  // thunder-stone
+  { 133, 136, 0, 0 },  // fire-stone
+  { 133, 470, 3, 0 },  // leaf-stone
+  { 133, 471, 9, 0 },  // ice-stone
+  { 176, 468, 6, 0 },  // shiny-stone
+  { 191, 192, 5, 0 },  // sun-stone
+  { 198, 430, 7, 0 },  // dusk-stone
+  { 200, 429, 7, 0 },  // dusk-stone
+  { 271, 272, 1, 0 },  // water-stone
+  { 274, 275, 3, 0 },  // leaf-stone
+  { 281, 475, 8, 1 },  // dawn-stone
+  { 299, 476, 2, 0 },  // thunder-stone
+  { 300, 301, 4, 0 },  // moon-stone
+  { 315, 407, 6, 0 },  // shiny-stone
+  { 361, 478, 8, 2 },  // dawn-stone
+  { 511, 512, 3, 0 },  // leaf-stone
+  { 513, 514, 0, 0 },  // fire-stone
+  { 515, 516, 1, 0 },  // water-stone
+  { 517, 518, 4, 0 },  // moon-stone
+  { 546, 547, 5, 0 },  // sun-stone
+  { 548, 549, 5, 0 },  // sun-stone
+  { 572, 573, 6, 0 },  // shiny-stone
+  { 603, 604, 2, 0 },  // thunder-stone
+  { 608, 609, 7, 0 },  // dusk-stone
+  { 670, 671, 6, 0 },  // shiny-stone
+  { 680, 681, 7, 0 },  // dusk-stone
+  { 694, 695, 5, 0 },  // sun-stone
+  { 737, 738, 2, 0 },  // thunder-stone
+  { 739, 740, 9, 0 },  // ice-stone
+  { 938, 939, 2, 0 },  // thunder-stone
+  { 951, 952, 0, 0 },  // fire-stone
+  { 974, 975, 9, 0 },  // ice-stone
 };
 
 // Evolutions that happen by TRADE, from PokeAPI via tools/fetch_trade_evos.py.

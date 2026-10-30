@@ -935,6 +935,37 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1f.
 
+### Done: evolution stones and Eevee's branches (v3.81, on the branch)
+
+Plan § E1-E3 (stones, Eevee, the Black Augurite). `stone_test`, `eevee_test`
+(rewritten), `tradeevo_test`, `dexdata_test`; seven guards negative-checked.
+
+- **`ITEM_EVOS`** (generated: `fetch_species_rates.py` reads PokeAPI's
+  `use-item` rows for `EVO_STONES` -- the ten stones then `black-augurite`,
+  APPEND-ONLY -- dropping rows with a region or a non-default form; 48 + 1)
+  -> `dex_rates.py` -> `dex.h`. `gen_dex.py` adds every target to the
+  evolution-only set (Bellossom, Gallade, Froslass, Kleavor stopped hatching).
+- **Items** `IT_FIRESTONE`..`IT_BLACKAUGURITE` appended after `IT_LINKCORD` in
+  EVO_STONES order (`static_assert` in the sketch), `IC_STONE`, param = stone
+  index, $2,100 / $3,000, no drops yet (plan § E5's area drops are still to
+  do). `itemUsableInField()` names IC_STONE; never in battle.
+- **`evoInfo()`**: a species whose table route is an item evolution
+  (`itemEvoRow()`) is `EVO_NEEDS_ITEM` with `stone` set -- no level route, so
+  `evolutionAhead()` holds no farewell; the card reads `S_EVO_ITEM_FMT`.
+  Kirlia/Snorunt keep their level route; the Dawn Stone is extra, by gender.
+  Scyther stays `EVO_NEEDS_TRADE` (its table route is the trade).
+- **`Pet::stoneTarget(stone)`** is THE answer the bag asks: 0 for an egg, a
+  frozen companion, mid-ceremony, a creature marked `tradeEvo` (Scyther:
+  whichever first), or a target `speciesShowable()` refuses. `useStone()` ->
+  `evolveInto()`, which `evolve()` now also ends in (one place for moves and
+  the save). `stoneFromBag()` spends the item only when it took and closes the
+  bag so the evolution is seen.
+- **Eevee** (`DEX_EEVEE` in `evoInfo()`): the five stones through ITEM_EVOS;
+  `eeveeBondTarget()` gives Sylveon (knows a Fairy move), else Espeon 06-18 /
+  Umbreon, once bond >= 40 AND age >= 48 h (owner); no clock = day. Otherwise
+  `EVO_NEEDS_ITEM` with stone 0xFF (`S_EVO_EEVEE`). The old random branch in
+  `evolve()` is gone; `eeveeOptions()` stays for the egg roll.
+
 ### Done: gender (v3.80, on the branch)
 
 Plan § E4. `gender_test`; six guards negative-checked. Nothing saved.

@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dex_data import DEX, TYPE_ACCENTS, CLASSIC, RARE, LEGENDARY, REGIONS, EEVEE_BRANCHES
 from dex_stats import BASE_STATS
 from dex_weights import WEIGHT_HG
-from dex_rates import CATCH_RATE, GENDER_RATE, GENDER_EVOS
+from dex_rates import CATCH_RATE, GENDER_RATE, GENDER_EVOS, ITEM_EVOS, EVO_STONES
 from dex_trade import TRADE_EVOS
 from dex_types import TYPES, TYPE_ORDER, CHART
 
@@ -103,7 +103,8 @@ def main():
     # GOREBYSS, which nothing's evolvesTo points at, came out as hatchable bases.
     evolved = ({d[4] for d in DEX if d[4]} | set(EEVEE_BRANCHES) |
                {to for _f, to, _p in TRADE_EVOS} |
-               {to for _f, to, _g, _l in GENDER_EVOS})
+               {to for _f, to, _g, _l in GENDER_EVOS} |
+               {to for _f, to, _s, _g in ITEM_EVOS})
     rarities = []
     out.append("static const DexEntry DEX_TBL[DEX_COUNT + 1] = {\n")
     out.append('  { "?", 0, 0, 0, 0x2946, 50, 50, 50, 50, 50, 50, 0 },  // 0: sin usar\n')
@@ -158,6 +159,18 @@ def main():
     out.append("static const GenderEvo GENDER_EVOS[GENDER_EVO_COUNT] = {\n")
     for f, t, g, _l in GENDER_EVOS:
         out.append(f"  {{ {f}, {t}, {1 if g == 'F' else 0} }},\n")
+    out.append("};\n\n")
+    out.append("// Evolutions by an item used from the bag (v3.81): the ten stones and the\n"
+               "// Black Augurite, from PokeAPI via tools/fetch_species_rates.py. `stone`\n"
+               "// indexes EVO_STONES' order, which items.h appends from IT_FIRESTONE;\n"
+               "// `gender` is 0 for either, else GENDER_MALE/FEMALE (pet.h). A species\n"
+               "// whose table route is one of these has no level route (Pet::evoInfo()).\n")
+    out.append("#define EVO_STONE_COUNT %d\n" % len(EVO_STONES))
+    out.append("struct ItemEvo {\n  int16_t from, to;\n  uint8_t stone, gender;\n};\n")
+    out.append("#define ITEM_EVO_COUNT %d\n" % len(ITEM_EVOS))
+    out.append("static const ItemEvo ITEM_EVOS[ITEM_EVO_COUNT] = {\n")
+    for f, t, st, g in ITEM_EVOS:
+        out.append(f"  {{ {f}, {t}, {st}, {dict(M=1, F=2).get(g, 0)} }},  // {EVO_STONES[st]}\n")
     out.append("};\n\n")
     out.append("// Evolutions that happen by TRADE, from PokeAPI via tools/fetch_trade_evos.py.\n"
                "// Where `to` is the species' own evolvesTo, trading is its ONLY route: the\n"

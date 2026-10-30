@@ -705,12 +705,14 @@ public:
     EVO_LEVELS,       // levelsLeft more levels, then care decides
     EVO_BLOCKED,      // due, but a need is under 40
     EVO_READY,        // due and cared for
+    EVO_NEEDS_ITEM,   // v3.81: evolves only with an item from the bag (a stone)
   };
   struct EvoInfo {
     uint8_t status;
     int16_t target;       // what it would become (0 when final)
     uint16_t levelsLeft;  // EVO_LEVELS only
     bool byTrade;         // this evolution is the trade one
+    uint8_t stone;        // EVO_NEEDS_ITEM: the EVO_STONES index; else 0xFF
   };
   EvoInfo evoInfo() const;
   // The creature's gender (v3.80): creatureGender() of its species and ID.
@@ -719,6 +721,24 @@ public:
   // takes, -1 when only the other gender evolves (a male Combee is final), 0
   // when the species has no such rule.
   static int16_t genderTarget(int16_t dex, uint8_t gender);
+  // Item evolutions (v3.81, ITEM_EVOS). What `stone` (an EVO_STONES index)
+  // turns `dex` of this gender into, 0 if nothing; whether dex -> to is one.
+  static int16_t itemEvoTarget(int16_t dex, uint8_t stone, uint8_t gender);
+  // EEVEE's bond branch (v3.81): Sylveon if it knows a Fairy move, else Espeon
+  // by day (06:00-18:00, and with no clock) or Umbreon by night -- once bond
+  // is EEVEE_BOND and it is EEVEE_AGE_MIN old. 0 until then, or if that
+  // branch cannot be drawn here.
+  static constexpr uint8_t EEVEE_BOND = 40;
+  static constexpr uint32_t EEVEE_AGE_MIN = 48UL * 60;
+  static constexpr int16_t DEX_ESPEON = 196, DEX_UMBREON = 197, DEX_SYLVEON = 700;
+  int16_t eeveeBondTarget() const;
+  static int itemEvoRow(int16_t dex, int16_t to);   // index into ITEM_EVOS, or -1
+  // What using `stone` on this creature would make RIGHT NOW, 0 = no effect (an
+  // egg, a frozen companion, mid-ceremony, already marked for its trade
+  // evolution -- Scyther: whichever comes first -- or a target this card cannot
+  // draw). THE answer the bag asks; useStone() spends nothing when it is 0.
+  int16_t stoneTarget(uint8_t stone) const;
+  bool useStone(uint8_t stone);   // evolves on the spot; false = no effect
   // What `dex` evolves into by trade (0 if it does not), given what it was
   // traded FOR -- Karrablast and Shelmet only for each other. CLAMPERL has two
   // trade targets; the creature's own ID picks one, so declining and re-asking
@@ -748,6 +768,7 @@ public:
   bool applyCord();                         // CORD_SOLO; true if it took
   bool applyCordPair(PartyMon &partner);    // CORD_NEEDS_PARTNER; true if they pair
   void evolve();              // dispara la transformacion (la llama un toque del usuario)
+  void evolveInto(int16_t next, bool byTrade);   // the evolution itself, any route
   bool canFarewellNow() const;
   bool evolutionAhead() const;  // an evolution still reachable here without a trade
   void learnRange(uint8_t after, uint8_t upTo, bool offer, int16_t skipFrom = 0);  // level-up moves in (after, upTo]  // forma final + 7 dias: lista para despedirse (boton)

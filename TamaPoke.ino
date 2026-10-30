@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.80"
+#define FW_VERSION "3.81"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -9470,6 +9470,10 @@ const char *uiEvoLine(char *buf, size_t n, uint16_t *col) {
   switch (ei.status) {
     case Pet::EVO_FINAL: return T(S_FINAL_FORM);
     case Pet::EVO_NEEDS_TRADE: return T(S_EVO_TRADE);
+    case Pet::EVO_NEEDS_ITEM:   // v3.81: "Evolves with THUNDERSTONE"
+      if (ei.stone == 0xFF) return T(S_EVO_EEVEE);   // Eevee: any of its stones, or bond
+      snprintf(buf, n, T(S_EVO_ITEM_FMT), itemEntry((ItemKey)(IT_FIRESTONE + ei.stone)).name);
+      return buf;
     case Pet::EVO_READY: *col = UI_BAR_OK; return T(S_EVO_READY);
     case Pet::EVO_BLOCKED: *col = UI_BAR_BAD; return T(S_EVO_BLOCKED);
     default:
@@ -9813,6 +9817,22 @@ void cordFromBag() {
   }
 }
 
+// An evolution stone (or the Black Augurite) from the bag, on the live pet
+// (v3.81). Every decision is Pet::stoneTarget()'s; it is spent only when the
+// creature really evolves, and the bag closes so the evolution is seen.
+static_assert(IT_BLACKAUGURITE - IT_FIRESTONE + 1 == EVO_STONE_COUNT,
+              "items.h's stones must follow EVO_STONES (dex.h), one for one");
+void stoneFromBag(uint8_t k) {
+  uint8_t stone = (uint8_t)itemEntry(k).param;
+  if (!pet.useStone(stone)) {
+    sfxPlay(SFX_DENY);
+    bagSay("%s", T(S_ITEM_NOUSE));   // and the stone is kept
+    return;
+  }
+  bag.consume(k);
+  bagOpen = false;
+}
+
 // The partner pick. Returns to the bag either way, with a toast saying what
 // happened; only a real pair spends the cord.
 void cordPickTap(int16_t x, int16_t y) {
@@ -9847,6 +9867,7 @@ void bagTap(int16_t x, int16_t y) {
     ItemKey k = bag.keyAt(idx);
     if (!itemUsableInField(k) || pet.isEgg()) { sfxPlay(SFX_DENY); return; }
     if (k == IT_LINKCORD) { cordFromBag(); return; }
+    if (itemEntry(k).category == IC_STONE) { stoneFromBag(k); return; }
     if (!bagUseOnPet(k)) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
     bag.consume(k);
     sfxPlay(SFX_TAP);

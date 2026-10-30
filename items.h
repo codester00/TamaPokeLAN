@@ -27,6 +27,11 @@ enum : uint8_t {
   IT_CARBOS,
   // APPEND-ONLY BELOW HERE
   IT_LINKCORD,   // v3.32: trade evolution without a trade (Legends: Arceus)
+  // v3.81: the evolution items, in EVO_STONES' order (dex.h) -- an ItemEvo's
+  // `stone` is the key minus IT_FIRESTONE.
+  IT_FIRESTONE, IT_WATERSTONE, IT_THUNDERSTONE, IT_LEAFSTONE, IT_MOONSTONE,
+  IT_SUNSTONE, IT_SHINYSTONE, IT_DUSKSTONE, IT_DAWNSTONE, IT_ICESTONE,
+  IT_BLACKAUGURITE,
   ITEM_COUNT,
 };
 
@@ -36,6 +41,7 @@ enum ItemCategory : uint8_t {
   IC_CURE,       // clears an ailment
   IC_TRAIN,      // permanently raises one training stat, out of battle
   IC_LINK,       // the Linking Cord: marks the live pet to evolve by trade
+  IC_STONE,      // v3.81: evolves the live pet on the spot (param: EVO_STONES index)
 };
 
 // A ball whose param is this catches without rolling. It is a sentinel rather
@@ -78,6 +84,20 @@ static const ItemEntry ITEM_TBL[ITEM_COUNT] = {
   // per evolution -- by the owner's call, not copied from a game. Never drops:
   // walking for it is the point.
   { "LINKING CORD", IC_LINK,  0,                      0, 0,  9800 },
+  // The evolution items (v3.81). $2,100 is the X/Y Stone Emporium's price and
+  // the usual one since; the Black Augurite, sold nowhere in its game, $3,000
+  // by the owner's call. Drops come from their areas only (not yet).
+  { "FIRE STONE",   IC_STONE, 0,                      0, 0,  2100 },
+  { "WATER STONE",  IC_STONE, 1,                      0, 0,  2100 },
+  { "THUNDERSTONE", IC_STONE, 2,                      0, 0,  2100 },
+  { "LEAF STONE",   IC_STONE, 3,                      0, 0,  2100 },
+  { "MOON STONE",   IC_STONE, 4,                      0, 0,  2100 },
+  { "SUN STONE",    IC_STONE, 5,                      0, 0,  2100 },
+  { "SHINY STONE",  IC_STONE, 6,                      0, 0,  2100 },
+  { "DUSK STONE",   IC_STONE, 7,                      0, 0,  2100 },
+  { "DAWN STONE",   IC_STONE, 8,                      0, 0,  2100 },
+  { "ICE STONE",    IC_STONE, 9,                      0, 0,  2100 },
+  { "BLACK AUGURITE", IC_STONE, 10,                   0, 0,  3000 },
 };
 
 inline bool itemValid(ItemKey k) { return k > ITEM_NONE && k < ITEM_COUNT; }
@@ -93,7 +113,8 @@ inline bool itemIsBall(ItemKey k) {
 // act on and would silently vanish.
 inline bool itemUsableInField(ItemKey k) {
   return itemValid(k) && (itemEntry(k).category == IC_TRAIN ||
-                          itemEntry(k).category == IC_LINK);
+                          itemEntry(k).category == IC_LINK ||
+                          itemEntry(k).category == IC_STONE);
 }
 // Usable from inside a fight. Training is permanent and belongs to the care
 // sim, so it stays out of the battle bag.

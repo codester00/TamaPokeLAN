@@ -296,6 +296,8 @@ enum StrId : uint16_t {
   S_SAFARI_BLOCK, S_SAFARI_GO_NEAR, S_SAFARI_MUD, S_SAFARI_THREW_BLOCK, S_SAFARI_THREW_MUD, S_SAFARI_CURIOUS, S_SAFARI_CLOSER, S_SAFARI_NO_CLOSER,  // Hoenn's and Sinnoh's Safari (v3.76)
   S_SWARM,  // an area's swarm on its status line (v3.78)
   S_WIN_PRIZE_FMT,  // a trainer win's prize money (v3.79)
+  S_EVO_ITEM_FMT,  // the card's line for a stone evolution (v3.81)
+  S_EVO_EEVEE,  // Eevee's card line: stones, or bond and two days (v3.81)
   STR_COUNT
 };
 

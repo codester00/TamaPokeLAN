@@ -11,6 +11,9 @@ fetch_weights.py does.
   The Safari ball (wild.cpp) runs the games' catch formula on it.
 - gender_rate is the games' eighths of a female: -1 genderless, 0 always male,
   8 always female, anything between has two genders.
+- ITEM_EVOS (v3.81), from pokemon_evolution.csv: the evolutions by one of
+  EVO_STONES used from the bag. Rows that need a regional form or a region
+  (Alolan Ninetales, Hisuian Electrode...) are left out: this dex has no forms.
 - GENDER_EVOS (v3.80), from pokemon_evolution.csv: the level-up evolutions
   that depend on the creature's gender -- only those where the genders really
   differ (Burmy splits, only a female Combee or Salandit evolves). Meowstic
@@ -33,6 +36,14 @@ EVO_URL = ('https://raw.githubusercontent.com/PokeAPI/pokeapi/master/'
            'data/v2/csv/pokemon_evolution.csv')
 LEVEL_UP = '1'                     # evolution_triggers.csv
 GENDER_NAME = {'1': 'F', '2': 'M'}  # genders.csv
+ITEMS_URL = ('https://raw.githubusercontent.com/PokeAPI/pokeapi/master/'
+             'data/v2/csv/items.csv')
+USE_ITEM = '3'                     # evolution_triggers.csv
+# The evolution items this game has, in the order items.h appends them
+# (IT_FIRESTONE onwards) -- ITEM_EVOS stores this index, so it is APPEND-ONLY.
+EVO_STONES = ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone',
+              'moon-stone', 'sun-stone', 'shiny-stone', 'dusk-stone',
+              'dawn-stone', 'ice-stone', 'black-augurite']
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'dex_rates.py')
 
@@ -90,10 +101,42 @@ def main():
         rows += sorted(opts)
     if not rows:
         sys.exit('no gender evolutions found -- not writing')
+
+    # The item evolutions (v3.81).
+    items = {r['id']: r['identifier'] for r in csv.DictReader(io.StringIO(
+        subprocess.run(['curl', '-sSfL', ITEMS_URL], check=True,
+                       capture_output=True).stdout.decode('utf-8')))}
+    item_rows = set()
+    for r in csv.DictReader(io.StringIO(evo)):
+        if r['evolution_trigger_id'] != USE_ITEM:
+            continue
+        name = items.get(r['trigger_item_id'])
+        if name not in EVO_STONES or r['region_id']:
+            continue
+        to = int(r['evolved_species_id'])
+        frm = origin[to]
+        # A form other than the species' own default (whose id is the
+        # species') is a regional form this dex does not have.
+        if r['required_pokemon_form_id'] and int(r['required_pokemon_form_id']) != frm:
+            continue
+        if r['evolved_pokemon_form_id'] and int(r['evolved_pokemon_form_id']) != to:
+            continue
+        if frm > DEX_COUNT or to > DEX_COUNT:
+            continue
+        item_rows.add((frm, to, EVO_STONES.index(name), GENDER_NAME.get(r['gender_id'], '')))
+    if len(item_rows) < 45:
+        sys.exit(f'only {len(item_rows)} item evolutions -- the parse broke, not writing')
     lines.append('\n# (from, to, gender, level): a level-up evolution only that gender takes\n')
     lines.append('GENDER_EVOS = [\n')
     for to, g, lvl in rows:
         lines.append(f'    ({origin[to]}, {to}, {g!r}, {lvl}),\n')
+    lines.append(']\n')
+    lines.append('\n# Evolution items, in items.h order (IT_FIRESTONE onwards). APPEND-ONLY.\n')
+    lines.append(f'EVO_STONES = {EVO_STONES!r}\n')
+    lines.append('\n# (from, to, stone index, gender or \'\'): evolves when that item is used\n')
+    lines.append('ITEM_EVOS = [\n')
+    for frm, to, st, g in sorted(item_rows):
+        lines.append(f'    ({frm}, {to}, {st}, {g!r}),  # {EVO_STONES[st]}\n')
     lines.append(']\n')
     open(OUT, 'w').write(''.join(lines))
     print(f'wrote {OUT}: {len(catch)} species')

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.80-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.81-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -415,7 +415,7 @@ While **awake**:
 ### Evolution and moves
 
 - Triggers when **level ≥ its evolution level** (16 for most base forms; ~25
-  for friendship-style like GOLBAT → CROBAT, ~30 for stone-style) **and every
+  for friendship-style like GOLBAT → CROBAT) **and every
   stat ≥ 40** at that moment.
 - **Gender (v3.80).** Every creature has one, fixed by its own ID when it
   hatches or is caught, so it never changes and travels with it in a trade.
@@ -454,12 +454,27 @@ While **awake**:
 - **Never automatic** — a button appears and **you tap to witness it** (with a
   flicker between the old and new form). Each **slip-up delays it by 1 level**.
 - You can **decline** ("keep form"); it re-offers at the next level.
-- *Eevee* branches toward whichever of its **eight** evolutions you're still
-  missing — Vaporeon, Jolteon, Flareon, Espeon, Umbreon, Leafeon, Glaceon and
-  Sylveon. None of the eight hatches from an egg any more: the only way to a
-  Sylveon is to raise an Eevee. A branch is offered only if that region's
-  sprite pack is on the card, so evolving can never hand you a creature the
-  device cannot draw.
+- **Stone evolutions need their stone (v3.81)**, used from the bag on the live
+  pet, at any level, and they happen on the spot. There is **no level route**
+  any more: a Pikachu waits for its Thunderstone, and its farewell does not
+  wait for one. The ten stones (Fire, Water, Thunder, Leaf, Moon, Sun, Shiny,
+  Dusk, Dawn, Ice) cover every stone evolution of the games (48, from 44
+  species) except the four that need a regional form this dex does not have.
+  GLOOM takes two (Leaf → VILEPLUME, Sun → BELLOSSOM); KIRLIA and SNORUNT keep
+  their level route (Gardevoir at 30, Glalie at 42) and also take the **Dawn
+  Stone by gender** (a male Kirlia → GALLADE, a female Snorunt → FROSLASS).
+  **SCYTHER** becomes KLEAVOR with the **Black Augurite**, or SCIZOR by trade —
+  whichever comes first: a Scyther marked for its trade refuses the augurite.
+  A stone is spent only when the creature really evolves, and only into a
+  creature whose region's pack is on the card. Bellossom, Gallade, Froslass
+  and Kleavor no longer hatch.
+- *Eevee* follows the stones: Water, Thunder, Fire, Leaf and Ice give
+  Vaporeon, Jolteon, Flareon, Leafeon and Glaceon. Its other three need **bond
+  40 and two days of age** (48 hours: the daily bond cap resets at midnight, so
+  bond alone could be had in two hours) — then it evolves into **Sylveon** if
+  it knows a Fairy move, else **Espeon** by day (06:00-18:00, or with no clock
+  set) and **Umbreon** by night. None of the eight hatches from an egg, and a
+  branch is offered only if that region's sprite pack is on the card.
 
 Each creature also knows up to **4 moves**, from a pool of **239** (v3.50 added 150:
 first the real early attacks creatures were missing, then the most widely learned;
@@ -1328,10 +1343,14 @@ every game:
 | Full Heal | $600 |
 | Protein / Iron / Carbos | $9,800 each |
 | Linking Cord | $9,800 |
+| Fire / Water / Thunder / Leaf / Moon / Sun / Shiny / Dusk / Dawn / Ice Stone | $2,100 each |
+| Black Augurite | $3,000 |
 
 The **Linking Cord** is the one item that is *not* a real Poké Mart price: it
 comes from *Legends: Arceus*, and its price was set to match the vitamins —
 about a day's walking per evolution. See [trade evolution](#evolution-and-moves).
+The stones are the X/Y Stone Emporium's **$2,100**; the **Black Augurite**
+(*Legends: Arceus*, sold nowhere there) is **$3,000** by the owner's call.
 
 **TMs.** Below the items the Mart sells **five TMs a day**, a different five
 each day (the same all day; with no clock set, always the same five). A TM you

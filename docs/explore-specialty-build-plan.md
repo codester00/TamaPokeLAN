@@ -465,6 +465,10 @@ below comes from PokeAPI's `pokemon_evolution.csv`, checked.
 
 ### E1. Stones only: no level route for a stone evolution
 
+**BUILT as v3.81** (with E2 and the Black Augurite of E3). The data counted 48
+stone evolutions from 44 species (Florges's default form counts). Stone drops
+in areas (E5) are not built yet; the Mart sells every stone.
+
 **Today** a stone evolver evolves by LEVEL, with a stand-in level in the
 data (Pikachu at 30, Gloom at 36), and `evolvesTo` holds ONE target, so a
 species with two evolutions reaches only one of them.
