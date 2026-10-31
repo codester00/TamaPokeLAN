@@ -128,7 +128,26 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
   same six at IV 16 / training 50 -- what the playthrough bot fields -- wins
   0-32%. TMs barely matter. Hard leaders are IV 31 and fully trained, and only
   an IV 31 creature can reach training 100 (`trMaxFor()`), so hard demands
-  perfect-IV creatures. Raised with the owner; nothing changed yet.
+  perfect-IV creatures. Raised with the owner; v3.95 tuned it per region.
+- **NEXT (owner, 2026-10-31): tune per BATTLE, not per region.** The targets
+  -- OPTIMAL (six picked by matchup, IV 31, training 100, TMs) wins 90-100%,
+  CASUAL (six random final forms of base stats 470-540, IV 16, training 50,
+  level-up moves only, not type-picked) wins ~10% -- must hold for EVERY
+  hard gym leader and EVERY Elite Four member / champion fought as its own
+  battle, not for a region's League run as a whole. v3.95's per-region value
+  hits it for the League RUN only; single hard gyms let a casual team win
+  50-100%. Method (`tools/emu/league_sim.cpp`, build like `ladder_sim.cpp`
+  with tests/run.sh's CORE sources, `LS_BST_MAX=540`): (1) pick the optimal
+  six per opponent by 1v1 wins against that opponent's creatures; (2) sweep
+  that opponent's training 0-100 in steps of 10, 40 optimal and 100+ casual
+  fights each, the firmware's rules (level cap to the leader's best, team cap
+  to its count, HP and PP fresh for a single battle); (3) take the training
+  where casual crosses ~10% while optimal stays >= 90% (if both cannot hold,
+  report it rather than force it); (4) store it per seat --
+  `HARD_TRAINING` becomes `[GYM_REGIONS][TRAINER_COUNT]` read by
+  `foeFromSpecies()`; (5) verify with 3x the samples (`LS_VERIFY`) and update
+  `trainscale_test`, the README leaders paragraph and these notes. Re-check the
+  League run afterwards: per-seat values change it too.
 
 ### NEXT, agreed with the owner 2026-10-30, in this order
 

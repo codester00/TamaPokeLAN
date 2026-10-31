@@ -955,6 +955,25 @@ level-up moves only) ~10%.
 - **The hard gyms share it**, so a casual team now beats most single hard gyms
   (50-100% each). Flagged to the owner; a separate gym value is one table more.
 - `trainscale_test` reads the table and checks a second region differs.
+- **NEXT (owner, 2026-10-31): tune per BATTLE, not per region.** The targets
+  -- OPTIMAL (six picked by matchup, IV 31, training 100, TMs) wins 90-100%,
+  CASUAL (six random final forms of base stats 470-540, IV 16, training 50,
+  level-up moves only, not type-picked) wins ~10% -- must hold for EVERY
+  hard gym leader and EVERY Elite Four member / champion fought as its own
+  battle, not for a region's League run as a whole. v3.95's per-region value
+  hits it for the League RUN only; single hard gyms let a casual team win
+  50-100%. Method (`tools/emu/league_sim.cpp`, build like `ladder_sim.cpp`
+  with tests/run.sh's CORE sources, `LS_BST_MAX=540`): (1) pick the optimal
+  six per opponent by 1v1 wins against that opponent's creatures; (2) sweep
+  that opponent's training 0-100 in steps of 10, 40 optimal and 100+ casual
+  fights each, the firmware's rules (level cap to the leader's best, team cap
+  to its count, HP and PP fresh for a single battle); (3) take the training
+  where casual crosses ~10% while optimal stays >= 90% (if both cannot hold,
+  report it rather than force it); (4) store it per seat --
+  `HARD_TRAINING` becomes `[GYM_REGIONS][TRAINER_COUNT]` read by
+  `foeFromSpecies()`; (5) verify with 3x the samples (`LS_VERIFY`) and update
+  `trainscale_test`, the README leaders paragraph and these notes. Re-check the
+  League run afterwards: per-seat values change it too.
 
 ### Done: the League run, and ETHER (v3.94, on the branch)
 
