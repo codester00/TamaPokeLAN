@@ -790,7 +790,11 @@ static void session(int s) {
         // a loss: back off, longer each time in a row (1, 2, 4 ... 32 days), as a
         // player stops throwing the same team at a leader it keeps losing to
         if (!won) { retryDay[gr] = day() + (1 << std::min<int>(lossRun[gr], 5)); lossRun[gr]++; break; }
-        nGymWin++; lossRun[gr] = 0;
+        nGymWin++;
+        // a League run is one attempt: only the champion's defeat clears the
+        // back-off, so a wall at the third member is retried less and less
+        // often, as a person would, rather than farmed every day
+        if (!inLeague || seat == TRAINER_COUNT - 1) lossRun[gr] = 0;
         if (seat == TRAINER_COUNT - 1) nChamp++;
         if (!inLeague || leagueNext() < 0) break;
         seat = (uint8_t)leagueNext();
