@@ -120,8 +120,12 @@ void ppRecord(const CreatureUid &uid, const uint8_t moves[MOVE_SLOTS],
 bool ppDirty() { return gDirty; }
 void ppFlush() { if (gDirty) save(); }
 
+static bool gRefillHeld = false;
+void ppHoldRefill(bool held) { gRefillHeld = held; }
+bool ppRefillHeld() { return gRefillHeld; }
+
 bool ppRefillAll() {
-  if (!gCount) return false;
+  if (gRefillHeld || !gCount) return false;
   gCount = 0;
   save();
   return true;

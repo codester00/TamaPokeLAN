@@ -71,6 +71,10 @@ void ppRecord(const CreatureUid &uid, const uint8_t moves[MOVE_SLOTS],
 // Everyone's PP back. Returns true if anything was refilled (so a caller can
 // tell a rest that mattered from one that did not).
 bool ppRefillAll();
+// While held (a League run, v3.94) ppRefillAll() refills nothing: PP spent in
+// the League stays spent until the run ends. RAM only -- a reboot ends a run.
+void ppHoldRefill(bool held);
+bool ppRefillHeld();
 
 // Persistence. ppLoad() at boot; ppFlush() writes anything recorded since
 // (a no-op when nothing changed); ppRefillAll() writes at once.

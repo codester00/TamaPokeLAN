@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.93"
+#define FW_VERSION "3.94"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -164,6 +164,7 @@ uint8_t vitPick = 0;   // a vitamin waiting for its target on the party ring (v3
 #define PPUP_NONE 0xFF
 #define PPUP_LIVE 0xFE
 uint8_t ppUpWho = PPUP_NONE;
+uint8_t ppPickItem = 0;   // the item the move pick is for: PP UP or ETHER (v3.94)
 uint8_t partyDetail = 0;   // 0 = the grid, else slot + 1
 // The box, reached from the party screen. `boxSwapFrom` is the party slot
 // waiting for something to trade with, 0 when nothing is pending.
@@ -305,7 +306,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_PC, SCR_PCPICK, SCR_PCRING, SCR_JUMP, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_PC, SCR_PCPICK, SCR_PCRING, SCR_JUMP, SCR_LEAGUE, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[];   // const is internal linkage in C++
 
@@ -406,7 +407,7 @@ const char *const SCREEN_NAME[] = {
   "party", "keyboard", "card", "player", "clock", "gym", "gympick",
   "explore", "mart", "lan", "pick", "battle", "win", "learn", "train", "menu",
   "bag", "minigame", "main", "trade", "avatar", "blackout", "area", "hall",
-  "codes", "pc", "pcpick", "pcring", "jump"
+  "codes", "pc", "pcpick", "pcring", "jump", "league"
 };
 // Unsized on purpose: sized by SCR_COUNT, five missing names compiled to null
 // and HEALTH and the crash breadcrumb printed "(null)" (v3.63-v3.92).
@@ -545,6 +546,9 @@ static void drawBackPill(int y);      // the Pokedex's BACK button, with the gal
 static bool ppUpTarget(uint8_t who, const uint8_t **moves, uint8_t *ups, const CreatureUid **uid);   // with the bag
 static int eggRegionTap(int16_t x, int16_t y);
 static void drawBtlBack();
+void renderLeague();                  // the League run's screen (v3.94), with the gyms
+void leagueTap(int16_t x, int16_t y);
+void leagueLeave();
 static void btlLinkPoll();   // defined with the battle code, called from render()
 static void btlSwitchTo(uint8_t i);
 static void btlResolve(uint8_t yourMove);
@@ -683,6 +687,67 @@ static bool lanIsWaiting() {
 }
 static bool gymUnlocked(uint8_t idx, bool hard) {
   return idx == 0 || pet.hasBadge(gymRegion, idx - 1, hard);
+}
+
+// THE LEAGUE RUN (v3.94, owner). The Elite Four and the champion are fought in
+// one run, as in the games: it starts at the first Elite Four seat and ends on
+// a loss, GIVE UP, the champion's defeat, a reboot or LEAGUE_RUN_MS. Each seat's
+// badge is still kept the moment it is won, but a seat past the first can only
+// be fought as the run's next fight -- so a lost run starts again at the first
+// member, whose badge then pays the rematch half (trainerPrize()).
+// HP comes back every fight, as always; PP does NOT: no rest (the bed button is
+// refused) and no refill (ppHoldRefill) while a run is on. That is what makes
+// PP UP and ETHER matter. RAM only.
+#define LEAGUE_FIRST (TRAINER_COUNT - TRAINER_ELITE4 - 1)   // the first Elite Four seat
+#define LEAGUE_FIGHTS (TRAINER_ELITE4 + 1)
+#define LEAGUE_RUN_MS (60UL * 60UL * 1000UL)
+static_assert(LEAGUE_FIRST > 0 && LEAGUE_FIRST + LEAGUE_FIGHTS == TRAINER_COUNT, "the League is the ladder's tail");
+struct LeagueRun { bool on; uint8_t region; bool hard; uint8_t next; uint32_t until; };
+LeagueRun league = { false, 0, false, 0, 0 };
+bool leagueOpen = false;   // the screen between League fights
+bool leagueQuitArmed = false;
+void leagueEnd() {
+  league.on = false;
+  leagueOpen = false;
+  leagueQuitArmed = false;
+  ppHoldRefill(false);
+}
+// THE one answer to "is a run on?". Ends a run whose hour is up, so every caller
+// sees the same moment.
+bool leagueActive() {
+  if (league.on && !timerRunning(millis(), league.until)) leagueEnd();
+  return league.on;
+}
+static void leagueBegin(uint8_t region, bool hard) {
+  league.on = true;
+  league.region = region;
+  league.hard = hard;
+  league.next = LEAGUE_FIRST;
+  league.until = millis() + LEAGUE_RUN_MS;
+  if (!league.until) league.until = 1;   // 0 means "no timer"
+  leagueQuitArmed = false;
+  ppHoldRefill(true);
+}
+// Tests only: a run already at `seat`, as if the seats before it had been won.
+void leagueDbgAt(uint8_t region, bool hard, uint8_t seat) {
+  leagueBegin(region, hard);
+  league.next = seat < LEAGUE_FIRST ? (uint8_t)LEAGUE_FIRST : seat;
+}
+// The seat the run fights next, or -1 with no run (for tests and the bot).
+int leagueNext() { return leagueActive() ? league.next : -1; }
+// May seat idx be challenged now, on this region and difficulty? The gym list's
+// drawing and tapping and startTrainerBattle() all ask this one.
+bool gymSeatOpen(uint8_t region, uint8_t idx, bool hard) {
+  if (idx < LEAGUE_FIRST) return idx == 0 || pet.hasBadge(region, idx - 1, hard);
+  if (leagueActive())
+    return league.region == region && league.hard == hard && league.next == idx;
+  return idx == LEAGUE_FIRST && pet.hasBadge(region, LEAGUE_FIRST - 1, hard);
+}
+// After a League fight: the next seat, or the run is over.
+static void leagueAfterFight(uint8_t seat, bool won) {
+  if (!leagueActive() || seat != league.next) return;
+  if (!won || seat + 1 >= TRAINER_COUNT) { leagueEnd(); return; }
+  league.next = seat + 1;
 }
 
 // Team select. Candidate 0 is the live pet, 1..PARTY_SLOTS are the banked
@@ -2194,6 +2259,7 @@ void onSwipeV(int dir) {
   // The two multi-region tiles are two levels deep: chooser, then ladder/grid.
   // DOWN walks back out of them one step at a time; UP keeps the region
   // shortcut, which is now a convenience rather than the only way in.
+  if (leagueOpen) { if (back) leagueLeave(); return; }   // down: the gym list; the run goes on
   if (gymOpen) {
     if (gymPick) { if (back) uiTileGo(TILE_PET); return; }
     if (back) { gymPick = true; rpickPage = 0; sfxPlay(SFX_TAP); return; }
@@ -2411,7 +2477,12 @@ void uiButtonHeights(int *out, int max, int *n) {
 // Asleep, the LIGHT is the only live icon -- it is what wakes the pet. Both the
 // draw path and the tap path ask THIS, so a greyed button can never still be
 // tappable and the greying can never point at the wrong icon.
-bool uiButtonDisabled(int i) { return pet.sleeping && i != BTN_LIGHT; }
+// Asleep, everything but the light is off; during a League run (v3.94) the
+// light cannot put the creature to bed (no rest in the League), only wake it.
+bool uiButtonDisabled(int i) {
+  if (i == BTN_LIGHT) return !pet.sleeping && leagueActive();
+  return pet.sleeping;
+}
 
 int uiSleepButton(int *cx, int *cy) {
   if (cx) *cx = buttons[BTN_LIGHT].cx;
@@ -2771,6 +2842,10 @@ void onTap(int16_t x, int16_t y) {
     lanTap(x, y);
     return;
   }
+  if (leagueOpen) {
+    leagueTap(x, y);
+    return;
+  }
   if (gymOpen && gymPick) {
     int r = regionPickTap(x, y, RPICK_FOR_GYMS);
     if (r >= 0) {
@@ -2810,7 +2885,14 @@ void onTap(int16_t x, int16_t y) {
       int rx, ry, rw, rh;
       gymRowRect(i, &rx, &ry, &rw, &rh);
       if (x < rx || x > rx + rw || y < ry || y > ry + rh) continue;
-      if (!gymUnlocked(idx, gymHard)) { sfxPlay(SFX_DENY); return; }
+      if (idx >= LEAGUE_FIRST && leagueActive()) {   // a run is on: its screen
+        if (league.region != gymRegion % GYM_REGIONS || league.hard != gymHard) { sfxPlay(SFX_DENY); return; }
+        sfxPlay(SFX_TAP);
+        leagueOpen = true;
+        leagueQuitArmed = false;
+        return;
+      }
+      if (!gymSeatOpen(gymRegion % GYM_REGIONS, idx, gymHard)) { sfxPlay(SFX_DENY); return; }
       sfxPlay(SFX_TAP);
       gymOpen = false;
       pickTrainer = idx;
@@ -3244,6 +3326,7 @@ uint8_t uiCurrentScreen() {
   if (lanOpen) return SCR_LAN;
   if (exploreOpen) return hallOpen ? SCR_HALL : areaListOpen ? SCR_AREA : SCR_EXPLORE;
   if (martOpen) return SCR_MART;
+  if (leagueOpen) return SCR_LEAGUE;
   if (gymOpen) return gymPick ? SCR_GYMPICK : SCR_GYM;
   if (playerOpen) return avatarPickOpen ? SCR_AVATAR : SCR_PLAYER;
   if (pet.hasLearnOffer()) return SCR_LEARN;
@@ -3307,6 +3390,7 @@ void uiTileGo(int i) {
   if (i < 0) i = 0;
   if (i >= TILE_COUNT) i = TILE_COUNT - 1;
   exploreOpen = gymOpen = partyOpen = galleryOpen = playerOpen = false;
+  leagueOpen = false;   // the run itself goes on
   avatarPickOpen = false;
   areaListOpen = false;
   hallOpen = 0;
@@ -4866,6 +4950,10 @@ void render() {
     renderMart();
     return;
   }
+  if (leagueOpen) {          // under the bag (opened from it), over the gym list
+    renderLeague();
+    return;
+  }
   if (gymOpen) {
     if (gymPick) renderRegionPick(RPICK_FOR_GYMS);
     else renderGyms();
@@ -6294,12 +6382,17 @@ void startLinkBattle() {
 void startTrainerBattle(uint8_t idx, bool hard) {
   if (idx >= TRAINER_COUNT || pet.isEgg() || pet.ceremony != CER_NONE) return;
   uint8_t region = gymRegion % GYM_REGIONS;
+  // The League is fought as one run (v3.94): its first seat starts one, the rest
+  // only as the run's next fight. Every way into a trainer fight comes here.
+  bool startsRun = idx >= LEAGUE_FIRST && !leagueActive();
+  if (idx >= LEAGUE_FIRST && !gymSeatOpen(region, idx, hard)) return;
   const Trainer &tr = TRAINER_SETS[region].list[idx];
   // BOTH ladders cap your level to the leader's best. Without it a L73 team
   // walks every trainer at 100% and the type chart never matters. Hard adds the
   // size cap on top, plus a smarter AI and better opposing IVs.
   buildSquad(gymLevelCap(tr), teamCapFor(tr, hard), squadMask);
   if (!btlSquadN) return;
+  if (startsRun) leagueBegin(region, hard);
   btlTrainer = (int8_t)idx;
   btlRegion = region;
   btlHard = hard;
@@ -7004,6 +7097,8 @@ static void btlResolve(uint8_t yourMove) {
     // wild-catch save above: cheap and safe to do now, while nothing is at
     // risk, rather than leaving it to whatever the player does next.
     pet.saveNow();
+    if (btlTrainer >= 0 && !btlLink && btlTrainer >= LEAGUE_FIRST)
+      leagueAfterFight((uint8_t)btlTrainer, btlWon);
     audioMusic(btlWon ? btlMusic(true) : MUS_NONE);
     if (btlWon) sfxPlay(SFX_VICTORY);
     // Tell the peer before anything else: if we stop here without sending, the
@@ -7623,6 +7718,7 @@ void battleTap(int16_t x, int16_t y) {
     battleOpen = false;
     btlWild = false;
     btlSafari = false;
+    if (leagueActive()) { leagueOpen = true; leagueQuitArmed = false; }   // between League fights
     // lanLeave() tears down the radio (ESP-NOW + WiFi off) and resets
     // lan.state to LINK_OFF. btlRun()'s own exit does this; this one and the
     // one below did not, which left the radio running and lan.state stuck
@@ -9130,6 +9226,88 @@ void tradeTap(int16_t x, int16_t y) {
 }
 
 // ---------- gym list ----------
+// The screen between League fights (v3.94): NEXT, BAG, GIVE UP. Rects are a
+// function so a test aims where the screen answers.
+void leagueBtnRect(int i, int *x, int *y, int *w, int *h) {
+  if (i == 0) { *x = CX - 110; *y = 196; *w = 220; *h = UI_TAP_FINGER; return; }
+  *w = 140; *h = UI_TAP_FINGER; *y = 304;
+  *x = i == 1 ? CX - 150 : CX + 10;
+}
+int leagueBtnAt(int16_t x, int16_t y) {
+  for (int i = 0; i < 3; i++) {
+    int bx, by, bw, bh;
+    leagueBtnRect(i, &bx, &by, &bw, &bh);
+    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) return i;
+  }
+  return -1;
+}
+// Down from the League screen: the run's gym list, the run still on.
+void leagueLeave() {
+  leagueOpen = false;
+  leagueQuitArmed = false;
+  gymRegion = league.region;
+  gymHard = league.hard;
+  gymPick = false;
+  gymOpen = true;
+}
+void leagueTap(int16_t x, int16_t y) {
+  if (!leagueActive()) { leagueLeave(); return; }   // the hour ran out under it
+  int b = leagueBtnAt(x, y);
+  if (b != 2) leagueQuitArmed = false;
+  if (b == 0) {                    // NEXT: the same team, the next seat
+    gymRegion = league.region;
+    gymHard = league.hard;
+    startTrainerBattle(league.next, league.hard);
+    if (battleOpen) { leagueOpen = false; sfxPlay(SFX_TAP); }
+    else sfxPlay(SFX_DENY);
+    return;
+  }
+  if (b == 1) { bagOpen = true; bagPage = 0; sfxPlay(SFX_TAP); return; }   // back here after
+  if (b == 2) {
+    if (!leagueQuitArmed) { leagueQuitArmed = true; sfxPlay(SFX_TAP); return; }
+    uint8_t r = league.region; bool h = league.hard;
+    leagueEnd();
+    gymRegion = r; gymHard = h; gymPick = false; gymOpen = true;
+    sfxPlay(SFX_TAP);
+  }
+}
+void renderLeague() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  if (!leagueActive()) { gfx->flush(); return; }
+  const Trainer &nx = TRAINER_SETS[league.region % GYM_REGIONS].list[league.next];
+  char ln[40];
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(T(S_LEAGUE_TITLE)) * 6, 52);
+  gfx->print(T(S_LEAGUE_TITLE));
+  snprintf(ln, sizeof(ln), T(S_LEAGUE_DONE_FMT), (unsigned)(league.next - LEAGUE_FIRST), (unsigned)LEAGUE_FIGHTS);
+  gfx->setCursor(CX - (int)strlen(ln) * 6, 90);
+  gfx->print(ln);
+  snprintf(ln, sizeof(ln), T(S_LEAGUE_NEXT_FMT), nx.name);
+  gfx->setCursor(CX - (int)strlen(ln) * 6, 126);
+  gfx->print(ln);
+  uint32_t left = timeLeft(millis(), league.until) / 1000;
+  snprintf(ln, sizeof(ln), T(S_LEAGUE_TIME_FMT), (unsigned)(left / 60), (unsigned)(left % 60));
+  gfx->setTextSize(1);
+  gfx->setTextColor(UI_INK_SOFT);
+  gfx->setCursor(CX - (int)strlen(ln) * 3, 164);
+  gfx->print(ln);
+  const char *lab[3] = { T(S_LEAGUE_GO), T(S_BAG), leagueQuitArmed ? T(S_LEAGUE_SURE) : T(S_LEAGUE_QUIT) };
+  for (int i = 0; i < 3; i++) {
+    int bx, by, bw, bh;
+    leagueBtnRect(i, &bx, &by, &bw, &bh);
+    bool warn = i == 2 && leagueQuitArmed;
+    gfx->fillRoundRect(bx, by, bw, bh, 14, i == 0 ? UI_INK : warn ? UI_BAR_BAD : UI_WHITE);
+    gfx->drawRoundRect(bx, by, bw, bh, 14, UI_INK);
+    gfx->setTextColor(i == 0 || warn ? UI_BG_DAY : UI_INK);
+    gfx->setTextSize(2);
+    gfx->setCursor(bx + (bw - (int)strlen(lab[i]) * 12) / 2, by + bh / 2 - 8);
+    gfx->print(lab[i]);
+  }
+  gfx->flush();
+}
+
 void renderGyms() {
   gfx->fillScreen(RGB565_BLACK);
   gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
@@ -9164,7 +9342,9 @@ void renderGyms() {
     int rx, y, rw, rh;
     gymRowRect(i, &rx, &y, &rw, &rh);
     bool done = pet.hasBadge(gymRegion, idx, gymHard);
-    bool open_ = gymUnlocked(idx, gymHard);
+    bool open_ = gymSeatOpen(gymRegion % GYM_REGIONS, idx, gymHard);
+    // a League seat whose way in is the run (v3.94) says so rather than LOCKED
+    bool viaRun = !open_ && idx > LEAGUE_FIRST && pet.hasBadge(gymRegion, LEAGUE_FIRST - 1, gymHard);
     gfx->fillRoundRect(rx, y, rw, rh, 10, done ? UI_TRACK : UI_BG_DAY);
     gfx->drawRoundRect(rx, y, rw, rh, 10, open_ ? UI_INK : UI_TRACK);
     gfx->setTextColor(open_ ? UI_INK : UI_TRACK);
@@ -9174,7 +9354,7 @@ void renderGyms() {
     gfx->setTextSize(1);
     gfx->setTextColor(UI_INK_SOFT);
     gfx->setCursor(rx + 14, y + 28);
-    gfx->print(open_ ? t.place : T(S_LOCKED));
+    gfx->print(open_ ? t.place : viaRun ? T(S_LEAGUE_ROW) : T(S_LOCKED));
     // the level of the strongest creature: the honest measure of the wall
     uint8_t top = 0;
     for (int k = 0; k < t.count; k++)
@@ -9839,7 +10019,10 @@ void renderBag() {
       uint8_t mv = pmoves[s];
       if (!mv || mv >= MOVE_COUNT) continue;
       uint8_t u = ppUpsAt(pups, s);
-      bool can = u < PP_UPS_MAX && mv != MV_STRUGGLE;
+      // PP UP: room for another Up; ETHER (v3.94): PP to give back
+      bool can = mv != MV_STRUGGLE &&
+                 (ppPickItem == IT_ETHER ? ppLeftSlot(*puid, (uint8_t)s, mv, u) < ppMaxFor(mv, u)
+                                         : u < PP_UPS_MAX);
       int y = BAG_ROW_Y(s);
       gfx->fillRoundRect(76, y, 314, 50, 10, can ? UI_WHITE : UI_TRACK);
       gfx->drawRoundRect(76, y, 314, 50, 10, UI_INK);
@@ -10013,7 +10196,8 @@ void vitPickTap(int16_t x, int16_t y) {
   partyOpen = false;
   bagOpen = true;
   if (!hub && i < 0) { sfxPlay(SFX_TAP); return; }   // cancelled: kept
-  if (itemEntry(k).category == IC_PPUP) {             // whose, then which move
+  if (itemEntry(k).category == IC_PPUP || itemEntry(k).category == IC_ETHER) {   // whose, then which move
+    ppPickItem = k;
     ppUpWho = hub ? PPUP_LIVE : (uint8_t)i;
     sfxPlay(SFX_TAP);
     return;
@@ -10051,19 +10235,40 @@ bool ppUpOn(uint8_t who, int slot) {
   party.replaceAt(who, m);
   return true;
 }
+// An ETHER on `slot` of `who` (v3.94): `param` PP back, never past the max.
+// False when the move is full or there is none (the item is kept). Through the
+// PP book, which is where spent PP lives -- the one way it is applied.
+bool etherOn(uint8_t who, int slot) {
+  const uint8_t *moves; uint8_t ups; const CreatureUid *uid;
+  if (slot < 0 || slot >= MOVE_SLOTS || !ppUpTarget(who, &moves, &ups, &uid)) return false;
+  if (who != PPUP_LIVE && tradeLocked(party.slots[who])) return false;
+  uint8_t mv = moves[slot];
+  if (!mv || mv >= MOVE_COUNT || mv == MV_STRUGGLE) return false;
+  uint8_t left[MOVE_SLOTS];
+  for (int s = 0; s < MOVE_SLOTS; s++)
+    left[s] = moves[s] ? ppLeftSlot(*uid, (uint8_t)s, moves[s], ppUpsAt(ups, s)) : 0;
+  uint8_t mx = ppMaxFor(mv, ppUpsAt(ups, slot));
+  if (left[slot] >= mx) return false;
+  uint16_t to = (uint16_t)left[slot] + (uint16_t)itemEntry(IT_ETHER).param;
+  left[slot] = to > 255 ? 255 : (uint8_t)to;
+  ppRecord(*uid, moves, left, ups);   // the book never records more than the max
+  return true;
+}
 static void ppUpPickTap(int16_t x, int16_t y) {
   uint8_t who = ppUpWho;
+  ItemKey k = ppPickItem == IT_ETHER ? IT_ETHER : IT_PPUP;
   ppUpWho = PPUP_NONE;
   for (int s = 0; s < MOVE_SLOTS; s++) {
     int ry = BAG_ROW_Y(s);
     if (x < 76 || x > 390 || y < ry || y > ry + 50) continue;
-    if (!ppUpOn(who, s)) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
-    bag.consume(IT_PPUP);
+    bool ok = k == IT_ETHER ? etherOn(who, s) : ppUpOn(who, s);
+    if (!ok) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
+    bag.consume(k);
     sfxPlay(SFX_TAP);
-    bagSay(T(S_ITEM_USED), itemEntry(IT_PPUP).name);
+    bagSay(T(S_ITEM_USED), itemEntry(k).name);
     return;
   }
-  sfxPlay(SFX_TAP);   // anywhere else: cancelled, the PP UP is kept
+  sfxPlay(SFX_TAP);   // anywhere else: cancelled, the item is kept
 }
 
 void bagTap(int16_t x, int16_t y) {
@@ -10078,12 +10283,14 @@ void bagTap(int16_t x, int16_t y) {
     if (!itemUsableInField(k) || pet.isEgg()) { sfxPlay(SFX_DENY); return; }
     if (k == IT_LINKCORD) { cordFromBag(); return; }
     if (itemEntry(k).category == IC_STONE) { stoneFromBag(k); return; }
-    if (itemEntry(k).category == IC_PPUP && !party.count()) {
+    if ((itemEntry(k).category == IC_PPUP || itemEntry(k).category == IC_ETHER) && !party.count()) {
+      ppPickItem = k;
       ppUpWho = PPUP_LIVE;                 // no party: straight to the live pet's moves
       sfxPlay(SFX_TAP);
       return;
     }
-    if ((itemEntry(k).category == IC_TRAIN || itemEntry(k).category == IC_PPUP) && party.count()) {
+    if ((itemEntry(k).category == IC_TRAIN || itemEntry(k).category == IC_PPUP ||
+         itemEntry(k).category == IC_ETHER) && party.count()) {
       // a vitamin with a party to choose from (v3.91): who gets it, on the ring
       bagOpen = false;
       partyOpen = true;

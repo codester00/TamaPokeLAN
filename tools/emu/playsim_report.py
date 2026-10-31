@@ -109,7 +109,7 @@ def summarise(path):
         'gymwin', 'blackouts', 'farewells', 'evolves', 'stones_found', 'stones_bought', 'cords',
         'swaps', 'wallet', 'in', 'out', 'in_steps', 'in_prize', 'in_sold', 'out_balls', 'out_stones',
         'out_cords', 'out_x', 'out_vit', 'out_ppup', 'out_heal', 'sold', 'vit', 'vit_maxed', 'x_used',
-        'ppup', 'heal_used', 'ui_miss')}
+        'ppup', 'heal_used', 'ui_miss', 'league_runs', 'champ', 'ether_used', 'ether_found')}
     # the day the wallet first reached the cap, if it did
     out['cap_day'] = next((w['day'] for w in weeks if w['wallet'] >= 999000), None)
     out['weekly'] = [{k: w.get(k) for k in ('day', 'left', 'badges_easy', 'badges_hard', 'wallet', 'fights',

@@ -25,6 +25,8 @@ void setup(); void render();
 void onTap(int16_t x, int16_t y);
 void startBattle(int16_t dex, uint8_t lvl);
 void startTrainerBattle(uint8_t idx, bool hard);
+// v3.94: a League seat is fought inside a run; this puts one in place.
+void leagueDbgAt(uint8_t region, bool hard, uint8_t seat); void leagueEnd(); extern uint8_t gymRegion;
 bool startWildBattle(uint8_t region, bool hard);
 int btlCellIndexAt(int16_t x, int16_t y);
 void openHall(uint8_t h);
@@ -81,10 +83,12 @@ int main() {
   ck(btlWon && emuMusic() == MUS_WIN_GYM, "and beating one the gym leader's fanfare");
   closeFight();
   strong();
+  leagueDbgAt(gymRegion, false, TRAINER_COUNT - 2);
   startTrainerBattle(TRAINER_COUNT - 2, false);
   ck(battleOpen && emuMusic() == MUS_GYM, "the Elite Four fight to the gym leader battle, as in Red");
   closeFight();
   strong();
+  leagueDbgAt(gymRegion, false, TRAINER_COUNT - 1);
   startTrainerBattle(TRAINER_COUNT - 1, false);
   ck(battleOpen && emuMusic() == MUS_FINAL, "the champion has the final battle");
   closeFight();

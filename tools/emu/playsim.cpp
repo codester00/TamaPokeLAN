@@ -83,6 +83,9 @@ extern bool bagOpen;
 extern uint8_t bagPage, vitPick, ppUpWho, btlBagPage;
 extern uint8_t btlTrainer;
 extern bool btlLink;
+extern bool leagueOpen;
+int leagueNext();
+static const uint8_t LF = TRAINER_COUNT - TRAINER_ELITE4 - 1;   // the first League seat
 extern Pet pet; extern Party party; extern Inventory bag;
 extern bool battleOpen, btlOver, btlWon, btlLost, blackoutOpen, btlWild, btlSafari, screenOff;
 extern bool partyPick, partyOpen, gymHard, exploreOpen;
@@ -137,6 +140,7 @@ static uint64_t moneyIn = 0, moneyOut = 0;
 // where the money came from and went (v3.92 rerun)
 static uint64_t inSteps = 0, inPrize = 0, inSold = 0;
 static uint64_t outBalls = 0, outStones = 0, outCords = 0, outX = 0, outVit = 0, outPpUp = 0, outHeal = 0;
+static int nLeague = 0, nChamp = 0, nEtherUsed = 0, nEtherFound = 0;
 static int nSold = 0, nVit = 0, nVitMax = 0, nXUsed = 0, nPpUp = 0, nHealUsed = 0, nUiMiss = 0;
 static uint64_t *spendBucket = &outBalls;   // what buy() counts the money against
 static std::set<int16_t> target;
@@ -391,17 +395,39 @@ static bool vitaminOn(ItemKey k, int who) {
   closeBag();
   return ok;
 }
-static bool ppUpOnSlot(int who, int slot) {
-  uint8_t before = bag.count(IT_PPUP);
-  tapBagItem(IT_PPUP);
+static bool pickItemOnSlot(ItemKey k, int who, int slot) {
+  uint8_t before = bag.count(k);
+  tapBagItem(k);
   if (party.count()) {
     if (who < 0) onTap(233, 233);
     else { int x, y; partySlotPos(who, &x, &y); onTap((int16_t)x, (int16_t)y); }
   }
   render(); onTap(233, 112 + slot * 58 + 25);
-  bool ok = bag.count(IT_PPUP) < before;
+  bool ok = bag.count(k) < before;
   closeBag();
   return ok;
+}
+// Who fights: the squad's members, as the bag addresses them (-1 the live pet).
+static int squadWho(int k) { return squadOrder[k] == 0 ? -1 : squadOrder[k] - 1; }
+static bool whoMoves(int who, const uint8_t **mv, uint8_t *ups, const CreatureUid **uid) {
+  if (who < 0) { if (pet.isEgg()) return false; *mv = pet.moves; *ups = pet.ppUps; *uid = &pet.uid; return true; }
+  if (who >= PARTY_SLOTS || party.slots[who].empty()) return false;
+  *mv = party.slots[who].moves; *ups = party.slots[who].reserved[1]; *uid = &party.slots[who].uid; return true;
+}
+// Between League fights: an ETHER on any fighter's move that is under half.
+static void useEthers() {
+  for (int k = 0; k < squadOrderN && bag.count(IT_ETHER); k++) {
+    int who = squadWho(k);
+    const uint8_t *mv; uint8_t ups; const CreatureUid *uid;
+    if (!whoMoves(who, &mv, &ups, &uid)) continue;
+    for (int s = 0; s < MOVE_SLOTS && bag.count(IT_ETHER); s++) {
+      if (!mv[s] || mv[s] >= MOVE_COUNT || MOVE_TBL[mv[s]].power == 0) continue;
+      uint8_t u = ppUpsAt(ups, s);
+      if (ppLeftSlot(*uid, (uint8_t)s, mv[s], u) * 2 >= ppMaxFor(mv[s], u)) continue;
+      if (pickItemOnSlot(IT_ETHER, who, s)) nEtherUsed++; else { nUiMiss++; break; }
+      whoMoves(who, &mv, &ups, &uid);
+    }
+  }
 }
 // Spending what is left over a reserve (balls, stones and cords come first, in
 // session()): X items before a gym, then vitamins on the team, then PP Ups on
@@ -409,6 +435,25 @@ static bool ppUpOnSlot(int who, int slot) {
 static const uint32_t RESERVE = 30000;
 static void spendSurplus() {
   if (pet.isEgg()) return;
+  // PP UP first (v3.94 rerun): a permanent boost to the creatures that fight,
+  // which the League's no-refill run makes count. Each fighter's strongest
+  // attack with room, two a session at most.
+  spendBucket = &outPpUp;
+  for (int n = 0; n < 2 && pet.wallet > RESERVE + itemEntry(IT_PPUP).price; n++) {
+    int bestWho = -2, bestSlot = -1, bestPow = 0;
+    for (int k = 0; k < squadOrderN; k++) {
+      int who = squadWho(k);
+      const uint8_t *mv; uint8_t ups; const CreatureUid *uid;
+      if (!whoMoves(who, &mv, &ups, &uid)) continue;
+      for (int s = 0; s < MOVE_SLOTS; s++) {
+        if (!mv[s] || mv[s] >= MOVE_COUNT || mv[s] == MV_STRUGGLE || ppUpsAt(ups, s) >= PP_UPS_MAX) continue;
+        if (MOVE_TBL[mv[s]].power > bestPow) { bestPow = MOVE_TBL[mv[s]].power; bestWho = who; bestSlot = s; }
+      }
+    }
+    if (bestSlot < 0) break;
+    if (!bag.count(IT_PPUP) && !buy(IT_PPUP)) break;
+    if (pickItemOnSlot(IT_PPUP, bestWho, bestSlot)) nPpUp++; else { nUiMiss++; break; }
+  }
   spendBucket = &outX;
   if (pet.wallet > RESERVE + 8000) {
     if (bag.count(IT_XATTACK) < 3) buy(IT_XATTACK, 3 - bag.count(IT_XATTACK));
@@ -438,19 +483,6 @@ static void spendSurplus() {
          (unsigned)bestK, bestWho, bestGap, party.count(), m ? m->dex : pet.speciesId, pet.isEgg(), pet.sleeping, bag.count(bestK), missScrBag, missVitPick, missScrRing,
          pet.hasLearnOffer(), (int)pet.ceremony, bagPage, bag.distinctCount());
       break;
-    }
-  }
-  // PP Up: only with real surplus, on the live pet's strongest move
-  spendBucket = &outPpUp;
-  if (pet.wallet > RESERVE + 100000) {
-    int slot = -1, pow = 0;
-    for (int i = 0; i < MOVE_SLOTS; i++) {
-      uint8_t mv = pet.moves[i];
-      if (!mv || mv >= MOVE_COUNT || ppUpsAt(pet.ppUps, i) >= PP_UPS_MAX) continue;
-      if (MOVE_TBL[mv].power > pow) { pow = MOVE_TBL[mv].power; slot = i; }
-    }
-    if (slot >= 0 && (bag.count(IT_PPUP) || buy(IT_PPUP))) {
-      if (ppUpOnSlot(-1, slot)) nPpUp++; else nUiMiss++;
     }
   }
   spendBucket = &outBalls;
@@ -737,20 +769,32 @@ static void session(int s) {
     if (gymFights < (fights + 1) / 2 && gymNext(hardNow, &gr, &gi)) {
       gymFights++;
       gymRegion = gr; gymHard = hardNow;
-      uint16_t before = pet.badgeMask(gr, hardNow);
-      uint32_t w0 = pet.wallet;
-      startTrainerBattle(gi, hardNow);
-      if (!battleOpen) { ev("\"ev\":\"gym_refused\",\"r\":%u,\"i\":%u", gr, gi); continue; }
-      nFights++; nGym++;
-      int res = playFight(false);
-      bool won = pet.badgeMask(gr, hardNow) != before;
-      if (pet.wallet > w0) { moneyIn += pet.wallet - w0; inPrize += pet.wallet - w0; }
-      ev("\"ev\":\"gym\",\"r\":%u,\"i\":%u,\"hard\":%d,\"won\":%d,\"team\":%d,\"res\":%d",
-         gr, gi, hardNow ? 1 : 0, won ? 1 : 0, teamLevel(3), res);
-      // a loss: back off, longer each time in a row (1, 2, 4 ... 32 days), as a
-      // player stops throwing the same team at a leader it keeps losing to
-      if (won) { nGymWin++; lossRun[gr] = 0; }
-      else { retryDay[gr] = day() + (1 << std::min<int>(lossRun[gr], 5)); lossRun[gr]++; }
+      // A League seat (v3.94) is fought as a run from its first seat: the bot
+      // takes NEXT at once, with ETHERs between fights, until a loss or the
+      // champion.
+      uint8_t seat = gi >= LF ? LF : gi;
+      bool inLeague = seat >= LF;
+      if (inLeague) nLeague++;
+      for (;;) {
+        if (inLeague && seat > LF) useEthers();
+        uint32_t w0 = pet.wallet;
+        startTrainerBattle(seat, hardNow);
+        if (!battleOpen) { ev("\"ev\":\"gym_refused\",\"r\":%u,\"i\":%u", gr, seat); break; }
+        nFights++; nGym++;
+        int res = playFight(false);
+        bool won = btlWon && !battleOpen;
+        leagueOpen = false;                       // the bot reads no screen: NEXT is the loop
+        if (pet.wallet > w0) { moneyIn += pet.wallet - w0; inPrize += pet.wallet - w0; }
+        ev("\"ev\":\"gym\",\"r\":%u,\"i\":%u,\"hard\":%d,\"won\":%d,\"team\":%d,\"res\":%d,\"league\":%d",
+           gr, seat, hardNow ? 1 : 0, won ? 1 : 0, teamLevel(3), res, inLeague ? 1 : 0);
+        // a loss: back off, longer each time in a row (1, 2, 4 ... 32 days), as a
+        // player stops throwing the same team at a leader it keeps losing to
+        if (!won) { retryDay[gr] = day() + (1 << std::min<int>(lossRun[gr], 5)); lossRun[gr]++; break; }
+        nGymWin++; lossRun[gr] = 0;
+        if (seat == TRAINER_COUNT - 1) nChamp++;
+        if (!inLeague || leagueNext() < 0) break;
+        seat = (uint8_t)leagueNext();
+      }
       continue;
     }
     uint8_t r = 0;
@@ -761,6 +805,7 @@ static void session(int s) {
     exploreOpen = true;
     uint8_t stones0[EVO_STONE_COUNT];
     for (uint8_t i = 0; i < EVO_STONE_COUNT; i++) stones0[i] = bag.count((ItemKey)(IT_FIRESTONE + i));
+    uint8_t ether0 = bag.count(IT_ETHER);
     if (!startWildBattle(r, false)) { exploreOpen = false; continue; }
     nFights++; nWild++;
     int16_t dex = wildDex;
@@ -779,6 +824,7 @@ static void session(int s) {
            dex, wildLvl, btlWon ? 1 : 0, btlFoe.hp, teamLevel(1), bag.count(IT_POKEBALL) + bag.count(IT_GREATBALL) + bag.count(IT_ULTRABALL), safari, legend);
       }
     }
+    if (bag.count(IT_ETHER) > ether0) nEtherFound += bag.count(IT_ETHER) - ether0;
     for (uint8_t i = 0; i < EVO_STONE_COUNT; i++)
       if (bag.count((ItemKey)(IT_FIRESTONE + i)) > stones0[i]) {
         nStonesFound++;
@@ -863,14 +909,15 @@ int main(int argc, char **argv) {
            "\"pet\":%d,\"lvl\":%u,\"raised\":%d,"
            "\"in_steps\":%llu,\"in_prize\":%llu,\"in_sold\":%llu,\"out_balls\":%llu,\"out_stones\":%llu,"
            "\"out_cords\":%llu,\"out_x\":%llu,\"out_vit\":%llu,\"out_ppup\":%llu,\"out_heal\":%llu,"
-           "\"sold\":%d,\"vit\":%d,\"vit_maxed\":%d,\"x_used\":%d,\"ppup\":%d,\"heal_used\":%d,\"ui_miss\":%d",
+           "\"sold\":%d,\"vit\":%d,\"vit_maxed\":%d,\"x_used\":%d,\"ppup\":%d,\"heal_used\":%d,\"ui_miss\":%d,"
+           "\"league_runs\":%d,\"champ\":%d,\"ether_used\":%d,\"ether_found\":%d",
            registeredNow(), left, badgesE, badgesH, nFights, nWild, nCatch, nCatchFail, nGym, nGymWin, nBlack,
            nFarewell, nEvolve, nStonesFound, nStonesBought, nCords, nSwaps, pet.wallet,
            (unsigned long long)moneyIn, (unsigned long long)moneyOut, pet.speciesId, pet.level(), nRaised,
            (unsigned long long)inSteps, (unsigned long long)inPrize, (unsigned long long)inSold,
            (unsigned long long)outBalls, (unsigned long long)outStones, (unsigned long long)outCords,
            (unsigned long long)outX, (unsigned long long)outVit, (unsigned long long)outPpUp, (unsigned long long)outHeal,
-           nSold, nVit, nVitMax, nXUsed, nPpUp, nHealUsed, nUiMiss);
+           nSold, nVit, nVitMax, nXUsed, nPpUp, nHealUsed, nUiMiss, nLeague, nChamp, nEtherUsed, nEtherFound);
         fflush(stdout);
         if (left == 0) { ev("\"ev\":\"done\""); break; }
       }

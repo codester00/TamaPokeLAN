@@ -35,6 +35,7 @@ enum : uint8_t {
   // v3.91: the X items, in the battle engine's stat order (SI_ATK..SI_SPE)
   IT_XATTACK, IT_XDEFENSE, IT_XSPATK, IT_XSPDEF, IT_XSPEED,
   IT_PPUP,       // v3.92
+  IT_ETHER,      // v3.94
   ITEM_COUNT,
 };
 
@@ -47,6 +48,7 @@ enum ItemCategory : uint8_t {
   IC_STONE,      // v3.81: evolves the live pet on the spot (param: EVO_STONES index)
   IC_XSTAT,      // v3.91: an X item, in battle (param: SI_* stat, amount: stages)
   IC_PPUP,       // v3.92: one more PP Up on a move slot of the live pet or a party creature
+  IC_ETHER,      // v3.94: restores `param` PP to one move, out of battle
 };
 
 // A ball whose param is this catches without rolling. It is a sentinel rather
@@ -117,6 +119,10 @@ static const ItemEntry ITEM_TBL[ITEM_COUNT] = {
   // PP UP (v3.92): a fifth more of the move's base PP, three a move (pp.h).
   // $10,000 is Scarlet/Violet's, the only game that sells it. Mart only.
   { "PP UP",        IC_PPUP,  0,                      1, 0,  10000 },
+  // ETHER (v3.94): 10 PP back to one move, the games' amount. A rare wild drop
+  // only (owner), never sold -- so, like the Master Ball, never bought back.
+  // Out of battle only: between League fights is what it is for.
+  { "ETHER",        IC_ETHER, 10,                     0, 2,  0 },
 };
 
 inline bool itemValid(ItemKey k) { return k > ITEM_NONE && k < ITEM_COUNT; }
@@ -134,7 +140,8 @@ inline bool itemUsableInField(ItemKey k) {
   return itemValid(k) && (itemEntry(k).category == IC_TRAIN ||
                           itemEntry(k).category == IC_LINK ||
                           itemEntry(k).category == IC_STONE ||
-                          itemEntry(k).category == IC_PPUP);
+                          itemEntry(k).category == IC_PPUP ||
+                          itemEntry(k).category == IC_ETHER);
 }
 // Usable from inside a fight. Training is permanent and belongs to the care
 // sim, so it stays out of the battle bag.

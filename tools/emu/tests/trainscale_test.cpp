@@ -18,6 +18,8 @@ String FakeSerial::readStringUntil(char) { return String(""); }
 
 void setup();
 void startTrainerBattle(uint8_t idx, bool hard);
+// v3.94: a League seat is fought inside a run; this puts one in place.
+void leagueDbgAt(uint8_t region, bool hard, uint8_t seat); void leagueEnd(); extern uint8_t gymRegion;
 bool startWildBattle(uint8_t region, bool hard);
 extern Pet pet;
 extern Combatant btlFoe;
@@ -45,12 +47,14 @@ int main() {
   squadMask = 1;
 
   const Trainer &lance = TRAINER_SETS[0].list[11];
+  leagueDbgAt(gymRegion, false, 11);
   startTrainerBattle(11, false);
   ck(battleOpen && btlFoe.dex == lance.team[0].dex, "an easy Lance fight opened");
   int t = trainingOf(btlFoe, EASY_IV);
   ck(t == 0, "an easy leader fights untrained");
   battleOpen = false;
 
+  leagueDbgAt(gymRegion, true, 11);
   startTrainerBattle(11, true);
   t = trainingOf(btlFoe, HARD_IV);
   char w[80]; snprintf(w, sizeof w, "a hard leader fights fully trained (got %d)", t);

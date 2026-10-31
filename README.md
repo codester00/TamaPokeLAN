@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.93-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.94-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -120,7 +120,8 @@ jingle, and the Game Corner's theme in the halls.
 | <img src="docs/screens/gympick.png" width="240"> | <img src="docs/screens/gymsj.png" width="240"> | <img src="docs/screens/lanready.png" width="240"> |
 
 Every region has eight leaders, an Elite 4 and a champion, on easy and hard.
-Four of the nine are the games' own
+**The Elite 4 and the champion are one run** (v3.94) — see "The League run"
+below. Four of the nine are the games' own
 teams, checked against the pokecrystal, pokeemerald and pokeplatinum
 disassemblies — **0 differences across all 39 verified trainers**, re-checkable
 with `tools/verify_rosters.py`.
@@ -577,6 +578,28 @@ PP Ups belong to the creature (they travel with it through the party, Bill's PC,
 trades and LAN battles) and to the move SLOT: teaching a new move in that slot
 keeps them, which is simpler than the games, where a forgotten move loses its
 PP Ups. A trade or a LAN battle needs v3.92 on both boards.
+
+**ETHER** (since v3.94): **10 PP back to one move**, never past its max, from the
+bag outside a fight (whose, then which move, like PP UP). **Wild drops only**, at
+drop weight 2 of 122 (about 1.6% an item drawn), never sold — so, like the
+Master Ball, the Mart does not buy it either.
+
+**The League run** (v3.94). The **Elite 4 and the champion are fought in one
+run**, as in the games. Challenging the first Elite 4 member starts it; each
+win moves it to the next seat, and the five must fall in order. Between fights
+the League screen offers **NEXT** (the next seat, the same team), **BAG** and
+**GIVE UP** (two taps). **HP comes back every fight, as always; PP does not**:
+during a run the bed button is refused and nothing refills PP, even if the
+creature dozes off with the screen off. That is what PP UP and ETHER are for.
+The run ends on a **loss** (Mom's blackout, as ever), **GIVE UP**, the
+**champion's defeat**, **an hour** after it started, or a restart of the board.
+**Badges are kept the moment they are won**, but a seat past the first is only
+reached inside a run, so the next run starts at the first Elite 4 member again
+— and since that badge is held, the win pays the **rematch half**. The gym list
+reads **BEAT ALL IN ONE RUN** on those seats; while a run is on, tapping any of
+them opens the League screen. Easy and hard keep separate runs, and the region
+and difficulty a run started on are the only ones it opens. Fights go on
+carrying their PP outside the League as before.
 
 **The battle AI and healing.** The smart AI heals when it is hurt, as it always
 has; what ends a heal loop is **PP**: RECOVER has 5, so a leader can heal five

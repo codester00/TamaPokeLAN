@@ -118,6 +118,9 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 - **v3.93** A move offer waiting under another screen took that screen's taps
   (`onTap()` now asks `uiCurrentScreen()`, which follows `render()`'s order);
   `SCREEN_NAME` named only 30 of 35 screens. Found by the playthrough rerun.
+- **v3.94** The League run (Elite Four + champion in one run; no rest or PP
+  refill during it; `gymSeatOpen()`, `leagueActive()`), and ETHER (a rare drop,
+  10 PP to one move). Owner's option (b).
 
 ### NEXT, agreed with the owner 2026-10-30, in this order
 

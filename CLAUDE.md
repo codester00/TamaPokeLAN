@@ -935,6 +935,39 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: the League run, and ETHER (v3.94, on the branch)
+
+Owner, 2026-10-30, option (b): the Elite Four and the champion in one run, so
+PP UP matters. `league_test` (a whole run through `battleTap()` and the League
+screen's taps: the gate, the badge, the pay, no refill, ETHER, NEXT, a loss, a
+rematch, the champion, GIVE UP, the hour, hard vs easy); `flush_test` has the
+screen. Eight guards negative-checked; ETHER's own cap was redundant (the book
+caps on record) and is gone -- the book's clamp is what was checked.
+
+- **`gymSeatOpen(region, idx, hard)` is THE challengeable rule**: the gym list's
+  drawing and tapping and **`startTrainerBattle()`** (every way into a trainer
+  fight, the bot included) ask it. Before the League (`LEAGUE_FIRST` =
+  `TRAINER_COUNT - TRAINER_ELITE4 - 1`) the old badge-before rule; the first
+  League seat with the eighth badge; a later seat only as the run's `next`.
+- **The run** (`LeagueRun league`, RAM only): `leagueBegin()` when
+  `startTrainerBattle()` opens the first seat with no run; `leagueAfterFight()`
+  in `btlResolve()`'s end (after the prize, not LAN) moves `next` or ends it;
+  `leagueActive()` is THE "is a run on" answer and ends one past `LEAGUE_RUN_MS`
+  (60 min). Ends: a loss, GIVE UP (two taps), the champion, the hour, a reboot.
+  Badges are kept as won; the rematch half pay is `trainerPrize()`'s own rule.
+- **No rest, no refill**: `uiButtonDisabled(BTN_LIGHT)` refuses bed while a run
+  is on (waking still works); `ppHoldRefill()` (pp.cpp) makes `ppRefillAll()` a
+  no-op, which also covers the screen-off auto-sleep. HP still resets per fight.
+- **`SCR_LEAGUE`** (`renderLeague`/`leagueTap`, `leagueBtnRect()` for tests),
+  opened by the win screen's dismiss while a run is on and by tapping a League
+  row during one. In `render()`, `uiCurrentScreen()` and `onTap()` it sits after
+  the bag (BAG opens the bag over it) and before the gym list. Down =
+  `leagueLeave()` (the gym list, run still on); across = the tile axis.
+- **ETHER** (`IT_ETHER`, `IC_ETHER`, param 10, drop weight 2, price 0 = never
+  sold or bought): through the PP UP move pick (`ppPickItem`), applied by
+  `etherOn()` through the PP book. Field only -- in a fight it would need a
+  move pick in the battle bag, not built.
+
 ### Done: a move offer under another screen, and screen names (v3.93, on the branch)
 
 Found by the v3.92 playthrough rerun: the bot's vitamin tap on the party ring

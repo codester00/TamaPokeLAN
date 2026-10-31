@@ -25,6 +25,8 @@ void setup(); void render();
 void onTap(int16_t x, int16_t y);
 void startBattle(int16_t dex, uint8_t lvl);
 void startTrainerBattle(uint8_t idx, bool hard);
+// v3.94: a League seat is fought inside a run; this puts one in place.
+void leagueDbgAt(uint8_t region, bool hard, uint8_t seat); void leagueEnd(); extern uint8_t gymRegion;
 bool startWildBattle(uint8_t region, bool hard);
 int8_t btlIndoorScene();
 int btlIndoorY();
@@ -71,6 +73,7 @@ int main() {
   bool seats = true;
   for (uint8_t i = 0; i < TRAINER_COUNT; i++) {
     ready();
+    if (i >= TRAINER_COUNT - TRAINER_ELITE4 - 1) leagueDbgAt(gymRegion, i & 1, i); else leagueEnd();
     startTrainerBattle(i, i & 1);
     if (!battleOpen || btlSceneIndoor != want[i]) {
       printf("  seat %u: scene %d, want %d\n", i, btlSceneIndoor, want[i]);
@@ -88,6 +91,7 @@ int main() {
   ck(lead == 113, "a gym leader's fight draws the gym on the panel");
   closeFight();
   ready();
+  leagueDbgAt(gymRegion, false, TRAINER_COUNT - 1);
   startTrainerBattle(TRAINER_COUNT - 1, false);
   render();
   int champ = rowMatches(INDOOR_BACKS[INDOOR_CHAMPION]);

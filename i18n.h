@@ -304,6 +304,8 @@ enum StrId : uint16_t {
   S_MART_TAB_BUY, S_MART_TAB_SELL, S_MART_SELL_Q, S_MART_PAYS_FMT, S_MART_NOTHING,  // selling (v3.90)
   S_VIT_PICK, S_VIT_LIVE,  // a vitamin's target, on the party ring (v3.91)
   S_PPUP_PICK,  // PP UP's move (v3.92)
+  S_LEAGUE_TITLE, S_LEAGUE_DONE_FMT, S_LEAGUE_NEXT_FMT, S_LEAGUE_TIME_FMT,   // the League run (v3.94)
+  S_LEAGUE_GO, S_LEAGUE_QUIT, S_LEAGUE_SURE, S_LEAGUE_ROW,
   STR_COUNT
 };
 

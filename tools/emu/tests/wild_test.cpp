@@ -56,9 +56,12 @@ int main(){
 
   // ---- weighted drops ------------------------------------------------------
   uint32_t total = grown.weightTotal();
-  ck(total == 120, "the drop table weighs what the catalogue says");
+  ck(total == 122, "the drop table weighs what the catalogue says");
   ck(grown.weightedDrop(0)==IT_POKEBALL, "roll 0 lands on the first weight");
-  ck(grown.weightedDrop(total-1)==IT_CARBOS, "and the last roll on the last");
+  ck(grown.weightedDrop(total-1)==IT_ETHER, "and the last roll on the last");
+  uint32_t ether = 0;
+  for (uint32_t r=0;r<total;r++) if (grown.weightedDrop(r)==IT_ETHER) ether++;
+  ck(ether==2, "the ETHER is two rolls in the table (v3.94): rare");
   // The Master Ball is weight 1 of 120: it must be reachable and must not be
   // reachable one roll either side, or "rare" is an accident of arithmetic.
   uint32_t master = 0;
@@ -66,9 +69,9 @@ int main(){
   ck(master==1, "the master ball is exactly one roll in the whole table");
 
   ItemKey ex[1] = { IT_POKEBALL };
-  ck(grown.weightTotal(ex,1)==90, "excluding an item removes its weight");
+  ck(grown.weightTotal(ex,1)==92, "excluding an item removes its weight");
   bool never=true;
-  for (uint32_t r=0;r<90;r++) if (grown.weightedDrop(r,ex,1)==IT_POKEBALL) never=false;
+  for (uint32_t r=0;r<92;r++) if (grown.weightedDrop(r,ex,1)==IT_POKEBALL) never=false;
   ck(never, "and it can no longer be drawn");
 
   // ---- shiny ---------------------------------------------------------------
