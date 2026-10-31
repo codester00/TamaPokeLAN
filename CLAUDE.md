@@ -935,6 +935,27 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: hard leaders' training tuned per region (v3.95, on the branch)
+
+Owner, 2026-10-31: a player who does everything right should win the hard
+League almost every time, one who optimises nothing should hardly ever win.
+Targets: OPTIMAL (six picked by matchup, IV 31, training 100, TMs) 90-100%;
+CASUAL (six random final forms of base stats 470-540, IV 16, training 50,
+level-up moves only) ~10%.
+
+- **`HARD_TRAINING[GYM_REGIONS]`** (trainers.h) replaces `trMaxFor(HARD_IV)`
+  (100) in `foeFromSpecies()`, which now takes the region: Kanto 45, Johto 45,
+  Hoenn 30, Sinnoh 20, Unova 30, Kalos 25, Alola 30, Galar 20, Paldea 20. IVs
+  stay 31, the smart AI stays. Both callers pass the fight's region.
+- **Measured by `tools/emu/league_sim.cpp`**: `LS_SWEEP=1 LS_REGION=r` sweeps
+  the training 0-100 for both profiles; `LS_VERIFY=1` checks the table (60
+  optimal runs, 300 casual, and each gym alone). Verified: optimal 100% in
+  every region, casual 6-14%. At 100 casual was 0% everywhere. Re-measure after
+  any roster or battle-engine change.
+- **The hard gyms share it**, so a casual team now beats most single hard gyms
+  (50-100% each). Flagged to the owner; a separate gym value is one table more.
+- `trainscale_test` reads the table and checks a second region differs.
+
 ### Done: the League run, and ETHER (v3.94, on the branch)
 
 Owner, 2026-10-30, option (b): the Elite Four and the champion in one run, so

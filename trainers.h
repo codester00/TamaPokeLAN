@@ -351,3 +351,22 @@ static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
 // teams need no second table -- only the difficulty flag changes.
 #define HARD_IV 31
 #define EASY_IV 16
+// A hard leader's training, per region (v3.95, owner's targets): tuned with
+// tools/emu/league_sim.cpp (LS_SWEEP) so that in a hard League run a team
+// picked by type, IV 31, fully trained and with its TMs wins ~90-100%, and six
+// random final forms at IV 16, training 50 and level-up moves only win ~10%.
+// The ladders differ in strength, so one number would leave Kanto easy and
+// Sinnoh hard. Was trMaxFor(HARD_IV) = 100 everywhere, which the optimal team
+// still beat but no ordinary one ever did. Re-measure after any roster change.
+static const uint8_t HARD_TRAINING[] = {
+  45,   // Kanto
+  45,   // Johto
+  30,   // Hoenn
+  20,   // Sinnoh
+  30,   // Unova
+  25,   // Kalos
+  30,   // Alola
+  20,   // Galar
+  20,   // Paldea
+};
+static_assert(sizeof(HARD_TRAINING) == GYM_REGIONS, "one hard training per ladder");

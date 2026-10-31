@@ -35,6 +35,10 @@ int FakeSerial::available() { return 0; } String FakeSerial::readStringUntil(cha
 void sfxPlay(uint8_t) {}
 
 static const int LF = TRAINER_COUNT - TRAINER_ELITE4 - 1;
+// The hard leaders' training, for the sweep (LS_SWEEP); the firmware's value by default.
+static int gFoeTr = -1;
+static uint8_t gRegion = 0;
+static uint8_t foeTr() { return gFoeTr >= 0 ? (uint8_t)gFoeTr : HARD_TRAINING[gRegion]; }
 enum Moves { M_FULL, M_LEVELUP };
 static void mk(Combatant &c, int16_t dex, uint8_t lvl, uint8_t iv, uint8_t tr, Moves mv) {
   Pet p; p.dbgHatchAs(dex, false);
@@ -75,6 +79,7 @@ static bool fight(Combatant *us, uint8_t nu, Combatant *them, uint8_t nt) {
 struct Build { uint8_t iv, tr; Moves mv; };
 // One whole run. PP carried per team member across the five fights.
 static int run(uint8_t region, const std::vector<int16_t> &team, Build bd) {
+  gRegion = region;
   const Trainer *T = TRAINER_SETS[region].list;
   uint8_t ppLeft[6][MOVE_SLOTS]; bool fresh[6] = { true, true, true, true, true, true };
   for (int seat = LF; seat < TRAINER_COUNT; seat++) {
@@ -85,7 +90,7 @@ static int run(uint8_t region, const std::vector<int16_t> &team, Build bd) {
       mk(us[i], team[i], cap, bd.iv, bd.tr, bd.mv);
       if (!fresh[i]) memcpy(us[i].pp, ppLeft[i], sizeof(ppLeft[i]));
     }
-    for (int k = 0; k < t.count; k++) mk(them[k], t.team[k].dex, t.team[k].level, HARD_IV, Pet::trMaxFor(HARD_IV), M_FULL);
+    for (int k = 0; k < t.count; k++) mk(them[k], t.team[k].dex, t.team[k].level, HARD_IV, foeTr(), M_FULL);
     bool won = fight(us, n, them, t.count);
     for (int i = 0; i < n; i++) { memcpy(ppLeft[i], us[i].pp, sizeof(ppLeft[i])); fresh[i] = false; }
     if (!won) return seat - LF;          // seats beaten
@@ -104,6 +109,90 @@ int main() {
     pool.push_back(d);
   }
   printf("pool: %zu final forms, BST >= 470%s, no legendaries\n", pool.size(), getenv("LS_BST_MAX") ? " and <= LS_BST_MAX" : "");
+  // LS_SWEEP: for one region (LS_REGION), the two player profiles the owner set
+  // targets for, at each hard-leader training level: OPTIMAL (the matchup six,
+  // IV 31, training 100, TMs; target 90-100%) and CASUAL (six random final
+  // forms, IV 16, training 50, level-up moves only; target ~10%).
+  // LS_VERIFY: the firmware's HARD_TRAINING, with more samples, for one region:
+  // the League run for both profiles, and each of the eight gyms on its own.
+  if (getenv("LS_VERIFY")) {
+    uint8_t r = (uint8_t)atoi(getenv("LS_REGION") ? getenv("LS_REGION") : "0");
+    gRegion = r;
+    const Trainer *T = TRAINER_SETS[r].list;
+    uint8_t cap = capOf(T[TRAINER_COUNT - 1]);
+    std::vector<std::pair<int, int16_t>> sc;
+    for (int16_t d : pool) {
+      int w = 0;
+      for (int seat = LF; seat < TRAINER_COUNT; seat++)
+        for (int k = 0; k < T[seat].count; k++) {
+          Combatant A, B;
+          mk(A, d, cap, 31, 100, M_FULL);
+          mk(B, T[seat].team[k].dex, T[seat].team[k].level, HARD_IV, foeTr(), M_FULL);
+          w += fight(&A, 1, &B, 1);
+        }
+      sc.push_back({ w, d });
+    }
+    std::sort(sc.rbegin(), sc.rend());
+    std::vector<int16_t> best;
+    for (int i = 0; i < 6; i++) best.push_back(sc[i].second);
+    const Build OPT = { 31, 100, M_FULL }, CAS = { 16, 50, M_LEVELUP };
+    auto randomSix = [&]() { std::vector<int16_t> t;
+      while (t.size() < 6) { int16_t d = pool[random(pool.size())]; if (std::find(t.begin(), t.end(), d) == t.end()) t.push_back(d); }
+      return t; };
+    int wo = 0, wc = 0; const int RO = 60, RC = 300;
+    for (int i = 0; i < RO; i++) wo += run(r, best, OPT) == 5;
+    for (int i = 0; i < RC; i++) wc += run(r, randomSix(), CAS) == 5;
+    printf("%-7s hard training %3u  LEAGUE optimal %3d%%  casual %3d%%  | gyms casual:", RN[r], HARD_TRAINING[r], wo * 100 / RO, wc * 100 / RC);
+    for (int seat = 0; seat < LF; seat++) {   // a gym on its own: fresh HP and PP, the casual six
+      const Trainer &t = T[seat]; int w = 0; const int RG = 100;
+      for (int i = 0; i < RG; i++) {
+        std::vector<int16_t> tm = randomSix();
+        uint8_t n = (uint8_t)std::min<int>(t.count, 6); Combatant us[6], them[6];
+        for (int k = 0; k < n; k++) mk(us[k], tm[k], capOf(t), CAS.iv, CAS.tr, CAS.mv);
+        for (int k = 0; k < t.count; k++) mk(them[k], t.team[k].dex, t.team[k].level, HARD_IV, foeTr(), M_FULL);
+        w += fight(us, n, them, t.count);
+      }
+      printf(" %d", w);
+    }
+    printf("%%\n");
+    return 0;
+  }
+  if (getenv("LS_SWEEP")) {
+    uint8_t r = (uint8_t)atoi(getenv("LS_REGION") ? getenv("LS_REGION") : "0");
+    const Trainer *T = TRAINER_SETS[r].list;
+    uint8_t cap = capOf(T[TRAINER_COUNT - 1]);
+    std::vector<std::pair<int, int16_t>> sc;
+    gFoeTr = 50;                          // pick the six against a middling League
+    for (int16_t d : pool) {
+      int w = 0;
+      for (int seat = LF; seat < TRAINER_COUNT; seat++)
+        for (int k = 0; k < T[seat].count; k++) {
+          Combatant A, B;
+          mk(A, d, cap, 31, 100, M_FULL);
+          mk(B, T[seat].team[k].dex, T[seat].team[k].level, HARD_IV, foeTr(), M_FULL);
+          w += fight(&A, 1, &B, 1);
+        }
+      sc.push_back({ w, d });
+    }
+    std::sort(sc.rbegin(), sc.rend());
+    std::vector<int16_t> best;
+    for (int i = 0; i < 6; i++) best.push_back(sc[i].second);
+    const int RO = 40, RC = 100;
+    const Build OPT = { 31, 100, M_FULL }, CAS = { 16, 50, M_LEVELUP };
+    for (int tr = 0; tr <= 100; tr += 10) {
+      gFoeTr = tr; gRegion = r;
+      int wo = 0, wc = 0;
+      for (int i = 0; i < RO; i++) wo += run(r, best, OPT) == 5;
+      for (int i = 0; i < RC; i++) {
+        std::vector<int16_t> t;
+        while (t.size() < 6) { int16_t d = pool[random(pool.size())]; if (std::find(t.begin(), t.end(), d) == t.end()) t.push_back(d); }
+        wc += run(r, t, CAS) == 5;
+      }
+      printf("%s foeTr %3d  optimal %3d%%  casual %3d%%\n", RN[r], tr, wo * 100 / RO, wc * 100 / RC);
+      fflush(stdout);
+    }
+    return 0;
+  }
   const int R = 40;
   for (uint8_t r = 0; r < GYM_REGIONS; r++) {
     const Trainer *T = TRAINER_SETS[r].list;
@@ -116,7 +205,7 @@ int main() {
         for (int k = 0; k < T[seat].count; k++) {
           Combatant A, B;
           mk(A, d, cap, 31, 100, M_FULL);
-          mk(B, T[seat].team[k].dex, T[seat].team[k].level, HARD_IV, Pet::trMaxFor(HARD_IV), M_FULL);
+          mk(B, T[seat].team[k].dex, T[seat].team[k].level, HARD_IV, foeTr(), M_FULL);
           w += fight(&A, 1, &B, 1);
         }
       sc.push_back({ w, d });
