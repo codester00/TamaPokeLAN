@@ -121,6 +121,14 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
 - **v3.94** The League run (Elite Four + champion in one run; no rest or PP
   refill during it; `gymSeatOpen()`, `leagueActive()`), and ETHER (a rare drop,
   10 PP to one move). Owner's option (b).
+- **Hard League measured** (`tools/emu/league_sim.cpp`, 2026-10-31; build it
+  like `ladder_sim.cpp`, `LS_BST_MAX=540` for ordinary species): a six picked
+  by matchup at IV 31 / training 100 wins the hard run 87-100% in six regions
+  (Alola 45%, Sinnoh 0% with ordinary species, 67% with the strongest); the
+  same six at IV 16 / training 50 -- what the playthrough bot fields -- wins
+  0-32%. TMs barely matter. Hard leaders are IV 31 and fully trained, and only
+  an IV 31 creature can reach training 100 (`trMaxFor()`), so hard demands
+  perfect-IV creatures. Raised with the owner; nothing changed yet.
 
 ### NEXT, agreed with the owner 2026-10-30, in this order
 
