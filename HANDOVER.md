@@ -189,6 +189,25 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
      taps the centre and the edges of each drawn pill (trap 3: ask the drawing
      function's rect, never re-type its numbers), and remember the emulator
      cannot see finger accuracy (trap 4).
+   - **The rock-breaking training game freezes** (owner, 2026-11-02; most
+     likely ROCK SMASH, the str+spe hybrid in `TRAIN_GAMES` -- confirm the name
+     with the owner). No details yet: ask whether the panel stops drawing (a
+     missing `gfx->flush()` -- `flush_test` should cover every `MG_*` state)
+     or input stops answering, and when (start, mid-round, the result screen).
+     If it reboots, the `boot:` / `CRASH:` breadcrumb names the screen.
+   - **Verify the energy cost of every training game.** Each game in
+     `TRAIN_GAMES` should charge the same rule through one place (`mgPay()` ->
+     `Pet::trainSplit()` / `playJoyGame()`, and the four single-stat games'
+     own paths): list what each actually costs, check none is free or charged
+     twice, that "nothing earned, nothing charged" holds everywhere, and that a
+     game refused for low energy is refused before it starts. Test the CALLER
+     (play each through its screen), not the rule.
+   - **Verify the result message of every minigame.** Every game's end screen
+     should say what was gained, and a zero must say why (JOY MAX, BOND MAX
+     TODAY, a stat's MAX -- v3.37's `gainPart()` / `joyGainText()`). Check all
+     games use it, including the single-stat games and Berry Catch, that the
+     numbers shown equal what was applied, and that the text fits the panel
+     in all six languages (`Arduino_Canvas::textLog` reads it).
 - **From the playthrough, the owner's call**: Slowking (Linking Cord on a
   Slowpoke) and Kleavor (Black Augurite before any cord) are invisible to a
   player who does not know; the wallet caps at $999,999 by day 154-518; hard
