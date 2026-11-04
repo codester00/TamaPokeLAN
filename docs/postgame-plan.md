@@ -1,4 +1,4 @@
-# The post-game Battle Zone, and the Hall -- PLAN ONLY (draft 3, 2026-11-04)
+# The post-game Battle Zone, and the Hall -- PLAN ONLY (draft 4, 2026-11-04)
 
 Agreed with the owner in conversation on 2026-11-04. Nothing here is built.
 Where this and CLAUDE.md differ, this wins for the post-game. Open questions
@@ -36,7 +36,20 @@ them.
   odd). GYM keeps only the region ladders. The new tile lists LAN BATTLE, LAN
   TRADE (today a button inside the LAN screen), BATTLE HALL and BATTLE ZONE
   (greyed "REQUIRES EVERY CHAMPION" until open, per the locked-never-hidden
-  rule). **Named PLAZA** (owner, draft 3), at `... GYM . PLAZA . DEX`. `TILE[]` and
+  rule). **Named PLAZA** (owner, draft 3).
+- **The tile axis is reordered** (owner, draft 4): admin to the LEFT of the
+  pet, battles to the RIGHT, the most used nearest the pet:
+  `MART . DEX . PC . [PET] . EXPLORE . GYM . PLAZA` as asked, or
+  `DEX . MART . PC . [PET] ...` if the Mart becomes easy to swipe past (see
+  below). PC is today's PARTY tile (the party ring, its hub opens Bill's PC).
+  **OPEN: the PLAYER card**, which the owner's order leaves out (today it is
+  the leftmost tile). **OPEN: why the Mart is hard to swipe past** -- its rows
+  are not swipe-guarded (`uiOnControl()` knows only the region choosers), so
+  the likeliest cause is the rim: the Mart pages, and any drag that STARTS
+  within ~47 px of the edge (`RIM_R0` 186) is a page turn, not a tile move.
+  Find out on a board which it is before choosing between the two orders.
+  `TILE[]`, `uiTileGo()`, `uiRimTarget()`, the pet screen's neighbour names,
+  `swipe_test` and the tile dots all follow the one table. `TILE[]` and
   `uiTileGo()`/`uiRimTarget()` are the one-table edit the gesture notes promise;
   `swipe_test` and the tile dots follow.
 - **Entry fees in Pokedollars**, BP for wins. Prices and pay set by the
@@ -110,7 +123,7 @@ them.
   first successful run of that day's challenge**. Custom rules: 1x BP.
   **The 2x belongs to the day the run STARTED** (owner, draft 2): a daily run
   begun Monday pays 2x until it ends, even on Wednesday; the next run started
-  gets the day's own challenge then. **OPEN: what "successful" means** --
+  gets the day's own challenge then. "Successful" means
   **the first daily run that beats at least one challenger claims the day's 2x**
   (a run that loses its first battle leaves the bonus unclaimed), and that run
   keeps it for its whole life (owner agreed, draft 3).
@@ -162,9 +175,9 @@ them.
   `LinkMon` flags so a LAN rival sees it.
 - **Each battle costs energy, and a run spans sittings** (owner, draft 3). The
   run (rung, types done) is saved between battles; a tired pet rests and
-  continues. **OPEN: the Hall's PP** -- suggested the real PP book, as a gym
-  fight uses, so resting between sittings refills it naturally (the zone's
-  separate PP rule is for the zone only).
+  continues. **The Hall uses the real PP book**, as a gym fight does, so a nap
+  between sittings refills it (owner, draft 4); the zone's separate PP rule is
+  for the zone only.
 
 ## 5. Prize counter
 
@@ -184,8 +197,9 @@ them.
 
 ## 6. Build order (proposed)
 
-0. The new tile: GYM keeps the ladders; LAN BATTLE / LAN TRADE / BATTLE HALL
-   (stub) / BATTLE ZONE (locked) move to it.
+0. The tile axis: the new order, and the PLAZA tile (GYM keeps the ladders;
+   LAN BATTLE / LAN TRADE / BATTLE HALL (stub) / BATTLE ZONE (locked) move to
+   it).
 1. The player picks their replacement after a faint, everywhere including LAN
    (protocol bump); the AI picks its replacement by matchup.
 2. The zone shell: gate, code, landing page, BP, entry fees, prize counter,
