@@ -4,8 +4,9 @@ Written 2026-08-20, updated through 2026-08-23, so work could resume after a
 restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 **authoritative wherever the two disagree**.
 
-> **§ 1g is the newest (2026-10-30, v3.84) and describes the repo as it is
-> now. Read it first, then § 1f (v3.74), whose working rules still hold.** § 1e (2026-10-20) is the state before it and still holds
+> **§ 1h is the newest (2026-11-04, v3.97) and describes the repo as it is
+> now. Read it first, then § 1g (v3.92) and § 1f (v3.74), whose working rules
+> still hold.** § 1e (2026-10-20) is the state before it and still holds
 > the cloud-container build setup. § 1d (2026-10-12) is the state before it; everything below
 > that is history, kept for the reasoning.
 >
@@ -34,6 +35,116 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 > too.
 
 ---
+
+## 1h. START HERE -- handoff as of v3.97 (2026-11-04)
+
+### State
+
+- **`main` = the branch = v3.97**, fast-forwarded, installer rebuilt (`web/`
+  serves 3.97). Development branch: `ccr-c2040abf-fdum6b` (a new session gets its
+  own name from the harness; branch from `main`). **Nothing is tagged** past
+  v3.28 -- the owner holds tags on GitHub Actions minutes. Release notes exist for
+  every version through `docs/release-notes/v3.97.md`.
+- Every suite passes (102), the firmware compiles (80% of the app partition).
+  **None of v3.75-v3.97 has run on a board** except what the owner reports.
+- The owner works one version per change, reads the release notes, and decides
+  balance. Follow § 1f "How the owner works".
+
+### How to work here (cloud container)
+
+- **Build the firmware through the symlink** `/home/user/TamaPoke ->
+  /home/user/TamaPokeLAN` (arduino-cli needs the folder named after the .ino):
+  `cd /home/user/TamaPoke && arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashSize=16M,PSRAM=opi,PartitionScheme=app3M_fat9M_16MB" .`
+  (create the symlink if a fresh container lacks it). The "Error initializing
+  instance / downloading index" lines are the offline container, not failures;
+  read `rc` and "Sketch uses".
+- **Tests while developing: `bash tools/emu/tests/prun.sh . [word]`** (~3 min for
+  all, parallel, no firmware compile). `run.sh` is the full one (compiles the
+  firmware first, over an hour here). A new sketch-linked suite must be added to
+  `needs_sketch()` in `run.sh` (prun reads it from there).
+- **Negative checks: `bash tools/emu/tests/neg.sh . <word> <file> 'old' 'new'`**
+  -- breaks the code, expects the suite to fail, restores. Every new guard gets
+  one. Two misses this stretch were real bad tests (one computed its expected
+  value with the function under test; one called a function instead of going
+  through the boot) -- see "Lessons" below.
+- **Installer: `cd /home/user/TamaPoke && bash tools/build_web.sh`** after the
+  last source edit, then commit, push the branch, `git push origin HEAD:main`
+  (fast-forward; check `git merge-base --is-ancestor origin/main HEAD` first).
+- **Screenshots**: `python3 tools/unpack_bundle.py` once, `bash
+  tools/make_screens.sh`, then keep only PNGs whose pixels changed (PIL compare;
+  the encoder is not byte-stable) -- CLAUDE.md § Screenshots.
+- **The League simulator** (`tools/emu/league_sim.cpp`), built with run.sh's
+  CORE sources (`g++ -std=c++17 -O2 -w -Itools/emu -I. tools/emu/league_sim.cpp
+  <CORE...> -o league_sim`): `LS_SEAT=1 LS_REGION=r` tunes each seat,
+  `LS_SEAT=1 LS_N=3 LS_FIXED=1` verifies `HARD_TRAINING`, `LS_VERIFY=1` measures
+  the League run; always with `LS_BST_MAX=540`. One region a process, 9 in
+  parallel, minutes each.
+- **The playthrough bot**: `tools/emu/playsim.sh <profile> <seed> <days>` and
+  `playsim_report.py` (§ 1g).
+
+### What v3.85-v3.97 built, one line each (details in CLAUDE.md "Done:")
+
+- 3.85 stones in every region (Bulbapedia for Unova on), rarer, Safari keeps them.
+- 3.86 pre-merge audit; EXPORT saves first; `evoaudit_test`; odds report.
+- 3.87 the playthrough bot; a move offer outliving its creature fixed.
+- 3.88 wrap-safe timers (`timers.h`), Pokedex footer/BACK.
+- 3.89 the Pokedex shows what you have (`dexObtained()`).
+- 3.90 selling at the Mart, fewer drops. 3.91 vitamins on the party, X items.
+- 3.92 PP Up per move SLOT (accepted for now -- raise again if `PartyMon` grows).
+- 3.93 a move offer under another screen; `SCREEN_NAME` complete.
+- 3.94 the League run (Elite Four + champion in one go, no rest/refill), ETHER.
+- 3.95 hard leaders' training per region. 3.96 the owner's cleanup list: Bill's
+  PC TO PC (a look moves nothing), BACK pills 44 px with one rect, training cost
+  proportional to payout + TOO TIRED below 15, every result line, Rock Smash
+  stall guard + the `slow:` console log, TRANSFORM (LAN proto 11), hard training
+  per SEAT. 3.97 every stored Ditto learns TRANSFORM at boot; Hoenn's Glacia /
+  Drake / Wallace 60/50/50 so its League run is 96%.
+
+### Decisions the owner made (do not reverse)
+
+- Hard leaders: per seat; optimal six >= 90% everywhere; casual targets 30% gym /
+  10% League, but **the easy early gyms are accepted -- no more tuning**
+  (2026-11-04). Hoenn's last three are set for the run, not the single battle.
+- TRANSFORM uses the move table's PP (not the games' 5).
+- Training cost is proportional to points paid (12 energy for a full 18);
+  TOO TIRED below 15, joy games exempt.
+- RELEASE on the sheet is narrow on purpose (rarely used, fewer misses).
+- Slowking (Linking Cord on Slowpoke) and Kleavor (Black Augurite) stay
+  unhinted; the card shows the mainline chain. The wallet cap stays $999,999.
+- PP Ups per slot for now (see 3.92 above).
+
+### Open -- what the next session should pick up
+
+1. **The board that stalls ~1 s** (Rock Smash on one board only). v3.96 prints
+   `slow: <part> took N ms on '<screen>'` on the serial console; the owner is to
+   flash v3.97 on both boards and read it (`tools/debugger/`). Fix the named part,
+   then decide whether the other minigames need `rockStep()`'s stall guard.
+2. **Board checks** never done: § 1g's list (a Safari encounter, the Applin
+   dialog, Shedinja, gender colours, an old-vs-new board trade refusing, the save
+   from v3.74) plus everything since: the TO PC button and narrow RELEASE by
+   finger, the BACK pills by finger, TOO TIRED, a LAN TRANSFORM on two boards.
+3. From § 1g's NEXT list still open: a post-game battle league (entry fees as a
+   money sink), the guide (`docs/guide-notes.md`), prices from the playthrough.
+4. Older opens still standing: the whole-screen black flicker (v3.65 note in
+   CLAUDE.md), the clock drift (CLAUDE.md B, on hold), `sendRematch()` not
+   resent (v3.57), Escavalier/Accelgor/Toucannon need art for a partner.
+
+### Lessons from this stretch
+
+- **A test must not compute its expected value with the code it tests.**
+  `trainscale_test` asked `hardTraining()` for the value it then checked
+  `hardTraining()` against; breaking the function changed both. It reads the
+  TABLE now.
+- **Test the boot, not the function the boot calls.** The Ditto backfill test
+  first called `backfillTransform()` directly and passed with the boot's call
+  deleted; it now saves a moveless Ditto and calls `setup()`.
+- **A simulation's "optimal" depends on how the team is picked.** Verification
+  picked its six against a middling leader and reported 17% for a seat that a
+  team picked against the real leader wins 90%+. Pick against what the player
+  faces.
+- **Training alone cannot make an early gym hard**: two unevolved creatures lose
+  to random final forms at full training. Levels or rosters would; the owner
+  declined.
 
 ## 1g. START HERE -- handoff as of v3.92 (2026-10-30)
 

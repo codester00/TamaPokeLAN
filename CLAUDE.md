@@ -933,7 +933,7 @@ half; Cosmoem is FORCED to whichever of Solgaleo/Lunala the player does not
 own. Revision 8: Applin/Charcadet choose at 30, Hydrapple moves to 40;
 easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
-a new session is HANDOVER.md § 1g.
+a new session is **HANDOVER.md § 1h** (v3.97, 2026-11-04).
 
 ### Done: every Ditto, and Hoenn's League (v3.97)
 
@@ -4030,9 +4030,15 @@ per save is the real fix.
 ### Tests
 
 ```bash
-bash tools/emu/tests/run.sh          # all 56 suites (sprite_test skips without sprites)
+bash tools/emu/tests/run.sh          # every suite, after a real arduino-cli compile
 bash tools/emu/tests/run.sh battle   # just matching ones
+bash tools/emu/tests/prun.sh .       # the same suites in parallel, NO firmware compile (~3 min)
+bash tools/emu/tests/neg.sh . <word> <file> 'old' 'new'   # break it on purpose: must FAIL
 ```
+
+`run.sh` takes over an hour in a cloud container (it recompiles the sketch per
+suite); use `prun.sh` while developing and compile the firmware once yourself
+before pushing (CLAUDE.md § 4: a green emulator build is not a firmware build).
 
 They compile the REAL sources against the emulator stubs, so they assert against
 `Pet`/`Party`/`Combatant` themselves rather than restating their rules. Two exist
