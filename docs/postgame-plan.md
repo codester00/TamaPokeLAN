@@ -39,7 +39,8 @@ them.
   rule). **Named PLAZA** (owner, draft 3).
 - **The tile axis is reordered** (owner, draft 4): admin to the LEFT of the
   pet, battles to the RIGHT, the most used nearest the pet:
-  **`DEX . MART . PC . [PET] . EXPLORE . GYM . PLAZA`** -- the owner's order
+  **`PLAYER . DEX . MART . PC . [PET] . EXPLORE . GYM . PLAZA`** (built in
+  v4.01) -- the owner's order
   once the Mart is easy to swipe past (PC, then the Mart, then the Pokedex,
   going left). PC is today's PARTY tile (the party ring, its hub opens Bill's
   PC). **The Mart swipe is fixed (v4.00)**: the cause was the rim, as
@@ -49,8 +50,7 @@ them.
   and paged. Flipping the scrollbar to the other side would not have helped,
   since the rim is every side. A rim drag that comes `RIM_LEAVE_PX` (28) in
   now puts back any pages it turned and resolves as a swipe (`rimswipe_test`).
-  **OPEN: the PLAYER card**, which the owner's order leaves out (today it is
-  the leftmost tile). Recommended: keep it leftmost, past the Pokedex.
+  The PLAYER card stays leftmost, past the Pokedex (owner, 2026-11-04).
   `TILE[]`, `uiTileGo()`, `uiRimTarget()`, the pet screen's neighbour names,
   `swipe_test` and the tile dots all follow the one table. `TILE[]` and
   `uiTileGo()`/`uiRimTarget()` are the one-table edit the gesture notes promise;
@@ -200,7 +200,7 @@ them.
 
 ## 6. Build order (proposed)
 
-0. The tile axis: the new order, and the PLAZA tile (GYM keeps the ladders;
+0. **DONE (v4.01)** The tile axis: the new order, and the PLAZA tile (GYM keeps the ladders;
    LAN BATTLE / LAN TRADE / BATTLE HALL (stub) / BATTLE ZONE (locked) move to
    it).
 1. The player picks their replacement after a faint, everywhere including LAN

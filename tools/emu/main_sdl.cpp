@@ -196,7 +196,7 @@ void startTrainerBattle(uint8_t idx, bool hard);
 uint8_t currentExploreRegion();
 bool startWildBattle(uint8_t region, bool hard);
 void onTap(int16_t x, int16_t y);   // the first-boot shots tap their way in
-extern bool exploreOpen, gymOpen, playerOpen, martOpen;
+extern bool exploreOpen, gymOpen, playerOpen, martOpen, plazaOpen;
 extern ItemKey martConfirmItem;
 extern bool galleryDirty;
 extern uint8_t galleryRegion;
@@ -426,6 +426,7 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
   }
   else if (!strcmp(screen, "gyms")) { gymOpen = true; }
   else if (!strcmp(screen, "gympick")) { gymOpen = true; gymPick = true; }
+  else if (!strcmp(screen, "plaza")) { plazaOpen = true; }
   else if (!strcmp(screen, "dexpick")) {
     for (int d = 1; d <= 200; d++) pet.dbgHatchAs(d, false);
     galleryOpen = true; galleryPick = true;

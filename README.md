@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.00-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.01-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -172,7 +172,7 @@ until you actually raise it.
 |---|---|
 | <img src="docs/screens/mart.png" width="240"> | <img src="docs/screens/martconfirm.png" width="240"> |
 
-Sits between EXPLORE and the gyms on the tile axis. Real steps become
+Two steps left of the pet on the tile axis, between the Pokédex and the party. Real steps become
 Pokédollars at 1:1 — see § Game manual below for the wallet cap and price list.
 The title pill is a **BUY | SELL** switch: SELL lists what your bag holds and
 pays half the Mart's price for each (v3.90).
@@ -191,11 +191,11 @@ Berry Catch raises joy and bond instead — see § Actions below.
 
 ### Trading
 
-| Choosing a trade | When the connection drops |
-|---|---|
-| <img src="docs/screens/tradechoose.png" width="240"> | <img src="docs/screens/tradestuck.png" width="240"> |
+| The PLAZA | Choosing a trade | When the connection drops |
+|---|---|---|
+| <img src="docs/screens/plaza.png" width="240"> | <img src="docs/screens/tradechoose.png" width="240"> | <img src="docs/screens/tradestuck.png" width="240"> |
 
-One creature for one, from the LAN screen's **TRADE** button. If the boards lose
+One creature for one, from the PLAZA's **LAN TRADE** button. If the boards lose
 each other mid-trade, each screen says what its board holds and counts down
 while it keeps trying — see § Trading in the manual below.
 
@@ -231,7 +231,7 @@ the navigation — three axes, one meaning each, everywhere:
 
 | Gesture | Means |
 |---|---|
-| **Horizontal swipe** | move along the **tile axis**: `PLAYER · PARTY · [PET] · EXPLORE · MART · GYM · POKÉDEX`. It **bumps** at both ends and never closes anything. |
+| **Horizontal swipe** | move along the **tile axis**: `PLAYER · POKÉDEX · MART · PARTY · [PET] · EXPLORE · GYM · PLAZA` (since v4.01: your things to the left, battles to the right). It **bumps** at both ends and never closes anything. |
 | **Swipe up** | go **deeper** — from the pet, its stat card |
 | **Swipe down** | go **back**, one level, from anywhere |
 | **Drag the rim** | **page** whatever is in front of you (the arc scrollbar at 2–5 o'clock) |
@@ -1337,7 +1337,8 @@ what rate-limits rematching. A fully trained creature is told so.
 
 ### LAN battles
 
-Pair two boards over ESP-NOW from the gym chooser's **LAN** button, then
+Pair two boards over ESP-NOW from the PLAZA's **LAN BATTLE** button (the last
+tile on the right; it was on the gym chooser until v4.01), then
 **HOST BATTLE** on one board and **JOIN BATTLE** on the other. Bring whichever team you like: unlike the gym ladders there
 is no level or team-size cap, since you already know what your opponent is
 bringing. A running **head-to-head record** is kept against each rival —
@@ -1346,7 +1347,7 @@ score — and shown on the pairing screen the next time you two fight.
 
 ### Trading
 
-From the gym chooser's **LAN** button, tap **TRADE** on both boards.
+Tap the PLAZA's **LAN TRADE** button on both boards.
 They find each other on their own (no host or join).
 
 - **What can be traded:** any creature in your **party or box**, never the
@@ -1434,7 +1435,7 @@ After any ending, a **new egg** appears.
 
 ### The Poké Mart
 
-On the tile axis between EXPLORE and the gyms, it turns real steps (the
+Two steps left of the pet on the tile axis, it turns real steps (the
 board's onboard QMI8658 pedometer) into stock. **1 step = $1**, wallet capped at
 **$999,999** — the real games' own money ceiling, not an invented number —
 and a lifetime step count is tracked separately and never spent. **Trainer wins pay

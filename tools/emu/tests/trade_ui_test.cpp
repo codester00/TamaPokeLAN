@@ -50,7 +50,8 @@ uint8_t uiCurrentScreen();
 void tradeBoot();
 bool tradeLocked(const PartyMon &m);
 bool tradePending();
-bool lanTradeHit(int16_t x, int16_t y);
+bool plazaTradeHit(int16_t x, int16_t y);
+extern bool plazaOpen;
 bool tradeGiveHit(int16_t x, int16_t y);
 bool tradeAcceptHit(int16_t x, int16_t y);
 bool tradeRevertHit(int16_t x, int16_t y);
@@ -195,9 +196,9 @@ static void bootB() {
   tb.start();
 }
 static void openTradeFromLan() {
-  lanOpen = true;
+  plazaOpen = true;   // LAN TRADE is the PLAZA's (v4.01)
   render();
-  tapHit(lanTradeHit);
+  tapHit(plazaTradeHit);
 }
 static bool inParty(const CreatureUid &u) {
   for (auto &s : party.slots) if (!s.empty() && s.uid == u) return true;

@@ -67,7 +67,7 @@ int main() {
   bag.add(IT_FIRESTONE, 3);
   bag.add(IT_MASTERBALL, 1);
   pet.wallet = 1000;
-  uiTileGo(4);
+  for (int i = 0; i < 16 && !martOpen; i++) uiTileGo(i);   // the Mart's tile, found by asking
   ck(martOpen && !martSelling, "(the Mart opens, on BUY)");
   ck(martTabAt(CX - 70, 55) == 0 && martTabAt(CX + 70, 55) == 1 && martTabAt(CX, 150) == -1,
      "the title pill's halves are BUY and SELL");

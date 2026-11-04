@@ -32,7 +32,7 @@ extern bool codesOpen, codesCheats; extern uint8_t codesPage;
 extern bool pcOpen, pcPick; extern uint8_t pcPage, pcRegion; extern int16_t pcSpecies;
 extern uint8_t hallOpen, hallMode, hallPage;
 void exploreBtnRect(int *x, int *y, int *w, int *h);
-extern bool martOpen;
+extern bool martOpen, plazaOpen;
 extern uint8_t trainPage;
 extern bool btlWild;
 extern uint8_t cardPage, gymPage, playerPage, movePickPage, boxPage, pickPage, partyDetail;
@@ -64,7 +64,7 @@ static void clearAll(){
   cardOpen=galleryOpen=clockOpen=kbOpen=menuOpen=partyOpen=partyPick=false;
   trainOpen=movePickOpen=battleOpen=gymOpen=playerOpen=boxOpen=pickOpen=false;
   exploreOpen=false; areaListOpen=false; hallOpen=0;
-  martOpen=false;
+  martOpen=false; plazaOpen=false;
   bagOpen=false;
   partyDetail=0; boxSel=boxSwapFrom=0;
 }
@@ -267,8 +267,7 @@ int main(){
     } else printf("PASS  %-10s starts a wild battle from its primary action\n", "explore");
     clearAll();
     onSwipe(-1);
-    onSwipe(-1);
-    onSwipe(-1);                       // Gyms follows Explore, Mart
+    onSwipe(-1);                       // Gyms follows Explore (v4.01)
     if (!gymOpen || !gymPick) { printf("FAIL  gyms       does not open on the region chooser\n"); bad++; }
     else printf("PASS  %-10s opens on the region chooser\n", "gyms");
     // and a swipe DOWN out of a ladder returns to it -- one step of depth, not
@@ -277,6 +276,21 @@ int main(){
     onSwipeV(1);
     if (!gymPick || !gymOpen) { printf("FAIL  gyms       swiping down does not return to the chooser\n"); bad++; }
     else printf("PASS  %-10s swiping down returns to the chooser\n", "gyms");
+
+    // The owner's order (v4.01): admin to the left, battles to the right, the
+    // most used nearest the pet.
+    clearAll(); onSwipe(-1); onSwipe(-1); onSwipe(-1);
+    if (!plazaOpen) { printf("FAIL  tiles      PLAZA does not follow the gyms\n"); bad++; }
+    else printf("PASS  %-10s PLAZA follows the gyms\n", "tiles");
+    onSwipe(-1);
+    if (!plazaOpen) { printf("FAIL  tiles      PLAZA is not the last tile\n"); bad++; }
+    clearAll(); onSwipe(1);
+    bool l1 = partyOpen;
+    onSwipe(1); bool l2 = martOpen;
+    onSwipe(1); bool l3 = galleryOpen && galleryPick;
+    onSwipe(1); bool l4 = playerOpen;
+    if (!(l1 && l2 && l3 && l4)) { printf("FAIL  tiles      the left is not PARTY, MART, DEX, PLAYER (%d%d%d%d)\n", l1, l2, l3, l4); bad++; }
+    else printf("PASS  %-10s the left reads PARTY, MART, DEX, PLAYER\n", "tiles");
 
     clearAll(); galleryOpen = true; galleryPick = false; galleryRegion = 1; galleryPage = 0;
     onSwipeV(1);

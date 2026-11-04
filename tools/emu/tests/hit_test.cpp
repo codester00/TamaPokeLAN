@@ -42,7 +42,7 @@ void uiConfirmRects(int *b1Top, int *b1Bot, int *b2Top, int *b2Bot);
 // The round-panel geometry, asked of the firmware rather than restated here.
 int uiSafeHalfWidth(int y);
 int uiTapFinger();
-bool lanTradeHit(int16_t x, int16_t y);
+bool plazaTradeHit(int16_t x, int16_t y);
 bool tradeGiveHit(int16_t x, int16_t y);
 bool tradeAcceptHit(int16_t x, int16_t y);
 bool tradeRevertHit(int16_t x, int16_t y);
@@ -270,7 +270,7 @@ int main(){
   {
     const int FINGER = uiTapFinger();
     struct { const char *name; bool (*hit)(int16_t, int16_t); } C[] = {
-      { "LAN TRADE", lanTradeHit }, { "YOU GIVE", tradeGiveHit }, { "ACCEPT", tradeAcceptHit },
+      { "LAN TRADE", plazaTradeHit }, { "YOU GIVE", tradeGiveHit }, { "ACCEPT", tradeAcceptHit },
       { "REVERT", tradeRevertHit }, { "KEEP", tradeKeepHit },
     };
     int accBottom = -1;

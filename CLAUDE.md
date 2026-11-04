@@ -948,6 +948,23 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the tile axis reordered, and the PLAZA (v4.01)
+
+Owner, 2026-11-04, step 0 of `docs/postgame-plan.md` § 6. **`PLAYER . DEX .
+MART . PARTY . [PET] . EXPLORE . GYM . PLAZA`** (`TILE[]`, `TILE_COUNT` 8,
+`TILE_PET` 4): admin left, battles right, the most used nearest the pet; the
+player card stays leftmost (owner). **PLAZA** (`SCR_PLAZA`, `plazaOpen`,
+`renderPlaza`/`plazaTap`, `plazaBtnRect()`/`plazaBtnAt()`) is a 2 x 2 grid of
+finger-sized cells: LAN BATTLE, LAN TRADE, BATTLE HALL and BATTLE ZONE (both
+greyed, a tap is a DENY). **LAN and trading open OVER it** (`plazaOpen` stays
+set), so leaving either comes back to the PLAZA. LAN left the gym chooser and
+the gym ladder, and TRADE left the LAN screen; `lanBtnHit()` and
+`plazaTradeHit()` are the PLAZA's cells now. `uiOnControl()` knows the PLAZA,
+so its buttons keep the gym chooser's misfire guards (`lantap_test`, moved
+here). **`zoneUnlocked()`** is THE Battle Zone gate: every region's champion
+on either difficulty. `plaza_test` (the cells, back to the PLAZA, the gate);
+`swipe_test` pins the order; negative-checked three ways.
+
 ### Done: a swipe from the rim moves a tile (v4.00)
 
 Owner, 2026-11-04: the Mart was hard to swipe past. The whole ring outside
@@ -4345,7 +4362,7 @@ is recorded here as fact so nobody redesigns it from the old notes.
 
 | Gesture | Means | Where |
 |---|---|---|
-| Horizontal | move along the TILE AXIS | `PLAYER . PARTY . [PET] . EXPLORE . MART . GYM . DEX` |
+| Horizontal | move along the TILE AXIS | `PLAYER . DEX . MART . PARTY . [PET] . EXPLORE . GYM . PLAZA` (v4.01) |
 | Up | deeper (the pet's card, a sheet) | everywhere |
 | Down | BACK, one level | everywhere |
 | Rim drag | PAGE the current screen | every paged screen |

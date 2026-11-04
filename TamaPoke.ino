@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.00"
+#define FW_VERSION "4.01"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -317,7 +317,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_PC, SCR_PCPICK, SCR_PCRING, SCR_JUMP, SCR_LEAGUE, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_PC, SCR_PCPICK, SCR_PCRING, SCR_JUMP, SCR_LEAGUE, SCR_PLAZA, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[];   // const is internal linkage in C++
 
@@ -421,7 +421,7 @@ const char *const SCREEN_NAME[] = {
   "party", "keyboard", "card", "player", "clock", "gym", "gympick",
   "explore", "mart", "lan", "pick", "battle", "win", "learn", "train", "menu",
   "bag", "minigame", "main", "trade", "avatar", "blackout", "area", "hall",
-  "codes", "pc", "pcpick", "pcring", "jump", "league"
+  "codes", "pc", "pcpick", "pcring", "jump", "league", "plaza"
 };
 // Unsized on purpose: sized by SCR_COUNT, five missing names compiled to null
 // and HEALTH and the crash breadcrumb printed "(null)" (v3.63-v3.92).
@@ -504,6 +504,7 @@ void gymHardSet(bool hard) {
 // LAN battle. `lanOpen` is the pairing screen; once both squads are known the
 // normal battle screen takes over with btlLink set.
 bool lanOpen = false;
+bool plazaOpen = false;   // the PLAZA tile (v4.01); LAN and trading open over it
 Link lan;
 // Trading (trade.h): one screen for the whole flow, opened from the LAN screen.
 // `tradePicking` is its own creature picker on the party ring; `tradeAsk` the
@@ -550,7 +551,12 @@ static int regionPickTap(int16_t x, int16_t y, uint8_t mode);
 // renderer and the gesture resolver, so they can never disagree about where a
 // control is.
 int rpickRowAt(int16_t x, int16_t y, uint8_t mode);
-bool lanBtnHit(int16_t x, int16_t y);
+bool lanBtnHit(int16_t x, int16_t y);   // the PLAZA's LAN BATTLE (v4.01; was the gym chooser's)
+void plazaBtnRect(uint8_t i, int *x, int *y, int *w, int *h);
+int plazaBtnAt(int16_t x, int16_t y);
+bool zoneUnlocked();
+void renderPlaza();
+void plazaTap(int16_t x, int16_t y);
 bool rpickBackHit(int16_t x, int16_t y, uint8_t mode);
 void galleryBack();
 void galleryHeaderText(char *buf, size_t n);
@@ -595,25 +601,18 @@ uint8_t btlMyAct = 0;        // host: our own action, latched until theirs lands
 // Every control laid out from here on is held to THIS by hit_test.
 #define UI_TAP_FINGER 94
 
-// The LAN battle button on the gym region chooser. Finger-sized: at 44 px with
-// a "tap below = back" zone right under it, a slightly low tap left the gym
-// tile and dropped the player on the pet screen -- reported from a board as
-// "LAN BATTLE only works with a very deliberate tap". It now runs down to just
-// above the tile dots, and the gym chooser has no back zone at all: back is a
-// swipe down there, as on every screen. Its corners stay inside the glass
-// (radius ~219 of 233 at y 430).
-#define LANBTN_W 190
-#define LANBTN_H UI_TAP_FINGER
-#define LANBTN_X (233 - LANBTN_W / 2)
-#define LANBTN_Y 336
-// The TRADE button on the LAN screen, under HOST and JOIN (y 120..246).
-// Finger-sized, and it stops 20 px short of that screen's tap-to-go-back zone
-// (y > 370).
-#define LANTRADE_X 90
-#define LANTRADE_W 286
-#define LANTRADE_Y 256
-#define LANTRADE_H UI_TAP_FINGER
-static_assert(LANTRADE_Y + LANTRADE_H + 20 <= 370, "keep a dead band above the LAN screen's back zone");
+// The PLAZA tile's four buttons (v4.01): LAN BATTLE, LAN TRADE, BATTLE HALL,
+// BATTLE ZONE, a 2 x 2 grid of finger-sized cells. LAN used to be a button on
+// the gym chooser and TRADE one on the LAN screen; both moved here, so the gym
+// tile holds only ladders. The grid's corners stay inside the glass: the
+// widest point (x 155 from the centre) sits ~103 px from it vertically, where
+// the half-chord is ~209.
+#define PLAZA_W 150
+#define PLAZA_H UI_TAP_FINGER
+#define PLAZA_GAP 10
+#define PLAZA_Y0 130
+enum : uint8_t { PLAZA_LAN = 0, PLAZA_TRADE, PLAZA_HALL, PLAZA_ZONE, PLAZA_COUNT };
+static_assert(PLAZA_Y0 + 2 * PLAZA_H + PLAZA_GAP + 20 < 440 - 3, "the PLAZA grid runs into the tile dots");
 // The Pokedex chooser has no LAN button, so it keeps its BACK label and the
 // tap zone under it.
 #define RPICK_BACK_PILL_Y 376
@@ -840,12 +839,6 @@ uint8_t gymPage = 0;
 #define GYM_ROW_INSET 18   // how far a row stops short of the glass, so the
                            // arc scrollbar at RIM_BAR_R has its own lane
 void gymRowRect(int i, int *x, int *y, int *w, int *h);
-// LAN remains attached to the trainer ladder; Explore is a peer destination on
-// the tile axis and no longer hides behind GYMS.
-#define GYMBTN_Y 380
-#define GYMBTN_W 190
-#define GYMBTN_H UI_TAP_MIN
-#define GYMBTN_X (CX - GYMBTN_W / 2)
 int8_t btlTrainer = -1;      // index into TRAINERS, -1 = a one-off fight
 bool btlHard = false;
 Combatant btlSquad[TRAINER_TEAM_MAX + 1];
@@ -1150,8 +1143,8 @@ void uiArc(int cx, int cy, int r, int a0, int a1, int w, uint16_t col) {
 
 // The gesture model. Its tables and handlers live down beside uiCurrentScreen(),
 // but handleTouch() and onSwipe() sit ~1000 lines above them.
-#define TILE_COUNT 7   // PLAYER . PARTY . [PET] . EXPLORE . MART . GYM . DEX
-#define TILE_PET 2
+#define TILE_COUNT 8   // PLAYER . DEX . MART . PARTY . [PET] . EXPLORE . GYM . PLAZA
+#define TILE_PET 4
 #define RIM_R0 186     // a drag starting outside this radius pages, not swipes
 #define RIM_STEP 20    // degrees of arc per page
 #define RIM_LEAVE_PX 28 // a rim drag that comes this far in is a swipe
@@ -2340,6 +2333,7 @@ void onSwipeV(int dir) {
   // The two multi-region tiles are two levels deep: chooser, then ladder/grid.
   // DOWN walks back out of them one step at a time; UP keeps the region
   // shortcut, which is now a convenience rather than the only way in.
+  if (plazaOpen) { if (back) uiTileGo(TILE_PET); return; }
   if (leagueOpen) { if (back) leagueLeave(); return; }   // down: the gym list; the run goes on
   if (gymOpen) {
     if (gymPick) { if (back) uiTileGo(TILE_PET); return; }
@@ -2549,7 +2543,7 @@ void renderBoxDetail() {
 void uiButtonHeights(int *out, int max, int *n) {
   // What a control is worth is what you can HIT, not what it draws: the home
   // icons are a 72 px graphic inside a 94 px disc.
-  const int h[] = { PSLOT_HUB_R * 2, PSLOT_R * 2, PARTYCLOSE_H, LANBTN_H,
+  const int h[] = { PSLOT_HUB_R * 2, PSLOT_R * 2, PARTYCLOSE_H, PLAZA_H,
                     BTL_CELL_H + BTL_HIT_PAD * 2,
                     EXPLORE_BTN_H + EXPLORE_BTN_PAD * 2, BTN_HIT * 2 };
   int c = (int)(sizeof(h) / sizeof(h[0]));
@@ -2940,6 +2934,10 @@ void onTap(int16_t x, int16_t y) {
     leagueTap(x, y);
     return;
   }
+  if (plazaOpen) {
+    plazaTap(x, y);
+    return;
+  }
   if (gymOpen && gymPick) {
     int r = regionPickTap(x, y, RPICK_FOR_GYMS);
     if (r >= 0) {
@@ -2949,27 +2947,12 @@ void onTap(int16_t x, int16_t y) {
       sfxPlay(SFX_TAP);
       return;
     }
-    if (lanBtnHit(x, y)) {                               // LAN battle
-      gymOpen = false; gymPick = false;
-      lan.state = LINK_OFF;
-      lanOpen = true;
-      sfxPlay(SFX_TAP);
-      return;
-    }
     // Anything else is swallowed: there is no tap-to-leave here any more.
     return;
   }
   if (gymOpen) {
     if (y >= GYMDIF_Y && y <= GYMDIF_Y + GYMDIF_H) {   // the difficulty pill
       gymHardSet(!gymHard);
-      sfxPlay(SFX_TAP);
-      return;
-    }
-    if (x >= GYMBTN_X && x <= GYMBTN_X + GYMBTN_W &&
-        y >= GYMBTN_Y && y <= GYMBTN_Y + GYMBTN_H) {
-      gymOpen = false;
-      lan.state = LINK_OFF;
-      lanOpen = true;
       sfxPlay(SFX_TAP);
       return;
     }
@@ -3422,6 +3405,7 @@ uint8_t uiCurrentScreen() {
   if (martOpen) return SCR_MART;
   if (leagueOpen) return SCR_LEAGUE;
   if (gymOpen) return gymPick ? SCR_GYMPICK : SCR_GYM;
+  if (plazaOpen) return SCR_PLAZA;
   if (playerOpen) return avatarPickOpen ? SCR_AVATAR : SCR_PLAYER;
   if (pet.hasLearnOffer()) return SCR_LEARN;
   if (cardOpen) return SCR_CARD;
@@ -3452,16 +3436,17 @@ uint8_t uiCurrentScreen() {
 // and Pokedex tiles until a region is picked. One table, so uiTileIndex() and
 // uiTileGo() cannot end up with different ideas of what is on the axis.
 //
-// PLAYER . PARTY . [PET] . EXPLORE . MART . GYM . DEX -- yours on the left, the
-// world on the right. Exploration is a primary loop, not a gym action, so it
-// gets the first world-facing stop and the main screen can name it directly.
-// The Mart sits right after it: walk to earn (EXPLORE's own encounters cost
-// nothing to reach), spend at the Mart, then prove the gear at the gym.
+// PLAYER . DEX . MART . PARTY . [PET] . EXPLORE . GYM . PLAZA (owner, v4.01):
+// the admin screens to the left of the pet, the battles to the right, and on
+// each side the most used nearest home. The party (and Bill's PC behind its
+// hub) is one step left, Explore one step right. The player card stays the
+// leftmost stop. PLAZA holds the LAN fights, trading, and the Battle Hall and
+// Zone to come; it took LAN off the gym screens, which now hold only ladders.
 struct TileDef { uint8_t scr, alt; };
 static const TileDef TILE[TILE_COUNT] = {
-  { SCR_PLAYER, SCR_PLAYER }, { SCR_PARTY, SCR_PARTY }, { SCR_MAIN, SCR_MAIN },
-  { SCR_EXPLORE, SCR_EXPLORE }, { SCR_MART, SCR_MART }, { SCR_GYM, SCR_GYMPICK },
-  { SCR_GALLERY, SCR_DEXPICK },
+  { SCR_PLAYER, SCR_PLAYER }, { SCR_GALLERY, SCR_DEXPICK }, { SCR_MART, SCR_MART },
+  { SCR_PARTY, SCR_PARTY }, { SCR_MAIN, SCR_MAIN }, { SCR_EXPLORE, SCR_EXPLORE },
+  { SCR_GYM, SCR_GYMPICK }, { SCR_PLAZA, SCR_PLAZA },
 };
 
 // The tile a screen sits on, by its screen id: never a position typed out.
@@ -3484,6 +3469,7 @@ void uiTileGo(int i) {
   if (i < 0) i = 0;
   if (i >= TILE_COUNT) i = TILE_COUNT - 1;
   exploreOpen = gymOpen = partyOpen = galleryOpen = playerOpen = false;
+  plazaOpen = false;
   leagueOpen = false;   // the run itself goes on
   avatarPickOpen = false;
   areaListOpen = false;
@@ -3512,6 +3498,7 @@ void uiTileGo(int i) {
       galleryDirty = true;
       break;
     case SCR_PLAYER: playerOpen = true; playerPage = 0; break;
+    case SCR_PLAZA: plazaOpen = true; break;
     default: break;   // the pet tile is everything else being shut
   }
   sfxPlay(SFX_TAP);
@@ -3609,10 +3596,6 @@ float uiRimAngle(int16_t x, int16_t y) {
 
 // ---------- the chrome that makes both of the above visible ----------
 #define TILE_DOT_Y 440
-// The finger-sized LAN button runs down towards the tile dots; it must stop
-// short of the active dot's pill (TILE_DOT_Y - 3).
-static_assert(LANBTN_Y + LANBTN_H < TILE_DOT_Y - 3,
-              "the LAN button overlaps the tile dots");
 
 static inline uint16_t uiChromeInk() {
   return uiCurrentScreen() == SCR_MAIN ? inkColor() : UI_INK;
@@ -5055,6 +5038,10 @@ void render() {
   if (gymOpen) {
     if (gymPick) renderRegionPick(RPICK_FOR_GYMS);
     else renderGyms();
+    return;
+  }
+  if (plazaOpen) {
+    renderPlaza();
     return;
   }
   if (playerOpen) {
@@ -8687,14 +8674,6 @@ void renderLan() {
       gfx->setCursor(CX - (int)strlen(lab[i]) * 6, y + 20);
       gfx->print(lab[i]);
     }
-    // Trading shares the radio and the room, so it lives here, under the two
-    // ways to fight. Taller than its neighbours: new controls are finger-sized.
-    gfx->fillRoundRect(LANTRADE_X, LANTRADE_Y, LANTRADE_W, LANTRADE_H, 12, UI_BAR_WARN);
-    gfx->drawRoundRect(LANTRADE_X, LANTRADE_Y, LANTRADE_W, LANTRADE_H, 12, UI_INK);
-    gfx->setTextColor(UI_INK);
-    gfx->setTextSize(2);
-    gfx->setCursor(CX - (int)strlen(T(S_TRADE)) * 6, LANTRADE_Y + LANTRADE_H / 2 - 8);
-    gfx->print(T(S_TRADE));
   } else if (lan.state == LINK_READY) {
     char l[40];
     if (lan.peerName[0]) {
@@ -8790,21 +8769,9 @@ static void lanOffer(bool host) {
   lan.start();
 }
 
-bool lanTradeHit(int16_t x, int16_t y) {
-  return x >= LANTRADE_X && x <= LANTRADE_X + LANTRADE_W &&
-         y >= LANTRADE_Y && y <= LANTRADE_Y + LANTRADE_H;
-}
-
 void lanTap(int16_t x, int16_t y) {
   if (lan.state == LINK_OFF || lan.state == LINK_REFUSED ||
       lan.state == LINK_LOST) {
-    if (lanTradeHit(x, y)) {
-      sfxPlay(SFX_TAP);
-      lanLeave();            // the battle link lets the radio go first
-      lanOpen = false;
-      tradeOpenScreen();
-      return;
-    }
     for (int i = 0; i < 2; i++) {
       int by = 120 + i * 70;
       if (x < 90 || x > 376 || y < by || y > by + 56) continue;
@@ -8836,10 +8803,113 @@ void lanTap(int16_t x, int16_t y) {
   if (y > 370) { lanLeave(); lanOpen = false; }   // back
 }
 
+// ---------- the PLAZA (v4.01) ----------
+// The tile right of the gyms: the two LAN screens, and the Battle Hall and the
+// post-game Battle Zone to come (docs/postgame-plan.md). LAN and trading open
+// OVER it, so leaving either one comes back here.
+void plazaBtnRect(uint8_t i, int *x, int *y, int *w, int *h) {
+  *w = PLAZA_W;
+  *h = PLAZA_H;
+  *x = CX - PLAZA_W - PLAZA_GAP / 2 + (i % 2) * (PLAZA_W + PLAZA_GAP);
+  *y = PLAZA_Y0 + (i / 2) * (PLAZA_H + PLAZA_GAP);
+}
+
+int plazaBtnAt(int16_t x, int16_t y) {
+  for (uint8_t i = 0; i < PLAZA_COUNT; i++) {
+    int bx, by, bw, bh;
+    plazaBtnRect(i, &bx, &by, &bw, &bh);
+    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) return i;
+  }
+  return -1;
+}
+
+bool lanBtnHit(int16_t x, int16_t y) { return plazaBtnAt(x, y) == PLAZA_LAN; }
+bool plazaTradeHit(int16_t x, int16_t y) { return plazaBtnAt(x, y) == PLAZA_TRADE; }
+
+// The Battle Zone's gate (postgame-plan § 1): every region's champion beaten,
+// on either difficulty. THE answer the PLAZA asks today and the zone will ask.
+bool zoneUnlocked() {
+  for (uint8_t r = 0; r < GYM_REGIONS; r++)
+    if (!pet.hasBadge(r, TRAINER_COUNT - 1, false) && !pet.hasBadge(r, TRAINER_COUNT - 1, true)) return false;
+  return true;
+}
+
+// A label centred in a cell: one line at size 2 if it fits, else split at the
+// space nearest the middle.
+static void plazaLabel(const char *s, int x, int y, int w, int cy) {
+  int n = (int)strlen(s);
+  gfx->setTextSize(2);
+  if (n * 12 <= w - 12) {
+    gfx->setCursor(x + (w - n * 12) / 2, cy - 8);
+    gfx->print(s);
+    return;
+  }
+  int cut = -1;
+  for (int i = 0; i < n; i++)
+    if (s[i] == ' ' && (cut < 0 || abs(i - n / 2) < abs(cut - n / 2))) cut = i;
+  if (cut < 0) {   // one long word: the small size
+    gfx->setTextSize(1);
+    gfx->setCursor(x + (w - n * 6) / 2, cy - 4);
+    gfx->print(s);
+    return;
+  }
+  char a[24], b[24];
+  snprintf(a, sizeof(a), "%.*s", cut, s);
+  snprintf(b, sizeof(b), "%s", s + cut + 1);
+  gfx->setCursor(x + (w - (int)strlen(a) * 12) / 2, cy - 18);
+  gfx->print(a);
+  gfx->setCursor(x + (w - (int)strlen(b) * 12) / 2, cy + 2);
+  gfx->print(b);
+}
+
+void renderPlaza() {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(3);
+  gfx->setCursor(CX - (int)strlen(T(S_PLAZA)) * 9, 62);
+  gfx->print(T(S_PLAZA));
+  static const StrId NAME[PLAZA_COUNT] = { S_PLZ_LAN_BATTLE, S_PLZ_LAN_TRADE, S_PLZ_HALL, S_PLZ_ZONE };
+  for (uint8_t i = 0; i < PLAZA_COUNT; i++) {
+    int x, y, w, h;
+    plazaBtnRect(i, &x, &y, &w, &h);
+    bool live = (i == PLAZA_LAN || i == PLAZA_TRADE);
+    gfx->fillRoundRect(x, y, w, h, 12, live ? (i == PLAZA_TRADE ? UI_BAR_WARN : UI_BG_DAY) : UI_BG_DAY);
+    gfx->drawRoundRect(x, y, w, h, 12, live ? UI_INK : UI_TRACK);
+    gfx->setTextColor(live ? UI_INK : UI_TRACK);
+    plazaLabel(T(NAME[i]), x, y, w, live ? y + h / 2 : y + h / 2 - 8);
+    if (!live) {   // what it waits for, small, under its name
+      const char *why = (i == PLAZA_ZONE && !zoneUnlocked()) ? T(S_PLZ_NEEDS_CHAMPS) : T(S_PLZ_SOON);
+      gfx->setTextSize(1);
+      gfx->setCursor(x + (w - (int)strlen(why) * 6) / 2, y + h - 18);
+      gfx->print(why);
+    }
+  }
+  uiChrome();
+  gfx->flush();
+}
+
+void plazaTap(int16_t x, int16_t y) {
+  int b = plazaBtnAt(x, y);
+  if (b == PLAZA_LAN) {
+    sfxPlay(SFX_TAP);
+    lan.state = LINK_OFF;
+    lanOpen = true;          // over the PLAZA, which stays open beneath it
+    return;
+  }
+  if (b == PLAZA_TRADE) {
+    sfxPlay(SFX_TAP);
+    tradeOpenScreen();
+    return;
+  }
+  if (b >= 0) sfxPlay(SFX_DENY);   // the Hall and the Zone are not built yet
+}
+
 // ---------- trading ----------
 // The protocol is trade.cpp's, and every decision about a creature's fate is
 // made there; this is the board it runs on (party + box + one NVS key) and the
-// screen. Reached from the LAN screen's TRADE button.
+// screen. Reached from the PLAZA's LAN TRADE button (the LAN screen's TRADE
+// button until v4.01).
 //
 // The one screen rule that matters: while a trade is PENDING the player cannot
 // leave. The owner's design has both players stuck on this screen until the
@@ -9474,12 +9544,6 @@ void renderGyms() {
       gfx->print("*");
     }
   }
-  gfx->fillRoundRect(GYMBTN_X, GYMBTN_Y, GYMBTN_W, GYMBTN_H, 11, UI_BG_DAY);
-  gfx->drawRoundRect(GYMBTN_X, GYMBTN_Y, GYMBTN_W, GYMBTN_H, 11, UI_INK);
-  gfx->setTextColor(UI_INK);
-  gfx->setTextSize(2);
-  gfx->setCursor(GYMBTN_X + (GYMBTN_W - (int)strlen(T(S_LAN)) * 12) / 2, GYMBTN_Y + 14);
-  gfx->print(T(S_LAN));
   uiChrome();
   gfx->flush();
 }
@@ -9564,9 +9628,7 @@ static int eggRegionTap(int16_t x, int16_t y) {
 #define RPICK_DOT_R 5
 // Guards, not decoration: both of these are the collision that shipped, and a
 // static_assert is the only check that cannot be forgotten when somebody moves
-// a button. The dots must clear the LAN button below and the last row above.
-static_assert(RPICK_DOTS_Y + RPICK_DOT_R < LANBTN_Y,
-              "the region-chooser page dots overlap the LAN button");
+// a button. The dots must clear the last row above.
 static_assert(RPICK_DOTS_Y - RPICK_DOT_R > RPICK_Y(RPICK_PER_PAGE - 1) + RPICK_H,
               "the region-chooser page dots overlap the last region row");
 
@@ -9676,14 +9738,6 @@ static void renderRegionPick(uint8_t mode) {
       gfx->print(sub);
     }
   }
-  if (forGyms) {
-    gfx->fillRoundRect(LANBTN_X, LANBTN_Y, LANBTN_W, LANBTN_H, 11, UI_BG_DAY);
-    gfx->drawRoundRect(LANBTN_X, LANBTN_Y, LANBTN_W, LANBTN_H, 11, UI_INK);
-    gfx->setTextColor(UI_INK);
-    gfx->setTextSize(2);
-    gfx->setCursor(CX - strlen(T(S_LAN)) * 6, LANBTN_Y + (LANBTN_H - 16) / 2);
-    gfx->print(T(S_LAN));
-  }
   if (pages > 1) {                        // dots: which page of regions this is
     int total = pages * 16 - 8;
     for (uint8_t d = 0; d < pages; d++) {
@@ -9724,14 +9778,10 @@ int rpickRowAt(int16_t x, int16_t y, uint8_t mode) {
   return -1;
 }
 
-bool lanBtnHit(int16_t x, int16_t y) {
-  return y >= LANBTN_Y && y <= LANBTN_Y + LANBTN_H &&
-         x >= LANBTN_X && x <= LANBTN_X + LANBTN_W;
-}
-
-// Only the Pokedex chooser has a tap-to-go-back zone. The gym chooser's LAN
-// button fills that space, and a zone next to it is what turned a low tap on
-// LAN BATTLE into "back to the pet screen". First boot has nowhere to go back to.
+// Only the Pokedex chooser has a tap-to-go-back zone. A zone under the gym
+// chooser's old LAN button is what turned a low tap on LAN BATTLE into "back
+// to the pet screen"; back is a swipe down there. First boot has nowhere to go
+// back to.
 bool rpickBackHit(int16_t x, int16_t y, uint8_t mode) {
   (void)x;
   return (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) && y >= backZoneY(BACK_RPICK);
@@ -9739,13 +9789,14 @@ bool rpickBackHit(int16_t x, int16_t y, uint8_t mode) {
 
 // Whether a gesture starting at (x,y) starts ON a tappable control. Such a
 // gesture resolves as a tap unless it moves like a real swipe -- see
-// handleTouch(). Knows the region choosers, where the misfire was reported;
-// any other screen answers false and keeps the plain distance rules.
+// handleTouch(). Knows the region choosers, where the misfire was reported,
+// and the PLAZA's buttons, which took over the chooser's LAN button; any other
+// screen answers false and keeps the plain distance rules.
 bool uiOnControl(int16_t x, int16_t y) {
+  if (uiCurrentScreen() == SCR_PLAZA) return plazaBtnAt(x, y) >= 0;
   uint8_t mode = rpickModeNow();
   if (mode == 0xFF) return false;
-  if (rpickRowAt(x, y, mode) >= 0) return true;
-  return mode == RPICK_FOR_GYMS && lanBtnHit(x, y);
+  return rpickRowAt(x, y, mode) >= 0;
 }
 
 // ---------- level-up learn prompt ----------

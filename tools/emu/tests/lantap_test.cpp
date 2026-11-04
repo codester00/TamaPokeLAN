@@ -1,4 +1,5 @@
-// The LAN BATTLE button on the gym chooser, as a finger presses it.
+// The LAN BATTLE button, as a finger presses it. It lived on the gym chooser
+// until v4.01 and is the PLAZA's now; the rules it tests moved with it.
 //
 // Reported from a board: tapping LAN BATTLE often went straight back to the pet
 // screen, and only a very deliberate tap worked. Two causes, both covered here:
@@ -11,7 +12,7 @@
 //
 // Drives the REAL setup()/loop()/handleTouch(), one poll per pump, through the
 // same touch globals the SDL window pokes. Every position is asked of the
-// firmware (lanBtnHit, rpickRowAt) rather than retyped here -- a test that
+// firmware (lanBtnHit) rather than retyped here -- a test that
 // keeps its own copy of a layout passes for the wrong reason (CLAUDE.md § 3).
 #include "Arduino.h"
 #include "Arduino_GFX_Library.h"
@@ -35,10 +36,9 @@ String FakeSerial::readStringUntil(char) { return String(""); }
 void setup();
 void loop();
 extern Pet pet;
-extern bool gymOpen, gymPick, lanOpen;
+extern bool gymOpen, gymPick, lanOpen, plazaOpen;
 extern uint8_t rpickPage;
 bool lanBtnHit(int16_t x, int16_t y);
-int rpickRowAt(int16_t x, int16_t y, uint8_t mode);
 uint8_t rpickModeNow();
 void uiTileGo(int i);
 
@@ -66,21 +66,21 @@ static void lift() {
   pump(3);
 }
 
-// A known state for every case: the gym chooser, page 0, nothing else open.
+// A known state for every case: the PLAZA, nothing else open.
 // Goes through the firmware's own tile navigation, which shuts every other
 // screen -- setting the gym flags by hand left case 6's swipe destination open
 // underneath, and case 7 then tested that screen instead (CLAUDE.md § 3: a
 // state a test leaves behind is the next test's input). The gym tile's index
 // is found by asking, not retyped.
-static void onChooser() {
+static void onChooser() {   // the PLAZA, nothing else open
   lanOpen = false;
   for (int i = 0; i < 16; i++) {
     uiTileGo(i);
-    if (gymOpen && gymPick) break;
+    if (plazaOpen) break;
   }
   pump(2);
 }
-static bool chooserUp() { return gymOpen && gymPick && !lanOpen && rpickModeNow() != 0xFF; }
+static bool chooserUp() { return plazaOpen && !lanOpen; }
 
 int main() {
   setup();
@@ -89,54 +89,55 @@ int main() {
   pump(2);
 
   // Where the button is, asked of the firmware.
+  int lx = -1, rx = -1;
+  for (int x = 0; x < 466; x++) if (lanBtnHit(x, 180)) { if (lx < 0) lx = x; rx = x; }
+  const int bx = (lx + rx) / 2;
   int top = -1, bot = -1;
-  for (int y = 250; y < 466; y++) if (lanBtnHit(233, y)) { if (top < 0) top = y; bot = y; }
+  for (int y = 0; y < 466; y++) if (lanBtnHit(bx, y)) { if (top < 0) top = y; bot = y; }
   int cy = (top + bot) / 2;
   printf("      LAN button spans y %d..%d (%d px)\n", top, bot, bot - top);
   ck(top > 0 && bot - top >= 90, "the LAN button is finger-sized (9 mm)");
 
   onChooser();
-  ck(chooserUp(), "(the gym chooser is the screen under test)");
+  ck(chooserUp(), "(the PLAZA is the screen under test)");
 
   // 1. a clean tap
-  at(233, cy); at(233, cy); lift();
+  at(bx, cy); at(bx, cy); lift();
   ck(lanOpen, "a clean tap opens LAN BATTLE");
 
   // 2. THE REPORT: a held tap whose last reading jumps 90 px down
   onChooser();
-  at(233, cy - 30); at(233, cy - 30); at(233, cy - 29); at(233, cy + 60); lift();
+  at(bx, cy - 30); at(bx, cy - 30); at(bx, cy - 29); at(bx, cy + 60); lift();
   ck(lanOpen, "one stray reading 90 px low before lift-off is still a tap");
   ck(gymOpen || lanOpen, "and it did not leave for the pet screen");
 
   // 3. a sloppy tap that drifts 60 px -- under the jump limit, so the reading
   //    is genuine, but a finger on a button that wanders is still pressing it
   onChooser();
-  at(233, cy - 30); at(233, cy - 10); at(233, cy + 30); lift();
+  at(bx, cy - 30); at(bx, cy - 10); at(bx, cy + 30); lift();
   ck(lanOpen, "a tap that drifts 60 px on the button still presses it");
 
   // 4. landing just below the button: used to mean BACK, now does nothing
   onChooser();
-  at(233, bot + 6); at(233, bot + 6); lift();
-  ck(chooserUp(), "a tap just below the button does not leave the chooser");
+  at(bx, bot + 6); at(bx, bot + 6); lift();
+  ck(chooserUp(), "a tap just below the button does not leave the PLAZA");
 
   // 5. a deliberate swipe down from the button still goes back
   onChooser();
-  at(233, top + 10); at(233, top + 40); at(233, top + 70); at(233, top + 100);
-  at(233, top + 130); lift();
-  ck(!gymOpen && !lanOpen, "a real swipe down that starts on the button still goes back");
+  at(bx, top + 10); at(bx, top + 40); at(bx, top + 70); at(bx, top + 100);
+  at(bx, top + 130); lift();
+  ck(!plazaOpen && !lanOpen, "a real swipe down that starts on the button still goes back");
 
-  // 6. a fast flick from a region row -- big jumps between polls, as when the
-  //    panel is busy drawing -- is still a swipe, not a tap on the row
+  // 6. a fast flick from the button -- big jumps between polls, as when the
+  //    panel is busy drawing -- is still a swipe, not a tap on it
   onChooser();
-  int row = -1, ry = 0;
-  for (int y = 100; y < 330 && row < 0; y++) if (rpickRowAt(233, y, rpickModeNow()) >= 0) { row = 0; ry = y + 20; }
-  at(150, ry); at(250, ry); at(350, ry); lift();
-  ck(!gymOpen, "a fast flick from a row is still a swipe along the tile axis");
+  at(bx, cy); at(bx + 100, cy); at(bx + 200, cy); lift();
+  ck(!plazaOpen && !lanOpen, "a fast flick from the button is still a swipe along the tile axis");
 
   // 7. the stray mechanism must ENGAGE, not just be absent: a stray that
   //    comes back mid-gesture is ignored, and the tap lands
   onChooser();
-  at(233, cy); at(233, cy + 120); at(233, cy + 1); at(233, cy + 1); lift();
+  at(bx, cy); at(bx, cy + 120); at(bx, cy + 1); at(bx, cy + 1); lift();
   ck(lanOpen, "a stray that comes back mid-gesture is ignored");
 
   // 8. what ONLY the outlier filter catches: a finger creeping down a few px
@@ -144,8 +145,8 @@ int main() {
   //    let the 90 px stray complete a swipe. Held and never confirmed, it is
   //    dropped instead, and the tap lands.
   onChooser();
-  at(233, cy - 30); at(233, cy - 25); at(233, cy - 20); at(233, cy - 15);
-  at(233, cy + 75); lift();
+  at(bx, cy - 30); at(bx, cy - 25); at(bx, cy - 20); at(bx, cy - 15);
+  at(bx, cy + 75); lift();
   ck(lanOpen, "a slow creep then a stray is still a tap, not a swipe down");
 
   printf("%s\n", bad ? "FAILURES" : "all good");

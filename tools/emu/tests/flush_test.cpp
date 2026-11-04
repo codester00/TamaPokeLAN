@@ -34,7 +34,7 @@ extern uint8_t cardPage;
 extern uint8_t partyDetail; extern uint16_t boxDetail;
 extern bool boxOpen, releaseConfirm;
 extern bool pcOpen, pcPick, jumpOpen; extern int16_t pcSpecies;
-extern bool leagueOpen, battleOpen; extern uint16_t squadMask;
+extern bool leagueOpen, battleOpen, plazaOpen; extern uint16_t squadMask;
 void startTrainerBattle(uint8_t idx, bool hard); void leagueEnd(); int leagueNext();
 extern bool bagOpen;
 extern Party party;
@@ -122,6 +122,7 @@ int main(){
   { PartyMon m; m.dex=19; m.level=9; m.uid.serial=4242; pcPut(m); }
   clearAll(); partyOpen=true; pcOpen=true; pcSpecies=19; check("pc ring");
   clearAll(); jumpOpen=true;                             check("go to #");
+  clearAll(); plazaOpen=true; check("plaza"); crumbIs("plaza"); plazaOpen=false;
   {                                 // the League screen (v3.94): a run on, between fights
     clearAll();
     for (uint8_t i = 0; i < TRAINER_COUNT - TRAINER_ELITE4 - 1; i++) pet.winBadge(0, i, false);
