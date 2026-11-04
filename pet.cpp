@@ -1745,7 +1745,8 @@ void Pet::checkLearnGates() {
   // all: it gets the one SKETCH it would have from level 1, not a replay of
   // every gate. Smeargle only -- relearnFromLevel() is the opponents' rule for
   // TMs, and no other creature of the player's can reach here moveless.
-  if (moveCount() == 0 && learnsSketch(speciesId)) {
+  // A Ditto from before v3.96 (no TRANSFORM yet) is the same case.
+  if (moveCount() == 0 && (learnsSketch(speciesId) || speciesId == 132)) {
     relearnFromLevel();
     if (moveCount()) pendingSave = true;
   }
@@ -2253,21 +2254,21 @@ uint8_t Pet::playResult(uint8_t score) {
   // that left DEF with no active trainer at all, only the slow passive tick.
   // Keeping the ball on the defensive stat fits it: you are stopping something
   // from getting past you.
+  if (score > gameHi) gameHi = score;  // nuevo record
   uint8_t before = trDef;
   uint8_t gain = score / 2;
   if (gain > 18) gain = 18;          // the same per-session ceiling as the bag
+  if (!gain) { save(); return 0; }   // nothing earned, nothing charged (v3.96)
+  trainCost(gain);
   uint16_t v = (uint16_t)trDef + gain;
   trDef = v > trMaxDef() ? trMaxDef() : (uint8_t)v;
   gain = trDef - before;
   // Trimmed in v3.34 so the joy/bond games are where happiness comes from.
   joy = clamp100(joy + 3 + (score > 20 ? 10 : score / 2));
-  energy = dropTo(energy, 10 + score / 2, 5);
-  fullness = dropTo(fullness, 5, 5);
   uint8_t burn = score / 5;
   if (burn > 4) burn = 4;
   loseWeight(burn);
   if (score >= 5) heartUntil = millis() + HEART_MS;
-  if (score > gameHi) gameHi = score;  // nuevo record
   // Training bonds, and it scales with the session: a token effort is worth the
   // base, a full one is worth more. The daily cap in addBond() still stops it
   // being farmed -- this changes how fast a good session gets there, not the
@@ -2303,19 +2304,19 @@ uint8_t Pet::rewardTraining(uint8_t amount, uint8_t &which) {
 
 uint8_t Pet::trainSpeed(uint16_t hits) {
   if (ceremony != CER_NONE || isEgg()) return 0;
+  if (hits > spdHi) spdHi = hits;
   uint8_t gain = hits / 2;          // ~2 reactions = 1 point
   if (gain > 18) gain = 18;         // same per-session ceiling as the bag
+  if (!gain) { save(); return 0; }  // nothing earned, nothing charged (v3.96)
+  trainCost(gain);
   uint8_t before = trSpe;
   uint8_t v = trSpe + gain;
   trSpe = v > trMaxSpe() ? trMaxSpe() : v;   // el IV pone el techo
   gain = trSpe - before;
-  energy = dropTo(energy, 10, 5);
-  fullness = dropTo(fullness, 4, 5);
   uint8_t burn = hits / 10;
   if (burn > 4) burn = 4;
   loseWeight(burn);
   joy = clamp100(joy + 4);
-  if (hits > spdHi) spdHi = hits;
   // Training bonds, and it scales with the session: a token effort is worth the
   // base, a full one is worth more. The daily cap in addBond() still stops it
   // being farmed -- this changes how fast a good session gets there, not the
@@ -2328,20 +2329,20 @@ uint8_t Pet::trainSpeed(uint16_t hits) {
 
 uint8_t Pet::trainStrength(uint16_t hits) {
   if (ceremony != CER_NONE || isEgg()) return 0;
+  if (hits > strHi) strHi = hits;   // record de golpes
   uint8_t gain = hits / 4;          // ~4 golpes = 1 punto de entrenamiento
   if (gain > 18) gain = 18;         // tope por sesion: la FUE se forja a fuego lento
+  if (!gain) { save(); return 0; }  // nothing earned, nothing charged (v3.96)
+  trainCost(gain);
   uint8_t before = trAtk;
   uint8_t v = trAtk + gain;
   trAtk = v > trMaxAtk() ? trMaxAtk() : v;  // el IV pone el techo
   gain = trAtk - before;            // lo que de verdad subio (puede topar)
-  energy = dropTo(energy, 12, 5);   // cansa
-  fullness = dropTo(fullness, 5, 5);
   uint8_t burn = hits / 10;
   if (burn > 4) burn = 4;
   loseWeight(burn);
   joy = clamp100(joy + 6);
   if (hits >= 20) heartUntil = millis() + HEART_MS;
-  if (hits > strHi) strHi = hits;   // record de golpes
   // Training bonds, and it scales with the session: a token effort is worth the
   // base, a full one is worth more. The daily cap in addBond() still stops it
   // being farmed -- this changes how fast a good session gets there, not the
@@ -2485,6 +2486,19 @@ uint8_t Pet::playJoyGame(uint8_t score) {
   return joy - before;
 }
 
+// THE cost of a training session (v3.96): in proportion to the points the
+// session paid, before the stat ceilings (the game was played either way), so
+// a full session costs TRAIN_FULL_ENERGY / TRAIN_FULL_FOOD and a two-stat game
+// paying 16 costs more than a single paying 10. Rounded up: 1 point costs 1.
+void Pet::trainCost(uint8_t points) {
+  if (!points) return;
+  if (points > TRAIN_SESSION_MAX) points = TRAIN_SESSION_MAX;
+  uint8_t e = (uint8_t)((points * TRAIN_FULL_ENERGY + TRAIN_SESSION_MAX - 1) / TRAIN_SESSION_MAX);
+  uint8_t f = (uint8_t)((points * TRAIN_FULL_FOOD + TRAIN_SESSION_MAX - 1) / TRAIN_SESSION_MAX);
+  energy = dropTo(energy, e, 5);
+  fullness = dropTo(fullness, f, 5);
+}
+
 uint8_t Pet::trainSplit(uint8_t mask, uint8_t points) {
   if (ceremony != CER_NONE || isEgg()) return 0;
   if (points > TRAIN_SESSION_MAX) points = TRAIN_SESSION_MAX;
@@ -2503,9 +2517,7 @@ uint8_t Pet::trainSplit(uint8_t mask, uint8_t points) {
     gained += now - *stat[i];
     *stat[i] = now;
   }
-  // The same costs as the single-stat games: it tires, it works up an appetite.
-  energy = dropTo(energy, 10, 5);
-  fullness = dropTo(fullness, 5, 5);
+  trainCost(points);               // the same rule as the single-stat games
   loseWeight(points / 5 > 4 ? 4 : points / 5);
   joy = clamp100(joy + 4);
   addBond((uint8_t)(2 + gained / 6));

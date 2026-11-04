@@ -39,7 +39,7 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 10       // bump on ANY wire change; a mismatch is refused (10: LinkMon::ppUps, v3.92)
+#define LINK_PROTO 11       // bump on ANY wire change; a mismatch is refused (11: TRANSFORM rides LinkBeat::sketch, v3.96)
                             // (8, v3.64: LinkResult carries the turn's beats;
                             // 9, v3.69: SKETCH in the beats, the guest's moves)
                             // (6, v3.58: the stats a LinkMon carries scale

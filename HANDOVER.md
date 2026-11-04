@@ -168,53 +168,29 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
    (`STATS`) first. Then set prices.
 4. **Possibly a post-game battle league** (entry fees are a money sink).
 5. **The guide**: brief in `docs/guide-notes.md`.
-6. **Reported by the owner 2026-10-31, not yet looked at** (no code read yet):
-   - **Ditto seems to have no valid move.** Its only real move is TRANSFORM,
-     which is not in the move list, and Ditto is on `movepool_test`'s
-     attackless EXEMPT list. Decide with the owner: add TRANSFORM (copy the
-     foe's species, stats bar HP, and moves with 5 PP each for the fight -- the
-     engine has no such effect yet; SKETCH's `lastMove` and `sketchKeep()` are
-     the nearest precedent, but Transform must NOT persist), or give it a
-     stand-in. Check what a Ditto actually gets today: `relearnFromLevel()`,
-     `rollWildMoves()`, and `battleMustStruggle()` / `battleMoveForSlot()`.
-   - **Bill's PC cannot be browsed without moving creatures.** From the grid a
-     cell opens the ring, and the ring's sheet offers TO PARTY / RELEASE; there
-     is no view-only path to read a stored creature's sheet (moves, stats).
-     Look at `SCR_PC` -> `SCR_PCRING` -> the box sheet (`boxDetail`), and the
-     armed-party-slot deposit, for where a tap moves something unasked.
-   - **The BACK buttons' hit areas may not match the drawn pills.** Check
-     `drawBackPill()` against each screen's own BACK test: `rpickBackHit()`
-     (region chooser), `DEX_BACK_Y` (Pokedex grid and a creature's page),
-     `JUMP_BACK_Y` (the GO TO # pad), and Bill's PC's screens. Write a test that
-     taps the centre and the edges of each drawn pill (trap 3: ask the drawing
-     function's rect, never re-type its numbers), and remember the emulator
-     cannot see finger accuracy (trap 4).
-   - **The rock-breaking training game freezes** (owner, 2026-11-02; most
-     likely ROCK SMASH, the str+spe hybrid in `TRAIN_GAMES` -- confirm the name
-     with the owner). No details yet: ask whether the panel stops drawing (a
-     missing `gfx->flush()` -- `flush_test` should cover every `MG_*` state)
-     or input stops answering, and when (start, mid-round, the result screen).
-     If it reboots, the `boot:` / `CRASH:` breadcrumb names the screen.
-   - **Verify the energy cost of every training game.** Each game in
-     `TRAIN_GAMES` should charge the same rule through one place (`mgPay()` ->
-     `Pet::trainSplit()` / `playJoyGame()`, and the four single-stat games'
-     own paths): list what each actually costs, check none is free or charged
-     twice, that "nothing earned, nothing charged" holds everywhere, and that a
-     game refused for low energy is refused before it starts. Test the CALLER
-     (play each through its screen), not the rule.
-   - **Verify the result message of every minigame.** Every game's end screen
-     should say what was gained, and a zero must say why (JOY MAX, BOND MAX
-     TODAY, a stat's MAX -- v3.37's `gainPart()` / `joyGainText()`). Check all
-     games use it, including the single-stat games and Berry Catch, that the
-     numbers shown equal what was applied, and that the text fits the panel
-     in all six languages (`Arduino_Canvas::textLog` reads it).
+6. ~~**The owner's cleanup list**~~ **done in v3.96** (CLAUDE.md "Done: the
+   owner's cleanup list"): Bill's PC TO PC, the BACK pills, training costs and
+   TOO TIRED, every result screen, TRANSFORM, Rock Smash stalls, hard leaders per
+   seat. **Still open from it:**
+   - **The board that stalls**: flash v3.96 on both boards and watch the serial
+     console (`tools/debugger/`) during Rock Smash; each `slow:` line names the
+     part of the loop that took long. Fix that part, then decide whether the
+     other games need `rockStep()`'s stall guard too.
+   - **Hard leaders above target at full training** (owner's call): most early
+     gyms and some Elite Four seats (Johto's Bruno, Hoenn's Sidney and Phoebe,
+     Kanto's Bruno, Unova's Marshal, Alola's Olivia). Training cannot hold them;
+     higher hard levels or stronger hard rosters could. And **Hoenn's League run**
+     is 48% for the optimal team with the per-battle values (60/50/50 for Glacia,
+     Drake, Wallace gives 96%, casual 34/20/16% each).
+   - Banked Dittos with no moves get TRANSFORM only once raised (the party sheet
+     shows none until then).
 - **From the playthrough, the owner's call**: Slowking (Linking Cord on a
-  Slowpoke) and Kleavor (Black Augurite before any cord) are invisible to a
-  player who does not know; the wallet caps at $999,999 by day 154-518; hard
-  mode's trained Elite Four (the v3.58 re-measure).
-- **Merge and installer**: v3.75-v3.87 wait for the owner's "push to main and
-  update the installer" (`bash tools/build_web.sh` after the last edit, then
-  fast-forward `main`). Tagging is still held on Actions minutes.
+  Slowpoke) and Kleavor (Black Augurite before any cord) ARE obtainable (the
+  evolution audit); only nothing tells a player the route. A hint on the card was
+  offered (owner, 2026-11-04: they must be obtainable -- they are). The wallet
+  cap at $999,999 is fine (owner).
+- **Tagging** is still held on Actions minutes; `main` and the installer carry
+  each version as it is merged.
 - **Board checks wanted first**: a Safari encounter by hand (the four cells,
   out of balls), the evolve-branch dialog (Applin) and the Shedinja hand-off,
   the gender symbols' colours on the panel, a trade between a v3.83+ board and

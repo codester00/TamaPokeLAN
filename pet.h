@@ -79,6 +79,12 @@
 #define JOYGAME_JOY_MAX 30                 // a good round of a joy game
 #define JOYGAME_BOND_MAX 3
 #define TRAIN_SESSION_MAX 18               // one session's training points, however split
+// v3.96: a training session costs in proportion to what it paid (owner): a full
+// session (TRAIN_SESSION_MAX points) costs 12 energy and 5 fullness, nothing
+// earned costs nothing. Below TRAIN_MIN_ENERGY a training game will not start.
+#define TRAIN_FULL_ENERGY 12
+#define TRAIN_FULL_FOOD 5
+#define TRAIN_MIN_ENERGY 15
 #define TR_STR 0x01
 #define TR_DEF 0x02
 #define TR_SPE 0x04
@@ -664,6 +670,8 @@ public:
   // TR_DEF / TR_SPE): the same total a single-stat game pays, divided. Each stat
   // stops at its IV-bound ceiling. Returns what was really gained, all stats.
   uint8_t trainSplit(uint8_t mask, uint8_t points);
+  void trainCost(uint8_t points);        // THE cost of a training session (v3.96)
+  bool tooTiredToTrain() const { return energy < TRAIN_MIN_ENERGY; }
   uint8_t petStep = 0;            // how worn out petting is: index into PET_JOY_STEPS
   void eggTap();  // tocar el huevo: 3 toques y eclosiona
   void newEgg();   // empezar de cero con un inicial aleatorio

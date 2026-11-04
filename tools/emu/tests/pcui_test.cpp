@@ -20,6 +20,7 @@ void onTap(int16_t x, int16_t y);
 void onSwipeV(int dir);
 void partySlotPos(int i, int *cx, int *cy);
 bool monSheetBtn(int16_t x, int16_t y, bool left);
+bool monSheetPcBtn(int16_t x, int16_t y);
 void uiConfirmRects(int *b1Top, int *b1Bot, int *b2Top, int *b2Bot);
 int rpickRowAt(int16_t x, int16_t y, uint8_t mode);
 void pcCellPos(uint8_t i, int *x, int *y);
@@ -37,7 +38,7 @@ extern bool partyOpen, partyPick, pcOpen, pcPick, pcSeventh, pcMissingOnly, jump
 extern uint8_t pcRegion, pcPage, galleryRegion, galleryPage;
 extern int16_t pcSpecies, pcJumpMark, galleryJumpMark;
 extern uint16_t boxDetail, boxSel;
-extern uint8_t boxSwapFrom;
+extern uint8_t boxSwapFrom, partyDetail;
 
 static int bad = 0;
 static void ck(bool ok, const char *w) { printf("%s  %s\n", ok ? "PASS" : "FAIL", w); if (!ok) bad++; }
@@ -107,9 +108,21 @@ int main() {
   // --- deposit: an armed party slot and the hub
   onSwipeV(+1); render(); onSwipeV(+1); render();
   ck(!pcOpen && partyOpen, "down backs out of the grid and the chooser to the party");
-  boxSwapFrom = 1;                       // slot 0, the Pidgey
-  onTap(233, 233); render();
-  ck(pcCount(16) == 1 && party.slots[0].empty(), "the hub with a slot armed deposits it in the PC");
+  // v3.96: looking at a creature moves nothing; the hub only opens the PC
+  partySlotPos(0, &sx, &sy); onTap(sx, sy); render();      // the Pidgey's sheet
+  ck(partyDetail == 1, "(a party slot opens its sheet)");
+  onTap(233, 430); render();                               // off the buttons: closed
+  onTap(233, 233); render();                               // the hub
+  ck(pcOpen && pcCount(16) == 0 && !party.slots[0].empty(), "a look then the hub opens the PC and moves nothing");
+  onSwipeV(+1); render();                                  // the chooser: back to the party
+  ck(!pcOpen && partyOpen, "(back on the party)");
+  partySlotPos(0, &sx, &sy); onTap(sx, sy); render();
+  onTap(233, 430); render();
+  partySlotPos(0, &sx, &sy); onTap(sx, sy); render();      // the same slot again: still a look
+  ck(partyDetail == 1 && pcCount(16) == 0 && !party.slots[0].empty(), "tapping a slot twice moves nothing");
+  for (int y = 300; y < 440 && partyDetail; y += 4)
+    for (int x = 40; x < 430; x += 4) if (monSheetPcBtn(x, y)) { onTap(x + 6, y + 6); render(); y = 999; break; }
+  ck(pcCount(16) == 1 && party.slots[0].empty(), "TO PC on the sheet deposits it in the PC");
 
   // --- a seventh of a species: one of the six makes room
   for (int i = 0; i < 6; i++) pcPut(mon(41));

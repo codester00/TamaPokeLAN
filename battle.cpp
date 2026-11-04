@@ -220,6 +220,31 @@ uint8_t battleSketchTarget(const Combatant &atk, const Combatant &def) {
   return t;
 }
 
+bool battleTransform(Combatant &atk, const Combatant &def) {
+  if (atk.trueDex || def.trueDex || def.fainted()) return false;
+  atk.trueDex = atk.dex;
+  for (int k = 0; k < SI_COUNT; k++) { atk.trueBase[k] = atk.base[k]; atk.base[k] = def.base[k]; atk.stage[k] = def.stage[k]; }
+  for (int i = 0; i < MOVE_SLOTS; i++) {
+    atk.trueMoves[i] = atk.moves[i];
+    atk.truePp[i] = atk.pp[i];
+    atk.moves[i] = def.moves[i];
+    // owner, 2026-11-04: the move table's PP, not the games' 5 each
+    atk.pp[i] = def.moves[i] && def.moves[i] < MOVE_COUNT ? MOVE_TBL[def.moves[i]].pp : 0;
+  }
+  atk.dex = def.dex;
+  return true;
+}
+
+Combatant battleStored(const Combatant &c) {
+  Combatant s = c;
+  if (!s.trueDex) return s;
+  s.dex = s.trueDex;
+  for (int k = 0; k < SI_COUNT; k++) { s.base[k] = s.trueBase[k]; s.stage[k] = 0; }
+  for (int i = 0; i < MOVE_SLOTS; i++) { s.moves[i] = s.trueMoves[i]; s.pp[i] = s.truePp[i]; }
+  s.trueDex = 0;
+  return s;
+}
+
 void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   log = TurnLog();
   log.move = mv;
@@ -281,6 +306,13 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
     return;
   }
   atk.lastMove = mv;   // what a SKETCH facing it copies, hit or miss
+
+  // TRANSFORM never misses (acc 0), and is decided before anything else.
+  if (m.effect == EF_TRANSFORM) {
+    if (battleTransform(atk, def)) log.transformed = true;
+    else log.failed = true;
+    return;
+  }
 
   // --- accuracy. acc 0 means it cannot miss (SWIFT, and every status move)
   if (m.acc && m.effect != EF_NEVER_MISS && random(100) >= m.acc) {
@@ -429,6 +461,11 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
         if (self.hp * 3 < self.maxHp) sc -= 40;
       } else if (m.effect == EF_SKETCH) {
         sc = battleSketchTarget(self, foe) ? 40 : -100;   // nothing to copy: wasted
+      } else if (m.effect == EF_TRANSFORM) {
+        // worth it while untransformed and the foe is the stronger of the two
+        int mine = 0, theirs = 0;
+        for (int k = 0; k < SI_COUNT; k++) { mine += self.base[k]; theirs += foe.base[k]; }
+        sc = (self.trueDex || foe.trueDex) ? -100 : theirs >= mine ? 60 : 20;
       } else {
         sc = 5;
       }

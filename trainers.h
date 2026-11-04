@@ -358,15 +358,24 @@ static const char *const BADGE_NAMES[GYM_REGIONS][TRAINER_GYMS] = {
 // The ladders differ in strength, so one number would leave Kanto easy and
 // Sinnoh hard. Was trMaxFor(HARD_IV) = 100 everywhere, which the optimal team
 // still beat but no ordinary one ever did. Re-measure after any roster change.
-static const uint8_t HARD_TRAINING[] = {
-  45,   // Kanto
-  45,   // Johto
-  30,   // Hoenn
-  20,   // Sinnoh
-  30,   // Unova
-  25,   // Kalos
-  30,   // Alola
-  20,   // Galar
-  20,   // Paldea
+//
+// v3.96 (owner): tuned per SEAT, each leader as its own battle (HP and PP
+// fresh), by tools/emu/league_sim.cpp LS_SEAT: the optimal six win >= 90% and
+// the casual six about 30% at a gym, about 10% at an Elite Four seat or the
+// champion. The values below are its output; LS_SEAT=1 LS_N=3 LS_FIXED=1
+// re-measures them.
+static const uint8_t HARD_TRAINING[GYM_REGIONS][TRAINER_COUNT] = {
+  { 100, 100, 100,  80, 100, 100, 100, 100,  90, 100, 100, 100, 100 },   // Kanto
+  { 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100 },   // Johto
+  { 100, 100, 100, 100, 100, 100,  80, 100, 100, 100,  90,  60,  60 },   // Hoenn
+  { 100, 100, 100, 100,  70,  80,  90,  70, 100, 100,  80,  90,  40 },   // Sinnoh
+  { 100, 100, 100, 100, 100,  90,  20,  70,  80,  90, 100, 100,  60 },   // Unova
+  { 100, 100, 100, 100,  80,  80, 100, 100, 100,  80,  90,  80,  50 },   // Kalos
+  { 100, 100, 100, 100,  60, 100, 100,  50, 100, 100,  90,  90,  90 },   // Alola
+  { 100, 100, 100, 100,  90, 100,  70,  40,  80, 100, 100,  60,  70 },   // Galar
+  { 100, 100, 100, 100, 100, 100,  50,  90,  90, 100,  90,  60,  80 },   // Paldea
 };
-static_assert(sizeof(HARD_TRAINING) == GYM_REGIONS, "one hard training per ladder");
+// THE hard leader's training: its region and its seat on the ladder.
+static inline uint8_t hardTraining(uint8_t region, uint8_t seat) {
+  return HARD_TRAINING[region % GYM_REGIONS][seat % TRAINER_COUNT];
+}

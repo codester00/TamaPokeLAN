@@ -38,7 +38,8 @@ static const int LF = TRAINER_COUNT - TRAINER_ELITE4 - 1;
 // The hard leaders' training, for the sweep (LS_SWEEP); the firmware's value by default.
 static int gFoeTr = -1;
 static uint8_t gRegion = 0;
-static uint8_t foeTr() { return gFoeTr >= 0 ? (uint8_t)gFoeTr : HARD_TRAINING[gRegion]; }
+static uint8_t gSeat = 0;
+static uint8_t foeTr() { return gFoeTr >= 0 ? (uint8_t)gFoeTr : hardTraining(gRegion, gSeat); }
 enum Moves { M_FULL, M_LEVELUP };
 static void mk(Combatant &c, int16_t dex, uint8_t lvl, uint8_t iv, uint8_t tr, Moves mv) {
   Pet p; p.dbgHatchAs(dex, false);
@@ -84,6 +85,7 @@ static int run(uint8_t region, const std::vector<int16_t> &team, Build bd) {
   uint8_t ppLeft[6][MOVE_SLOTS]; bool fresh[6] = { true, true, true, true, true, true };
   for (int seat = LF; seat < TRAINER_COUNT; seat++) {
     const Trainer &t = T[seat];
+    gSeat = (uint8_t)seat;
     uint8_t cap = capOf(t), n = (uint8_t)std::min<int>(t.count, (int)team.size());
     Combatant us[6], them[6];
     for (int i = 0; i < n; i++) {
@@ -115,6 +117,74 @@ int main() {
   // forms, IV 16, training 50, level-up moves only; target ~10%).
   // LS_VERIFY: the firmware's HARD_TRAINING, with more samples, for one region:
   // the League run for both profiles, and each of the eight gyms on its own.
+  // LS_SEAT (v3.96, owner): each hard leader tuned as its OWN battle, HP and PP
+  // fresh. For every seat of one region (LS_REGION): the optimal six picked by
+  // 1v1 wins against that seat's creatures, then the training swept 0-100. A
+  // seat's target: the casual six win about TARGET (gyms 30%, the Elite Four and
+  // the champion 10%) while the optimal six still win >= 90%. With LS_N=k the
+  // samples are k times larger (verification: LS_N=3 with LS_FIXED=1 runs only
+  // the firmware's table).
+  if (getenv("LS_SEAT")) {
+    uint8_t r = (uint8_t)atoi(getenv("LS_REGION") ? getenv("LS_REGION") : "0");
+    int K = getenv("LS_N") ? atoi(getenv("LS_N")) : 1;
+    bool fixedOnly = getenv("LS_FIXED") != nullptr;
+    gRegion = r;
+    const Trainer *T = TRAINER_SETS[r].list;
+    const Build OPT = { 31, 100, M_FULL }, CAS = { 16, 50, M_LEVELUP };
+    auto oneFight = [&](uint8_t seat, const std::vector<int16_t> &tm, Build bd) {
+      const Trainer &t = T[seat];
+      uint8_t n = (uint8_t)std::min<int>(t.count, (int)tm.size()); Combatant us[6], them[6];
+      for (int k = 0; k < n; k++) mk(us[k], tm[k], capOf(t), bd.iv, bd.tr, bd.mv);
+      for (int k = 0; k < t.count; k++) mk(them[k], t.team[k].dex, t.team[k].level, HARD_IV, foeTr(), M_FULL);
+      return fight(us, n, them, t.count);
+    };
+    auto randomSix = [&]() { std::vector<int16_t> t;
+      while (t.size() < 6) { int16_t d = pool[random(pool.size())]; if (std::find(t.begin(), t.end(), d) == t.end()) t.push_back(d); }
+      return t; };
+    for (uint8_t seat = 0; seat < TRAINER_COUNT; seat++) {
+      gSeat = seat;
+      const Trainer &t = T[seat];
+      // the six are picked against a middling leader while sweeping, and against
+      // the leader as it is when verifying the table (a player builds for that)
+      gFoeTr = fixedOnly ? hardTraining(r, seat) : 50;
+      std::vector<std::pair<int, int16_t>> sc;
+      for (int16_t d : pool) {
+        int w = 0;
+        for (int k = 0; k < t.count; k++) {
+          Combatant A, B;
+          mk(A, d, capOf(t), 31, 100, M_FULL);
+          mk(B, t.team[k].dex, t.team[k].level, HARD_IV, foeTr(), M_FULL);
+          w += fight(&A, 1, &B, 1);
+        }
+        sc.push_back({ w, d });
+      }
+      std::sort(sc.rbegin(), sc.rend());
+      std::vector<int16_t> best;
+      for (int i = 0; i < 6; i++) best.push_back(sc[i].second);
+      int target = seat < LF ? 30 : 10;
+      const int RO = 40 * K, RC = 100 * K;
+      int pick = -1, pickO = 0, pickC = 0, lastOk = -1, lastO = 0, lastC = 0;
+      for (int tr = 0; tr <= 100; tr += 10) {
+        if (fixedOnly) tr = hardTraining(r, seat);
+        gFoeTr = tr;
+        int wo = 0, wc = 0;
+        for (int i = 0; i < RO; i++) wo += oneFight(seat, best, OPT);
+        for (int i = 0; i < RC; i++) wc += oneFight(seat, randomSix(), CAS);
+        int po = wo * 100 / RO, pc = wc * 100 / RC;
+        if (fixedOnly) { pick = tr; pickO = po; pickC = pc; break; }
+        if (po >= 90) { lastOk = tr; lastO = po; lastC = pc; }
+        if (pc <= target) {
+          if (po >= 90) { pick = tr; pickO = po; pickC = pc; }
+          else { pick = lastOk >= 0 ? lastOk : tr; pickO = lastOk >= 0 ? lastO : po; pickC = lastOk >= 0 ? lastC : pc; }
+          break;
+        }
+      }
+      if (pick < 0) { pick = lastOk >= 0 ? lastOk : 100; pickO = lastO; pickC = lastC; }
+      printf("SEAT %u %2u %-10s tr %3d optimal %3d%% casual %3d%% (target %d%%)\n", r, seat, t.name, pick, pickO, pickC, target);
+      fflush(stdout);
+    }
+    return 0;
+  }
   if (getenv("LS_VERIFY")) {
     uint8_t r = (uint8_t)atoi(getenv("LS_REGION") ? getenv("LS_REGION") : "0");
     gRegion = r;
@@ -142,9 +212,10 @@ int main() {
     int wo = 0, wc = 0; const int RO = 60, RC = 300;
     for (int i = 0; i < RO; i++) wo += run(r, best, OPT) == 5;
     for (int i = 0; i < RC; i++) wc += run(r, randomSix(), CAS) == 5;
-    printf("%-7s hard training %3u  LEAGUE optimal %3d%%  casual %3d%%  | gyms casual:", RN[r], HARD_TRAINING[r], wo * 100 / RO, wc * 100 / RC);
+    printf("%-7s LEAGUE optimal %3d%%  casual %3d%%  | gyms casual:", RN[r], wo * 100 / RO, wc * 100 / RC);
     for (int seat = 0; seat < LF; seat++) {   // a gym on its own: fresh HP and PP, the casual six
       const Trainer &t = T[seat]; int w = 0; const int RG = 100;
+      gSeat = (uint8_t)seat;
       for (int i = 0; i < RG; i++) {
         std::vector<int16_t> tm = randomSix();
         uint8_t n = (uint8_t)std::min<int>(t.count, 6); Combatant us[6], them[6];

@@ -370,6 +370,50 @@ int main() {
     battleOpen = false;
   }
 
+  // --- 10. TRANSFORM over LAN (v3.96): the guest's Ditto copies the host's
+  // creature; the host decides, the guest copies from the squad it already holds
+  {
+    strongPet();
+    lan.begin(true, "HOST");
+    snprintf(lan.peerName, sizeof(lan.peerName), "%s", "GUEST");
+    lan.addMon(mon(143, 50, "SNORE"));
+    lan.theirs[0] = mon(132, 50, "DITTO");
+    lan.theirsN = 1;
+    lan.state = LINK_READY;
+    lan.send = capture;
+    startLinkBattle();
+    ck(btlFoe.moves[0] == MV_TRANSFORM, "(the guest's Ditto knows TRANSFORM)");
+    btlMenu = 1; btlMsgCount = 0; btlSwapDue = 0; btlMyAct = 0;
+    battleTap(69 + 80, 270 + 27);
+    lan.pendingAct = LINK_ACT_MOVE(0);
+    render();
+    uint8_t snore[MOVE_SLOTS]; memcpy(snore, btlYou.moves, sizeof(snore));
+    ck(btlFoe.dex == 143 && btlFoe.trueDex == 132 && !memcmp(btlFoe.moves, snore, sizeof(snore)),
+       "on the host the guest's Ditto becomes its Snorlax");
+    ck(said("transformed into SNORLAX"), "and the host says so");
+    LinkResult r{};
+    ck(lastResult(r), "(the turn's result)");
+    battleOpen = false;
+
+    lan.begin(false, "GUEST");
+    snprintf(lan.peerName, sizeof(lan.peerName), "%s", "HOST");
+    lan.addMon(mon(132, 50, "DITTO"));
+    lan.theirs[0] = mon(143, 50, "SNORE");
+    lan.theirsN = 1;
+    lan.state = LINK_READY;
+    startLinkBattle();
+    btlMsgCount = 0;
+    memcpy(lan.result, &r, sizeof(r)); lan.resultN = sizeof(r); lan.resultNew = true;
+    render();
+    ck(btlYou.dex == 143 && !memcmp(btlYou.moves, snore, sizeof(snore)) && said("transformed into SNORLAX"),
+       "the guest copies the same moves from the squad it holds, and says the same line");
+    bool ppOk = true;
+    for (int i = 0; i < MOVE_SLOTS; i++)
+      ppOk &= btlYou.pp[i] == r.guestPp[i] && (!snore[i] || btlYou.pp[i] <= MOVE_TBL[snore[i]].pp);
+    ck(ppOk && btlYou.pp[0] > 0, "and shows the PP the host spends for it, at the move table's PP");
+    battleOpen = false;
+  }
+
   printf(bad ? "\n%d FAILED\n" : "\nall passed\n", bad);
   return bad ? 1 : 0;
 }

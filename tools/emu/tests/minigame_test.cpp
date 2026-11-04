@@ -23,6 +23,7 @@ extern uint16_t mgScore, mgPoints;
 extern uint32_t mgStart, mgUntil, mgOverUntil, blockNext, blockLockUntil;
 extern uint32_t rockBeatAt, rockPeriod;
 extern uint8_t rockBeat;
+extern uint32_t mgLast;
 extern bool mgNoSensor;
 struct BlockAttack { uint8_t side; uint32_t at, dur; bool live; };
 extern BlockAttack blockAtk[];
@@ -78,6 +79,7 @@ int main() {
     int beats = 0;
     while (miniGame == ROCK && !mgOverUntil && beats < 100) {
       uint32_t at = rockBeatAt;
+      for (uint32_t t = mgLast + 85; t < at - 5; t += 85) mgStep(t);   // frames, as the panel draws them
       mgStep(at - 5);
       mgPress(CXT, CYT, at);              // dead on the beat
       mgStep(at + 1);
@@ -105,6 +107,17 @@ int main() {
     uint16_t p0 = mgPoints;
     mgPress(CXT, CYT, rockBeatAt + 150);  // late but within reach
     ck(mgScore == 2 && mgPoints >= p0, "a slightly late tap still counts");
+    leaveMini();
+  }
+  {   // v3.96: one board freezes its picture for ~1 s now and then; a beat the
+      // player could not see is not a miss
+    ready(); startRock();
+    for (uint32_t t = mgLast + 85; t < rockBeatAt - 200; t += 85) mgStep(t);
+    uint32_t at = rockBeatAt;
+    mgStep(at + 800);                     // the panel froze through the beat
+    ck(rockBeat == 0, "a beat that passed during a stall is not a miss");
+    mgPress(CXT, CYT, rockBeatAt);
+    ck(rockBeat == 1 && mgScore == 1, "and it is still there to hit after the stall");
     leaveMini();
   }
   {

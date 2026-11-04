@@ -65,21 +65,39 @@ int main() {
   leagueDbgAt(gymRegion, true, 11);
   startTrainerBattle(11, true);
   t = trainingOf(btlFoe, HARD_IV);
-  char w[96]; snprintf(w, sizeof w, "a hard leader fights at its ladder's tuned training (got %d, want %u)", t, HARD_TRAINING[0]);
-  ck(t == HARD_TRAINING[0], w);
+  char w[120]; snprintf(w, sizeof w, "a hard leader fights at its seat's tuned training (got %d, want %u)", t, HARD_TRAINING[0][11]);
+  ck(t == HARD_TRAINING[0][11], w);
   ck(btlFoe.base[SI_ATK] > battleStat(DEX_TBL[btlFoe.dex].bAtk, HARD_IV, btlFoe.level, 0),
      "and it shows in what the creature hits with");
   battleOpen = false;
 
-  // each ladder has its own (v3.95): a Sinnoh hard leader reads Sinnoh's
+  // each seat has its own (v3.96): a League seat of another region, and another
+  // League seat of Kanto, each read their own value rather than Lance's
+  // (expected values from the TABLE: asking hardTraining() would test it with itself)
   {
-    uint8_t keep = gymRegion;
-    gymRegion = 3;
-    leagueDbgAt(gymRegion, true, 11);
-    startTrainerBattle(11, true);
-    snprintf(w, sizeof w, "a Sinnoh hard leader reads Sinnoh's training (%u), not Kanto's (%u)", HARD_TRAINING[3], HARD_TRAINING[0]);
-    ck(battleOpen && builtWith(btlFoe, HARD_IV, HARD_TRAINING[3]) && !builtWith(btlFoe, HARD_IV, HARD_TRAINING[0]), w);
-    battleOpen = false;
+    uint8_t keep = gymRegion, lance = HARD_TRAINING[0][11];
+    int checked = 0;
+    for (uint8_t r = 1; r < GYM_REGIONS && !checked; r++) {
+      if (HARD_TRAINING[r][11] == lance) continue;
+      gymRegion = r;
+      leagueDbgAt(gymRegion, true, 11);
+      startTrainerBattle(11, true);
+      snprintf(w, sizeof w, "region %u's seat 11 reads its own training (%u), not Kanto's (%u)", r, HARD_TRAINING[r][11], lance);
+      ck(battleOpen && builtWith(btlFoe, HARD_IV, HARD_TRAINING[r][11]) && !builtWith(btlFoe, HARD_IV, lance), w);
+      battleOpen = false;
+      checked++;
+    }
+    gymRegion = 0;
+    for (uint8_t s = 8; s < TRAINER_COUNT && checked < 2; s++) {
+      if (s == 11 || HARD_TRAINING[0][s] == lance) continue;
+      leagueDbgAt(gymRegion, true, s);
+      startTrainerBattle(s, true);
+      snprintf(w, sizeof w, "Kanto's seat %u reads its own training (%u), not Lance's (%u)", s, HARD_TRAINING[0][s], lance);
+      ck(battleOpen && builtWith(btlFoe, HARD_IV, HARD_TRAINING[0][s]) && !builtWith(btlFoe, HARD_IV, lance), w);
+      battleOpen = false;
+      checked++;
+    }
+    ck(checked > 0, "(the table is not flat, so a seat reading another's value would show)");
     gymRegion = keep;
   }
 

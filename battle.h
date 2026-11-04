@@ -39,9 +39,23 @@ struct Combatant {
   // The last move this creature used in the fight, for the foe's SKETCH to
   // copy (v3.69). Per creature for the whole fight; 0 = none yet.
   uint8_t lastMove = 0;
+  // TRANSFORM (v3.96): while trueDex is set this creature fights as the foe it
+  // copied -- its dex (look and typing), stats bar HP, stages and moves, each
+  // move at the move table's PP. What it really is waits here, and comes back
+  // through battleStored() whenever it leaves the field. Never saved.
+  int16_t trueDex = 0;
+  uint16_t trueBase[SI_COUNT] = { 0, 0, 0, 0, 0 };
+  uint8_t trueMoves[MOVE_SLOTS] = { 0, 0, 0, 0 };
+  uint8_t truePp[MOVE_SLOTS] = { 0, 0, 0, 0 };
 
   bool fainted() const { return hp == 0; }
 };
+// TRANSFORM's rule: `atk` becomes `def` for the fight. False (it fails) when
+// either is transformed already. The host and a LAN guest both call it.
+bool battleTransform(Combatant &atk, const Combatant &def);
+// The creature as it really is: what goes back into a squad, a PP record or a
+// save whenever it leaves the field.
+Combatant battleStored(const Combatant &c);
 
 // PP: every move full and counted -- a fresh fight's start (a LAN fight's
 // combatants are built bare by linkMonTo(), and count PP from v3.55).
@@ -90,6 +104,7 @@ struct TurnLog {
   uint8_t sketched = 0;
   int8_t sketchSlot = -1;
   bool failed = false;
+  bool transformed = false;   // TRANSFORM took (v3.96)
 };
 
 // SKETCH's one rule: what it copies from `def` into `atk`, or 0 when it fails

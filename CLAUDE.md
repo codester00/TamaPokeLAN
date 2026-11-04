@@ -935,6 +935,67 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: the owner's cleanup list (v3.96)
+
+Owner, 2026-11-04, HANDOVER § NEXT item 6. `cleanup_test` (BACK, costs,
+results, TRANSFORM on the board), `lanfight_test` § 10 (TRANSFORM over LAN),
+`pcui_test`, `minigame_test`, `trainscale_test`; every new guard negative-checked
+(the trainscale check first computed its expected value with the function under
+test and missed -- it reads the table now).
+
+- **Bill's PC: a look moves nothing.** A party slot tap opened the sheet AND armed
+  the slot, so a look and then the hub deposited it. Slot taps only open the sheet;
+  the hub only opens the PC; **TO PC** (`monSheetPcBtn()`, `PDET_P_*`) on the party
+  sheet is the one deposit. RELEASE is 64 wide on the right (owner: rarely used).
+  `boxSwapFrom` is never set by the party screen now (the old box's swap path is
+  dead but kept).
+- **BACK: `backPillRect(which)` / `backZoneY(which)`** (`BACK_RPICK/DEX/JUMP`) are
+  THE answer for the drawing and the tap: 44 tall (was 30), the zone starts 4 px
+  above the pill, and the Pokedex grid has a dead band (`DEX_BACK_Y` .. zone).
+  GO TO #'s pad moved up 14 (`JUMP_Y` 104) so the pill stays on the glass.
+- **`Pet::trainCost(points)` is THE training cost**: `TRAIN_FULL_ENERGY` 12 /
+  `TRAIN_FULL_FOOD` 5 for `TRAIN_SESSION_MAX` points, rounded up, nothing for 0
+  (owner: proportional to the payout; the two-stat games pay ~16 against ~10).
+  All four paths (`trainStrength/Speed`, `playResult`, `trainSplit`) call it; the
+  three single-stat ones had their own costs and charged a 0-point session. The
+  ball's was 10 + score/2. **`Pet::tooTiredToTrain()`** (< `TRAIN_MIN_ENERGY` 15)
+  is asked by `trainTap()`, training games only (joy games stay open), with the
+  TOO TIRED banner (`trainTiredUntil`).
+- **Results: `resultGainLines()` / `drawResultGains()`** are every training game's
+  gains (stats with MAX, then `joyGainText()`), from `resGain/resJoy/resBond`
+  filled by `resultPay()` (the three single-stat games) and `mgPay()`. The ball
+  never showed its DEF and always said +JOY.
+- **Rock Smash stalls**: one board froze its picture ~1 s now and then while the
+  game ran on (the other never did). `rockStep()` moves the beat by a gap past
+  `ROCK_STALL_MS` 250. The cause is NOT known: `loop()` now prints
+  `slow: <part> took N ms on '<screen>'` for any part over `SLOW_SECTION_MS` 150
+  (`TIMED()`; at most one line per 2 s; `handleSerial()` is never timed, a backup
+  runs over it). **Next: the owner runs both boards on the serial console.**
+  Saves are already deferred while the screen is lit, so the suspects are the
+  I2C parts (power chip, clock, pedometer), the SD sprite load and the draw.
+- **TRANSFORM** (move 241, `EF_TRANSFORM`, PP 10, Ditto at level 1; a moveless
+  Ditto gets it in `checkLearnGates()` like the old Smeargle case; a banked one
+  when raised). **`battleTransform()`** copies dex (look and typing), `base[]`,
+  stages, moves, each at `MOVE_TBL` PP (owner: not 5); fails if either side is
+  transformed. **`battleStored()`** is the creature as it really is, used at every
+  squad store (`btlSquad[..] =`, `btlFoeSquad[..] =`) and by `btlRecordPp()`.
+  LAN (`LINK_PROTO` 11): the beat's `sketch` field carries 1 for a TRANSFORM that
+  took; the guest calls `battleTransform()` on its own copies (the moves came with
+  the pairing) before narrating, and clamps the shipped PP after the beats.
+- **Hard leaders per seat: `HARD_TRAINING[GYM_REGIONS][TRAINER_COUNT]`**, read by
+  `hardTraining(region, seat)`, passed by both `foeFromSpecies()` callers. From
+  `league_sim.cpp` `LS_SEAT` (each battle alone, HP and PP fresh; the casual six at
+  30% for a gym, 10% for the League; the optimal six >= 90%), verified with
+  `LS_SEAT=1 LS_N=3 LS_FIXED=1` (the six picked against the leader as it is):
+  every seat's optimal >= 90%, 23 of 72 gyms and 32 of 45 League seats within 5
+  points of target. **The rest are above target at full training (100)**: early
+  gyms have two or three unevolved creatures that random final forms beat anyway
+  (Brock 85%, Falkner 99%), and some Elite Four seats (Johto's Bruno 63%, Hoenn's
+  Phoebe 53%). Training cannot fix those; levels or rosters would. **The League
+  run**: casual 0% everywhere; optimal 90-100% except **Hoenn 48%** (Glacia 90,
+  Drake/Wallace 60; 60/50/50 gives 96% but casual 34/20/16% each) -- the owner's
+  call.
+
 ### Done: hard leaders' training tuned per region (v3.95, on the branch)
 
 Owner, 2026-10-31: a player who does everything right should win the hard

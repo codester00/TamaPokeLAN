@@ -58,6 +58,7 @@ EF_HEAL = 9         # param = percent of max VIT restored
 EF_RECHARGE = 10    # user loses the following turn, exposed
 EF_CHARGE = 11      # turn 1 charges; param 1 = invulnerable while charging
 EF_SKETCH = 12      # replaces itself, for good, with the target's last move
+EF_TRANSFORM = 13   # v3.96: the user becomes the target for the fight
 
 # Stat bitmask for EF_STAGE. One delta applies to every bit set, which is how
 # DRAGON DANCE (ATK+SPE) and BULK UP (ATK+DEF) get to be one table row.
@@ -381,6 +382,11 @@ MOVES = [
     # 1, 11, 21 ... 91 (a row each, fetch_pokeapi.py's REPEATED), and like any
     # move it is never learned while already known.
     ("SKETCH", "sketch", 'normal', MC_STATUS, 0, 0, EF_SKETCH, 0, 0, 0, TG_FOE),
+
+    # --- v3.96: TRANSFORM, Ditto's only move. The user becomes the target for
+    # the fight -- look, typing, stats bar HP, stages and moves at the move
+    # table's PP (battle.cpp battleTransform()); nothing of it is kept.
+    ("TRANSFORM", "transform", 'normal', MC_STATUS, 0, 0, EF_TRANSFORM, 0, 0, 0, TG_FOE),
 ]
 
 # Accuracy drops (SAND ATTACK, SMOKESCREEN, FLASH) are deliberately left out:
@@ -453,6 +459,7 @@ HIT_STATS = {
 MOVE_PP = {
     "tackle": 35,
     "sketch": 1,
+    "transform": 10,
     "scratch": 35,
     "pound": 35,
     "fury-attack": 20,

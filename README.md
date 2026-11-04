@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.95-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.96-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -304,8 +304,13 @@ While **awake**:
   most **18 training points**; a game that trains **two** stats splits them
   evenly (9 + 9), so it's the same total, divided. Leaving a game early keeps what
   you earned. A game restarts the 8-hour window only if it leaves every need at
-  90 or more.
-  - 🥊 **Punching bag** — **STRENGTH** (~4 hits = 1 pt), tires it. +1 fitness
+  90 or more. **What it costs is in proportion to what it paid** (v3.96): a full
+  session of 18 points costs **−12 energy and −5 food**, 10 points −7 and −3, and
+  a round that earned nothing costs nothing (rounded up, so 1 point costs 1).
+  **Below 15 energy** a training game will not start ("TOO TIRED"); the joy games
+  still do. Every result screen says what the session paid: the stats, then joy
+  and bond, and a zero says why (MAX, or the day's bond already earned).
+  - 🥊 **Punching bag** — **STRENGTH** (~4 hits = 1 pt). +1 fitness
     per 10 hits (max +4).
   - 🎯 **Reaction test** — **SPEED**: tap the target before it shrinks away; the
     window tightens as you go. +1 fitness per 10 hits (max +4).
@@ -332,9 +337,8 @@ While **awake**:
     **slips back** a step and won't budge for 0.35 s, so mashing gets nowhere.
     **45 steps** is a full session; a perfect round is about 54.
 
-    All four cost what any training does: −10 energy, −5 food, +4 joy, bond,
-    and +1 fitness per 5 points (max +4). A round that earned nothing costs
-    nothing.
+    All four cost what any training does (above) and pay +4 joy, bond, and +1
+    fitness per 5 points (max +4).
   - 🍓 **Berry Catch** — **JOY + BOND**: drag the basket for 20 s, catch berries,
     dodge rocks (dark, with a red cross: one in the basket costs a point and
     flashes −1; a miss costs nothing). Pays **+6 joy, +2
@@ -540,8 +544,18 @@ user's ATTACK, CLOSE COMBAT and OVERHEAT lower the user's own stats. 48 attacks
 carry one, including PSYCHIC, CRUNCH, SHADOW BALL and ACID, which used to ignore
 theirs. Accuracy and evasion stages are deliberately left out. Every species can
 attack by level-up except the ones that cannot in the games either (METAPOD,
-KAKUNA, ABRA, DITTO...) and five whose only real attacks need effects
+KAKUNA, ABRA, DITTO, whose one move is TRANSFORM...) and five whose only real attacks need effects
 this game does not have (UNOWN, WOBBUFFET, WYNAUT, PYUKUMUKU, APPLIN).
+
+**TRANSFORM** (since v3.96) is DITTO's one move, learned at level 1 (a DITTO
+from an older version learns it on its first level check). Used in a fight,
+DITTO becomes the opponent for the rest of that fight: its look and typing, its
+stats except HP, its stat stages and its four moves, each at the move list's
+full PP. It fails on a creature that is itself transformed. Switched out, or
+when the fight ends, it is a DITTO again: nothing is kept, and only the TRANSFORM
+it used is spent from its own PP. In a LAN battle the host decides it and the
+guest's board copies the same moves from the team it was sent at pairing (both
+boards need v3.96).
 
 **SKETCH** (since v3.69) is SMEARGLE's whole movepool, as in the games. It
 learns SKETCH at levels 1, 11, 21 ... 91 like any level-up move: into an empty
@@ -1246,8 +1260,9 @@ needs a free party slot, or makes room: the party screen's **PC** button opens t
 species' six, and the one you tap goes in favour of the newcomer. A trade that
 would bring in a seventh with a full party is refused at **ACCEPT** ("NO ROOM").
 
-- **Opening it:** the middle of the party ring. Tap a party creature, then the
-  middle, to deposit it; it goes to its own species.
+- **Opening it:** the middle of the party ring. Tapping a party creature only
+  opens its sheet; its **TO PC** button deposits it, into its own species
+  (v3.96 -- before, a look at a creature and then the middle deposited it).
 - **The grid** is the Pokédex's, region by region: **coloured** with a count (1–6)
   where the PC holds that species, **outlined** where only your party or the
   creature you are raising does, **grey** otherwise. Tap a species for its ring of
@@ -1480,13 +1495,16 @@ flat **+10** is not training and does not scale.
 
 **Leaders:** on **easy** they fight with no training (the games' story leaders
 have none) and IVs of 16; on **hard** with perfect IVs (31) and a training set
-per ladder (v3.95): Kanto 45, Johto 45, Hoenn 30, Sinnoh 20, Unova 30, Kalos 25,
-Alola 30, Galar 20, Paldea 20. Those are tuned so that in a hard League run a
-team chosen for its matchups, with perfect IVs, full training and its TMs wins
-almost every time (90–100%), while six random creatures at IV 16 and training
-50 with only level-up moves win about one run in ten. (It was full training,
-100, everywhere: only a perfect team could win.) Wild creatures have no
-training.
+**for each leader** (v3.96, `HARD_TRAINING` in trainers.h), tuned with each
+battle fought on its own: a team chosen for that leader's matchups, with perfect
+IVs, full training and its TMs, wins 90–100% against every one, while six random
+final forms at IV 16 and training 50 with only level-up moves aim at about 30% for
+a gym leader and about 10% for an Elite Four member or a champion. Most early gym
+leaders cannot be held that low by training alone: their two or three unevolved
+creatures lose to final forms even fully trained (Brock 85%, Falkner 99%), so
+those leaders fight at full training, 100. The champions and most Elite Four
+members land on target; in one run the casual six win no Leagues at all. Wild
+creatures have no training.
 
 The `(IV × level)/100` term is the **real formula from Gen III onward** — a perfect
 IV is worth +31 at level 100. But IVs do a second job here that they don't do in

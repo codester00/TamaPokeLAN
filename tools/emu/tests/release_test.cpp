@@ -49,7 +49,7 @@ static int SLOT_X(int i){ int x, y; partySlotPos(i, &x, &y); return x; }
 static int SLOT_Y(int i){ int x, y; partySlotPos(i, &x, &y); return y; }
 bool monSheetBtn(int16_t,int16_t,bool);
 #define SHEET_L_X 160
-#define SHEET_R_X 320
+#define SHEET_R_X 374   // v3.96: RELEASE narrowed to the right
 #define SHEET_BTN_Y (336 + 48/2)
 #define CONF_YES_Y (206 + 52/2)
 #define CONF_NO_Y  (268 + 52/2)
@@ -167,7 +167,7 @@ int main(){
     party.save();
     partyOpen=true;
     partyTap(SLOT_X(0), SLOT_Y(0));
-    ck(boxSwapFrom==1, "opening a sheet arms the swap side");
+    ck(boxSwapFrom==0, "opening a sheet arms nothing: a look moves nothing (v3.96)");
     partyTap(SHEET_R_X, SHEET_BTN_Y);
     partyTap(CONF_X, CONF_YES_Y);
     ck(boxSwapFrom==0 && boxSel==0,

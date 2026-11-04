@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.95"
+#define FW_VERSION "3.96"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -102,7 +102,12 @@ bool galleryDirty = false;
 // labelled, so going up one level has one known place. The header above the
 // grid is GO TO # (it used to close the whole Pokedex, skipping the chooser).
 #define DEX_BACK_Y (GAL_Y + 4 * GAL_CELL)
-#define DEX_BACK_LABEL_Y (DEX_BACK_Y + 4)
+// v3.96: every BACK pill is 44 tall (it was 30, under UI_TAP_MIN), and its
+// tap zone starts a few px below what is above it, so a tap just short of the
+// pill lands on nothing. backPillRect()/backZoneY() are THE answer for both the
+// drawing and the tap.
+enum { BACK_RPICK, BACK_DEX, BACK_JUMP };
+#define BACK_PILL_H 44
 #define GAL_REGIONS (REGION_COUNT - 1)          // the real regions, not ALL
 #define GAL_LO (REGIONS[galleryRegion % GAL_REGIONS].lo)
 #define GAL_HI (REGIONS[galleryRegion % GAL_REGIONS].hi)
@@ -235,6 +240,12 @@ uint32_t sackUntil = 0, sackOverUntil = 0;
 uint16_t sackHits = 0;
 float sackShake = 0;
 uint8_t sackGain = 0;
+// What the shown result paid (v3.96): the stats in TR_* order, then joy and
+// bond. The three single-stat games fill it through resultPay(); the
+// dispatcher's games fill it in mgPay(). drawResultGains() reads it.
+uint8_t resGain[3] = { 0, 0, 0 }, resJoy = 0, resBond = 0;
+void resultPay(uint8_t game, uint16_t score);
+void drawResultGains(int y, uint8_t mask, uint16_t ink);
 bool sackNewHi = false;
 
 // The training menu (the 5th icon): a list of GAMES, each row naming what it
@@ -339,6 +350,7 @@ uint8_t pickCandidates();
 void uiConfirmRects(int *b1Top, int *b1Bot, int *b2Top, int *b2Bot);
 void renderParty();
 void renderBox();
+bool monSheetPcBtn(int16_t x, int16_t y);
 // The avatar picker and the blackout screen sit below the handlers that open
 // them (v3.38).
 uint8_t avatarPages();
@@ -542,7 +554,9 @@ void galleryBack();
 void galleryHeaderText(char *buf, size_t n);
 bool uiOnControl(int16_t x, int16_t y);
 static void drawEggRegion();          // defined with the egg screen helpers
-static void drawBackPill(int y);      // the Pokedex's BACK button, with the gallery
+static void drawBackPill(uint8_t which);   // the Pokedex's BACK button, with the gallery
+void backPillRect(uint8_t which, int *x, int *y, int *w, int *h);
+int backZoneY(uint8_t which);
 static bool ppUpTarget(uint8_t who, const uint8_t **moves, uint8_t *ups, const CreatureUid **uid);   // with the bag
 static int eggRegionTap(int16_t x, int16_t y);
 static void drawBtlBack();
@@ -600,8 +614,7 @@ uint8_t btlMyAct = 0;        // host: our own action, latched until theirs lands
 static_assert(LANTRADE_Y + LANTRADE_H + 20 <= 370, "keep a dead band above the LAN screen's back zone");
 // The Pokedex chooser has no LAN button, so it keeps its BACK label and the
 // tap zone under it.
-#define RPICK_BACK_LABEL_Y 392
-#define RPICK_BACK_ZONE_Y 380
+#define RPICK_BACK_PILL_Y 376
 
 // The BOX button is the hub in the middle of the party ring now (PSLOT_HUB_R),
 // so it has no rectangle of its own any more.
@@ -646,10 +659,15 @@ static_assert(LANTRADE_Y + LANTRADE_H + 20 <= 370, "keep a dead band above the L
 // wider than before, not narrower.
 #define PDET_BTN_Y 336
 #define PDET_BTN_H 48
-#define PDET_L_X 70
-#define PDET_L_W 180
-#define PDET_R_X 266
-#define PDET_R_W 120
+// v3.96: TO PC on the left, the primary still on the centre, RELEASE
+// narrowed to the floor (owner: rarely used, fewer misses).
+#define PDET_L_X 140
+#define PDET_L_W 186
+#define PDET_R_X 342
+#define PDET_R_W 64
+#define PDET_P_X 64
+#define PDET_P_W 60
+static_assert(PDET_L_X > PDET_P_X + PDET_P_W + 8, "TO PC needs a dead gap before the primary");
 static_assert(PDET_L_X < 233 && 233 < PDET_L_X + PDET_L_W,
               "the panel centre must land on the sheet's PRIMARY button, not between the two");
 static_assert(PDET_R_X > PDET_L_X + PDET_L_W + 8,
@@ -1408,9 +1426,24 @@ void ensureMon() {
   }
 }
 
+// v3.96: which part of loop() took long. One board froze its picture for
+// about a second, now and then, mid-game, while the game's clock ran on (the
+// other board never did); nothing in the game's own code can stall, so the
+// loop names the slow part on the console, with the screen it was on.
+#define SLOW_SECTION_MS 150
+static void slowCheck(const char *what, uint32_t t0) {
+  uint32_t d = millis() - t0;
+  static uint32_t lastSaid = 0;
+  if (d >= SLOW_SECTION_MS && (!lastSaid || millis() - lastSaid > 2000)) {
+    lastSaid = millis();
+    Serial.printf("slow: %s took %lu ms on '%s'\n", what, (unsigned long)d, SCREEN_NAME[uiCurrentScreen()]);
+  }
+}
+#define TIMED(what, stmt) do { uint32_t t0_ = millis(); stmt; slowCheck(what, t0_); } while (0)
+
 void loop() {
   uint32_t now = millis();
-  pet.update(now);
+  TIMED("pet update", pet.update(now));
 
   // The link is pumped here rather than from the LAN screen, because it has to
   // keep running through the battle too: linkNowPoll() drains what the radio
@@ -1422,7 +1455,7 @@ void loop() {
   }
   tradePoll(now);   // the same, for a trade: resends, timeouts, the countdown
   // PP spent in a fight is written once it is over, not every turn.
-  if (!battleOpen && !saveInhibited && ppDirty()) ppFlush();
+  if (!battleOpen && !saveInhibited && ppDirty()) TIMED("pp save", ppFlush());
 
   // avisa con un sonido cuando el bicho pasa a estar listo para evolucionar
   // (incluye el caso de cumplir al despertar). canEvolveNow es false durmiendo.
@@ -1436,9 +1469,9 @@ void loop() {
   if (runReady && !wasRunReady) sfxPlay(SFX_DENY);
   wasRunReady = runReady;
 
-  handleTouch();
-  handleSerial();
-  ensureMon();
+  TIMED("touch", handleTouch());
+  handleSerial();   // never timed: a backup is being read over it
+  TIMED("sprite load", ensureMon());
 
   // A sprite pack can arrive long after the card was mounted: the web installer
   // streams it over PUT into the FIRMWARE THAT IS ALREADY RUNNING. gRegionArt was
@@ -1448,7 +1481,7 @@ void loop() {
   // Quietly, because the host is still parsing this serial stream.
   if (sdArtDirty) {
     sdArtDirty = false;
-    sdScanRegionArt(false);
+    TIMED("sd scan", sdScanRegionArt(false));
   }
 
   // A farewell or release just finished: the creature is waiting for a slot.
@@ -1475,7 +1508,7 @@ void loop() {
   static uint32_t lastPwr = 0;
   if (now - lastPwr > 250) {
     lastPwr = now;
-    pwrPoll();
+    TIMED("power chip", pwrPoll());
     if (pwrShortPressed()) {
       screenOff = !screenOff;
       pet.setScreenOff(screenOff);   // asleep only if it is also night
@@ -1490,7 +1523,7 @@ void loop() {
     if (batLowWarning()) flushBeforePowerLoss("battery low");
   }
 
-  updateBrightness(now);
+  TIMED("brightness", updateBrightness(now));
 
   // vuelca el autoguardado periodico SOLO con la pantalla atenuada/apagada o
   // durmiendo: la escritura a NVS congela ~1s ambos cores (caché de flash off),
@@ -1502,14 +1535,15 @@ void loop() {
   // only throttles retrying a save that is still failing. See its comment in
   // pet.h; without it, this ran on every single loop iteration while dimmed.
   if (pet.savePending() && pet.retryDue() && (screenOff || dimStage >= 1 || pet.sleeping)) {
-    pet.flushSave();
+    TIMED("save", pet.flushSave());
   }
 
   // anota la hora real cada 30 s (se persiste en cada save del juego)
   static uint32_t lastClock = 0;
   if (now - lastClock > 30000) {
     lastClock = now;
-    uint32_t e = rtcEpoch();
+    uint32_t e;
+    TIMED("clock", e = rtcEpoch());
     if (e) pet.lastSeenEpoch = e;
   }
 
@@ -1524,7 +1558,8 @@ void loop() {
   static uint32_t lastPedo = 0;
   if (now - lastPedo > 30) {
     lastPedo = now;
-    uint32_t steps = pedoPollSteps();
+    uint32_t steps;
+    TIMED("pedometer", steps = pedoPollSteps());
     if (steps) pet.addSteps(steps);
   }
 
@@ -1546,7 +1581,7 @@ void loop() {
   // sprites grandes el dibujo tarda mas, asi que se deja colchon)
   if (now - lastRender >= (uint32_t)((gameOpen || sackOpen || spdOpen || catchOpen || miniGame) ? 85 : 100)) {
     lastRender = now;
-    render();
+    TIMED("draw", render());
   }
 }
 
@@ -2396,6 +2431,15 @@ void renderMonSheet(const PartyMon &m, bool fromBox) {
                  PDET_BTN_Y + PDET_BTN_H / 2 - 8);
   gfx->print(leftLbl);
 
+  if (!fromBox) {                            // TO PC
+    bool pcOk = !tradeLocked(m);
+    gfx->fillRoundRect(PDET_P_X, PDET_BTN_Y, PDET_P_W, PDET_BTN_H, 10, pcOk ? UI_WHITE : UI_TRACK);
+    gfx->drawRoundRect(PDET_P_X, PDET_BTN_Y, PDET_P_W, PDET_BTN_H, 10, UI_INK);
+    gfx->setTextColor(pcOk ? UI_INK : 0x8410);
+    gfx->setTextSize(1);
+    gfx->setCursor(PDET_P_X + PDET_P_W / 2 - (int)strlen(T(S_TO_PC)) * 3, PDET_BTN_Y + PDET_BTN_H / 2 - 4);
+    gfx->print(T(S_TO_PC));
+  }
   gfx->fillRoundRect(PDET_R_X, PDET_BTN_Y, PDET_R_W, PDET_BTN_H, 10, UI_BAR_BAD);
   gfx->drawRoundRect(PDET_R_X, PDET_BTN_Y, PDET_R_W, PDET_BTN_H, 10, UI_INK);
   gfx->setTextColor(UI_WHITE);
@@ -2519,6 +2563,11 @@ bool monSheetBtn(int16_t x, int16_t y, bool left) {
   int w = left ? PDET_L_W : PDET_R_W;
   return x >= x0 && x <= x0 + w;
 }
+// TO PC, the party sheet's third button (v3.96). The PC's own sheet has none.
+bool monSheetPcBtn(int16_t x, int16_t y) {
+  if (y < PDET_BTN_Y || y > PDET_BTN_Y + PDET_BTN_H) return false;
+  return x >= PDET_P_X && x <= PDET_P_X + PDET_P_W;
+}
 
 // YES / NO on the release confirm. Returns true when the tap was consumed. The
 // caller swallows everything else while it is up: a modal that leaks a miss
@@ -2608,6 +2657,12 @@ void partyTap(int16_t x, int16_t y) {
       sfxPlay(SFX_HATCH);
       return;
     }
+    if (monSheetPcBtn(x, y)) {               // TO PC (v3.96)
+      bool ok = pcDeposit((uint8_t)(partyDetail - 1));
+      sfxPlay(ok ? SFX_MEDAL : SFX_DENY);
+      if (ok) partyDetail = 0;
+      return;
+    }
     if (monSheetBtn(x, y, false)) {          // RELEASE -- ask first, always
       releaseConfirm = true;
       sfxPlay(SFX_TAP);
@@ -2630,11 +2685,10 @@ void partyTap(int16_t x, int16_t y) {
   }
   if (partyHubAt(x, y) && (!partyPick || pcSeventhDue())) {
     if (partyPick) { pcOpenSeventh(); sfxPlay(SFX_TAP); return; }   // make room in the PC
-    if (boxSwapFrom && !party.slots[boxSwapFrom - 1].empty()) {    // an armed slot: deposit it
-      sfxPlay(pcDeposit(boxSwapFrom - 1) ? SFX_MEDAL : SFX_DENY);
-      boxSwapFrom = 0;
-      return;
-    }
+    // The hub only ever OPENS the PC (v3.96). It used to deposit whichever
+    // slot was armed -- and looking at a creature armed it, so a look and then
+    // the hub put that creature in the PC unasked. TO PC on the sheet does it.
+    boxSwapFrom = 0;
     // With the PC unavailable the hub is the old box again, so what it holds
     // (and the room a farewell can use) is never out of reach.
     if (!pcAvailable()) { boxOpen = true; boxPage = 0; boxDetail = 0; }
@@ -2661,15 +2715,9 @@ void partyTap(int16_t x, int16_t y) {
       sfxPlay(SFX_MEDAL);
       return;
     }
-    if (!partyPick) {
-      if (boxSwapFrom == i + 1) {    // tapped again: into Bill's PC
-        sfxPlay(pcDeposit(i) ? SFX_MEDAL : SFX_DENY);
-        boxSwapFrom = 0;
-        return;
-      }
-      if (party.slots[i].empty()) { boxSwapFrom = i + 1; sfxPlay(SFX_TAP); return; }
+    if (!partyPick) {                // a look moves nothing (v3.96)
+      if (party.slots[i].empty()) return;
       partyDetail = i + 1;
-      boxSwapFrom = i + 1;           // armed, in case the box is opened next
       sfxPlay(SFX_TAP);
       return;
     }
@@ -5200,7 +5248,7 @@ void stepGame() {
   // the clock, or three misses, whichever lands first
   if (gameUntil && timeReached(millis(), gameUntil) && !gameOverUntil) {
     gameNewHi = (gameScore > pet.gameHi);
-    pet.playResult(gameScore);
+    resultPay(0, gameScore);
     sfxPlay(gameNewHi && gameScore > 0 ? SFX_MEDAL : SFX_LEVEL);
     gameOverUntil = millis() + 4000;
     return;
@@ -5208,7 +5256,7 @@ void stepGame() {
   if (ballY > 384) {  // al suelo
     if (++gameMisses >= 3) {
       gameNewHi = (gameScore > pet.gameHi);
-      pet.playResult(gameScore);  // actualiza el record y da felicidad
+      resultPay(0, gameScore);    // actualiza el record y da felicidad
       sfxPlay(gameNewHi && gameScore > 0 ? SFX_MEDAL : SFX_LEVEL);
       gameOverUntil = millis() + 4000;
     } else {
@@ -5257,24 +5305,17 @@ void renderSack() {
     gfx->setTextSize(4);
     gfx->setCursor(CX - strlen(b) * 12, 150);
     gfx->print(b);
-    char g[32];
-    if (!sackGain && pet.trAtk >= pet.trMaxAtk())       // +0 at the ceiling says why
-      snprintf(g, sizeof(g), "%s %s", T(S_TR_ATK), T(S_ST_MAX));
-    else snprintf(g, sizeof(g), T(S_STR_GAIN_FMT), sackGain);
-    gfx->setTextColor(UI_BAR_BAD);
-    gfx->setTextSize(3);
-    gfx->setCursor(CX - strlen(g) * 9, 210);
-    gfx->print(g);
+    drawResultGains(206, TR_STR, ink);
     gfx->setTextSize(2);
     if (sackNewHi && sackHits > 0) {
       gfx->setTextColor(UI_BAR_WARN);
-      gfx->setCursor(CX - strlen(T(S_NEW_RECORD)) * 6, 256);
+      gfx->setCursor(CX - strlen(T(S_NEW_RECORD)) * 6, 292);
       gfx->print(T(S_NEW_RECORD));
     } else {
       char r[18];
       snprintf(r, sizeof(r), T(S_RECORD_FMT), pet.strHi);
       gfx->setTextColor(ink);
-      gfx->setCursor(CX - strlen(r) * 6, 256);
+      gfx->setCursor(CX - strlen(r) * 6, 292);
       gfx->print(r);
     }
     gfx->flush();
@@ -5284,7 +5325,7 @@ void renderSack() {
   // se acabaron los 10 s: aplicar entrenamiento
   if (!timerRunning(now, sackUntil)) {
     sackNewHi = (sackHits > pet.strHi);
-    sackGain = pet.trainStrength(sackHits);
+    resultPay(1, sackHits);
     sfxPlay(sackNewHi ? SFX_MEDAL : SFX_PLAY);
     sackOverUntil = now + 3500;
     gfx->flush();
@@ -5374,10 +5415,7 @@ void renderGame() {
       gfx->setCursor(CX - strlen(rec) * 6, 214);
       gfx->print(rec);
     }
-    const char *msg = T(S_PLUS_JOY);   // the owner's call: no "So much fun!" cheer
-    gfx->setTextColor(ink);
-    gfx->setCursor(CX - strlen(msg) * 6, 250);
-    gfx->print(msg);
+    drawResultGains(246, TR_DEF, ink);   // it never said the DEF it paid (v3.96)
     gfx->flush();
     return;
   }
@@ -6115,6 +6153,7 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
   if (lg.move) btlSay(T(S_BTL_USED), actor.name, moveName(lg.move));
   if (lg.missed) { btlSay(T(S_BTL_MISS), actor.name); return; }
   if (lg.failed) { btlSay(T(S_BTL_FAILED)); return; }
+  if (lg.transformed) { btlSay(T(S_BTL_TRANSFORM_FMT), actor.name, DEX_TBL[target.dex].name); return; }
   if (lg.sketched) { btlSay(T(S_BTL_SKETCHED), actor.name, moveName(lg.sketched)); return; }
   if (lg.immune) { btlSay(T(S_BTL_IMMUNE)); return; }
   if (lg.crit) btlSay(T(S_BTL_CRIT));
@@ -6169,7 +6208,8 @@ static void btlBeat(bool hostActed, uint8_t kind, const TurnLog &lg) {
   b.inflicted = lg.inflicted;
   b.stageMask = lg.stageMask;
   b.stageDelta = lg.stageDelta;
-  b.sketch = lg.failed ? LB_SKETCH_FAILED : lg.sketched;
+  // the field also carries TRANSFORM's outcome (v3.96): 1 = it took
+  b.sketch = lg.failed ? LB_SKETCH_FAILED : lg.transformed ? 1 : lg.sketched;
   b.hostHp = btlYou.hp;      // only the host records: its side is btlYou
   b.guestHp = btlFoe.hp;
 }
@@ -6192,6 +6232,7 @@ static TurnLog btlBeatLog(const LinkBeat &b) {
   lg.stageMask = b.stageMask;
   lg.stageDelta = b.stageDelta;
   if (b.sketch == LB_SKETCH_FAILED) lg.failed = true;
+  else if (b.move == MV_TRANSFORM) lg.transformed = b.sketch == 1;
   else if (b.sketch < MOVE_COUNT) lg.sketched = b.sketch;
   return lg;
 }
@@ -6201,13 +6242,13 @@ static TurnLog btlBeatLog(const LinkBeat &b) {
 // answer for a leader's IVs and training (v3.58): easy is the games' story
 // leaders (no training, IV 16), hard their post-game facilities (full
 // training, IV 31). Training scales with level like the player's.
-static void foeFromSpecies(Combatant &c, int16_t dex, uint8_t lvl, bool hard, uint8_t region) {
+static void foeFromSpecies(Combatant &c, int16_t dex, uint8_t lvl, bool hard, uint8_t region, uint8_t seat) {
   Pet foe;
   foe.dbgHatchAs(dex, false);
   uint8_t iv = hard ? HARD_IV : EASY_IV;
   foe.ivAtk = foe.ivDef = foe.ivSpe = foe.ivHp = iv;
   // hard: the ladder's tuned training (trainers.h, v3.95), never past the IV's cap
-  uint8_t tr = hard ? HARD_TRAINING[region % GYM_REGIONS] : 0;
+  uint8_t tr = hard ? hardTraining(region, seat) : 0;
   if (tr > Pet::trMaxFor(iv)) tr = Pet::trMaxFor(iv);
   foe.trAtk = foe.trDef = foe.trSpe = tr;
   foe.ageMinutes = (uint32_t)(lvl ? lvl - 1 : 0) * MINUTES_PER_LEVEL;
@@ -6264,7 +6305,8 @@ static void btlSketched(bool ours, const TurnLog &lg) {
 // turn, so no way a fight ends can lose it; RAM only until loop() flushes.
 static void btlRecordPp() {
   if (btlLink || !btlYou.ppOn) return;
-  ppRecord(btlYou.uid, btlYou.moves, btlYou.pp, btlYou.ppUps);
+  Combatant real = battleStored(btlYou);       // a TRANSFORM's borrowed moves are not its own
+  ppRecord(real.uid, real.moves, real.pp, real.ppUps);
 }
 
 // Your side: the live pet first, then the banked party.
@@ -6402,7 +6444,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlSafari = false;
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlFoeAt = 0;
-  foeFromSpecies(btlFoe, tr.team[0].dex, tr.team[0].level, hard, region);
+  foeFromSpecies(btlFoe, tr.team[0].dex, tr.team[0].level, hard, region, idx);
   btlMsgCount = 0;
   btlOver = false;
   btlWon = false;
@@ -6481,7 +6523,7 @@ static void btlApplyResult() {
   // as an index change, and is announced the way the host announces it.
   bool youIn = false, foeIn = false;
   if (r.guestIdx < btlSquadN && r.guestIdx != btlSquadAt) {
-    btlSquad[btlSquadAt] = btlYou;
+    btlSquad[btlSquadAt] = battleStored(btlYou);
     btlSquadAt = r.guestIdx;
     btlYou = btlSquad[btlSquadAt];
     btlSyncSprite(0, btlYou);
@@ -6493,7 +6535,7 @@ static void btlApplyResult() {
   if (r.hostIdx < btlFoeSquadN && r.hostIdx != btlFoeAt) {
     // the same live squad the host keeps, not a fresh copy off lan.theirs: a
     // creature that comes back keeps its PP and anything this board knew
-    btlFoeSquad[btlFoeAt] = btlFoe;
+    btlFoeSquad[btlFoeAt] = battleStored(btlFoe);
     btlFoeAt = r.hostIdx;
     btlFoe = btlFoeSquad[btlFoeAt];
     btlSyncSprite(1, btlFoe);
@@ -6515,10 +6557,6 @@ static void btlApplyResult() {
     sketchKeep(btlYou.uid, (uint8_t)i, to);
     if (btlSquadAt < lan.mineN) lan.mine[btlSquadAt].moves[i] = to;   // for a rematch
   }
-  for (int i = 0; i < MOVE_SLOTS; i++) {   // the host spends PP; we show it
-    uint8_t mx = ppMaxFor(btlYou.moves[i], ppUpsAt(btlYou.ppUps, i));
-    btlYou.pp[i] = r.guestPp[i] > mx ? mx : r.guestPp[i];
-  }
   if (youIn) btlHpShown[0] = btlYou.hp;
   if (foeIn) btlHpShown[1] = btlFoe.hp;
 
@@ -6534,11 +6572,21 @@ static void btlApplyResult() {
     TurnLog lg = btlBeatLog(b);
     Combatant &actor = b.who == 0 ? btlFoe : btlYou;
     Combatant &target = b.who == 0 ? btlYou : btlFoe;
+    // TRANSFORM: this board copies the host's decision from the squads both
+    // boards already hold (the moves came with the pairing), before the line
+    // that names it
+    if (lg.transformed) battleTransform(actor, target);
     if (b.kind == 1) btlNarrateTick(actor, lg);
     else btlNarrate(actor, target, lg);
   }
   btlYou.hp = finalYou;
   btlFoe.hp = finalFoe;
+  // the host spends PP; we show it -- after the beats, so a TRANSFORM this turn
+  // is clamped against the moves it borrowed (v3.96)
+  for (int i = 0; i < MOVE_SLOTS; i++) {
+    uint8_t mx = btlYou.trueDex ? MOVE_TBL[btlYou.moves[i]].pp : ppMaxFor(btlYou.moves[i], ppUpsAt(btlYou.ppUps, i));
+    btlYou.pp[i] = r.guestPp[i] > mx ? mx : r.guestPp[i];
+  }
   if (r.guestDmg) btlHitUntil[0] = now + BTL_HIT_MS;
   if (r.hostDmg) btlHitUntil[1] = now + BTL_HIT_MS;
   // A faint is normally a beat's own line; one the beats did not carry is still
@@ -6956,7 +7004,7 @@ static void btlResolve(uint8_t yourMove) {
     if (LINK_ACT_IS_SWITCH(act)) {
       uint8_t to = LINK_ACT_SLOT(act);
       if (to < btlFoeSquadN && to != btlFoeAt && !btlFoeSquad[to].fainted()) {
-        btlFoeSquad[btlFoeAt] = btlFoe;     // remember how battered it was
+        btlFoeSquad[btlFoeAt] = battleStored(btlFoe);     // remember how battered it was
         btlFoeAt = to;
         btlFoe = btlFoeSquad[to];
         btlHpShown[1] = btlFoe.hp;
@@ -7548,7 +7596,7 @@ void renderBattle() {
       // the move is refused (battleTap asks the same battleSlotReady()).
       if (btlYou.ppOn) {
         char pp[12];
-        snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), btlYou.pp[i], ppMaxFor(mv, ppUpsAt(btlYou.ppUps, i)));
+        snprintf(pp, sizeof(pp), "%s %u/%u", T(S_PP), btlYou.pp[i], btlYou.trueDex ? MOVE_TBL[mv].pp : ppMaxFor(mv, ppUpsAt(btlYou.ppUps, i)));
         gfx->setTextSize(1);
         gfx->setTextColor(battleSlotReady(btlYou, i) ? UI_INK : UI_BAR_BAD);
         gfx->setCursor(x + BTL_CELL_W - 8 - (int)strlen(pp) * 6, y + 38);
@@ -7568,7 +7616,7 @@ static void btlDoSwap() {
   uint32_t now = millis();
   if (btlSwapDue & 2) {
     if (btlLink) {
-      btlFoeSquad[btlFoeAt] = btlFoe;            // remember how battered it was
+      btlFoeSquad[btlFoeAt] = battleStored(btlFoe);            // remember how battered it was
       btlFoeAt = btlNextAt[1];
       btlFoe = btlFoeSquad[btlFoeAt];
       btlFoe.hp = btlNextHp[1] > btlFoe.maxHp ? btlFoe.maxHp : btlNextHp[1];
@@ -7577,7 +7625,7 @@ static void btlDoSwap() {
     } else {
       const Trainer &t = BTL_TRAINERS[btlTrainer];
       btlFoeAt = btlNextAt[1];
-      foeFromSpecies(btlFoe, t.team[btlFoeAt].dex, t.team[btlFoeAt].level, btlHard, btlRegion);
+      foeFromSpecies(btlFoe, t.team[btlFoeAt].dex, t.team[btlFoeAt].level, btlHard, btlRegion, (uint8_t)btlTrainer);
       btlSay(T(S_BTL_SENDS), t.name, btlFoe.name);
     }
     btlHpShown[1] = btlFoe.hp;
@@ -7586,7 +7634,7 @@ static void btlDoSwap() {
     btlEnterUntil[1] = now + BTL_ENTER_MS;
   }
   if (btlSwapDue & 1) {
-    btlSquad[btlSquadAt] = btlYou;               // remember how battered it was
+    btlSquad[btlSquadAt] = battleStored(btlYou);               // remember how battered it was
     btlSquadAt = btlNextAt[0];
     btlYou = btlSquad[btlSquadAt];
     btlYou.hp = btlNextHp[0] > btlYou.maxHp ? btlYou.maxHp : btlNextHp[0];
@@ -7604,7 +7652,7 @@ static void btlDoSwap() {
 // being a free look at the matchup every round.
 static void btlSwitchTo(uint8_t i) {
   if (i >= btlSquadN || i == btlSquadAt) return;
-  btlSquad[btlSquadAt] = btlYou;
+  btlSquad[btlSquadAt] = battleStored(btlYou);
   btlSquadAt = i;
   btlYou = btlSquad[i];
   btlHpShown[0] = btlYou.hp;
@@ -8229,24 +8277,17 @@ void renderSpeed() {
     gfx->setTextSize(4);
     gfx->setCursor(CX - strlen(b) * 12, 150);
     gfx->print(b);
-    char g[32];
-    if (!spdGain && pet.trSpe >= pet.trMaxSpe())        // +0 at the ceiling says why
-      snprintf(g, sizeof(g), "%s %s", T(S_TR_SPE), T(S_ST_MAX));
-    else snprintf(g, sizeof(g), T(S_SPD_GAIN_FMT), spdGain);
-    gfx->setTextColor(UI_BAR_WARN);
-    gfx->setTextSize(3);
-    gfx->setCursor(CX - strlen(g) * 9, 210);
-    gfx->print(g);
+    drawResultGains(206, TR_SPE, ink);
     gfx->setTextSize(2);
     if (spdNewHi && spdHits > 0) {
       gfx->setTextColor(UI_BAR_WARN);
-      gfx->setCursor(CX - strlen(T(S_NEW_RECORD)) * 6, 256);
+      gfx->setCursor(CX - strlen(T(S_NEW_RECORD)) * 6, 292);
       gfx->print(T(S_NEW_RECORD));
     } else {
       char r[20];
       snprintf(r, sizeof(r), T(S_RECORD_FMT), pet.spdHi);
       gfx->setTextColor(ink);
-      gfx->setCursor(CX - strlen(r) * 6, 256);
+      gfx->setCursor(CX - strlen(r) * 6, 292);
       gfx->print(r);
     }
     gfx->flush();
@@ -8256,7 +8297,7 @@ void renderSpeed() {
   // session over?
   if (!timerRunning(now, spdUntil)) {
     spdNewHi = (spdHits > pet.spdHi);
-    spdGain = pet.trainSpeed(spdHits);
+    resultPay(2, spdHits);
     sfxPlay(spdNewHi ? SFX_MEDAL : SFX_PLAY);
     spdOverUntil = now + 3500;
     gfx->flush();
@@ -9591,7 +9632,7 @@ static void renderRegionPick(uint8_t mode) {
     }
   }
   // Drawn exactly where rpickBackHit() answers: the Pokedex's and the PC's.
-  if (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) drawBackPill(RPICK_BACK_LABEL_Y - 6);
+  if (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) drawBackPill(BACK_RPICK);
   uiChrome();
   gfx->flush();
 }
@@ -9632,7 +9673,7 @@ bool lanBtnHit(int16_t x, int16_t y) {
 // LAN BATTLE into "back to the pet screen". First boot has nowhere to go back to.
 bool rpickBackHit(int16_t x, int16_t y, uint8_t mode) {
   (void)x;
-  return (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) && y > RPICK_BACK_ZONE_Y;
+  return (mode == RPICK_FOR_DEX || mode == RPICK_FOR_PC) && y >= backZoneY(BACK_RPICK);
 }
 
 // Whether a gesture starting at (x,y) starts ON a tappable control. Such a
@@ -10794,6 +10835,7 @@ struct TrainGame {
   void (*start)();
 };
 // Order is the menu's order. A new game is one row here.
+uint32_t trainTiredUntil = 0;   // the TOO TIRED banner on the training list (v3.96)
 static const TrainGame TRAIN_GAMES[] = {
   { S_GAME_BAG,   TR_STR,          startSack },
   { S_GAME_REACT, TR_SPE,          startSpeedGame },
@@ -10910,6 +10952,13 @@ void renderTrain() {
   gfx->setTextSize(2);
   gfx->setCursor(CX - (int)strlen(T(S_BACK)) * 6, TRAIN_BACK_LABEL_Y);
   gfx->print(T(S_BACK));
+  if (timerRunning(millis(), trainTiredUntil)) {   // a training game refused (v3.96)
+    gfx->fillRoundRect(CX - 110, 38, 220, 34, 12, UI_BAR_BAD);
+    gfx->setTextColor(UI_WHITE);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(T(S_TOO_TIRED)) * 6, 48);
+    gfx->print(T(S_TOO_TIRED));
+  }
   uiChrome();     // the rim scrollbar: the list pages with a rim drag
   gfx->flush();   // without this the panel never updates and the screen freezes
 }
@@ -10917,6 +10966,13 @@ void renderTrain() {
 void trainTap(int16_t x, int16_t y) {
   int idx = trainGameAt(x, y);
   if (idx >= 0) {
+    // A tired creature does not train (v3.96, owner): the joy games stay open,
+    // they are how a tired, unhappy creature is cheered up.
+    if (!(TRAIN_GAMES[idx].mask & (TR_JOY | TR_BOND)) && pet.tooTiredToTrain()) {
+      trainTiredUntil = millis() + 2000;
+      sfxPlay(SFX_DENY);
+      return;
+    }
     sfxPlay(SFX_TAP);
     trainOpen = false;
     TRAIN_GAMES[idx].start();
@@ -10941,6 +10997,53 @@ void joyGainText(char *out, size_t n, uint8_t joyGain, uint8_t bondGain) {
   gainPart(a, sizeof(a), joyGain, S_ST_JOY, pet.joy >= 100, false);
   gainPart(b, sizeof(b), bondGain, S_ST_BOND, pet.bond >= 100, pet.bond < 100 && pet.bondCappedToday());
   snprintf(out, n, "%s  %s", a, b);
+}
+
+// The three single-stat games' pay (v3.96), recording what the result screen
+// shows: 0 the ball (DEF), 1 the bag (ATK), 2 the reaction test (SPE).
+void resultPay(uint8_t game, uint16_t score) {
+  uint8_t a = pet.trAtk, d = pet.trDef, s = pet.trSpe, j = pet.joy, b = pet.bond;
+  if (game == 0) pet.playResult((uint8_t)(score > 255 ? 255 : score));
+  else if (game == 1) pet.trainStrength(score);
+  else pet.trainSpeed(score);
+  resGain[0] = pet.trAtk - a; resGain[1] = pet.trDef - d; resGain[2] = pet.trSpe - s;
+  resJoy = pet.joy - j; resBond = pet.bond - b;
+}
+
+// THE gains of a result screen (v3.96), every game: the stats it trains (a
+// zero says MAX when the stat is at its ceiling), then joy and bond (a zero
+// says why). Text, so tests read it; the size drops to 2 when a line would not
+// fit the round panel at its height.
+void resultGainLines(char *stats, size_t ns, char *joyLine, size_t nj, uint8_t mask) {
+  static const StrId NAMES[3] = { S_TR_ATK, S_TR_DEF, S_TR_SPE };
+  const uint8_t tr[3] = { pet.trAtk, pet.trDef, pet.trSpe };
+  const uint8_t cap[3] = { pet.trMaxAtk(), pet.trMaxDef(), pet.trMaxSpe() };
+  uint8_t order[3] = { 0, 1, 2 };
+  if (miniGame == MG_TILT) { order[1] = 2; order[2] = 1; }   // SPE + DEF, as its name reads
+  stats[0] = 0;
+  for (int k = 0; k < 3; k++) {
+    int i = order[k];
+    if (!(mask & (1 << i))) continue;
+    char p[24];
+    gainPart(p, sizeof(p), resGain[i], NAMES[i], tr[i] >= cap[i], false);
+    size_t l = strlen(stats);
+    snprintf(stats + l, ns - l, "%s%s", l ? "  " : "", p);
+  }
+  joyGainText(joyLine, nj, resJoy, resBond);
+}
+static void drawGainLine(const char *s, int y, int size, uint16_t col) {
+  int half = uiSafeHalfWidth(y + 8 * size) - 8;
+  if (size == 3 && (int)strlen(s) * 9 > half) size = 2;
+  gfx->setTextColor(col);
+  gfx->setTextSize(size);
+  gfx->setCursor(CX - (int)strlen(s) * 3 * size, y);
+  gfx->print(s);
+}
+void drawResultGains(int y, uint8_t mask, uint16_t ink) {
+  char st[64], jl[64];
+  resultGainLines(st, sizeof(st), jl, sizeof(jl), mask);
+  if (mask & (TR_STR | TR_DEF | TR_SPE)) { drawGainLine(st, y, 3, UI_BAR_BAD); y += 40; }
+  drawGainLine(jl, y, 2, ink);
 }
 void startCatch() {
   if (pet.isEgg() || pet.sleeping || pet.ceremony) return;
@@ -11178,19 +11281,22 @@ static void mgGrading(StrId g, uint32_t now) { mgGradeStr = g; mgGradeUntil = no
 // fresh again -- and pays for turning up even at 0, like Berry Catch; a
 // training game pays through trainSplit() and charges nothing for nothing.
 static void mgPay(bool finished) {
+  resGain[0] = resGain[1] = resGain[2] = resJoy = resBond = 0;
   if (mgMask & TR_JOY) {
     if (!finished && !mgPoints) return;
     uint8_t b0 = pet.bond;
     mgJoyGain = pet.playJoyGame(mgCap(mgPoints));
     mgBondGain = pet.bond - b0;
+    resJoy = mgJoyGain; resBond = mgBondGain;
     return;
   }
   if (!mgPoints) return;                             // nothing earned, nothing charged
-  uint8_t a = pet.trAtk, d = pet.trDef, sp = pet.trSpe;
+  uint8_t a = pet.trAtk, d = pet.trDef, sp = pet.trSpe, j = pet.joy, b = pet.bond;
   pet.trainSplit(mgMask, mgCap(mgPoints));
-  mgGain[0] = pet.trAtk - a;
-  mgGain[1] = pet.trDef - d;
-  mgGain[2] = pet.trSpe - sp;
+  mgGain[0] = resGain[0] = pet.trAtk - a;
+  mgGain[1] = resGain[1] = pet.trDef - d;
+  mgGain[2] = resGain[2] = pet.trSpe - sp;
+  resJoy = pet.joy - j; resBond = pet.bond - b;
 }
 
 static void mgFinish(uint32_t now) {
@@ -11234,7 +11340,13 @@ static void rockPress(uint32_t now) {
   rockAdvance();
 }
 
+// A beat the player could not see is not a miss (v3.96). Frames come every
+// 85 ms; a gap past ROCK_STALL_MS means the board stalled (one board freezes
+// its picture for ~1 s now and then), so the beats wait for it.
+#define ROCK_STALL_MS 250
 static void rockStep(uint32_t now) {
+  uint32_t gap = now - mgLast;
+  if (gap > ROCK_STALL_MS && rockBeat < ROCK_BEATS) rockBeatAt += gap - 85;
   if (rockBeat < ROCK_BEATS && !timeReached(rockBeatAt + ROCK_GOOD_MS, now)) {
     mgGrading(S_MISS, now);                          // let it pass: a miss
     rockAdvance();
@@ -11728,23 +11840,7 @@ static void renderMiniResult(uint16_t ink) {
     snprintf(b, sizeof(b), T(fmt), mgScore);
   }
   mgCentered(b, 160, 3, ink);
-  if (mgMask & TR_JOY) {
-    char g[56];
-    joyGainText(g, sizeof(g), mgJoyGain, mgBondGain);
-    mgCentered(g, 220, 2, UI_BAR_BAD);
-    return;
-  }
-  // The two stats the game trains, in the order its name gives them.
-  static const StrId NAMES[3] = { S_TR_ATK, S_TR_DEF, S_TR_SPE };
-  int first = miniGame == MG_ROCK || miniGame == MG_PUSH ? 0 : miniGame == MG_BLOCK ? 1 : 2;
-  int second = miniGame == MG_TILT || miniGame == MG_PUSH ? 1 : 2;
-  const uint8_t tr[3] = { pet.trAtk, pet.trDef, pet.trSpe };
-  const uint8_t cap[3] = { pet.trMaxAtk(), pet.trMaxDef(), pet.trMaxSpe() };
-  char a[24], c[24], g[52];
-  gainPart(a, sizeof(a), mgGain[first], NAMES[first], tr[first] >= cap[first], false);
-  gainPart(c, sizeof(c), mgGain[second], NAMES[second], tr[second] >= cap[second], false);
-  snprintf(g, sizeof(g), "%s  %s", a, c);
-  mgCentered(g, 220, 2, UI_BAR_BAD);
+  drawResultGains(214, mgMask, ink);
 }
 
 void renderMini() {
@@ -12340,7 +12436,7 @@ char jumpBuf[5] = "";
 int16_t galleryJumpMark = 0;   // the Pokedex cell GO TO # landed on
 #define JUMP_KEY 74
 #define JUMP_X (CX - 3 * JUMP_KEY / 2)
-#define JUMP_Y 118
+#define JUMP_Y 104      // v3.96: up 14, so the taller BACK still sits on the glass
 #define JUMP_BACK_Y (JUMP_Y + 4 * JUMP_KEY)   // the band under the pad: BACK
 
 void jumpOpenFor(bool forPc) {
@@ -12395,7 +12491,7 @@ void renderJump() {
     gfx->setCursor(x + JUMP_KEY / 2 - (int)strlen(KEYS[k]) * 9, y + JUMP_KEY / 2 - 11);
     gfx->print(KEYS[k]);
   }
-  drawBackPill(JUMP_BACK_Y + 6);
+  drawBackPill(BACK_JUMP);
   uiChrome();
   gfx->flush();
 }
@@ -12403,7 +12499,7 @@ void renderJump() {
 void jumpTap(int16_t x, int16_t y) {
   int k = jumpKeyAt(x, y);
   if (k < 0) {   // BACK below the pad (labelled), or above it as before
-    if (y < JUMP_Y - 10 || y >= JUMP_BACK_Y) { jumpOpen = false; sfxPlay(SFX_TAP); }
+    if (y < JUMP_Y - 10 || y >= backZoneY(BACK_JUMP)) { jumpOpen = false; sfxPlay(SFX_TAP); }
     return;
   }
   size_t len = strlen(jumpBuf);
@@ -12754,17 +12850,27 @@ void galleryHeaderText(char *buf, size_t n) {
 }
 // BACK as a button: a pill around the word, top edge at y. Every Pokedex screen
 // draws it in the band its own BACK answers (v3.88).
-static void drawBackPill(int y) {
+void backPillRect(uint8_t which, int *x, int *y, int *w, int *h) {
+  int ww = (int)strlen(T(S_BTN_BACK)) * 12 + 28;
+  *w = ww < 96 ? 96 : ww;
+  *x = CX - *w / 2;
+  *h = BACK_PILL_H;
+  *y = which == BACK_RPICK ? RPICK_BACK_PILL_Y : which == BACK_DEX ? DEX_BACK_Y + 8 : JUMP_BACK_Y + 8;
+}
+// A tap at or below this is BACK, across the whole width (the panel narrows).
+int backZoneY(uint8_t which) { int x, y, w, h; backPillRect(which, &x, &y, &w, &h); return y - 4; }
+static void drawBackPill(uint8_t which) {
   const char *t = T(S_BTN_BACK);
-  int w = (int)strlen(t) * 12 + 28;
-  gfx->fillRoundRect(CX - w / 2, y, w, 30, 15, UI_WHITE);
-  gfx->drawRoundRect(CX - w / 2, y, w, 30, 15, UI_INK);
+  int x, y, w, h;
+  backPillRect(which, &x, &y, &w, &h);
+  gfx->fillRoundRect(x, y, w, h, h / 2, UI_WHITE);
+  gfx->drawRoundRect(x, y, w, h, h / 2, UI_INK);
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(2);
-  gfx->setCursor(CX - (int)strlen(t) * 6, y + 8);
+  gfx->setCursor(CX - (int)strlen(t) * 6, y + h / 2 - 7);
   gfx->print(t);
 }
-static void drawDexBack() { drawBackPill(DEX_BACK_LABEL_Y); }
+static void drawDexBack() { drawBackPill(BACK_DEX); }
 // Up one level in the Pokedex: a creature's page -> the grid -> the region
 // chooser. The swipe down and the BACK label both ask this (v3.88).
 void galleryBack() {
@@ -12867,7 +12973,8 @@ void renderGallery() {
 void galleryTap(int16_t x, int16_t y) {
   if (galleryDetail) { galleryBack(); return; }   // nothing else to hit on a detail
   if (y < GAL_Y) { jumpOpenFor(false); sfxPlay(SFX_TAP); return; }   // the header: GO TO #
-  if (y >= DEX_BACK_Y) { galleryBack(); return; }                    // BACK
+  if (y >= backZoneY(BACK_DEX)) { galleryBack(); return; }          // BACK
+  if (y >= DEX_BACK_Y) return;                                       // the dead band above it
   int c = (x - GAL_X) / GAL_CELL, r = (y - GAL_Y) / GAL_CELL;
   if (c < 0 || c > 3 || r < 0 || r > 3) return;
   int16_t dex = GAL_LO + galleryPage * GAL_PER_PAGE + r * 4 + c;

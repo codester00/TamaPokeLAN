@@ -306,6 +306,7 @@ enum StrId : uint16_t {
   S_PPUP_PICK,  // PP UP's move (v3.92)
   S_LEAGUE_TITLE, S_LEAGUE_DONE_FMT, S_LEAGUE_NEXT_FMT, S_LEAGUE_TIME_FMT,   // the League run (v3.94)
   S_LEAGUE_GO, S_LEAGUE_QUIT, S_LEAGUE_SURE, S_LEAGUE_ROW,
+  S_TO_PC, S_TOO_TIRED, S_BTL_TRANSFORM_FMT,  // the party sheet's TO PC, a tired creature, Transform (v3.96)
   STR_COUNT
 };
 
