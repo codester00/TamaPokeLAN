@@ -950,12 +950,14 @@ subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 
 ### PLAN ONLY: the post-game Battle Zone and the Hall (2026-11-04)
 
-`docs/postgame-plan.md` (draft 2): the zone (every champion, easy counts, a no-marks code,
+`docs/postgame-plan.md` (draft 3): the zone (every champion, easy counts, a no-marks code,
 BP from wins, a prize counter, Pokedollar entry fees), a 16-contestant
 tournament of every existing opponent, the gauntlet (rules, daily 2x on the
 first win of the day, saved between battles), the Hall moved into normal play,
-the player choosing replacements in every mode (LAN too), a new tile for LAN /
-trade / the Hall / the zone, AI switching only in the zone's upper tiers,
+the player choosing replacements in every mode (LAN too), shift style outside
+the zone and set style in it and in LAN, a new PLAZA tile for LAN / trade /
+the Hall / the zone, a Hall that pays a little money and marks a creature that
+clears all 18, AI switching only in the zone's upper tiers,
 zone PP carried through a run and never written to the PP book. Its OPEN items
 are the owner's.
 

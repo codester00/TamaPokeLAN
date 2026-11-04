@@ -1,4 +1,4 @@
-# The post-game Battle Zone, and the Hall -- PLAN ONLY (draft 2, 2026-11-04)
+# The post-game Battle Zone, and the Hall -- PLAN ONLY (draft 3, 2026-11-04)
 
 Agreed with the owner in conversation on 2026-11-04. Nothing here is built.
 Where this and CLAUDE.md differ, this wins for the post-game. Open questions
@@ -36,9 +36,7 @@ them.
   odd). GYM keeps only the region ladders. The new tile lists LAN BATTLE, LAN
   TRADE (today a button inside the LAN screen), BATTLE HALL and BATTLE ZONE
   (greyed "REQUIRES EVERY CHAMPION" until open, per the locked-never-hidden
-  rule). **OPEN: its name** -- suggested **PLAZA** (Gen 7's Festival Plaza was
-  the link-and-play hub), or CLUB / ARENA / VERSUS; the owner offered MISC.
-  Proposed place: `... GYM . PLAZA . DEX` (world on the right). `TILE[]` and
+  rule). **Named PLAZA** (owner, draft 3), at `... GYM . PLAZA . DEX`. `TILE[]` and
   `uiTileGo()`/`uiRimTarget()` are the one-table edit the gesture notes promise;
   `swipe_test` and the tile dots follow.
 - **Entry fees in Pokedollars**, BP for wins. Prices and pay set by the
@@ -65,6 +63,15 @@ them.
   who walks away is the existing idle timeout. `LINK_PROTO` bump,
   `lossy_test` (a lost pick) and `lanfight_test` (both faint in one turn, each
   picks a different creature) cover it.
+- **Battle style: SHIFT outside the zone, SET in the zone and in LAN** (owner,
+  draft 3; the games' own split -- shift in the story, set in the Battle
+  Frontier and link battles). Shift: when the foe's creature faints, the screen
+  names what it sends next and offers the player a free switch before it comes
+  in; set: no free switch. A fixed rule, not a setting: a settings toggle with
+  "LAN follows the host" was weighed and is not recommended -- it doubles the
+  combinations to test, needs a wire field, and surprises the guest with the
+  other board's rule. If a toggle is ever wanted, it fits as a hidden SETTING.
+  One function answers it (`battleStyleShift()`, asked by the faint flow).
 - **AI switching only in the zone, and only in its upper tiers** (later
   gauntlet rounds, later tournament rounds). Rules to make it sane: switch only
   when a teammate clearly does better against the creature in front of it, at
@@ -104,9 +111,9 @@ them.
   **The 2x belongs to the day the run STARTED** (owner, draft 2): a daily run
   begun Monday pays 2x until it ends, even on Wednesday; the next run started
   gets the day's own challenge then. **OPEN: what "successful" means** --
-  suggested: the first daily run that beats at least one challenger claims the
-  day's 2x (a run that loses its first battle leaves the bonus unclaimed), and
-  that run keeps it for its whole life.
+  **the first daily run that beats at least one challenger claims the day's 2x**
+  (a run that loses its first battle leaves the bonus unclaimed), and that run
+  keeps it for its whole life (owner agreed, draft 3).
 - **Pacing (owner)**: no wall where a player always wins rounds 1-2 and always
   loses round 3, and no 50-win cakewalk. A run should take **up to ~30 minutes**
   before a loss. So: the challenger's strength rises a little every round
@@ -131,8 +138,8 @@ them.
     time** (owner, draft 2): starting another needs the current one lost or
     quit (QUIT asks twice, like the League's GIVE UP). The save holds the day
     it started and whether it carries the 2x.
-  - **OPEN**: does the tournament save between rounds the same way (one at a
-    time)? Suggested yes, with the same mid-battle-reboot-is-a-loss rule.
+  - **The tournament saves between rounds the same way**, one at a time, with
+    the same mid-battle-reboot-is-a-loss rule (owner agreed, draft 3).
 
 ## 4. The Hall (moved out of the post-game, owner)
 
@@ -143,9 +150,21 @@ them.
 - **Changing the live pet ends the run.** Saved between rungs (rung, types
   done, PP used), like the gauntlet.
 - **It lives on the new tile** (BATTLE HALL, beside LAN; owner, draft 2).
-- **OPEN**: what it pays (money? bond? a medal for all 18?), and whether each
-  battle costs the pet energy (proposed: yes, as a gym fight does -- a tired
-  pet naps and continues).
+- **Pay: a little money per rung**, like a route trainer in the games, less
+  than a gym leader. Proposed: `trainerPrize()`'s Gen 3 rule (4 x the foe's
+  level x a class value) with a route-trainer class (~8, against a leader's 25),
+  rising with the rung. Tuned with the playthrough bot.
+- **Clearing all 18 marks the creature for good**: an icon on its card that
+  travels with it (banked, PC, traded). It fits without growing the record --
+  a new bit in `PartyMon::flags` (`PMON_HALL` 0x04; six bits are free) and the
+  pet checkpoint's flags byte, through `monFlags()`/`setMonFlags()` like the
+  cheat mark; `TRADE_PROTO` bump so `tradeMonValid()` accepts it, and the
+  `LinkMon` flags so a LAN rival sees it.
+- **Each battle costs energy, and a run spans sittings** (owner, draft 3). The
+  run (rung, types done) is saved between battles; a tired pet rests and
+  continues. **OPEN: the Hall's PP** -- suggested the real PP book, as a gym
+  fight uses, so resting between sittings refills it naturally (the zone's
+  separate PP rule is for the zone only).
 
 ## 5. Prize counter
 
