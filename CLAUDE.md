@@ -935,6 +935,19 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is HANDOVER.md § 1g.
 
+### Done: every Ditto, and Hoenn's League (v3.97)
+
+Owner, 2026-11-04. `cleanup_test` § 10 (party, leftovers, Bill's PC, through a
+real boot; negative-checked, the first try called the function and missed the
+boot). **`backfillTransform()`** at boot, after `pcMigrateBox()`: every Ditto
+with an empty moveset (live pet, handover, party, `party.box`, the PC) gets
+TRANSFORM; one that knows a move is left alone. **Hoenn's seats 10-12 are
+60/50/50** (owner): the League run's optimal six win 96% (was 48%), casual
+34/20/16% each alone. The owner accepts the easy normal leaders; no more tuning
+of them. Slowking and Kleavor: the card shows each one's mainline chain
+(Slowpoke L37 Slowbro, Scyther by trade); the owner's call is to leave the
+Linking Cord and the Black Augurite for players to infer.
+
 ### Done: the owner's cleanup list (v3.96)
 
 Owner, 2026-11-04, HANDOVER § NEXT item 6. `cleanup_test` (BACK, costs,

@@ -12,6 +12,8 @@
 #include "types.h"
 #include "pp.h"
 #include "i18n.h"
+#include "party.h"
+#include "pcstore.h"
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -31,6 +33,8 @@ int btlCellIndexAt(int16_t x, int16_t y);
 void startBattle(int16_t dex, uint8_t lvl);
 void backPillRect(uint8_t which, int *x, int *y, int *w, int *h);
 int backZoneY(uint8_t which);
+int backfillTransform();
+extern Party party;
 int trainGameAt(int16_t x, int16_t y);
 void trainTap(int16_t x, int16_t y);
 void resultGainLines(char *stats, size_t ns, char *joyLine, size_t nj, uint8_t mask);
@@ -252,6 +256,36 @@ int main() {
     ck(ppLeftSlot(pet.uid, 0, MV_TRANSFORM, 0) == MOVE_TBL[MV_TRANSFORM].pp - 1 && pet.moves[0] == MV_TRANSFORM &&
        pet.speciesId == 132, "the pet keeps its own move, its TRANSFORM spent once in the PP book");
     battleOpen = false;
+  }
+
+  // 10. every stored Ditto gets TRANSFORM at boot (v3.97), not only once raised
+  {
+    auto ditto = [](uint32_t serial, uint8_t mv0) {
+      PartyMon m; m.dex = 132; m.level = 30; m.ivAtk = m.ivDef = m.ivSpe = m.ivHp = 20; m.stateVersion = 1;
+      m.uid.mac[0] = 0xD1; m.uid.serial = serial; m.uid.salt = 7; m.moves[0] = mv0; return m;
+    };
+    for (auto &m : party.slots) m = PartyMon();
+    for (auto &m : party.box) m = PartyMon();
+    party.slots[0] = ditto(9001, 0);
+    party.slots[1] = ditto(9002, MV_TACKLE);     // already knows something: left alone
+    party.box[0] = ditto(9003, 0);
+    party.save(); party.boxSave();
+    while (pcCount(132)) { PartyMon x; pcTake(132, 0, &x); }
+    pcPut(ditto(9004, 0)); pcPut(ditto(9005, 0));
+    pet.dbgHatchAs(4, false);                    // the live pet is no Ditto here
+    int n = backfillTransform();
+    PartyMon a, b; pcGet(132, 0, a); pcGet(132, 1, b);
+    ck(n == 4 && party.slots[0].moves[0] == MV_TRANSFORM && party.box[0].moves[0] == MV_TRANSFORM &&
+       a.moves[0] == MV_TRANSFORM && b.moves[0] == MV_TRANSFORM,
+       "every moveless Ditto, in the party, the leftovers and Bill's PC, learns TRANSFORM at boot");
+    ck(party.slots[1].moves[0] == MV_TACKLE && party.slots[1].moves[1] == 0, "a Ditto that knows a move is left alone");
+    Party p2; p2.begin(); p2.loadBox("boxl");
+    ck(p2.slots[0].moves[0] == MV_TRANSFORM && p2.box[0].moves[0] == MV_TRANSFORM, "and it is saved");
+    ck(backfillTransform() == 0, "a second boot gives nothing again");
+    // and it is the BOOT that does it: a moveless one saved, then the board starts
+    party.slots[2] = ditto(9006, 0); party.save();
+    setup();
+    ck(party.slots[2].moves[0] == MV_TRANSFORM, "the boot itself teaches it");
   }
 
   printf(bad ? "FAILED %d\n" : "OK\n", bad);

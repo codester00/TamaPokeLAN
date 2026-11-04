@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.96-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.97-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -549,7 +549,8 @@ this game does not have (UNOWN, WOBBUFFET, WYNAUT, PYUKUMUKU, APPLIN).
 
 **TRANSFORM** (since v3.96) is DITTO's one move, learned at level 1 (a DITTO
 from an older version learns it on its first level check). Used in a fight,
-DITTO becomes the opponent for the rest of that fight: its look and typing, its
+DITTO becomes the opponent for the rest of that fight (every DITTO already in a
+save, raised or stored, learns it when the board first starts on v3.97): its look and typing, its
 stats except HP, its stat stages and its four moves, each at the move list's
 full PP. It fails on a creature that is itself transformed. Switched out, or
 when the fight ends, it is a DITTO again: nothing is kept, and only the TRANSFORM
@@ -1503,8 +1504,10 @@ a gym leader and about 10% for an Elite Four member or a champion. Most early gy
 leaders cannot be held that low by training alone: their two or three unevolved
 creatures lose to final forms even fully trained (Brock 85%, Falkner 99%), so
 those leaders fight at full training, 100. The champions and most Elite Four
-members land on target; in one run the casual six win no Leagues at all. Wild
-creatures have no training.
+members land on target; in one run the casual six win no Leagues at all. Hoenn's
+last three (Glacia 60, Drake 50, Wallace 50) are set for the League RUN instead
+(v3.97): at their single-battle values the optimal six won only 48% of runs, now
+96%. Wild creatures have no training.
 
 The `(IV × level)/100` term is the **real formula from Gen III onward** — a perfect
 IV is worth +31 at level 100. But IVs do a second job here that they don't do in

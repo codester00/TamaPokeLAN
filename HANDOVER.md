@@ -176,19 +176,13 @@ its § TODO "Done: ..." entries hold every version below in full, newest first.
      console (`tools/debugger/`) during Rock Smash; each `slow:` line names the
      part of the loop that took long. Fix that part, then decide whether the
      other games need `rockStep()`'s stall guard too.
-   - **Hard leaders above target at full training** (owner's call): most early
-     gyms and some Elite Four seats (Johto's Bruno, Hoenn's Sidney and Phoebe,
-     Kanto's Bruno, Unova's Marshal, Alola's Olivia). Training cannot hold them;
-     higher hard levels or stronger hard rosters could. And **Hoenn's League run**
-     is 48% for the optimal team with the per-battle values (60/50/50 for Glacia,
-     Drake, Wallace gives 96%, casual 34/20/16% each).
-   - Banked Dittos with no moves get TRANSFORM only once raised (the party sheet
-     shows none until then).
+   - ~~Hard leaders above target~~ accepted by the owner (2026-11-04): no more
+     tuning. ~~Hoenn's League run~~ 60/50/50 in v3.97. ~~Banked Dittos~~ all
+     learn TRANSFORM at boot in v3.97.
 - **From the playthrough, the owner's call**: Slowking (Linking Cord on a
   Slowpoke) and Kleavor (Black Augurite before any cord) ARE obtainable (the
-  evolution audit); only nothing tells a player the route. A hint on the card was
-  offered (owner, 2026-11-04: they must be obtainable -- they are). The wallet
-  cap at $999,999 is fine (owner).
+  evolution audit); the card shows the mainline chain and the owner leaves the
+  rest for players to infer (2026-11-04). The wallet cap at $999,999 is fine.
 - **Tagging** is still held on Actions minutes; `main` and the installer carry
   each version as it is merged.
 - **Board checks wanted first**: a Safari encounter by hand (the four cells,

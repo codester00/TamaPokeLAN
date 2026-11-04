@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.96"
+#define FW_VERSION "3.97"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -410,6 +410,7 @@ uint8_t martPages();
 bool startWildBattle(uint8_t region, bool hard);
 PartyMon wildToPartyMon();
 int backfillUids();
+int backfillTransform();
 void focusSwap(uint8_t slot);
 void drawConfirmPanel(const char *q, const char *sub1, const char *sub2,
                       uint16_t subCol, const char *o1, uint16_t c1, uint16_t t1,
@@ -1374,6 +1375,7 @@ void setup() {
   if (pcBegin(!pcEverHeld())) pcMarkHeld();
   else Serial.println("pc: Bill's PC would not mount -- it reads as unavailable, not empty");
   pcMigrateBox();
+  backfillTransform();
   sdBegin();
   thumbs.load();
 
@@ -10790,6 +10792,40 @@ int backfillUids() {
   if (partyDirty) party.save();
   if (boxDirty) party.boxSave();
   Serial.printf("ids: gave %d creature(s) an ID\n", given);
+  return given;
+}
+
+// v3.97: every Ditto from before v3.96 knows nothing (TRANSFORM was not in the
+// move list), wherever it is stored. At boot each one with an empty moveset --
+// the live pet, the waiting handover, the party, the leftovers and Bill's PC --
+// gets the TRANSFORM it learns at level 1, so nobody has to raise it first to
+// find out. A Ditto that already knows a move is left alone. Idempotent.
+static bool dittoMoveless(int16_t dex, const uint8_t *mv) {
+  if (dex != 132) return false;
+  for (int i = 0; i < MOVE_SLOTS; i++) if (mv[i]) return false;
+  return true;
+}
+int backfillTransform() {
+  int given = 0;
+  bool partyDirty = false, boxDirty = false;
+  if (!pet.isEgg() && dittoMoveless(pet.speciesId, pet.moves)) { pet.moves[0] = MV_TRANSFORM; given++; pet.saveNow(); }
+  if (!pet.endedMon.empty() && dittoMoveless(pet.endedMon.dex, pet.endedMon.moves)) {
+    pet.endedMon.moves[0] = MV_TRANSFORM; given++; pet.saveNow();
+  }
+  for (auto &m : party.slots)
+    if (!m.empty() && dittoMoveless(m.dex, m.moves)) { m.moves[0] = MV_TRANSFORM; given++; partyDirty = true; }
+  for (auto &m : party.box)
+    if (!m.empty() && dittoMoveless(m.dex, m.moves)) { m.moves[0] = MV_TRANSFORM; given++; boxDirty = true; }
+  if (partyDirty) party.save();
+  if (boxDirty) party.boxSave();
+  if (pcAvailable())
+    for (uint8_t i = 0; i < PC_PER_SPECIES; i++) {
+      PartyMon m;
+      if (!pcGet(132, i, m) || !dittoMoveless(m.dex, m.moves)) continue;
+      m.moves[0] = MV_TRANSFORM;
+      if (pcReplace(132, i, m)) given++;
+    }
+  if (given) Serial.printf("moves: %d Ditto learned TRANSFORM\n", given);
   return given;
 }
 
