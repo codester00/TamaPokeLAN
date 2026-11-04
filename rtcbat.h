@@ -10,6 +10,10 @@ void rtcSetEpoch(uint32_t e);
 bool batBegin();
 void pmuEnablePanel();           // enciende BLDO1 (OLED VDD 3.3V); llamar antes de gfx->begin()
 int batPercent();                // 0-100, -1 si no hay bateria conectada
+// v3.98: PWRTRACE on the console. Each power-chip read (every ~2 s) prints its
+// time in ms since boot and what came back, so the ESP's own I2C error lines
+// (whose "(N)" is the same clock) can be matched to the read that failed.
+extern bool gPowerTrace;
 bool batCharging();
 bool usbPresent();
 

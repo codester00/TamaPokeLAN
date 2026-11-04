@@ -253,6 +253,19 @@ int main() {
     extern char btlMsg[8][40];
     for (uint8_t i = 0; i < btlMsgCount; i++) said |= strstr(btlMsg[i], "transformed into CHARIZARD") != nullptr;
     ck(btlYou.dex == 6 && btlYou.trueDex == 132 && said, "the Ditto fights as the Charizard, and the fight says so");
+    // v3.98: the sprite becomes the Charizard with the line that says so, not
+    // before it and not never (it stayed a Ditto on the board)
+    extern int16_t btlShowDex[2];
+    bool beforeOk = true, after = false;
+    for (int guard = 0; guard < 10 && btlMsgCount; guard++) {
+      bool head = strstr(btlMsg[0], "transformed into") != nullptr;
+      render();
+      if (head) { after = btlShowDex[0] == 6; break; }
+      beforeOk &= btlShowDex[0] == 132;
+      battleTap(233, 233);
+    }
+    ck(beforeOk && after, "the Ditto's sprite changes to the Charizard on the line that says so");
+    ck(strstr(btlYou.name, "CHARIZARD") == nullptr && btlYou.name[0], "and its name stays its own, as in the games");
     ck(ppLeftSlot(pet.uid, 0, MV_TRANSFORM, 0) == MOVE_TBL[MV_TRANSFORM].pp - 1 && pet.moves[0] == MV_TRANSFORM &&
        pet.speciesId == 132, "the pet keeps its own move, its TRANSFORM spent once in the PP book");
     battleOpen = false;

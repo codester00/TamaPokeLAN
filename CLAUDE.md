@@ -935,6 +935,29 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is **HANDOVER.md § 1h** (v3.97, 2026-11-04).
 
+### Done: TRANSFORM's sprite, and more clues for the stall (v3.98)
+
+Owner, 2026-11-04, from a board. **A transformed Ditto drew as a Ditto**: the
+sprite streams only when a creature steps in (`btlSyncSprite()`). The
+narration's TRANSFORM line now carries `BTL_MSG_XFORM(who)` in `btlMsgFaint[]`
+(bits 2-3, beside the faint bits) and `btlFaintFromHead()` re-syncs that
+side's sprite when the line comes on screen; with the queue full it changes on
+the spot. The name stays the creature's own, as in the games. `btlShowDex[]` is
+what the sprite should be, loaded or not (the emulator has none to load);
+`cleanup_test` § 9 reads it, negative-checked both ways (never changing, and
+changing at resolution).
+
+**The stall**: the board that stalls logged no `slow:` line at all through
+Rock Smash, only the ESP's own `i2c.master ... unexpected nack` errors about
+every 2 s -- the cadence of `refreshPower()` (rtcbat.cpp's 2 s battery cache),
+and the good board logs none. So it is NOT a loop part over 150 ms. Added:
+`slow: between loops` (time outside `loop()`: the core, other tasks) and
+`slow: whole loop` (skipped for a pass that answered a console command, which
+a backup reads), `rock: N ms between frames` from `rockStep()`'s guard, and
+`PWRTRACE` on the console, which prints each power-chip read's time (the same
+ms clock as the ESP's `E (N)` lines) and values. A freeze with no `rock:` line
+means the frames kept coming: the panel, not the game.
+
 ### Done: every Ditto, and Hoenn's League (v3.97)
 
 Owner, 2026-11-04. `cleanup_test` § 10 (party, leftovers, Bill's PC, through a

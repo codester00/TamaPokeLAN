@@ -115,16 +115,40 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
 
 ### Open -- what the next session should pick up
 
-1. **The board that stalls ~1 s** (Rock Smash on one board only). v3.96 prints
-   `slow: <part> took N ms on '<screen>'` on the serial console; the owner is to
-   flash v3.97 on both boards and read it (`tools/debugger/`). Fix the named part,
-   then decide whether the other minigames need `rockStep()`'s stall guard.
+1. **The board that stalls ~1 s** (Rock Smash on one board only). On v3.97 it
+   printed NO `slow:` line, only `E (N) i2c.master: I2C transaction unexpected
+   nack detected` about every 2 s (the good board: none) -- the cadence of
+   `refreshPower()`, the AXP2101 battery read. v3.98 adds `slow: between loops`,
+   `slow: whole loop`, `rock: N ms between frames` and the `PWRTRACE` console
+   toggle (CLAUDE.md "Done: TRANSFORM's sprite, and more clues"). Next: the owner
+   runs v3.98 with `PWRTRACE` on and notes when the picture freezes; ask whether
+   the bad board has a battery, and whether swapping batteries moves the fault.
+   A freeze with no `rock:` line points at the panel or its supply (BLDO1 comes
+   from the same AXP2101), not the firmware's loop.
 2. **Board checks** never done: § 1g's list (a Safari encounter, the Applin
    dialog, Shedinja, gender colours, an old-vs-new board trade refusing, the save
    from v3.74) plus everything since: the TO PC button and narrow RELEASE by
    finger, the BACK pills by finger, TOO TIRED, a LAN TRANSFORM on two boards.
 3. From § 1g's NEXT list still open: a post-game battle league (entry fees as a
    money sink), the guide (`docs/guide-notes.md`), prices from the playthrough.
+   **The post-game, as the owner sketched it (2026-11-04, in planning, no plan
+   doc yet):** a zone that opens once the League is done, laid out like a Game
+   Corner (a battle-points currency and a prize counter) with a list of formats
+   like the training menu: a 16-contestant TOURNAMENT of champions (4 rounds;
+   tournaments won are recorded), a GAUNTLET of generated challengers until you
+   lose (stock trainer avatars; rules: one type, level caps, evolution tiers,
+   team size; a daily challenge with random rules pays 2x, custom rules 1x;
+   challengers scale up; the best streak is recorded), and a HALL for the live
+   pet, 1 on 1. Post-game trainers switch (maybe only the gauntlet's harder
+   ones). Plus a Memory-game code that opens the zone once, with no marks, like
+   the hall codes. Open questions put to the owner: the unlock (all 72 badges
+   needs every sprite pack -- the first champion title was suggested), a
+   replacement picker for the player BEFORE any AI switches, whether switching
+   is zone-only, daily retries, tournament levels, Hall energy, entry fees.
+5. **Shiny eggs feel common** (owner, 2026-11-04: four shiny hatches on two boards
+   in three weeks). `newEgg()`: `(farewell ? 24 : 48) - careBonus()`, floored at
+   8; a well-cared farewell is 1/10. The owner wants shinies special; new odds
+   are the owner's call (options were put to them).
 4. Older opens still standing: the whole-screen black flicker (v3.65 note in
    CLAUDE.md), the clock drift (CLAUDE.md B, on hold), `sendRematch()` not
    resent (v3.57), Escavalier/Accelgor/Toucannon need art for a partner.

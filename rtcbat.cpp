@@ -74,7 +74,11 @@ static void refreshPower() {
   cachedPct = pmu.isBatteryConnect() ? pmu.getBatteryPercent() : -1;
   cachedCharging = pmu.isCharging();
   cachedUsb = pmu.isVbusIn();
+  if (gPowerTrace)
+    Serial.printf("pwr: read at %lu ms took %lu ms: pct=%d charging=%d usb=%d\n", (unsigned long)now,
+                  (unsigned long)(millis() - now), cachedPct, cachedCharging ? 1 : 0, cachedUsb ? 1 : 0);
 }
+bool gPowerTrace = false;
 
 int batPercent() { refreshPower(); return cachedPct; }
 bool batCharging() { refreshPower(); return cachedCharging; }

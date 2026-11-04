@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.97-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.98-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -550,7 +550,8 @@ this game does not have (UNOWN, WOBBUFFET, WYNAUT, PYUKUMUKU, APPLIN).
 **TRANSFORM** (since v3.96) is DITTO's one move, learned at level 1 (a DITTO
 from an older version learns it on its first level check). Used in a fight,
 DITTO becomes the opponent for the rest of that fight (every DITTO already in a
-save, raised or stored, learns it when the board first starts on v3.97): its look and typing, its
+save, raised or stored, learns it when the board first starts on v3.97): its look and typing (the
+sprite changes on the line that says so, since v3.98; the name stays its own, as in the games), its
 stats except HP, its stat stages and its four moves, each at the move list's
 full PP. It fails on a creature that is itself transformed. Switched out, or
 when the fight ends, it is a DITTO again: nothing is kept, and only the TRANSFORM

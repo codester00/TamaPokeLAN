@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.97"
+#define FW_VERSION "3.98"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -998,6 +998,10 @@ uint16_t btlHpShown[2] = { 0, 0 };      // bars ease toward the real value
 // party member rather than the live pet.
 PmdMon btlPmd[2];
 int16_t btlPmdDex[2] = { 0, 0 };
+// What each side's sprite SHOULD be (dex, negative = shiny), whether or not it
+// streamed (v3.98). btlSyncSprite() sets it; a test reads it, since the
+// emulator usually has no sprites to load.
+int16_t btlShowDex[2] = { 0, 0 };
 // A faint used to swap the next creature in instantly, inside the same call
 // that resolved the turn -- which is why it felt like a jump cut. The swap is
 // now deferred: the fainted one drops out of frame, and the replacement slides
@@ -1038,7 +1042,11 @@ uint16_t btlMsgHp[8][2];
 // The sprite drops out of frame when that line comes on screen (v3.71), with
 // the text and the empty bar -- not when the moves resolve, which hid a foe
 // while "X used Y" was still being read.
+// Bits 2 and 3 (BTL_MSG_XFORM(who)) mark the line announcing that side's
+// TRANSFORM (v3.98): its sprite becomes the creature it copied when that line
+// comes on screen, the same way.
 uint8_t btlMsgFaint[8];
+#define BTL_MSG_XFORM(who) ((uint8_t)(4 << (who)))
 #define BTL_CELL_W 160
 #define BTL_CELL_H 54
 #define BTL_GRID_X 69
@@ -1433,6 +1441,7 @@ void ensureMon() {
 // other board never did); nothing in the game's own code can stall, so the
 // loop names the slow part on the console, with the screen it was on.
 #define SLOW_SECTION_MS 150
+static bool serialCommandRan = false;   // set by handleSerial() for this pass (v3.98)
 static void slowCheck(const char *what, uint32_t t0) {
   uint32_t d = millis() - t0;
   static uint32_t lastSaid = 0;
@@ -1445,6 +1454,18 @@ static void slowCheck(const char *what, uint32_t t0) {
 
 void loop() {
   uint32_t now = millis();
+  // v3.98: the time spent OUTSIDE loop() since the last pass (the core, other
+  // tasks, the radio) and the whole pass -- v3.96's parts alone printed nothing
+  // while the board that stalls was stalling, so the stall is between them.
+  // A pass that answered a console command is not timed (a backup takes many
+  // seconds, and an extra line in its reply would spoil the capture).
+  static uint32_t loopEnd = 0;
+  if (loopEnd) slowCheck("between loops", loopEnd);
+  serialCommandRan = false;
+  struct PassTimer {
+    uint32_t t0;
+    ~PassTimer() { if (!serialCommandRan) slowCheck("whole loop", t0); loopEnd = millis(); }
+  } pass{ now };
   TIMED("pet update", pet.update(now));
 
   // The link is pumped here rather than from the LAN screen, because it has to
@@ -1624,6 +1645,7 @@ void handleSerial() {
   String line = Serial.readStringUntil('\n');
   line.trim();
   if (line.length() == 0) return;
+  serialCommandRan = true;   // loop()'s timers stay quiet: a host is reading the reply
   ConsoleReply waitForHost;
   if (sdSerialCommand(line)) return;
 
@@ -1685,6 +1707,10 @@ void handleSerial() {
     pet.saveNow();
     Serial.printf("wallet=%lu steps=%lu\n", (unsigned long)pet.wallet,
                   (unsigned long)pet.stepsTotal);
+  } else if (line == "PWRTRACE") {
+    // v3.98, for the board that stalls: time-stamps every power-chip read
+    gPowerTrace = !gPowerTrace;
+    Serial.printf("power trace %s\n", gPowerTrace ? "ON" : "OFF");
   } else if (line == "ACCEL") {
     // Live magnitude from the software step detector's own last read --
     // diagnostic only, so a real board can show whether the accelerometer
@@ -6078,6 +6104,7 @@ static void btlFixScene() {
 // a creature steps in, never per frame.
 static void btlSyncSprite(uint8_t who, const Combatant &c) {
   int16_t key = c.dex * (c.shiny ? -1 : 1);
+  btlShowDex[who] = key;
   if (btlPmdDex[who] == key && btlPmd[who].loaded) return;
   btlPmd[who].unload();
   btlPmdDex[who] = 0;
@@ -6127,8 +6154,12 @@ static void btlFaintArm(uint8_t who) {
 // spent). Called every frame and after every dismiss.
 void btlFaintFromHead() {
   if (!btlMsgCount || !btlMsgFaint[0]) return;
-  for (uint8_t who = 0; who < 2; who++)
+  for (uint8_t who = 0; who < 2; who++) {
     if (btlMsgFaint[0] & (1 << who)) btlFaintUntil[who] = millis() + BTL_FAINT_MS;
+    // A TRANSFORM line: the sprite becomes what it copied (v3.98). The name
+    // stays the creature's own, as in the games ("DITTO used TACKLE").
+    if (btlMsgFaint[0] & BTL_MSG_XFORM(who)) btlSyncSprite(who, who == 0 ? btlYou : btlFoe);
+  }
   btlMsgFaint[0] = 0;
 }
 
@@ -6155,7 +6186,13 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
   if (lg.move) btlSay(T(S_BTL_USED), actor.name, moveName(lg.move));
   if (lg.missed) { btlSay(T(S_BTL_MISS), actor.name); return; }
   if (lg.failed) { btlSay(T(S_BTL_FAILED)); return; }
-  if (lg.transformed) { btlSay(T(S_BTL_TRANSFORM_FMT), actor.name, DEX_TBL[target.dex].name); return; }
+  if (lg.transformed) {
+    uint8_t n = btlMsgCount, who = btlSideOf(actor);
+    btlSay(T(S_BTL_TRANSFORM_FMT), actor.name, DEX_TBL[target.dex].name);
+    if (btlMsgCount > n) btlMsgFaint[n] |= BTL_MSG_XFORM(who);
+    else btlSyncSprite(who, actor);   // no room for the line: change it now
+    return;
+  }
   if (lg.sketched) { btlSay(T(S_BTL_SKETCHED), actor.name, moveName(lg.sketched)); return; }
   if (lg.immune) { btlSay(T(S_BTL_IMMUNE)); return; }
   if (lg.crit) btlSay(T(S_BTL_CRIT));
@@ -11382,7 +11419,12 @@ static void rockPress(uint32_t now) {
 #define ROCK_STALL_MS 250
 static void rockStep(uint32_t now) {
   uint32_t gap = now - mgLast;
-  if (gap > ROCK_STALL_MS && rockBeat < ROCK_BEATS) rockBeatAt += gap - 85;
+  if (gap > ROCK_STALL_MS && rockBeat < ROCK_BEATS) {
+    rockBeatAt += gap - 85;
+    // v3.98: says so, so a frozen picture with no line here was the panel,
+    // not the game (the game's frames kept coming)
+    Serial.printf("rock: %lu ms between frames at %lu ms\n", (unsigned long)gap, (unsigned long)now);
+  }
   if (rockBeat < ROCK_BEATS && !timeReached(rockBeatAt + ROCK_GOOD_MS, now)) {
     mgGrading(S_MISS, now);                          // let it pass: a miss
     rockAdvance();

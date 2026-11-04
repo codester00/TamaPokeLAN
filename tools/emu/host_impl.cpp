@@ -146,6 +146,7 @@ void rtcSetEpoch(uint32_t e) { g_epoch = e - (uint32_t)(emuMillis64() / 1000); }
 bool batBegin() { return true; }
 void pmuEnablePanel() {}
 int batPercent() { return 87; }
+bool gPowerTrace = false;
 bool batCharging() { return false; }
 bool usbPresent() { return true; }
 void pwrSetup() {}
