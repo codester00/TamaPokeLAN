@@ -39,7 +39,8 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 11       // bump on ANY wire change; a mismatch is refused (11: TRANSFORM rides LinkBeat::sketch, v3.96)
+#define LINK_PROTO 12       // bump on ANY wire change; a mismatch is refused (12: the player picks after a faint, LINK_PICK, v4.02)
+                            // (11: TRANSFORM rides LinkBeat::sketch, v3.96)
                             // (8, v3.64: LinkResult carries the turn's beats;
                             // 9, v3.69: SKETCH in the beats, the guest's moves)
                             // (6, v3.58: the stats a LinkMon carries scale
@@ -189,6 +190,12 @@ struct LinkResult {
   uint8_t guestMoves[MOVE_SLOTS];
 };
 #define LINK_NO_NEXT 0xFF
+// v4.02 (LINK_PROTO 12): hostNext/guestNext = LINK_PICK -- that side's PLAYER
+// chooses. The next turn is a pick turn: each board sends a LINK_ACT_SWITCH_TO
+// its choice, or LINK_ACT_READY with nothing to choose, and the host's result
+// for it has no beats, only who is out (hostIdx/guestIdx).
+#define LINK_PICK 0xFE
+#define LINK_ACT_READY ((uint8_t)(LINK_ACT_SWITCH | 0x0F))
 
 struct Link {
   uint8_t state = LINK_OFF;

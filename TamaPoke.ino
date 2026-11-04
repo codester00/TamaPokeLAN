@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.01"
+#define FW_VERSION "4.02"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -572,6 +572,9 @@ void renderLeague();                  // the League run's screen (v3.94), with t
 void leagueTap(int16_t x, int16_t y);
 void leagueLeave();
 static void btlLinkPoll();   // defined with the battle code, called from render()
+static uint8_t btlStandingOthers();
+static uint8_t btlFoeStandingOthers();
+static void btlResolvePick();
 static void btlSwitchTo(uint8_t i);
 static void btlResolve(uint8_t yourMove);
 // The peer's whole team, kept live. A trainer's replacements are built fresh
@@ -581,6 +584,11 @@ static void btlResolve(uint8_t yourMove);
 Combatant btlFoeSquad[TRAINER_TEAM_MAX];
 uint8_t btlFoeSquadN = 0;
 uint8_t btlMyAct = 0;        // host: our own action, latched until theirs lands
+// A LAN pick turn (v4.02): a side fainted with more than one to follow, so its
+// PLAYER chooses. The host marks it LINK_PICK in the result; the next turn is
+// then no attack, only both boards' picks (or LINK_ACT_READY from a board with
+// nothing to choose), and the host's result for it carries only who is out.
+bool btlLinkPick = false;
 // Which ladder the gym screen and the current fight belong to. The battle keeps
 // its own copy so that leaving the gym list mid-fight cannot retarget the badge.
 // The BOX button on the party screen. It was 150x32 with a pixel-exact hit
@@ -844,6 +852,7 @@ bool btlHard = false;
 Combatant btlSquad[TRAINER_TEAM_MAX + 1];
 uint8_t btlSquadN = 0, btlSquadAt = 0;
 uint8_t btlFoeAt = 0;
+uint8_t btlFoeSent = 1;   // a trainer's creatures already sent out, a bit each (v4.02)
 
 // ---------------------------------------------------------------------------
 // The bag, and wild encounters.
@@ -1021,8 +1030,14 @@ int8_t btlSceneIndoor = -1;
 int btlIndoorY() { return BTL_INDOOR_Y; }   // for tests: the layout, not a copy of it
 #define BTL_FAINT_MS 700
 #define BTL_ENTER_MS 420
-// battle menu: 0 = FIGHT/POKEMON, 1 = the moves, 2 = the switch list
+// battle menu: 0 = FIGHT/POKEMON, 1 = the moves, 2 = the switch list, 3 = the
+// bag; after a faint (v4.02): 4 = choose who comes on (no way back), 5 = the
+// shift prompt ("X is about to use Y. Change POKEMON?"), 6 = the shift's own
+// switch list (BACK keeps the one out)
 uint8_t btlMenu = 0;
+#define BTL_MENU_PICK 4
+#define BTL_MENU_SHIFT_Q 5
+#define BTL_MENU_SHIFT 6
 #define BTL_LUNGE_MS 260
 #define BTL_HIT_MS 420
 char btlMsg[8][40];   // a turn now narrates stat changes too
@@ -6443,6 +6458,7 @@ void startLinkBattle() {
   btlTrainer = -1;
   btlHard = false;
   btlFoeAt = 0;
+  btlFoeSent = 1;
   btlFoeSquadN = 0;
   for (uint8_t i = 0; i < lan.theirsN && i < TRAINER_TEAM_MAX; i++) {
     linkMonTo(btlFoeSquad[btlFoeSquadN], lan.theirs[i]);
@@ -6450,6 +6466,7 @@ void startLinkBattle() {
   }
   btlFoe = btlFoeSquad[0];
   btlMyAct = 0;
+  btlLinkPick = false;
   btlMsgCount = 0;
   btlOver = false;
   btlWon = false;
@@ -6492,6 +6509,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlSafari = false;
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
   btlFoeAt = 0;
+  btlFoeSent = 1;
   foeFromSpecies(btlFoe, tr.team[0].dex, tr.team[0].level, hard, region, idx);
   btlMsgCount = 0;
   btlOver = false;
@@ -6567,6 +6585,9 @@ static void btlApplyResult() {
   // are the foe's and ours are ours.
   uint32_t now = millis();
   btlMsgCount = 0;
+  // A result only comes once this board has acted, which is after it brought on
+  // anything due -- or, on a pick turn (v4.02), is exactly what brings them on.
+  btlSwapDue = 0;
   // Who is out. A switch the host made for either side this turn shows up here
   // as an index change, and is announced the way the host announces it.
   bool youIn = false, foeIn = false;
@@ -6645,6 +6666,9 @@ static void btlApplyResult() {
   // btlDoSwap() brings them on when the faint message is dismissed -- and until
   // then the guest cannot act, so its next move is always chosen from the
   // creature the host will resolve it for.
+  btlLinkPick = false;
+  if (btlYou.fainted() && r.guestNext == LINK_PICK) { btlSwapDue |= 1; btlNextAt[0] = LINK_PICK; }
+  if (btlFoe.fainted() && r.hostNext == LINK_PICK) { btlSwapDue |= 2; btlNextAt[1] = LINK_PICK; }
   if (btlYou.fainted() && r.guestNext < btlSquadN) {
     btlSwapDue |= 1;
     btlNextAt[0] = r.guestNext;
@@ -6689,6 +6713,10 @@ static void btlLinkPoll() {
   }
 
   if (btlLinkHost) {
+    if (btlLinkPick && btlMyAct && lan.hasPeerAct() && !btlOver && !btlMsgCount) {
+      btlResolvePick();
+      return;
+    }
     // Our own action was latched when it was tapped; theirs arrives whenever
     // the radio manages it. Whichever is second sets the turn going.
     if (btlMyAct && lan.hasPeerAct() && !btlOver && !btlMsgCount &&
@@ -6715,7 +6743,8 @@ static void btlLinkPoll() {
 
 // Packs the outcome for the guest. Only the host ever calls this.
 static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
-                          uint16_t hp0You, uint16_t hp0Foe, int8_t nYou, int8_t nFoe) {
+                          uint16_t hp0You, uint16_t hp0Foe, int8_t nYou, int8_t nFoe,
+                          bool pickYou = false, bool pickFoe = false) {
   LinkResult r = {};
   r.hostHp = btlYou.hp;   r.guestHp = btlFoe.hp;
   r.hostAil = btlYou.ailment; r.guestAil = btlFoe.ailment;
@@ -6732,6 +6761,8 @@ static void btlShipResult(uint8_t yourMove, uint8_t theirMove,
   r.guestNext = nFoe < 0 ? LINK_NO_NEXT : (uint8_t)nFoe;
   if (nYou >= 0) { r.hostNextHp = btlSquad[nYou].hp; r.hostNextAil = btlSquad[nYou].ailment; }
   if (nFoe >= 0) { r.guestNextHp = btlFoeSquad[nFoe].hp; r.guestNextAil = btlFoeSquad[nFoe].ailment; }
+  if (pickYou) r.hostNext = LINK_PICK;     // its player chooses (v4.02)
+  if (pickFoe) r.guestNext = LINK_PICK;
   lan.sendResult((const uint8_t *)&r, (uint8_t)sizeof(r));
 }
 
@@ -7037,6 +7068,37 @@ static void btlUseItem(ItemKey k) {
 }
 
 // One exchange: both sides act in speed order, then burn/poison chip.
+// Who a trainer sends next (v4.02), or -1 with nobody left. On easy, the team
+// in order, as the games' story trainers do. On hard, by matchup against the
+// creature it will face: the best of its own types against that creature's,
+// less the worst that creature's types do back -- the shape of the smart AI's
+// move scoring, judged on typing because the next creature is not built yet.
+int8_t btlTrainerNext() {
+  const Trainer &t = BTL_TRAINERS[btlTrainer];
+  int8_t best = -1;
+  int bestScore = -100000;
+  for (uint8_t k = 0; k < t.count; k++) {
+    if (btlFoeSent & (1 << k)) continue;
+    if (!btlHard) return (int8_t)k;
+    int16_t c = t.team[k].dex, p = btlYou.dex;
+    int off = 0, def = 0;
+    uint8_t ct[2] = { DEX_TBL[c].type1, DEX_TBL[c].type2 }, pt[2] = { DEX_TBL[p].type1, DEX_TBL[p].type2 };
+    for (uint8_t a = 0; a < 2; a++) {
+      if (a && ct[1] == ct[0]) continue;
+      int e = typeEffPct(ct[a], pt[0], pt[1]);
+      if (e > off) off = e;
+    }
+    for (uint8_t a = 0; a < 2; a++) {
+      if (a && pt[1] == pt[0]) continue;
+      int e = typeEffPct(pt[a], ct[0], ct[1]);
+      if (e > def) def = e;
+    }
+    int score = (off - def) * 8 + t.team[k].level;   // a level breaks a tie
+    if (score > bestScore) { bestScore = score; best = (int8_t)k; }
+  }
+  return best;
+}
+
 static void btlResolve(uint8_t yourMove) {
   TurnLog lg;
   btlBeatN = 0;
@@ -7123,13 +7185,16 @@ static void btlResolve(uint8_t yourMove) {
   int8_t nFoe = -1;
   if (btlFoe.fainted()) {
     if (btlLink) nFoe = battleNextStanding(btlFoeSquad, btlFoeSquadN, btlFoeAt);
-    else if (btlTrainer >= 0 && btlFoeAt + 1 < BTL_TRAINERS[btlTrainer].count)
-      nFoe = (int8_t)(btlFoeAt + 1);   // a trainer sends its team in order
+    else if (btlTrainer >= 0) nFoe = btlTrainerNext();
   }
   // AFTER the end of the turn: a poison or burn tick is part of the turn, and
   // shipping before it left the guest a turn behind -- and a creature that
   // fainted to the tick never fainted on the guest's screen.
-  if (btlLink && btlLinkHost) btlShipResult(usedYou, usedFoe, hp0You, hp0Foe, nYou, nFoe);
+  // LAN (v4.02): a side with more than one that could follow is the PLAYER's
+  // choice, made on the next turn; with only one, it simply comes on.
+  bool pickYou = btlLink && btlYou.fainted() && nYou >= 0 && btlStandingOthers() > 1;
+  bool pickFoe = btlLink && btlFoe.fainted() && nFoe >= 0 && btlFoeStandingOthers() > 1;
+  if (btlLink && btlLinkHost) btlShipResult(usedYou, usedFoe, hp0You, hp0Foe, nYou, nFoe, pickYou, pickFoe);
   // Someone went down. The replacement is NOT swapped in here -- that made the
   // change instant and read as a jump cut. Flag it, let the sprite drop out of
   // frame, and swap when the player dismisses the message. A side with nobody
@@ -7138,14 +7203,14 @@ static void btlResolve(uint8_t yourMove) {
   if (!youOut && !foeOut && (nYou >= 0 || nFoe >= 0)) {
     if (nFoe >= 0) {
       btlSwapDue |= 2;
-      btlNextAt[1] = (uint8_t)nFoe;
+      btlNextAt[1] = pickFoe ? LINK_PICK : (uint8_t)nFoe;
       btlNextHp[1] = btlLink ? btlFoeSquad[nFoe].hp : 0;
       btlNextAil[1] = btlLink ? btlFoeSquad[nFoe].ailment : 0;
       btlFaintArm(1);
     }
     if (nYou >= 0) {
       btlSwapDue |= 1;
-      btlNextAt[0] = (uint8_t)nYou;
+      btlNextAt[0] = pickYou ? LINK_PICK : (uint8_t)nYou;
       btlNextHp[0] = btlSquad[nYou].hp;
       btlNextAil[0] = btlSquad[nYou].ailment;
       btlFaintArm(0);
@@ -7583,8 +7648,37 @@ void renderBattle() {
       gfx->setCursor(CX - (int)strlen(T(S_BAG_EMPTY)) * 3, BTL_GRID_Y + 40);
       gfx->print(T(S_BAG_EMPTY));
     }
-  } else if (btlMenu == 2) {
-    drawBtlBack();
+  } else if (btlMenu == BTL_MENU_SHIFT_Q) {
+    // "LEADER is about to use NAME. Change POKEMON?" over YES / NO, in the
+    // grid's bottom row (the top row's band holds the question)
+    const Trainer &t = BTL_TRAINERS[btlTrainer];
+    char q[48];
+    snprintf(q, sizeof(q), T(S_BTL_SHIFT_FMT), t.name, DEX_TBL[t.team[btlNextAt[1]].dex].name);
+    bool big = strlen(q) * 12 <= 320;
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(big ? 2 : 1);
+    gfx->setCursor(CX - (int)strlen(q) * (big ? 6 : 3), BTL_CELL_Y(0) + 8);
+    gfx->print(q);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(T(S_BTL_SHIFT_Q)) * 6, BTL_CELL_Y(0) + 32);
+    gfx->print(T(S_BTL_SHIFT_Q));
+    const char *lab[2] = { T(S_YES), T(S_NO) };
+    for (int c = 0; c < 2; c++) {
+      int x = BTL_CELL_X(2 + c), y = BTL_CELL_Y(2 + c);
+      gfx->fillRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, UI_BG_DAY);
+      gfx->drawRoundRect(x, y, BTL_CELL_W, BTL_CELL_H, 10, UI_INK);
+      gfx->setCursor(x + (BTL_CELL_W - (int)strlen(lab[c]) * 12) / 2, y + 19);
+      gfx->print(lab[c]);
+    }
+  } else if (btlMenu == 2 || btlMenu == BTL_MENU_PICK || btlMenu == BTL_MENU_SHIFT) {
+    if (btlMenu == BTL_MENU_PICK) {          // no way back: say what is asked instead
+      gfx->setTextColor(UI_INK);
+      gfx->setTextSize(2);
+      gfx->setCursor(CX - (int)strlen(T(S_BTL_PICK_NEXT)) * 6, BTL_BACK_Y + 14);
+      gfx->print(T(S_BTL_PICK_NEXT));
+    } else {
+      drawBtlBack();
+    }
     // who to bring on instead: everyone but the one out (btlSwitchOpts()),
     // anything fainted inert
     uint8_t opt[TRAINER_TEAM_MAX];
@@ -7673,6 +7767,7 @@ static void btlDoSwap() {
     } else {
       const Trainer &t = BTL_TRAINERS[btlTrainer];
       btlFoeAt = btlNextAt[1];
+      btlFoeSent |= (uint8_t)(1 << btlFoeAt);
       foeFromSpecies(btlFoe, t.team[btlFoeAt].dex, t.team[btlFoeAt].level, btlHard, btlRegion, (uint8_t)btlTrainer);
       btlSay(T(S_BTL_SENDS), t.name, btlFoe.name);
     }
@@ -7698,8 +7793,7 @@ static void btlDoSwap() {
 
 // Switching spends your turn: the opponent still acts. That is what stops it
 // being a free look at the matchup every round.
-static void btlSwitchTo(uint8_t i) {
-  if (i >= btlSquadN || i == btlSquadAt) return;
+static void btlBringOn(uint8_t i) {
   btlSquad[btlSquadAt] = battleStored(btlYou);
   btlSquadAt = i;
   btlYou = btlSquad[i];
@@ -7709,8 +7803,89 @@ static void btlSwitchTo(uint8_t i) {
   btlEnterUntil[0] = millis() + BTL_ENTER_MS;
   btlMenu = 0;
   btlSay(T(S_BTL_GO), btlYou.name);
+}
+static void btlSwitchTo(uint8_t i) {
+  if (i >= btlSquadN || i == btlSquadAt) return;
+  btlBringOn(i);
   btlResolve(0);          // move 0 = no attack, so only the foe acts
 }
+
+// THE battle style (v4.02, postgame-plan § 1): SHIFT -- when the foe's
+// creature faints, you are told what comes next and may switch for free first
+// -- everywhere but a LAN fight, which is SET, as the games' link battles are
+// (the Battle Zone will be SET too). A fixed rule, not a setting.
+bool battleStyleShift() { return !btlLink; }
+
+// How many of yours could come on now: standing, and not the one out.
+static uint8_t btlStandingOthers() {
+  uint8_t n = 0;
+  for (uint8_t i = 0; i < btlSquadN; i++)
+    if (i != btlSquadAt && !btlSquad[i].fainted()) n++;
+  return n;
+}
+
+static uint8_t btlFoeStandingOthers() {
+  uint8_t n = 0;
+  for (uint8_t i = 0; i < btlFoeSquadN; i++)
+    if (i != btlFoeAt && !btlFoeSquad[i].fainted()) n++;
+  return n;
+}
+
+// A board's part in a LAN pick turn: the host latches it, the guest sends it.
+static void btlLinkPickSend(uint8_t act) {
+  if (btlLinkHost) btlMyAct = act;
+  else lan.sendAct(act);
+}
+
+// The pick a board sent, if it is one it may make; else the next standing.
+static uint8_t btlPickedOr(uint8_t act, const Combatant *sq, uint8_t n, uint8_t at) {
+  uint8_t i = LINK_ACT_SLOT(act);
+  if (LINK_ACT_IS_SWITCH(act) && i < n && i != at && !sq[i].fainted()) return i;
+  int8_t k = battleNextStanding(sq, n, at);
+  return k < 0 ? at : (uint8_t)k;
+}
+
+// The host, once both boards' parts of a pick turn are in: bring both on and
+// tell the guest who is out. Nothing attacks: the result has no beats.
+static void btlResolvePick() {
+  uint8_t mine = btlMyAct, theirs = lan.pendingAct;
+  btlMyAct = 0;
+  if ((btlSwapDue & 1) && btlNextAt[0] == LINK_PICK) {
+    uint8_t i = btlPickedOr(mine, btlSquad, btlSquadN, btlSquadAt);
+    btlNextAt[0] = i; btlNextHp[0] = btlSquad[i].hp; btlNextAil[0] = btlSquad[i].ailment;
+  }
+  if ((btlSwapDue & 2) && btlNextAt[1] == LINK_PICK) {
+    uint8_t j = btlPickedOr(theirs, btlFoeSquad, btlFoeSquadN, btlFoeAt);
+    btlNextAt[1] = j; btlNextHp[1] = btlFoeSquad[j].hp; btlNextAil[1] = btlFoeSquad[j].ailment;
+  }
+  btlLinkPick = false;
+  btlDoSwap();
+  btlBeatN = 0;
+  btlShipResult(0, 0, btlYou.hp, btlFoe.hp, -1, -1);
+}
+
+// What happens once a faint's last line is read (v4.02). Yours went down and
+// more than one could follow: YOU choose (BTL_MENU_PICK), in every fight but
+// LAN, whose host still decides (step 1b of the plan). The foe's went down and
+// the style is SHIFT: ask whether to switch before it comes on. Otherwise both
+// come straight on, as they always did.
+static void btlAfterFaint() {
+  if (btlLink) {   // LAN: a pick turn if either side is the player's to choose
+    bool mine = (btlSwapDue & 1) && btlNextAt[0] == LINK_PICK;
+    bool theirs = (btlSwapDue & 2) && btlNextAt[1] == LINK_PICK;
+    if (!mine && !theirs) { btlDoSwap(); return; }
+    btlLinkPick = true;
+    if (mine) { btlMenu = BTL_MENU_PICK; return; }
+    btlLinkPickSend(LINK_ACT_READY);     // nothing to choose here: say so
+    return;
+  }
+  if ((btlSwapDue & 1) && btlStandingOthers() > 1) { btlMenu = BTL_MENU_PICK; return; }
+  if (btlSwapDue == 2 && battleStyleShift() && btlTrainer >= 0 && !btlYou.fainted() &&
+      btlStandingOthers() > 0) { btlMenu = BTL_MENU_SHIFT_Q; return; }
+  btlDoSwap();
+}
+uint8_t btlMenuNow() { return btlMenu; }   // for tests
+void btlCellCenter(int i, int *x, int *y) { *x = BTL_CELL_X(i) + BTL_CELL_W / 2; *y = BTL_CELL_Y(i) + BTL_CELL_H / 2; }   // for tests
 
 // The POKEMON screen. Up to six come to a fight and one is already out, so
 // there are up to five to choose from: every squad member but the active one,
@@ -7865,7 +8040,7 @@ void battleTap(int16_t x, int16_t y) {
       if (btlLink) { lanLeave(); btlLink = false; lanOpen = true; }
       return;
     }
-    if (btlSwapDue) btlDoSwap();        // the replacement arrives on this beat
+    if (btlSwapDue) btlAfterFaint();    // a choice first, or straight on (v4.02)
     return;
   }
   if (lanQuitConfirm) {
@@ -7935,6 +8110,36 @@ void battleTap(int16_t x, int16_t y) {
       return;
     }
     btlMenu = 0;      // anywhere else backs out
+    return;
+  }
+  if (btlMenu == BTL_MENU_SHIFT_Q) {
+    if (btlCellHit(2, x, y)) { sfxPlay(SFX_TAP); btlMenu = BTL_MENU_SHIFT; return; }   // YES
+    if (btlCellHit(3, x, y)) { sfxPlay(SFX_TAP); btlMenu = 0; btlDoSwap(); return; }  // NO
+    return;   // it waits for an answer
+  }
+  if (btlMenu == BTL_MENU_PICK || btlMenu == BTL_MENU_SHIFT) {
+    if (btlMenu == BTL_MENU_SHIFT && btlBackTap(x, y)) { btlDoSwap(); return; }   // keep the one out
+    uint8_t opt[TRAINER_TEAM_MAX];
+    uint8_t nOpt = btlSwitchOpts(opt);
+    int k = btlSwitchAt(x, y);
+    if (k < 0 || k >= nOpt) return;          // nothing to back out to
+    uint8_t i = opt[k];
+    if (btlSquad[i].fainted()) { sfxPlay(SFX_DENY); return; }
+    sfxPlay(SFX_TAP);
+    if (btlMenu == BTL_MENU_PICK && btlLink) {   // LAN: this board's part of the pick turn
+      btlMenu = 0;
+      btlLinkPickSend(LINK_ACT_SWITCH_TO(i));
+      return;
+    }
+    if (btlMenu == BTL_MENU_PICK) {          // the replacement, costing no turn
+      btlNextAt[0] = i;
+      btlNextHp[0] = btlSquad[i].hp;
+      btlNextAil[0] = btlSquad[i].ailment;
+    } else {
+      btlBringOn(i);                         // the free switch, then the foe
+    }
+    btlMenu = 0;
+    btlDoSwap();
     return;
   }
   if (btlMenu == 2) {
@@ -10849,6 +11054,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlTrainer = -1;
   btlHard = hard;
   btlFoeAt = 0;
+  btlFoeSent = 1;
   btlFoeSquadN = 0;
   btlMsgCount = 0;
   btlOver = false;

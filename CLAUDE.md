@@ -948,6 +948,36 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the player picks after a faint, shift and set (v4.02)
+
+Step 1 of `docs/postgame-plan.md` § 6. `faintpick_test`, `lanpick_test`;
+nine guards negative-checked.
+
+- **Offline**: `btlAfterFaint()` (on the faint's last line) is THE decision.
+  Yours down with more than one standing (`btlStandingOthers()`):
+  `BTL_MENU_PICK` (4), the switch list with no BACK, the pick costs no turn.
+  With one, it comes straight on. **`battleStyleShift()`** is THE style
+  (`!btlLink`; the zone will add SET): a trainer's creature down and yours
+  standing -> `BTL_MENU_SHIFT_Q` (5, "X is about to use Y", YES/NO in the
+  grid's bottom row) -> `BTL_MENU_SHIFT` (6, BACK keeps yours) ->
+  `btlBringOn()` (the switch without the foe's turn) then `btlDoSwap()`.
+- **The trainer's next: `btlTrainerNext()`**, sent ones in `btlFoeSent`. Easy:
+  in order. Hard: by typing matchup against `btlYou` (best own type vs its,
+  less its best vs ours; level breaks a tie). **`HARD_TRAINING` was tuned with
+  in-order sends and in-order player replacements (`league_sim.cpp` still
+  models both): re-measure before trusting the 90/10 targets.**
+- **LAN (`LINK_PROTO` 12)**: a side with more than one to follow is
+  `LINK_PICK` (0xFE) in `hostNext`/`guestNext`; `btlNextAt[] = LINK_PICK`.
+  The next turn is a PICK TURN (`btlLinkPick`): each board sends
+  `LINK_ACT_SWITCH_TO(i)` from the pick menu, or `LINK_ACT_READY` (0x8F) by
+  itself with nothing to choose (`btlLinkPickSend()`: the host latches
+  `btlMyAct`, the guest `lan.sendAct()`); the host's `btlResolvePick()` takes
+  both (`btlPickedOr()` falls back to the next standing for a pick it may not
+  make), brings them on and ships a result with no beats. The guest's
+  `btlApplyResult()` clears `btlSwapDue` and shows the index changes. Nothing
+  in the wire's layout changed; resends are the act/result path's own.
+- `tools/emu/playsim.cpp` answers the new menus (first standing; NO).
+
 ### Done: the tile axis reordered, and the PLAZA (v4.01)
 
 Owner, 2026-11-04, step 0 of `docs/postgame-plan.md` § 6. **`PLAYER . DEX .

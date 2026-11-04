@@ -58,6 +58,8 @@ static bool lastResult(LinkResult &r) {
   memcpy(&r, lastPkt + 3, sizeof(r));     // [type][len][turn] then the result
   return true;
 }
+uint8_t btlMenuNow();
+void btlCellCenter(int i, int *x, int *y);
 static void clearMsgs() { for (int i = 0; i < 40 && btlMsgCount; i++) battleTap(233, 300); }
 static bool said(const char *w) {
   for (uint8_t i = 0; i < btlMsgCount; i++) if (strstr(btlMsg[i], w)) return true;
@@ -165,6 +167,9 @@ int main() {
     btlMenu = 1;
     battleTap(69 + 80, 270 + 27);
     clearMsgs();
+    if (btlMenuNow() == 5) {           // the shift prompt (v4.02): NO, keep the one out
+      int nx, ny; btlCellCenter(3, &nx, &ny); battleTap(nx, ny); clearMsgs();
+    }
     ck(btlFoeAt == 1, "(Brock sent his second)");
     ck(btlSceneDex == scene, "and the scene did not change with him");
     battleOpen = false;

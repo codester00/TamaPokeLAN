@@ -98,7 +98,7 @@ extern uint8_t wildLvl;
 extern int8_t wildLegend, wildFixed;
 extern bool wildCaught;
 uint8_t ownedCount(int16_t dex);
-extern Combatant btlYou, btlFoe;
+extern Combatant btlYou, btlFoe, btlSquad[];
 
 // ---- the profile ------------------------------------------------------------------
 struct DayPlan { uint8_t sessions; uint16_t fights; uint32_t steps; };
@@ -195,6 +195,8 @@ static void findCells() {
 // on the clock, so each tap lets 400 ms of game time pass first.
 static void run(uint64_t ms, uint32_t slice);
 static void tapAt(int16_t x, int16_t y) { run(400, 100); battleTap(x, y); }
+uint8_t btlSwitchOpts(uint8_t out[6]);
+void btlSwitchCell(uint8_t k, int *x, int *y);
 static void tapCell(int i) { tapAt(cellX[i], cellY[i]); }
 // Where a ball sits in the battle bag: the bag's usable items, in its order.
 static int bagIndexOf(ItemKey want) {
@@ -257,6 +259,13 @@ static int playFight(bool wantCatch) {
     if (trace && guard < 40) fprintf(stderr, "g%d menu=%u msgs=%u win=%u over=%d you=%u foe=%u/%u\n", guard, btlMenu, btlMsgCount, btlWinUntil, btlOver, btlYou.hp, btlFoe.hp, btlFoe.maxHp);
     if (btlWinUntil || btlMsgCount) { tapAt(233, 233); continue; }
     if (btlSafari) { tapCell(0); throws++; continue; }        // BALL
+    if (btlMenu == 5) { tapCell(3); continue; }               // the shift prompt: NO (v4.02)
+    if (btlMenu == 4) {                                       // after a faint: the first standing
+      uint8_t opt[6]; uint8_t n = btlSwitchOpts(opt);
+      for (uint8_t k = 0; k < n; k++)
+        if (!btlSquad[opt[k]].fainted()) { int x, y; btlSwitchCell(k, &x, &y); tapAt(x + 80, y + 27); break; }
+      continue;
+    }
     if (btlMenu != 0) { tapAt(5, 5); btlMenu = 0; continue; }
     ItemKey ball = wantCatch && btlWild ? bestBall(wildLegend >= 0) : ITEM_NONE;
     // weaken first: throw once the foe is under 60%, or at once if a hit might KO it

@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.01-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.02-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -112,6 +112,14 @@ Turn- and move-based, with the real type chart, ailments and STAB. Moves sit in 
 throughout (since v3.56 with its bass line and at the game's own tempo): Red's
 wild, trainer, gym leader and champion battle themes, each with its own victory
 jingle, and the Game Corner's theme in the halls.
+
+**You choose who comes on after a faint** (since v4.02), in every fight,
+LAN included; with only one left it comes straight on, and choosing costs no
+turn. **Fights against trainers are SHIFT style**: when the trainer's creature
+faints, you are told what it sends next and may switch for free first. **LAN
+fights are SET style** (no free switch), as the games' link battles are. On
+**easy** a trainer sends its team in order; on **hard** it picks its next by
+matchup against the creature in front of it.
 
 ### Nine gym ladders
 
@@ -1344,6 +1352,8 @@ is no level or team-size cap, since you already know what your opponent is
 bringing. A running **head-to-head record** is kept against each rival —
 keyed by their device, not their typed name, so renaming doesn't reset the
 score — and shown on the pairing screen the next time you two fight.
+Each player chooses their own replacement after a faint; the board with
+nothing to choose waits. Since v4.02 both boards need v4.02 or later.
 
 ### Trading
 

@@ -308,6 +308,7 @@ enum StrId : uint16_t {
   S_LEAGUE_GO, S_LEAGUE_QUIT, S_LEAGUE_SURE, S_LEAGUE_ROW,
   S_TO_PC, S_TOO_TIRED, S_BTL_TRANSFORM_FMT,  // the party sheet's TO PC, a tired creature, Transform (v3.96)
   S_PLAZA, S_PLZ_LAN_BATTLE, S_PLZ_LAN_TRADE, S_PLZ_HALL, S_PLZ_ZONE, S_PLZ_SOON, S_PLZ_NEEDS_CHAMPS,  // the PLAZA tile (v4.01)
+  S_BTL_PICK_NEXT, S_BTL_SHIFT_FMT, S_BTL_SHIFT_Q,  // choosing who comes on after a faint; the shift prompt (v4.02)
   STR_COUNT
 };
 
