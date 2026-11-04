@@ -39,15 +39,18 @@ them.
   rule). **Named PLAZA** (owner, draft 3).
 - **The tile axis is reordered** (owner, draft 4): admin to the LEFT of the
   pet, battles to the RIGHT, the most used nearest the pet:
-  `MART . DEX . PC . [PET] . EXPLORE . GYM . PLAZA` as asked, or
-  `DEX . MART . PC . [PET] ...` if the Mart becomes easy to swipe past (see
-  below). PC is today's PARTY tile (the party ring, its hub opens Bill's PC).
+  **`DEX . MART . PC . [PET] . EXPLORE . GYM . PLAZA`** -- the owner's order
+  once the Mart is easy to swipe past (PC, then the Mart, then the Pokedex,
+  going left). PC is today's PARTY tile (the party ring, its hub opens Bill's
+  PC). **The Mart swipe is fixed (v4.00)**: the cause was the rim, as
+  suspected and as the owner guessed -- the WHOLE ring outside `RIM_R0` 186 is
+  the rim (not only the scrollbar's flank), so a right-to-left swipe begun
+  near the right edge above or below the middle swept through a scroll's angle
+  and paged. Flipping the scrollbar to the other side would not have helped,
+  since the rim is every side. A rim drag that comes `RIM_LEAVE_PX` (28) in
+  now puts back any pages it turned and resolves as a swipe (`rimswipe_test`).
   **OPEN: the PLAYER card**, which the owner's order leaves out (today it is
-  the leftmost tile). **OPEN: why the Mart is hard to swipe past** -- its rows
-  are not swipe-guarded (`uiOnControl()` knows only the region choosers), so
-  the likeliest cause is the rim: the Mart pages, and any drag that STARTS
-  within ~47 px of the edge (`RIM_R0` 186) is a page turn, not a tile move.
-  Find out on a board which it is before choosing between the two orders.
+  the leftmost tile). Recommended: keep it leftmost, past the Pokedex.
   `TILE[]`, `uiTileGo()`, `uiRimTarget()`, the pet screen's neighbour names,
   `swipe_test` and the tile dots all follow the one table. `TILE[]` and
   `uiTileGo()`/`uiRimTarget()` are the one-table edit the gesture notes promise;

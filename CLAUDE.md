@@ -948,6 +948,17 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: a swipe from the rim moves a tile (v4.00)
+
+Owner, 2026-11-04: the Mart was hard to swipe past. The whole ring outside
+`RIM_R0` is the rim, so a right-to-left swipe begun near the right edge above or
+below the middle swept through a scroll's angle and paged the Mart. A rim drag
+whose radius falls `RIM_LEAVE_PX` (28) below where it started now undoes the
+pages it turned and resolves as a swipe (`handleTouch()`, `uiRimRadius()`). A
+scroll runs along the edge, so its radius barely moves. `rimswipe_test` (both
+rims, above and below the middle; a drag along the rim still pages both ways);
+negative-checked both ways.
+
 ### PLAN ONLY: the post-game Battle Zone and the Hall (2026-11-04)
 
 `docs/postgame-plan.md` (draft 4): the zone (every champion, easy counts, a no-marks code,

@@ -56,7 +56,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "3.99"
+#define FW_VERSION "4.00"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -337,6 +337,7 @@ uint8_t uiRimPages();
 uint8_t uiRimPage();
 bool uiOnRim(int16_t x, int16_t y);
 float uiRimAngle(int16_t x, int16_t y);
+float uiRimRadius(int16_t x, int16_t y);
 void uiDrawRimBar();
 void uiChrome();
 // A species learns up to ~140 moves since v3.50's move expansion; the picker
@@ -1153,6 +1154,7 @@ void uiArc(int cx, int cy, int r, int a0, int a1, int w, uint16_t col) {
 #define TILE_PET 2
 #define RIM_R0 186     // a drag starting outside this radius pages, not swipes
 #define RIM_STEP 20    // degrees of arc per page
+#define RIM_LEAVE_PX 28 // a rim drag that comes this far in is a swipe
 #define RIM_BAR_R 222  // where the arc scrollbar is drawn
 // 2 to 5 o'clock. Angles are clockwise from 12, so this is the right flank --
 // the top is the title's and the bottom is the tile dots'.
@@ -1304,6 +1306,7 @@ bool holdFired = false;
 // Rim-drag state. Decided at touch-down: a gesture that starts outside RIM_R0
 // is a scroll for its whole life, and never also resolves as a swipe or a tap.
 bool rimActive = false;
+float rimR0 = 0;
 bool rimMoved = false;
 float rimA0 = 0;
 int rimSteps = 0;
@@ -2184,6 +2187,7 @@ void handleTouch() {
     // finger never has to be told afterwards what it meant.
     rimActive = uiOnRim(x, y) && uiRimPages() > 1;
     rimA0 = uiRimAngle(x, y);
+    rimR0 = uiRimRadius(x, y);
     rimSteps = 0;
     rimMoved = false;
     swallowGesture = (dimStage > 0) || screenOff;  // si estaba a oscuras, solo despierta
@@ -2202,6 +2206,20 @@ void handleTouch() {
       took = false;
     } else {
       touchAccept(x, y);
+    }
+    // A drag that started on the rim but heads INTO the panel is a swipe, not
+    // a scroll (v4.00). The whole ring is the rim, so a right-to-left swipe
+    // begun near the right edge above or below the middle sweeps through the
+    // angle a scroll would and paged the screen instead of moving a tile --
+    // the Mart, which a finger reaches past its buttons from the right, was
+    // the one players could not get past. A scroll runs ALONG the edge, so
+    // its radius barely changes; once the finger has come RIM_LEAVE_PX in,
+    // the pages it turned are put back and the gesture resolves as a swipe.
+    if (took && rimActive && !swallowGesture && rimR0 - uiRimRadius(tXl, tYl) > RIM_LEAVE_PX) {
+      while (rimSteps > 0) { onRim(-1); rimSteps--; }
+      while (rimSteps < 0) { onRim(1); rimSteps++; }
+      rimActive = false;
+      rimMoved = false;
     }
     if (took && rimActive && !swallowGesture) {
       float d = uiRimAngle(tXl, tYl) - rimA0;
@@ -3579,6 +3597,10 @@ void onRim(int dir) {
 bool uiOnRim(int16_t x, int16_t y) {
   int dx = x - CX, dy = y - CY;
   return dx * dx + dy * dy >= RIM_R0 * RIM_R0;
+}
+
+float uiRimRadius(int16_t x, int16_t y) {
+  return sqrtf((float)((x - CX) * (x - CX) + (y - CY) * (y - CY)));
 }
 
 float uiRimAngle(int16_t x, int16_t y) {
