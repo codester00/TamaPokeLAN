@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v3.98-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v3.99-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -415,8 +415,11 @@ While **awake**:
   legendary in ~1,240 eggs, about 8 hours of tapping; now it stops after one.
 - Within a tier it favors species whose **evolution line you haven't finished** (so
   all 1025 are completable).
-- **Shiny:** base **1 / 48** (→ **1 / 24** right after a goodbye), improved by
-  streak/bond down to a best of **1 / 8**. Tracked separately in the dex.
+- **Shiny:** **1 / 100** right after a goodbye, **1 / 200** after any other
+  ending, and up to **4×** likelier with the best streak and bond (a 30-day
+  streak and bond 100: **1 / 25** after a goodbye, **1 / 50** otherwise; in
+  proportion below that). Since v3.99 -- it was 1 / 24 and 1 / 48 *minus* the
+  care bonus, down to 1 / 8. Tracked separately in the dex.
 - Every hatch rolls unique **IVs** (see below) — no two are identical.
 
 ### Evolution and moves

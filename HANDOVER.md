@@ -145,10 +145,16 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
    needs every sprite pack -- the first champion title was suggested), a
    replacement picker for the player BEFORE any AI switches, whether switching
    is zone-only, daily retries, tournament levels, Hall energy, entry fees.
-5. **Shiny eggs feel common** (owner, 2026-11-04: four shiny hatches on two boards
-   in three weeks). `newEgg()`: `(farewell ? 24 : 48) - careBonus()`, floored at
-   8; a well-cared farewell is 1/10. The owner wants shinies special; new odds
-   are the owner's call (options were put to them).
+5. ~~Shiny eggs feel common~~ **done in v3.99** (owner's option C, CLAUDE.md
+   "Done: shiny eggs are rare again").
+6. **The post-game plan is `docs/postgame-plan.md`** (draft 1, PLAN ONLY); its
+   OPEN items wait on the owner.
+7. **Building here**: arduino-cli 1.1.1, the core from a `file://` index and the
+   three libraries as § 1e says, plus Arduino's own ctags built from
+   `github.com/arduino/ctags` (rename `__unused__`/`__printf__`, `./configure &&
+   make`, `runtime.tools.ctags.path` in the core's `platform.local.txt`). The
+   apt `exuberant-ctags` does NOT work: it drops return types from the
+   prototypes and the sketch fails to compile.
 4. Older opens still standing: the whole-screen black flicker (v3.65 note in
    CLAUDE.md), the clock drift (CLAUDE.md B, on hold), `sendRematch()` not
    resent (v3.57), Escavalier/Accelgor/Toucannon need art for a partner.

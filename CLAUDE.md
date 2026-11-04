@@ -935,6 +935,29 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is **HANDOVER.md § 1h** (v3.97, 2026-11-04).
 
+### Done: shiny eggs are rare again (v3.99)
+
+Owner, 2026-11-04 (option C: about one shiny a quarter with good care; two
+boards had hatched four in three weeks). **`Pet::eggShinyOdds()` is THE odds**
+`newEgg()` rolls: `SHINY_EGG_FAREWELL` 100 after a farewell, `SHINY_EGG_OTHER`
+200 otherwise, divided by up to `SHINY_CARE_MULT` 4 in proportion to
+`careBonus()` (capped at `CARE_BONUS_MAX` 14). It used to SUBTRACT the bonus
+from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
+`shiny_test` pins the owner's numbers (100/25/200/50, 40 at bonus 7) and lays
+20,000 eggs per case through `newEgg()`; negative-checked against the old
+subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
+1/4096; the CHEATS shiny egg is untouched.
+
+### PLAN ONLY: the post-game Battle Zone and the Hall (2026-11-04)
+
+`docs/postgame-plan.md` (draft 1): the zone (all gym badges, a no-marks code,
+BP from wins, a prize counter, Pokedollar entry fees), a 16-contestant
+tournament of every existing opponent, the gauntlet (rules, daily 2x on the
+first win of the day, saved between battles), the Hall moved into normal play,
+the player choosing replacements, AI switching only in the zone's upper tiers,
+zone PP carried through a run and never written to the PP book. Its OPEN items
+are the owner's.
+
 ### Done: TRANSFORM's sprite, and more clues for the stall (v3.98)
 
 Owner, 2026-11-04, from a board. **A transformed Ditto drew as a Ditto**: the

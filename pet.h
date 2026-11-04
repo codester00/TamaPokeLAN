@@ -27,6 +27,14 @@
 // Sized by simulation so a consistent player completes the egg-only
 // legendaries in about two years (README, Game manual).
 #define LEGEND_SAFETY_EGGS 10
+// Shiny eggs (v3.99, owner: about one a quarter with good care). One in
+// SHINY_EGG_FAREWELL after a farewell, one in SHINY_EGG_OTHER after any other
+// ending; the best care (careBonus() at CARE_BONUS_MAX) makes either
+// SHINY_CARE_MULT times likelier, in proportion below that. Pet::eggShinyOdds().
+#define SHINY_EGG_FAREWELL 100
+#define SHINY_EGG_OTHER 200
+#define SHINY_CARE_MULT 4
+#define CARE_BONUS_MAX 14                  // careBonus(): streak 30 / 3 + bond 100 / 25
 // The farming lockout (v3.56). An egg after an early retire or a release is a
 // legendary ATTEMPT at the plain 3 %. The first LEGEND_FREE_ATTEMPTS since the
 // last farewell keep it -- an honest player's mistakes cost nothing -- and every
@@ -896,6 +904,7 @@ public:
   // code: the serial console already simulates rolls, and the region tests have
   // to see which creature a switch landed on.
   int16_t eggPeek() const { return eggTarget; }
+  bool eggShinyPeek() const { return eggShiny; }   // what the waiting egg will hatch as (tests)
   int16_t rollInRegion(uint8_t r, uint8_t tier);
   // Which of EEVEE's branches this player can actually be handed right now.
   // THE single answer: evolve() picks from it and lineHasUnregistered() asks it
@@ -923,6 +932,9 @@ public:
   bool showMedal() const { return timerRunning(millis(), medalUntil); }
   bool showMilestone() const { return timerRunning(millis(), milestoneUntil); }
   int careBonus() const;  // mejora del huevo por racha + vinculo
+  // THE shiny odds for the egg newEgg() is about to lay: it is shiny with
+  // chance 1 in this (v3.99). Reads lastEnd and the care bonus.
+  int eggShinyOdds() const;
 
   // guardado periodico diferido: tick() marca pendiente y el loop lo vuelca
   // cuando la pantalla esta atenuada/apagada (la escritura a flash congela

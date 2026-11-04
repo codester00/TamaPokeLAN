@@ -715,10 +715,7 @@ void Pet::newEgg() {
   if (lastEnd == CER_FAREWELL) legendAttempts = 0;
   else if (lastEnd == CER_RELEASE && legendAttempts < 255) legendAttempts++;
   starterPick = (registeredCount() == 0);  // primera partida: el jugador elige inicial
-  // sorteo shiny: 1/48 base, mejor con despedida y con racha/vinculo altos
-  int shinyBase = (lastEnd == CER_FAREWELL ? 24 : 48) - careBonus();
-  if (shinyBase < 8) shinyBase = 8;
-  eggShiny = (random(shinyBase) == 0);
+  eggShiny = (random(eggShinyOdds()) == 0);
   // The debt lands on the creature about to hatch, and is spent doing so --
   // it is a one-day penalty, not a running total that compounds each retire.
   evoPen = retirePending ? EVO_PENALTY_LEVELS : 0;
@@ -1384,6 +1381,18 @@ int Pet::careBonus() const {
   return s / 3 + bond / 25;
 }
 
+// v3.99: was 1/24 after a farewell and 1/48 otherwise, MINUS the care bonus and
+// floored at 8 -- a well-cared farewell was 1 in 10, and two boards hatched
+// four shinies in three weeks. Care now multiplies (up to SHINY_CARE_MULT) instead
+// of subtracting, which is what had collapsed the odds.
+int Pet::eggShinyOdds() const {
+  int base = lastEnd == CER_FAREWELL ? SHINY_EGG_FAREWELL : SHINY_EGG_OTHER;
+  int b = careBonus();
+  if (b < 0) b = 0;
+  if (b > CARE_BONUS_MAX) b = CARE_BONUS_MAX;
+  return base * CARE_BONUS_MAX / (CARE_BONUS_MAX + (SHINY_CARE_MULT - 1) * b);
+}
+
 // primer cuidado del dia: avanza la racha y afianza el vinculo
 bool Pet::fullyCared() const {
   return fullness >= CARE_FULL_PCT && energy >= CARE_FULL_PCT &&
@@ -1931,7 +1940,7 @@ void Pet::startRetire() {
   startFarewell();
   // An early retire is NOT the good ending and must not pay like one.
   // startFarewell() sets lastEnd = CER_FAREWELL, which blesses the next egg --
-  // rare 27% -> 45%, legendary 3% -> 10%, shiny 1/48 -> 1/24. Combined with the
+  // rare 27% -> 45%, legendary 3% -> 10%, shiny twice as likely. Combined with the
   // creature no longer being banked, that made retiring early a pure SHINY FARM:
   // retire, check the egg, retire again, with nothing accumulating to regret.
   // Neutral instead, exactly like a release. The ceremony on screen is still the
