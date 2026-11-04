@@ -1,4 +1,4 @@
-# The post-game Battle Zone, and the Hall -- PLAN ONLY (draft 1, 2026-11-04)
+# The post-game Battle Zone, and the Hall -- PLAN ONLY (draft 2, 2026-11-04)
 
 Agreed with the owner in conversation on 2026-11-04. Nothing here is built.
 Where this and CLAUDE.md differ, this wins for the post-game. Open questions
@@ -19,20 +19,28 @@ them.
 
 ## 1. The zone
 
-- **Gate: every gym badge of every region** (owner: a Kanto player has the
-  rest of the game to play first). **OPEN:** on either difficulty, or hard?
-  Every League seat too, or badges only?
+- **Gate: every region's champion beaten, on EITHER difficulty** (owner,
+  draft 2: the badges are already needed to reach each champion; easy counts).
+  A legitimate unlock therefore needs every sprite pack; the code covers
+  anyone without them.
 - **The secret code** opens it once from the Memory game, like the hall codes,
   with **no marks** of any kind, and records earned that way are not marked
   either (owner). Suggested sequence `1 1 3 3 1 1 3 3` (no clash with the five
   existing codes). Developers only, like every code.
-- **Cheat toggles may apply inside the zone** (owner: single player, and the
-  player and creatures are already marked for using them). Hidden SETTINGS:
-  **OPEN** -- same answer?
+- **Cheat toggles and the hidden SETTINGS both apply inside the zone** (owner:
+  single player, and the player and creatures are already marked for using them).
 - **Landing page**, laid out like a Game Corner: BP balance, the records, and a
   list of formats in the training-menu style -- TOURNAMENT, GAUNTLET, PRIZES
-  (and later RENTAL). Finger-height rows, rim-paged. Entered from the gym
-  tile's region chooser as a row like LAN.
+  (and later RENTAL). Finger-height rows, rim-paged.
+- **A new tile on the tile axis** (owner, draft 2: LAN on the gym chooser is
+  odd). GYM keeps only the region ladders. The new tile lists LAN BATTLE, LAN
+  TRADE (today a button inside the LAN screen), BATTLE HALL and BATTLE ZONE
+  (greyed "REQUIRES EVERY CHAMPION" until open, per the locked-never-hidden
+  rule). **OPEN: its name** -- suggested **PLAZA** (Gen 7's Festival Plaza was
+  the link-and-play hub), or CLUB / ARENA / VERSUS; the owner offered MISC.
+  Proposed place: `... GYM . PLAZA . DEX` (world on the right). `TILE[]` and
+  `uiTileGo()`/`uiRimTarget()` are the one-table edit the gesture notes promise;
+  `swipe_test` and the tile dots follow.
 - **Entry fees in Pokedollars**, BP for wins. Prices and pay set by the
   playthrough bot, so the zone drains money rather than creating it.
 - **No items in zone battles.** Full HP heal between battles.
@@ -43,10 +51,20 @@ them.
   PP book was never written). Opponents' PP carries between their battles too.
 - **SKETCH learned in the zone is not kept** (`sketchKeep()` must not run for a
   zone fight). TRANSFORM needs nothing: it is per battle already.
-- **The player chooses their replacement after a faint** -- needed before any
-  AI switches. **OPEN:** everywhere (gyms, wild, League too), or the zone only?
-  LAN would need a protocol change (today the host decides both sides,
-  v3.57); suggest leaving LAN as it is.
+- **The player chooses their replacement after a faint, in EVERY mode** (owner,
+  draft 2): gyms, the League, wild, the zone, the Hall (1v1, so nothing to
+  pick) and LAN. Offline it is a picker on the same POKEMON screen the switch
+  uses, opened when the faint line is dismissed, costing no turn.
+  **LAN is moderate, not hard** (no one else runs this code, so a protocol
+  bump is free): today the host decides both sides at resolution and ships
+  `hostNext/guestNext` (v3.57). Instead the result says "pick pending" for a
+  side that fainted; each side picks on its own screen; the guest's pick rides
+  the action message that already carries a switch (`LINK_ACT_SWITCH_TO`),
+  stamped with the turn and resent until the host's next result echoes it; the
+  host latches its own pick; the next turn opens once both are in. A player
+  who walks away is the existing idle timeout. `LINK_PROTO` bump,
+  `lossy_test` (a lost pick) and `lanfight_test` (both faint in one turn, each
+  picks a different creature) cover it.
 - **AI switching only in the zone, and only in its upper tiers** (later
   gauntlet rounds, later tournament rounds). Rules to make it sane: switch only
   when a teammate clearly does better against the creature in front of it, at
@@ -83,6 +101,12 @@ them.
   the same rules. Inverse typing is OUT (owner).
 - **Daily challenge**: random rules from the day hash; **double BP only for the
   first successful run of that day's challenge**. Custom rules: 1x BP.
+  **The 2x belongs to the day the run STARTED** (owner, draft 2): a daily run
+  begun Monday pays 2x until it ends, even on Wednesday; the next run started
+  gets the day's own challenge then. **OPEN: what "successful" means** --
+  suggested: the first daily run that beats at least one challenger claims the
+  day's 2x (a run that loses its first battle leaves the bonus unclaimed), and
+  that run keeps it for its whole life.
 - **Pacing (owner)**: no wall where a player always wins rounds 1-2 and always
   loses round 3, and no 50-win cakewalk. A run should take **up to ~30 minutes**
   before a loss. So: the challenger's strength rises a little every round
@@ -103,8 +127,12 @@ them.
     otherwise pulling the power is a free retry of any battle about to be lost.
   - A saved run ends if any of its creatures is no longer held (released,
     traded, deposited where it cannot be found) -- checked on resume.
-  - **OPEN**: a resume window (a run saved for a week?), and whether a saved run
-    blocks starting another.
+  - **A saved run lasts indefinitely, and only one gauntlet run exists at a
+    time** (owner, draft 2): starting another needs the current one lost or
+    quit (QUIT asks twice, like the League's GIVE UP). The save holds the day
+    it started and whether it carries the 2x.
+  - **OPEN**: does the tournament save between rounds the same way (one at a
+    time)? Suggested yes, with the same mid-battle-reboot-is-a-loss rule.
 
 ## 4. The Hall (moved out of the post-game, owner)
 
@@ -114,10 +142,10 @@ them.
   and the simple AI -- and each rung raises training, IVs or the AI.
 - **Changing the live pet ends the run.** Saved between rungs (rung, types
   done, PP used), like the gauntlet.
-- **OPEN**: where it lives (a row on the gym chooser? the training list?), what
-  it pays (money? bond? a medal for all 18?), and whether each battle costs the
-  pet energy (proposed: yes, as a gym fight does -- a tired pet naps and
-  continues).
+- **It lives on the new tile** (BATTLE HALL, beside LAN; owner, draft 2).
+- **OPEN**: what it pays (money? bond? a medal for all 18?), and whether each
+  battle costs the pet energy (proposed: yes, as a gym fight does -- a tired
+  pet naps and continues).
 
 ## 5. Prize counter
 
@@ -137,8 +165,10 @@ them.
 
 ## 6. Build order (proposed)
 
-1. The player picks their replacement after a faint; the AI picks its
-   replacement by matchup.
+0. The new tile: GYM keeps the ladders; LAN BATTLE / LAN TRADE / BATTLE HALL
+   (stub) / BATTLE ZONE (locked) move to it.
+1. The player picks their replacement after a faint, everywhere including LAN
+   (protocol bump); the AI picks its replacement by matchup.
 2. The zone shell: gate, code, landing page, BP, entry fees, prize counter,
    records, the zone PP ledger, no items, SKETCH not kept.
 3. AI switching (upper tiers only), measured with `league_sim`.
