@@ -190,6 +190,39 @@ static GRun gauntletRun(Prof p, uint8_t size, uint8_t lvl, uint8_t ups, bool dou
 }
 
 // ---- the tournament ------------------------------------------------------
+// ZS_TOURFILL (the owner's idea, 2026-11-05, measured before building): every
+// ladder seat brings six -- its own roster, each evolved to its final form
+// (ZS_TOUREVO), then the strongest final forms of the seat's specialty type --
+// and with ZS_TOURLVL=n everyone fights at level n.
+static int16_t finalOf(int16_t d) {
+  for (int i = 0; i < 4 && DEX_TBL[d].evolvesTo; i++) d = (int16_t)DEX_TBL[d].evolvesTo;
+  return d;
+}
+static void tourBoost(uint16_t id, ZoneFoe &f) {
+  if (!getenv("ZS_TOURFILL") || (id & TOUR_GEN)) return;
+  uint8_t region = (uint8_t)(id / TRAINER_COUNT), seat = (uint8_t)(id % TRAINER_COUNT);
+  const Trainer &t = TRAINER_SETS[region].list[seat];
+  uint8_t best = 1; for (uint8_t k = 0; k < f.count; k++) if (f.level[k] > best) best = f.level[k];
+  if (getenv("ZS_TOURLVL")) best = (uint8_t)atoi(getenv("ZS_TOURLVL"));
+  if (getenv("ZS_TOUREVO")) for (uint8_t k = 0; k < f.count; k++) f.dex[k] = finalOf(f.dex[k]);
+  std::vector<std::pair<int, int16_t>> c;
+  for (int16_t d = 1; d <= DEX_COUNT; d++) {
+    const DexEntry &e = DEX_TBL[d];
+    if ((e.type1 != t.type && e.type2 != t.type) || speciesEvolvesFurther(d) || e.rarity == R_LEGENDARIO || !speciesShowable(d)) continue;
+    bool have = false; for (uint8_t k = 0; k < f.count; k++) if (f.dex[k] == d) have = true;
+    if (!have) c.push_back({ bstOf(d), d });
+  }
+  std::sort(c.begin(), c.end(), [](const std::pair<int, int16_t> &x, const std::pair<int, int16_t> &y) { return x.first > y.first; });
+  // a varied pick among the type's 12 strongest, by the seat
+  uint32_t s = id * 2654435761u + 7;
+  while (f.count < 6 && !c.empty()) {
+    s = s * 1103515245u + 12345u;
+    size_t k = (s >> 8) % (getenv("ZS_TOURFILLANY") ? c.size() : std::min<size_t>(12, c.size()));
+    f.dex[f.count++] = c[k].second; c.erase(c.begin() + k);
+  }
+  for (uint8_t k = 0; k < f.count; k++) f.level[k] = best;
+}
+
 static int tourRun(Prof p, uint8_t size, uint8_t ups, uint32_t seed, int *bp) {
   uint16_t br[TOUR_SIZE];
   tourDraw(seed, br);
@@ -206,7 +239,7 @@ static int tourRun(Prof p, uint8_t size, uint8_t ups, uint32_t seed, int *bp) {
       uint8_t a = idx[q], b = idx[q + 1];
       for (uint8_t c : { a, b }) {
         if (br[c] == TOUR_PLAYER || built[c]) continue;
-        ZoneFoe f; tourFoe(br[c], 0, seed, 19, f);
+        ZoneFoe f; tourFoe(br[c], 0, seed, 19, f); tourBoost(br[c], f);
         oppN[c] = f.count;
         for (uint8_t k = 0; k < f.count; k++) mk(opp[c][k], f.dex[k], f.level[k], f.iv, f.tr, false, 0);
         built[c] = true;
@@ -217,14 +250,15 @@ static int tourRun(Prof p, uint8_t size, uint8_t ups, uint32_t seed, int *bp) {
       bool sw = tourSwitches(round);
       if (br[a] == TOUR_PLAYER || br[b] == TOUR_PLAYER) {
         uint8_t o = br[a] == TOUR_PLAYER ? b : a;
-        ZoneFoe f; tourFoe(br[o], round, seed, 19, f);
+        ZoneFoe f; tourFoe(br[o], round, seed, 19, f); tourBoost(br[o], f);
         uint8_t cap = 1; for (uint8_t k = 0; k < f.count; k++) if (f.level[k] > cap) cap = f.level[k];
         Combatant mine[6], theirs[6];
         uint32_t s2 = seed ^ 0xABCD; team(p, size, cap, ups, s2, mine);    // the same six, at the cap
         for (uint8_t i = 0; i < size; i++) memcpy(mine[i].pp, usedPp[i], sizeof(mine[i].pp));
         freshOf(opp[o], oppN[o], theirs);
         uint8_t fieldN = getenv("ZS_TOURCAP") && oppN[o] < size ? oppN[o] : size;   // the hard ladder's team cap
-        bool won = fight(mine, fieldN, theirs, oppN[o], true, sw);
+        uint8_t theirN = getenv("ZS_TOURMATCH") && oppN[o] > size ? size : oppN[o];  // they bring as many as you
+        bool won = fight(mine, fieldN, theirs, theirN, true, sw);
         for (uint8_t i = 0; i < fieldN; i++) memcpy(usedPp[i], mine[i].pp, sizeof(usedPp[i]));
         if (!won) return round;
         *bp += ZONE_BP_WIN[ZONE_TOURNAMENT];
@@ -246,13 +280,24 @@ static int tourRun(Prof p, uint8_t size, uint8_t ups, uint32_t seed, int *bp) {
 }
 
 // ---- the Hall ------------------------------------------------------------
+// Hall experiment knobs (ZS_ONLY=hallx): the pet's build, and the foe's
+// training ceiling (gHallTrMax; 100 = the firmware) or a foe that ramps to the
+// pet's own IV and training (gHallMirror).
+static uint8_t gPetIv = 31, gPetTr = 100; static bool gPetLvlOnly = false;
+static int gHallTrMax = 100; static bool gHallMirror = false; static int gHallRefill = 6;
+static int gLvlPct0 = 0, gLvlPct1 = 0;   // when set: the foe's level = pet level x pct, ramping rung 0 -> 17
 static int hallRun(int16_t dex, uint8_t lvl, uint32_t seed, uint32_t *money, int *battles) {
-  Combatant me; mk(me, dex, lvl, 31, 100, false, 0);
+  Combatant me; mk(me, dex, lvl, gPetIv, gPetTr, gPetLvlOnly, 0);
   *money = 0; *battles = 0;
   for (uint8_t rung = 0; rung < HALL_RUNGS; rung++) {
     HallFoe hf;
     if (!bhallFoe(seed, rung, dex, lvl, hf)) continue;
-    Combatant f; mk(f, hf.dex, hf.level, hf.iv, hf.tr, false, 0);
+    uint8_t fiv = hf.iv, ftr = hf.tr;
+    if (gHallMirror) { fiv = (uint8_t)(8 + rung * (gPetIv - 8) / (HALL_RUNGS - 1)); ftr = (uint8_t)(rung * gPetTr / (HALL_RUNGS - 1)); }
+    else if (gHallTrMax != 100) ftr = (uint8_t)(rung * gHallTrMax / (HALL_RUNGS - 1));
+    uint8_t flv = hf.level;
+    if (gLvlPct1) { int pc = gLvlPct0 + (gLvlPct1 - gLvlPct0) * rung / (HALL_RUNGS - 1); flv = (uint8_t)std::max(1, lvl * pc / 100); }
+    Combatant f; mk(f, hf.dex, flv, fiv, ftr, false, 0);
     Combatant mine = battleStored(me); mine.hp = mine.maxHp; mine.ailment = AIL_NONE;
     (*battles)++;
     bool won = fight(&mine, 1, &f, 1, hf.smart, false);
@@ -260,7 +305,7 @@ static int hallRun(int16_t dex, uint8_t lvl, uint32_t seed, uint32_t *money, int
     *money += bhallPrize(rung, hf.level);
     me = mine;                                 // its PP is its own, carried
     // a nap refills it between sittings: the sim assumes one sitting per 6 rungs
-    if (rung % 6 == 5) battleFullPp(me);
+    if (rung % gHallRefill == gHallRefill - 1) battleFullPp(me);
   }
   return HALL_RUNGS;
 }
@@ -344,6 +389,41 @@ int main() {
     printf("\n");
   }
 
+  if (only && strstr(only, "hallx")) {
+    printf("HALL EXPERIMENTS (one PP refill every %d rungs), %d runs a cell: clear %%\n", 9, N);
+    gHallRefill = 9;
+    struct P { const char *nm; uint8_t iv, tr; bool lvlOnly; bool good; } PS[] = {
+      { "GOOD   IV31 tr100 TMs", 31, 100, false, true },
+      { "MID    IV20 tr 60 TMs", 20, 60, false, false },
+      { "CASUAL IV16 tr 50 lvl", 16, 50, true, false } };
+    struct V { const char *nm; int trMax; bool mirror; int l0, l1; } VS[] = {
+      { "firmware (foe tr to 100)", 100, false, 0, 0 },
+      { "mirror, foe level 80% -> 95% of the pet's", 100, true, 80, 95 },
+      { "mirror, foe level 75% -> 90%", 100, true, 75, 90 },
+      { "mirror, foe level 70% -> 90%", 100, true, 70, 90 },
+      { "firmware build, foe level 80% -> 95%", 100, false, 80, 95 },
+      { "firmware build, foe level 75% -> 90%", 100, false, 75, 90 } };
+    for (auto &v : VS) {
+      printf("  %s\n", v.nm);
+      for (auto &pp : PS) {
+        printf("    %-22s", pp.nm);
+        for (uint8_t lvl : { 25, 50, 75, 100 }) {
+          gPetIv = pp.iv; gPetTr = pp.tr; gPetLvlOnly = pp.lvlOnly; gHallTrMax = v.trMax; gHallMirror = v.mirror; gLvlPct0 = v.l0; gLvlPct1 = v.l1;
+          int clears = 0;
+          for (int i = 0; i < N; i++) {
+            int16_t d = pp.good ? goodRank[i % 12] : casualPool[(i * 37) % casualPool.size()];
+            uint32_t m; int b;
+            if (hallRun(d, lvl, 77 + i * 131, &m, &b) == HALL_RUNGS) clears++;
+          }
+          printf("  L%-3u %3d%%", lvl, clears * 100 / N);
+          fflush(stdout);
+        }
+        printf("\n");
+      }
+    }
+    gPetIv = 31; gPetTr = 100; gPetLvlOnly = false; gHallTrMax = 100; gHallMirror = false; gHallRefill = 6; gLvlPct0 = gLvlPct1 = 0;
+    return 0;
+  }
   if (!only || strstr(only, "hall")) {
     printf("BATTLE HALL, fully trained pet, %d runs each\n", N);
     for (uint8_t lvl : { 50, 100 }) {
