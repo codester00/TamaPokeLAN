@@ -125,6 +125,8 @@ int main(){
   clearAll(); jumpOpen=true;                             check("go to #");
   clearAll(); plazaOpen=true; check("plaza"); crumbIs("plaza"); plazaOpen=false;
   clearAll(); plazaOpen=true; zoneOpen=true; zoneMode=0; check("zone"); crumbIs("zone");
+  clearAll(); plazaOpen=true; zoneOpen=true; zoneMode=2; check("gauntlet"); crumbIs("zone");
+  clearAll(); plazaOpen=true; zoneOpen=true; zoneMode=3; check("gauntlet rules"); crumbIs("zone");
   zoneMode=1; check("zone prizes"); zoneOpen=false; zoneMode=0; plazaOpen=false;
   {                                 // the League screen (v3.94): a run on, between fights
     clearAll();

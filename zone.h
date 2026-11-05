@@ -16,6 +16,8 @@ struct ZoneFoe {
   int16_t dex[6];
   uint8_t level[6];
   uint8_t iv, tr;
+  uint8_t avatar;  // a trainer class to draw and name (v4.04)
+  uint8_t smart;   // the smart AI (v4.04: the gauntlet's later rounds; 0 = the simple one)
 };
 // One run (RAM; saving comes with the formats, plan step 4). The team is the
 // run's own copy, fresh as it entered; pp[][] is what it has left.

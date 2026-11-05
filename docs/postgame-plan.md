@@ -208,7 +208,7 @@ them.
 2. **DONE (v4.03)** The zone shell: gate, code, landing page, BP, entry fees, prize counter,
    records, the zone PP ledger, no items, SKETCH not kept.
 3. AI switching (upper tiers only), measured with `league_sim`.
-4. The gauntlet: the team generator, rules, scaling, daily, saving.
+4. **DONE (v4.04)** The gauntlet: the team generator, rules, scaling, daily, saving.
 5. The tournament: the draw, seeding, fill, background matches, its PP.
 6. The Hall (normal play).
 7. The new prizes: signature moves, PP Max, Bottle Cap.

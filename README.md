@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.03-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.04-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -209,13 +209,14 @@ while it keeps trying — see § Trading in the manual below.
 
 ### The Battle Zone (post-game)
 
-| The zone | The prize counter |
-|---|---|
-| <img src="docs/screens/zone.png" width="240"> | <img src="docs/screens/zoneprizes.png" width="240"> |
+| The zone | The prize counter | The gauntlet | Custom rules |
+|---|---|---|---|
+| <img src="docs/screens/zone.png" width="240"> | <img src="docs/screens/zoneprizes.png" width="240"> | <img src="docs/screens/gauntlet.png" width="240"> | <img src="docs/screens/gauntrules.png" width="240"> |
 
 On the PLAZA, open once every region's champion is beaten (either difficulty).
-Being built in steps (v4.03 is the shell): its formats, the tournament and the
-gauntlet, come later — see § The Battle Zone in the manual below.
+Since v4.04 the **gauntlet** is open: challengers one after another, under a
+day's rules or your own, until you lose. The tournament comes later — see
+§ The Battle Zone in the manual below.
 
 ### Collecting
 
@@ -1379,14 +1380,46 @@ BP, the tournaments won and the gauntlet's best streak.
 - **A zone fight**: your team as it entered, at full HP every fight; **PP is
   the run's**: it starts full (PP Ups counted) and carries from fight to fight,
   and the saved PP of your creatures is never touched. **No bag.** **SET
-  style** (no free switch when the foe's creature faints). The opponents use the
-  smart AI and pick their next creature by matchup. A SKETCH learned in the
+  style** (no free switch when the foe's creature faints). The opponents pick
+  their next creature by matchup. A SKETCH learned in the
   zone is not kept. Running forfeits; a loss ends the run and never blacks out.
 - **The prize counter** trades BP for items: Master Ball 100, PP Up 16,
   Ether 2, Protein / Iron / Carbos 4, Linking Cord 16, each evolution stone 6,
   the Black Augurite 8.
-- **The tournament and the gauntlet are not built yet**: their rows read COMING
-  SOON.
+- **The tournament is not built yet**: its row reads COMING SOON.
+
+#### The gauntlet (v4.04)
+
+Challengers one after another until you lose. **Rules** bind both sides:
+
+| rule | values |
+|---|---|
+| TYPE | any, or one of the 18: every creature must have it |
+| LEVEL | no cap, 30, 50 or 70: a creature above it fights **at** it (not barred) |
+| FORMS | all; BASIC (a base form that evolves); MIDDLE (an evolution that evolves again); FINAL (evolves no further, legendaries included); NO LEGENDS |
+| TEAM | 1-6, both sides |
+
+- **DAILY** rules come from the date, the same on every board that day (type
+  any one day in four; team 3-6; a day whose rules leave too few species for
+  a team drops its FORMS rule). **CUSTOM** rules are set on the rules page:
+  each cell steps to its next value. Then the team picker: exactly the rule's
+  team size, and a creature that breaks the rules cannot be picked.
+- **Challengers** are trainers of the stock classes with a team drawn from
+  every drawable, non-legendary species that fits the rules, at the cap (or
+  your team's highest level with no cap). They grow each round: IVs 12 + the
+  round (to 31), training 5 a round (to 100), and the smart AI from the fourth
+  challenger. **BP**: 2 a win, +1 every seven rounds. These are placeholders
+  until tuned.
+- **The day's 2x**: the first DAILY run that beats a challenger doubles its BP
+  for the rest of that run, however many days it lasts; a run that loses its
+  first battle leaves the 2x unclaimed. Custom rules pay 1x.
+- **Saved between battles**, for as long as you like: CONTINUE meets the next
+  challenger, with the PP the run has left. **Only one run at a time**: QUIT
+  (two taps) or lose to start another. **A reboot or power cut mid-battle is
+  the loss.** A run ends if one of its creatures is no longer in the party or
+  the live pet, or no longer fits the rules (it evolved past its FORMS rule).
+- **Records**: the best streak (challengers beaten in one run) and the day's
+  best daily streak.
 
 ### Trading
 

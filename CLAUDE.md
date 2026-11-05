@@ -948,7 +948,40 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
-### Done: the Battle Zone shell (v4.03)
+### Done: the gauntlet, and a failed SKETCH keeps its PP (v4.04)
+
+Step 4 of `docs/postgame-plan.md` § 6 (step 3, AI switching, comes next).
+`gauntlet_test`; eight guards negative-checked.
+
+- **`gauntlet.cpp/.h`** are the rules, no screen: `GauntletRules` (type, level
+  cap, tier, size), `speciesStage()`/`speciesEvolvesFurther()` (every evolution
+  table, not just `evolvesTo`), `gauntletSpeciesFits()` (THE eligibility, for
+  the picker, the start and every rebuild), `gauntletDaily(day)` (a day hash;
+  a day too thin for a team drops its tier), `gauntletChallenger(rules, round,
+  seed, ...)` -- its own LCG, so a saved run meets the challenger it would have
+  -- and the PLACEHOLDER pacing `gauntletIv/Tr/Smart/Bp`. It cannot include
+  `avatars.h` (pixel art, the sketch's alone): it returns an avatar index, the
+  sketch names it. **The level cap is not an entry rule**: a creature above it
+  fights at it (`gauntMember()`), as the games' later Level 50 battles do.
+- **The run is `GauntletSave gaunt`**, NVS key `gnt` (`SAVE_FIELDS`,
+  tpsave.py): rules, daily, doubled, wins, startDay, seed, the team by
+  `CreatureUid`, the PP left, plus `claimDay` (the day's 2x) and the day's best.
+  `fighting` is saved BEFORE the battle opens (`gauntletNextFight()`), and
+  `gauntLoad()` at boot treats it as the loss. `gauntRebuild()` rebuilds the
+  team from the creatures as they are before every fight; a member gone or no
+  longer fitting ends the run (`gauntBroken`). One run at a time; QUIT is two taps.
+- **The 2x**: `gauntWinBp()` claims it on a daily run's first WIN, once per
+  start day, and the run keeps it (`doubled`). `zoneAfterFight()` asks it and
+  `gauntAfterFight()`.
+- **Screens**: `ZM_GAUNT` (DAILY / CUSTOM, or CONTINUE / the rules / QUIT) and
+  `ZM_RULES` (`gauntRuleRect()`/`gauntRuleAt()`, four cells and START,
+  `gauntRuleCycle()`). The team picker's `PICK_ZONE` (0xFE): `squadCap()` is
+  the rules' size, `pickToggle()` refuses an ineligible creature, FIGHT needs
+  exactly the size, BACK returns to the zone. `zoneStartFight()` uses the smart
+  AI only when `ZoneFoe::smart` says so.
+- **SKETCH**: a failed SKETCH (`battleAct()`, nothing to copy) gives its PP back,
+  as the games do. `sketch_test`.
+
 
 Step 2 of `docs/postgame-plan.md` § 6. `zone_test`; nine guards
 negative-checked. **`zone.h`** holds the types (`ZoneFoe`, `ZoneRun`: there

@@ -198,6 +198,9 @@ bool startWildBattle(uint8_t region, bool hard);
 void onTap(int16_t x, int16_t y);   // the first-boot shots tap their way in
 extern bool exploreOpen, gymOpen, playerOpen, martOpen, plazaOpen, zoneOpen;
 extern uint8_t zoneMode;
+#include "gauntlet.h"
+extern GauntletSave gaunt;
+extern GauntletRules gauntCustom;
 extern ItemKey martConfirmItem;
 extern bool galleryDirty;
 extern uint8_t galleryRegion;
@@ -430,6 +433,15 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
   else if (!strcmp(screen, "plaza")) { plazaOpen = true; }
   else if (!strcmp(screen, "zone")) { plazaOpen = zoneOpen = true; pet.bp = 248; pet.zoneTourWins = 3; pet.zoneBestStreak = 21; }
   else if (!strcmp(screen, "zoneprizes")) { plazaOpen = zoneOpen = true; zoneMode = 1; pet.bp = 248; }
+  else if (!strcmp(screen, "gauntlet")) {
+    plazaOpen = zoneOpen = true; zoneMode = 2; pet.bp = 248;
+    gaunt.active = 1; gaunt.wins = 6; gaunt.daily = 1; gaunt.doubled = 1;
+    gaunt.rules.type = 10; gaunt.rules.levelCap = 50; gaunt.rules.tier = GT_FINAL; gaunt.rules.size = 3;
+  }
+  else if (!strcmp(screen, "gauntrules")) {
+    plazaOpen = zoneOpen = true; zoneMode = 3; pet.bp = 248;
+    gauntCustom.type = 11; gauntCustom.levelCap = 50; gauntCustom.tier = GT_NOLEGEND; gauntCustom.size = 4;
+  }
   else if (!strcmp(screen, "dexpick")) {
     for (int d = 1; d <= 200; d++) pet.dbgHatchAs(d, false);
     galleryOpen = true; galleryPick = true;

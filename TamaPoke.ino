@@ -38,6 +38,7 @@
 #include "pp.h"
 #include "codes.h"
 #include "zone.h"
+#include "gauntlet.h"
 #include "settings.h"
 #include "gamecorner.h"
 #include "gamecorner_art.h"
@@ -57,7 +58,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.03"
+#define FW_VERSION "4.04"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -511,7 +512,7 @@ bool plazaOpen = false;   // the PLAZA tile (v4.01); LAN and trading open over i
 // closes with no run on.
 bool zoneOpen = false;
 bool zoneViaCode = false;
-enum : uint8_t { ZM_HOME = 0, ZM_PRIZES };
+enum : uint8_t { ZM_HOME = 0, ZM_PRIZES, ZM_GAUNT, ZM_RULES };
 uint8_t zoneMode = ZM_HOME;
 uint8_t zonePage = 0;
 uint8_t zoneConfirm = 0xFF;   // the prize being asked about, 0xFF none
@@ -521,6 +522,22 @@ uint8_t zoneConfirm = 0xFF;   // the prize being asked about, 0xFF none
 bool btlZone = false;
 ZoneFoe zoneFoe;   // zone.h
 ZoneRun zoneRun;
+// The gauntlet (v4.04): its saved run, the rules about to be entered, the
+// custom rules being edited, and two screen flags.
+GauntletSave gaunt;
+GauntletRules gauntPending;
+bool gauntPendingDaily = false;
+GauntletRules gauntCustom;
+bool gauntQuitArmed = false;
+bool gauntBroken = false;    // the last CONTINUE found the team broken
+#define PICK_ZONE 0xFE       // the team picker, for the gauntlet
+void gauntLoad();
+bool gauntletBegin(const GauntletRules &r, bool daily, uint16_t mask);
+bool gauntletNextFight();
+void gauntletQuit();
+bool gauntPickEligible(uint8_t n);
+static uint8_t gauntWinBp();
+static void gauntAfterFight(bool won);
 bool zoneUnlocked();
 bool zoneAccessible();
 void renderZone();
@@ -1419,6 +1436,7 @@ void setup() {
   else Serial.println("pc: Bill's PC would not mount -- it reads as unavailable, not empty");
   pcMigrateBox();
   backfillTransform();
+  gauntLoad();          // a run saved mid-battle is the loss (v4.04)
   sdBegin();
   thumbs.load();
 
@@ -6467,6 +6485,7 @@ static uint8_t teamCapFor(const Trainer &t, bool hard) {
 }
 
 uint8_t squadCap(uint8_t idx, bool hard) {
+  if (idx == PICK_ZONE) return gauntPending.size;      // the gauntlet: its rules' size
   if (idx >= TRAINER_COUNT) return TRAINER_TEAM_MAX;   // PICK_LAN: uncapped six
   return teamCapFor(PICK_TRAINERS[idx], hard);
 }
@@ -8724,6 +8743,7 @@ void pickGoPos(int *x, int *y) { *x = PICK_GO_X + PICK_BTN_W / 2; *y = PICK_GO_Y
 // A tap on a candidate: in at the back of the order, or out of it.
 void pickToggle(uint8_t n) {
   if (!pickExists(n)) return;
+  if (pickTrainer == PICK_ZONE && !(squadMask & (1 << n)) && !gauntPickEligible(n)) { sfxPlay(SFX_DENY); return; }
   uint8_t seq[PARTY_SLOTS + 1];
   uint8_t k = squadSequence(squadMask, seq);   // the order as shown, made explicit
   squadOrderN = 0;
@@ -8816,6 +8836,9 @@ void renderPick() {
   if (pickTrainer == PICK_LAN) {
     // "HOST BATTLE" / "JOIN BATTLE" already say what this is; no "LAN: " prefix.
     snprintf(head, sizeof(head), "%s", lanWantHost ? T(S_LAN_HOST) : T(S_LAN_JOIN));
+  } else if (pickTrainer == PICK_ZONE) {
+    snprintf(head, sizeof(head), "%s", T(S_ZONE_GAUNT));
+    top = gauntPending.levelCap;
   } else {
     const Trainer &t = PICK_TRAINERS[pickTrainer];
     for (int k = 0; k < t.count; k++)
@@ -8875,6 +8898,7 @@ void pickTap(int16_t x, int16_t y) {
     sfxPlay(SFX_TAP);
     pickOpen = false;
     if (pickTrainer == PICK_LAN) { lanOpen = true; }
+    else if (pickTrainer == PICK_ZONE) { zoneOpen = true; }   // the zone is beneath
     else { gymOpen = true; }
     return;
   }
@@ -8882,6 +8906,17 @@ void pickTap(int16_t x, int16_t y) {
       x >= PICK_GO_X && x <= PICK_GO_X + PICK_BTN_W) {
     uint8_t cap = squadCap(pickTrainer, pickHard);
     if (pickChosen() == 0 || pickChosen() > cap) return;   // GO stays inert
+    if (pickTrainer == PICK_ZONE) {         // the gauntlet: the exact size, then the run
+      if (pickChosen() != cap || !gauntletBegin(gauntPending, gauntPendingDaily, squadMask)) {
+        sfxPlay(SFX_DENY);
+        return;
+      }
+      sfxPlay(SFX_TAP);
+      pickOpen = false;
+      pickRemember();
+      gauntletNextFight();
+      return;
+    }
     sfxPlay(SFX_TAP);
     pickOpen = false;
     pickRemember();
@@ -9268,7 +9303,7 @@ bool zoneStartFight(const ZoneFoe &f) {
   btlFoeSent = 1;
   btlFoe = btlFoeSquad[0];
   btlTrainer = -1;
-  btlHard = true;
+  btlHard = f.smart != 0;   // the format decides (the gauntlet's later rounds)
   btlWild = false;
   btlSafari = false;
   btlLink = false;
@@ -9303,16 +9338,203 @@ void zoneAfterFight(bool won) {
     btlSquad[btlSquadAt] = battleStored(btlYou);
     for (uint8_t i = 0; i < zoneRun.n && i < btlSquadN; i++)
       memcpy(zoneRun.pp[i], btlSquad[i].pp, sizeof(zoneRun.pp[i]));
+    uint8_t kind = zoneRun.kind;
     if (won) {
+      uint8_t bp = kind == ZONE_GAUNTLET ? gauntWinBp() : ZONE_BP_WIN[kind];
       zoneRun.wins++;
-      pet.addBp(ZONE_BP_WIN[zoneRun.kind]);
+      pet.addBp(bp);
       pet.saveNow();
-    } else {
-      zoneRunEnd();
     }
+    if (kind == ZONE_GAUNTLET) gauntAfterFight(won);
+    if (!won) zoneRunEnd();
+    zoneMode = kind == ZONE_GAUNTLET ? ZM_GAUNT : ZM_HOME;
+  } else {
+    zoneMode = ZM_HOME;
   }
   zoneOpen = true;
-  zoneMode = ZM_HOME;
+}
+
+// --- the gauntlet (v4.04, postgame-plan § 3) ---
+// One run at a time, saved between battles in its own NVS key; the team is
+// held by creature ID and rebuilt from the creatures as they are before every
+// fight (capped at the rules' level, with the PP the run has left).
+
+static void gauntSave() {
+  Preferences p;
+  if (!p.begin("tamapoke", false)) return;
+  p.putBytes("gnt", &gaunt, sizeof(gaunt));
+  p.end();
+}
+
+// The day's best daily streak, the record the gauntlet page shows.
+static void gauntNoteBest() {
+  if (!gaunt.daily) return;
+  if (gaunt.bestDay != gaunt.startDay) { gaunt.bestDay = gaunt.startDay; gaunt.bestToday = 0; }
+  if (gaunt.wins > gaunt.bestToday) gaunt.bestToday = gaunt.wins;
+}
+
+// The run is over (lost, quit, a reboot mid-battle, a team that broke the
+// rules): its streak goes into the records, and the save keeps only the day's.
+static void gauntEnd() {
+  if (gaunt.active && gaunt.wins > pet.zoneBestStreak) pet.zoneBestStreak = gaunt.wins;
+  gauntNoteBest();
+  gaunt.active = 0;
+  gaunt.fighting = 0;
+  zoneRun.active = false;
+  gauntSave();
+  pet.saveNow();
+}
+
+void gauntLoad() {
+  Preferences p;
+  GauntletSave g;
+  if (p.begin("tamapoke", true)) {
+    size_t n = p.getBytesLength("gnt");
+    if (n == sizeof(g)) p.getBytes("gnt", &g, sizeof(g));
+    p.end();
+  }
+  if (g.magic != GAUNT_SAVE_MAGIC) g = GauntletSave();
+  gaunt = g;
+  if (gaunt.active && gaunt.fighting) gauntEnd();   // the power went mid-battle: the loss
+}
+
+// Can candidate n (0 the live pet, 1.. the party) enter under the pending rules?
+bool gauntPickEligible(uint8_t n) {
+  if (!pickExists(n)) return false;
+  int16_t dex = n == 0 ? pet.speciesId : party.slots[n - 1].dex;
+  return gauntletSpeciesFits(gauntPending, dex);
+}
+
+// A team member by ID, as it is now: the live pet or a party member, capped
+// at the rules' level. False if it is no longer held there.
+static bool gauntMember(const CreatureUid &u, uint8_t cap, Combatant &out) {
+  if (!u.valid()) return false;
+  if (!pet.isEgg() && pet.uid == u) {
+    Pet tmp = pet;
+    if (cap && tmp.level() > cap) tmp.ageMinutes = (uint32_t)(cap - 1) * MINUTES_PER_LEVEL;
+    combatantFromPet(out, tmp);
+  } else {
+    int at = -1;
+    for (int i = 0; i < PARTY_SLOTS; i++) if (!party.slots[i].empty() && party.slots[i].uid == u) at = i;
+    if (at < 0) return false;
+    PartyMon m = party.slots[at];
+    if (cap && m.level > cap) m.level = cap;
+    combatantFromParty(out, m);
+  }
+  out.ppOn = !cheatOn(CT_UNLIMITED_PP);
+  return true;
+}
+
+// The run's team, rebuilt into zoneRun before a fight. False -- and the run
+// ends -- if a member is gone or no longer fits the rules (it evolved past its
+// tier, say); a level past the cap is simply fought at the cap.
+static bool gauntRebuild() {
+  zoneRun.n = 0;
+  for (uint8_t i = 0; i < gaunt.n && i < TRAINER_TEAM_MAX; i++) {
+    Combatant c;
+    if (!gauntMember(gaunt.uid[i], gaunt.rules.levelCap, c) || !gauntletSpeciesFits(gaunt.rules, c.dex)) return false;
+    battleFullPp(c);
+    for (int k = 0; k < MOVE_SLOTS; k++) if (gaunt.pp[i][k] < c.pp[k]) c.pp[k] = gaunt.pp[i][k];
+    zoneRun.team[zoneRun.n] = c;
+    memcpy(zoneRun.pp[zoneRun.n], c.pp, sizeof(c.pp));
+    zoneRun.n++;
+  }
+  zoneRun.active = zoneRun.n > 0;
+  zoneRun.kind = ZONE_GAUNTLET;
+  zoneRun.wins = gaunt.wins;
+  return zoneRun.active;
+}
+
+// Enters a run: the rules' exact team size, every member fitting them, the
+// fee paid (zoneRunBegin()). A daily run takes the day it started.
+bool gauntletBegin(const GauntletRules &r, bool daily, uint16_t mask) {
+  if (gaunt.active || zoneRun.active) return false;
+  buildSquad(0, TRAINER_TEAM_MAX, mask);
+  if (btlSquadN != r.size) return false;
+  for (uint8_t i = 0; i < btlSquadN; i++)
+    if (!gauntletSpeciesFits(r, btlSquad[i].dex)) return false;
+  if (!zoneRunBegin(ZONE_GAUNTLET, mask)) return false;
+  int32_t keepClaim = gaunt.claimDay, keepBestDay = gaunt.bestDay;
+  uint16_t keepBest = gaunt.bestToday;
+  gaunt = GauntletSave();
+  gaunt.claimDay = keepClaim; gaunt.bestDay = keepBestDay; gaunt.bestToday = keepBest;
+  gaunt.active = 1;
+  gaunt.rules = r;
+  gaunt.daily = daily ? 1 : 0;
+  gaunt.startDay = pet.today();
+  gaunt.seed = (uint32_t)random(1, 0x7FFFFFFF);
+  gaunt.n = zoneRun.n;
+  for (uint8_t i = 0; i < zoneRun.n; i++) {
+    gaunt.uid[i] = zoneRun.team[i].uid;
+    memcpy(gaunt.pp[i], zoneRun.pp[i], sizeof(gaunt.pp[i]));
+  }
+  gauntBroken = false;
+  gauntSave();
+  return true;
+}
+
+// The next challenger. The team is rebuilt first; a broken team ends the run.
+// `fighting` is saved before the battle opens, so a reboot inside it is the loss.
+bool gauntletNextFight() {
+  if (!gaunt.active) return false;
+  if (!gauntRebuild()) { gauntEnd(); gauntBroken = true; return false; }
+  uint8_t lvl = 1;
+  for (uint8_t i = 0; i < zoneRun.n; i++) if (zoneRun.team[i].level > lvl) lvl = zoneRun.team[i].level;
+  ZoneFoe f;
+  if (!gauntletChallenger(gaunt.rules, gaunt.wins, gaunt.seed, lvl, AVATAR_COUNT, f)) { gauntEnd(); return false; }
+  snprintf(f.name, sizeof(f.name), "%s", AVATARS[f.avatar % AVATAR_COUNT].name);
+  gaunt.fighting = 1;
+  gauntSave();
+  return zoneStartFight(f);
+}
+
+// BP for the win about to be counted. The day's first daily run to beat a
+// challenger claims its 2x, for the whole run (plan § 3).
+static uint8_t gauntWinBp() {
+  if (gaunt.active && gaunt.daily && !gaunt.doubled && gaunt.claimDay != gaunt.startDay) {
+    gaunt.doubled = 1;
+    gaunt.claimDay = gaunt.startDay;
+  }
+  return gauntletBp(zoneRun.wins, gaunt.active && gaunt.doubled);
+}
+
+static void gauntAfterFight(bool won) {
+  if (!gaunt.active) return;
+  gaunt.fighting = 0;
+  if (!won) { gauntEnd(); return; }
+  gaunt.wins = zoneRun.wins;
+  for (uint8_t i = 0; i < zoneRun.n && i < 6; i++) memcpy(gaunt.pp[i], zoneRun.pp[i], sizeof(gaunt.pp[i]));
+  gauntNoteBest();
+  gauntSave();
+}
+
+void gauntletQuit() {
+  if (!gaunt.active) return;
+  gauntEnd();
+}
+
+// "FIRE  LV 50  FINAL  3 ON 3"
+static void gauntRulesText(const GauntletRules &r, char *out, size_t cap) {
+  char cp[16], sz[16];
+  if (r.levelCap) snprintf(cp, sizeof(cp), T(S_GT_CAP_FMT), r.levelCap);
+  else snprintf(cp, sizeof(cp), "%s", T(S_GT_NOCAP));
+  snprintf(sz, sizeof(sz), T(S_GT_SIZE_FMT), r.size, r.size);
+  snprintf(out, cap, "%s  %s  %s  %s",
+           r.type == GAUNTLET_TYPE_ANY ? T(S_GT_ANYTYPE) : typeName(r.type), cp,
+           T((StrId)(S_GT_TIER0 + (r.tier < GT_COUNT ? r.tier : 0))), sz);
+}
+
+// Opens the team picker for a run under `r`.
+static void gauntOpenPicker(const GauntletRules &r, bool daily) {
+  gauntPending = r;
+  gauntPendingDaily = daily;
+  pickTrainer = PICK_ZONE;
+  pickHard = false;
+  pickPage = 0;
+  pickDefault(r.size);
+  for (uint8_t n = 0; n <= PARTY_SLOTS; n++)          // the remembered team, less who cannot enter
+    if ((squadMask & (1 << n)) && !gauntPickEligible(n)) pickToggle(n);
+  pickOpen = true;
 }
 
 // --- the screens ---
@@ -9363,7 +9585,139 @@ static void zoneHeader(const char *title) {
   gfx->print(b);
 }
 
+// The custom rules: four cells in two rows (TYPE LEVEL / FORMS TEAM), then START.
+#define GT_RULE_CELLS 5
+void gauntRuleRect(uint8_t i, int *x, int *y, int *w, int *h) {
+  if (i >= 4) {                       // START
+    *y = 318; *h = UI_TAP_FINGER - 14;
+    int half = uiSafeHalfWidthFor(*y, *y + *h) - 24;
+    if (half > 140) half = 140;
+    *x = CX - half; *w = 2 * half;
+    return;
+  }
+  *y = 110 + (i / 2) * (UI_TAP_FINGER + 8);
+  *h = UI_TAP_FINGER;
+  int half = uiSafeHalfWidthFor(*y, *y + *h) - 18;
+  if (half > 180) half = 180;
+  *w = half - 4;
+  *x = (i % 2) ? CX + 4 : CX - half;
+}
+int gauntRuleAt(int16_t x, int16_t y) {
+  for (uint8_t i = 0; i < GT_RULE_CELLS; i++) {
+    int rx, ry, rw, rh;
+    gauntRuleRect(i, &rx, &ry, &rw, &rh);
+    if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) return i;
+  }
+  return -1;
+}
+static void gauntRuleValue(uint8_t i, char *out, size_t cap) {
+  const GauntletRules &r = gauntCustom;
+  switch (i) {
+    case 0: snprintf(out, cap, "%s", r.type == GAUNTLET_TYPE_ANY ? T(S_GT_ANYTYPE) : typeName(r.type)); break;
+    case 1: if (r.levelCap) snprintf(out, cap, T(S_GT_CAP_FMT), r.levelCap); else snprintf(out, cap, "%s", T(S_GT_NOCAP)); break;
+    case 2: snprintf(out, cap, "%s", T((StrId)(S_GT_TIER0 + (r.tier < GT_COUNT ? r.tier : 0)))); break;
+    case 3: snprintf(out, cap, T(S_GT_SIZE_FMT), r.size, r.size); break;
+    default: snprintf(out, cap, "%s", T(S_GT_START)); break;
+  }
+}
+// One tap moves a rule to its next value, wrapping.
+void gauntRuleCycle(uint8_t i) {
+  GauntletRules &r = gauntCustom;
+  switch (i) {
+    case 0: r.type = r.type == GAUNTLET_TYPE_ANY ? 0 : (r.type + 1 >= TYPE_COUNT ? GAUNTLET_TYPE_ANY : r.type + 1); break;
+    case 1: { uint8_t k = 0;
+              while (k < GAUNTLET_CAP_COUNT && GAUNTLET_CAPS[k] != r.levelCap) k++;
+              r.levelCap = GAUNTLET_CAPS[(k + 1) % GAUNTLET_CAP_COUNT]; } break;
+    case 2: r.tier = (uint8_t)((r.tier + 1) % GT_COUNT); break;
+    case 3: r.size = (uint8_t)(r.size % TRAINER_TEAM_MAX + 1); break;
+  }
+}
+
+static void zoneRow(uint8_t r, const char *big, const char *small, bool live) {
+  int x, y, w, h;
+  zoneRowRect(r, &x, &y, &w, &h);
+  gfx->fillRoundRect(x, y, w, h, 12, UI_BG_DAY);
+  gfx->drawRoundRect(x, y, w, h, 12, live ? UI_INK : UI_TRACK);
+  gfx->setTextColor(live ? UI_INK : UI_TRACK);
+  gfx->setTextSize(strlen(big) * 12 <= (size_t)w - 20 ? 2 : 1);
+  gfx->setCursor(CX - (int)strlen(big) * (strlen(big) * 12 <= (size_t)w - 20 ? 6 : 3), small ? y + 18 : y + h / 2 - 8);
+  gfx->print(big);
+  if (small) {
+    gfx->setTextSize(1);
+    gfx->setTextColor(live ? UI_INK_SOFT : UI_TRACK);
+    gfx->setCursor(CX - (int)strlen(small) * 3, y + h - 26);
+    gfx->print(small);
+  }
+}
+
+static void renderGauntlet() {
+  zoneHeader(T(S_ZONE_GAUNT));
+  char l[48], rt[64];
+  gfx->setTextSize(1);
+  if (gauntBroken) {
+    gfx->setTextColor(UI_BAR_BAD);
+    gfx->setCursor(CX - (int)strlen(T(S_GT_BROKEN)) * 3, 110);
+    gfx->print(T(S_GT_BROKEN));
+  } else {
+    int32_t today = pet.today();
+    snprintf(l, sizeof(l), T(S_GT_TODAY_FMT), (unsigned)(gaunt.bestDay == today ? gaunt.bestToday : 0));
+    gfx->setTextColor(UI_INK_SOFT);
+    gfx->setCursor(CX - (int)strlen(l) * 3, 110);
+    gfx->print(l);
+  }
+  snprintf(l, sizeof(l), T(S_GT_FEE_FMT), (unsigned long)ZONE_FEE[ZONE_GAUNTLET]);
+  gfx->setTextColor(UI_INK_SOFT);
+  gfx->setCursor(CX - (int)strlen(l) * 3, 126);
+  gfx->print(l);
+  if (gaunt.active) {
+    gauntRulesText(gaunt.rules, rt, sizeof(rt));
+    snprintf(l, sizeof(l), T(S_GT_CONTINUE_FMT), (unsigned)(gaunt.wins + 1));
+    zoneRow(0, l, rt, true);
+    zoneRow(1, gaunt.daily ? T(S_GT_DAILY) : T(S_GT_CUSTOM), gaunt.doubled ? T(S_GT_DOUBLE) : nullptr, false);
+    zoneRow(2, gauntQuitArmed ? T(S_LEAGUE_SURE) : T(S_GT_QUIT), nullptr, true);
+  } else {
+    GauntletRules d = gauntletDaily(pet.today());
+    gauntRulesText(d, rt, sizeof(rt));
+    bool dbl = gaunt.claimDay != pet.today();
+    snprintf(l, sizeof(l), "%s%s%s", T(S_GT_DAILY), dbl ? "  " : "", dbl ? T(S_GT_DOUBLE) : "");
+    zoneRow(0, l, rt, true);
+    zoneRow(1, T(S_GT_CUSTOM), nullptr, true);
+  }
+  uiChrome();
+  gfx->flush();
+}
+
+static void renderGauntRules() {
+  zoneHeader(T(S_GT_RULES));
+  static const StrId LBL[4] = { S_GT_L_TYPE, S_GT_L_CAP, S_GT_L_TIER, S_GT_L_TEAM };
+  for (uint8_t i = 0; i < GT_RULE_CELLS; i++) {
+    int x, y, w, h;
+    gauntRuleRect(i, &x, &y, &w, &h);
+    bool start = i == 4;
+    gfx->fillRoundRect(x, y, w, h, 12, start ? UI_BAR_OK : UI_BG_DAY);
+    gfx->drawRoundRect(x, y, w, h, 12, UI_INK);
+    char v[24];
+    gauntRuleValue(i, v, sizeof(v));
+    gfx->setTextColor(start ? UI_WHITE : UI_INK);
+    bool big = strlen(v) * 12 <= (size_t)w - 12;
+    gfx->setTextSize(big ? 2 : 1);
+    gfx->setCursor(x + w / 2 - (int)strlen(v) * (big ? 6 : 3), start ? y + h / 2 - 8 : y + h - 36);
+    gfx->print(v);
+    if (!start) {
+      gfx->setTextSize(1);
+      gfx->setTextColor(UI_INK_SOFT);
+      const char *t = T(LBL[i]);
+      gfx->setCursor(x + w / 2 - (int)strlen(t) * 3, y + 16);
+      gfx->print(t);
+    }
+  }
+  uiChrome();
+  gfx->flush();
+}
+
 void renderZone() {
+  if (zoneMode == ZM_GAUNT) { renderGauntlet(); return; }
+  if (zoneMode == ZM_RULES) { renderGauntRules(); return; }
   if (zoneMode == ZM_PRIZES) {
     zoneHeader(T(S_ZONE_PRIZES));
     for (uint8_t r = 0; r < ZONE_ROWS; r++) {
@@ -9409,7 +9763,7 @@ void renderZone() {
   for (uint8_t r = 0; r < ZONE_ROWS; r++) {
     int x, y, w, h;
     zoneRowRect(r, &x, &y, &w, &h);
-    bool live = r == 2;                  // the formats come in steps 4-5
+    bool live = r != 0;                  // the tournament comes in step 5
     gfx->fillRoundRect(x, y, w, h, 12, UI_BG_DAY);
     gfx->drawRoundRect(x, y, w, h, 12, live ? UI_INK : UI_TRACK);
     gfx->setTextColor(live ? UI_INK : UI_TRACK);
@@ -9440,9 +9794,9 @@ void zoneTap(int16_t x, int16_t y) {
     }
     return;
   }
-  int r = zoneRowAt(x, y);
-  if (r < 0) return;
   if (zoneMode == ZM_PRIZES) {
+    int r = zoneRowAt(x, y);
+    if (r < 0) return;
     uint8_t i = (uint8_t)(zonePage * ZONE_ROWS + r);
     if (i >= ZONE_PRIZE_COUNT) return;
     if (pet.bp < ZONE_PRIZES[i].bp) { sfxPlay(SFX_DENY); return; }
@@ -9450,15 +9804,49 @@ void zoneTap(int16_t x, int16_t y) {
     zoneConfirm = i;
     return;
   }
+  if (zoneMode == ZM_RULES) {
+    int c = gauntRuleAt(x, y);
+    if (c < 0) return;
+    sfxPlay(SFX_TAP);
+    if (c == 4) gauntOpenPicker(gauntCustom, false);
+    else gauntRuleCycle((uint8_t)c);
+    return;
+  }
+  int r = zoneRowAt(x, y);
+  if (r < 0) return;
+  if (zoneMode == ZM_GAUNT) {
+    if (gaunt.active) {
+      if (r == 0) {
+        gauntQuitArmed = false;
+        if (gauntletNextFight()) sfxPlay(SFX_TAP);
+        else sfxPlay(SFX_DENY);        // the team broke the rules: the run is over
+      } else if (r == 2) {
+        sfxPlay(SFX_TAP);
+        if (!gauntQuitArmed) gauntQuitArmed = true;
+        else { gauntQuitArmed = false; gauntletQuit(); }
+      }
+      return;
+    }
+    if (r == 0 || r == 1) {
+      if (pet.wallet < ZONE_FEE[ZONE_GAUNTLET]) { sfxPlay(SFX_DENY); return; }
+      sfxPlay(SFX_TAP);
+      gauntBroken = false;
+      if (r == 0) gauntOpenPicker(gauntletDaily(pet.today()), true);
+      else { zoneMode = ZM_RULES; }
+    }
+    return;
+  }
+  if (r == 1) { sfxPlay(SFX_TAP); zoneMode = ZM_GAUNT; gauntQuitArmed = false; return; }
   if (r == 2) { sfxPlay(SFX_TAP); zoneMode = ZM_PRIZES; zonePage = 0; return; }
-  sfxPlay(SFX_DENY);                     // TOURNAMENT and GAUNTLET: not built yet
+  sfxPlay(SFX_DENY);                     // TOURNAMENT: not built yet
 }
 
 // Down, one level: a question, then the prizes, then out to the PLAZA (where
 // the code's visit lapses unless a run is on).
 void zoneBack() {
   if (zoneConfirm != 0xFF) { zoneConfirm = 0xFF; return; }
-  if (zoneMode == ZM_PRIZES) { zoneMode = ZM_HOME; return; }
+  if (zoneMode == ZM_RULES) { zoneMode = ZM_GAUNT; return; }
+  if (zoneMode == ZM_PRIZES || zoneMode == ZM_GAUNT) { zoneMode = ZM_HOME; gauntQuitArmed = false; return; }
   zoneOpen = false;
   if (!zoneRun.active) zoneViaCode = false;
 }

@@ -57,6 +57,7 @@ SAVE_FIELDS = [
     ("lgnd", SK_BYTES),   # v3.40: Explore's legendaries, met bits then caught bits
     ("fixd", SK_BYTES),   # v3.77: Explore's fixed one-offs, met bits then caught bits
     ("zone", SK_BYTES),   # v4.03: Battle Zone BP, tournaments won, best streak (u16 each)
+    ("gnt", SK_BYTES),    # v4.04: the saved gauntlet run (GauntletSave in gauntlet.h)
     ("party", SK_BYTES), ("box", SK_BYTES), ("bag", SK_BYTES),
     ("rivals", SK_BYTES),
     ("lang", SK_U8), ("snd", SK_BOOL), ("vol", SK_U8),
@@ -142,6 +143,7 @@ FRIENDLY_NAMES = {
     "fixd": "Explore fixed one-offs (v3.77): 4 bytes of MET bits then 4 of CAUGHT bits; "
             "bit i is WILD_FIXED[i] in wild_areas.h (append-only)",
     "zone": "Battle Zone (v4.03): BP, tournaments won, gauntlet best streak, u16 little-endian each",
+    "gnt": "the saved gauntlet run (v4.04): GauntletSave in gauntlet.h; a run saved mid-battle loads as a loss",
     "lang": "Language index", "snd": "Sound enabled", "vol": "Volume (0-10)",
 }
 
