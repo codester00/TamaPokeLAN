@@ -48,6 +48,7 @@ uint8_t gauntletLevel(uint16_t round, uint8_t top);   // top: the cap, or the te
 uint8_t gauntletIv(uint16_t round);
 uint8_t gauntletTr(uint16_t round);
 bool gauntletSmart(uint16_t round);
+bool gauntletSwitches(uint16_t round);   // AI switching (v4.05), the upper rounds only
 // BP for beating the round-th challenger (doubled for the day's first daily win).
 uint8_t gauntletBp(uint16_t round, bool doubled);
 

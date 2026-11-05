@@ -207,7 +207,7 @@ them.
    (protocol bump); the AI picks its replacement by matchup.
 2. **DONE (v4.03)** The zone shell: gate, code, landing page, BP, entry fees, prize counter,
    records, the zone PP ledger, no items, SKETCH not kept.
-3. AI switching (upper tiers only), measured with `league_sim`.
+3. **DONE (v4.05)** AI switching (upper tiers only). NOT yet measured with `league_sim`: the rule's numbers are placeholders.
 4. **DONE (v4.04)** The gauntlet: the team generator, rules, scaling, daily, saving.
 5. The tournament: the draw, seeding, fill, background matches, its PP.
 6. The Hall (normal play).

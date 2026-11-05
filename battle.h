@@ -131,3 +131,19 @@ void battleEndTurn(Combatant &c, TurnLog &log);
 // a move kills this turn, and whether a status or a stat boost is worth the
 // turn it costs.
 uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart);
+
+// How well creature c's typing matches up against p's: the best of c's types
+// against p, less the best of p's against c (percent). THE matchup rule: a
+// trainer's next creature, the zone's next, and the AI's switch all ask it.
+int battleMatchScore(int16_t c, int16_t p);
+
+// AI switching (v4.05, postgame-plan § 1): only where a format turns it on
+// (the zone's later rounds), and only sanely. The creature out must be losing
+// the matchup (score below 0); a teammate is chosen only if it does clearly
+// better (AI_SWITCH_MARGIN points or more) AND the foe's typing hits it no
+// harder than neutral coming in. -1: stay. The caller also holds a creature in
+// for AI_SWITCH_COOLDOWN turns after it comes in, and never switches one that
+// is charging or recharging.
+#define AI_SWITCH_MARGIN 100
+#define AI_SWITCH_COOLDOWN 3
+int8_t aiSwitchTarget(const Combatant team[], uint8_t n, uint8_t at, const Combatant &foe);

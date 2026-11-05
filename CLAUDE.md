@@ -948,6 +948,26 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: AI switching in the zone (v4.05)
+
+Step 3 of `docs/postgame-plan.md` § 6. `aiswitch_test`; seven guards
+negative-checked. **NOT measured with `league_sim` yet**: the numbers are
+placeholders, like the gauntlet's pacing.
+
+- **`aiSwitchTarget(team, n, at, foe)`** (battle.cpp) is THE rule: the creature
+  out must be losing (`battleMatchScore() < 0`); a standing teammate must score
+  `AI_SWITCH_MARGIN` (100) better and take no more than neutral from the foe's
+  types coming in (`battleHitsIn()`); the best of those, else -1.
+- **`battleMatchScore()`** moved from the sketch's `btlMatchScore()` into
+  battle.cpp: the one matchup rule for `btlTrainerNext()`, `btlZoneNext()` and
+  the switch.
+- **Who switches: `ZoneFoe::switching`**, set by `gauntletSwitches(round)`
+  (round >= 10). `btlZoneSwitch()` in `btlResolve()` asks it, holds a creature
+  in for `AI_SWITCH_COOLDOWN` (3) turns (`btlFoeCool`/`btlFoeCoolAt`, reset
+  when a creature comes in and in `zoneStartFight()`), never mid charge or
+  recharge. The switch is the foe's turn (`foeMove` 0), through
+  `btlFoeSwitchIn()` -- the LAN rival's switch uses the same helper now.
+
 ### Done: the gauntlet, and a failed SKETCH keeps its PP (v4.04)
 
 Step 4 of `docs/postgame-plan.md` § 6 (step 3, AI switching, comes next).

@@ -58,7 +58,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.04"
+#define FW_VERSION "4.05"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -522,6 +522,9 @@ uint8_t zoneConfirm = 0xFF;   // the prize being asked about, 0xFF none
 bool btlZone = false;
 ZoneFoe zoneFoe;   // zone.h
 ZoneRun zoneRun;
+// The zone AI's switch cooldown (v4.05): turns the foe's creature at
+// btlFoeCoolAt has been out.
+uint8_t btlFoeCoolAt = 0xFF, btlFoeCool = 0;
 // The gauntlet (v4.04): its saved run, the rules about to be entered, the
 // custom rules being edited, and two screen flags.
 GauntletSave gaunt;
@@ -7143,25 +7146,6 @@ static void btlUseItem(ItemKey k) {
 // creature it will face: the best of its own types against that creature's,
 // less the worst that creature's types do back -- the shape of the smart AI's
 // move scoring, judged on typing because the next creature is not built yet.
-// How well creature c's typing matches up against p's: the best of c's types
-// against p, less the best of p's against c (percent). The one matchup rule
-// btlTrainerNext() and btlZoneNext() share.
-static int btlMatchScore(int16_t c, int16_t p) {
-  int off = 0, def = 0;
-  uint8_t ct[2] = { DEX_TBL[c].type1, DEX_TBL[c].type2 }, pt[2] = { DEX_TBL[p].type1, DEX_TBL[p].type2 };
-  for (uint8_t a = 0; a < 2; a++) {
-    if (a && ct[1] == ct[0]) continue;
-    int e = typeEffPct(ct[a], pt[0], pt[1]);
-    if (e > off) off = e;
-  }
-  for (uint8_t a = 0; a < 2; a++) {
-    if (a && pt[1] == pt[0]) continue;
-    int e = typeEffPct(pt[a], ct[0], ct[1]);
-    if (e > def) def = e;
-  }
-  return off - def;
-}
-
 // A zone opponent's next (v4.03): by matchup, among its standing ones, as a
 // hard trainer picks.
 static int8_t btlZoneNext() {
@@ -7169,7 +7153,7 @@ static int8_t btlZoneNext() {
   int bestScore = -100000;
   for (uint8_t k = 0; k < btlFoeSquadN; k++) {
     if (k == btlFoeAt || btlFoeSquad[k].fainted()) continue;
-    int score = btlMatchScore(btlFoeSquad[k].dex, btlYou.dex) * 8 + btlFoeSquad[k].level;
+    int score = battleMatchScore(btlFoeSquad[k].dex, btlYou.dex) * 8 + btlFoeSquad[k].level;
     if (score > bestScore) { bestScore = score; best = (int8_t)k; }
   }
   return best;
@@ -7182,10 +7166,31 @@ int8_t btlTrainerNext() {
   for (uint8_t k = 0; k < t.count; k++) {
     if (btlFoeSent & (1 << k)) continue;
     if (!btlHard) return (int8_t)k;
-    int score = btlMatchScore(t.team[k].dex, btlYou.dex) * 8 + t.team[k].level;   // a level breaks a tie
+    int score = battleMatchScore(t.team[k].dex, btlYou.dex) * 8 + t.team[k].level;   // a level breaks a tie
     if (score > bestScore) { bestScore = score; best = (int8_t)k; }
   }
   return best;
+}
+
+// The foe sends `to` in, spending its turn (a LAN rival's switch, a zone AI's).
+static void btlFoeSwitchIn(uint8_t to, const char *who) {
+  btlFoeSquad[btlFoeAt] = battleStored(btlFoe);     // remember how battered it was
+  btlFoeAt = to;
+  btlFoe = btlFoeSquad[to];
+  btlHpShown[1] = btlFoe.hp;
+  btlSyncSprite(1, btlFoe);
+  btlLungeUntil[1] = btlHitUntil[1] = btlFaintUntil[1] = 0;
+  btlEnterUntil[1] = millis() + BTL_ENTER_MS;
+  btlSay(T(S_BTL_SENDS), who, btlFoe.name);
+}
+
+// Whether a zone opponent switches this turn (v4.05), and to whom; -1 stays.
+// Only where its format turns switching on, never in the first
+// AI_SWITCH_COOLDOWN turns of a creature's stay, never mid charge or recharge.
+static int8_t btlZoneSwitch() {
+  if (!btlZone || !zoneFoe.switching || btlFoeCool < AI_SWITCH_COOLDOWN) return -1;
+  if (btlFoe.charging || btlFoe.recharge) return -1;
+  return aiSwitchTarget(btlFoeSquad, btlFoeSquadN, btlFoeAt, btlYou);
 }
 
 static void btlResolve(uint8_t yourMove) {
@@ -7203,14 +7208,7 @@ static void btlResolve(uint8_t yourMove) {
     if (LINK_ACT_IS_SWITCH(act)) {
       uint8_t to = LINK_ACT_SLOT(act);
       if (to < btlFoeSquadN && to != btlFoeAt && !btlFoeSquad[to].fainted()) {
-        btlFoeSquad[btlFoeAt] = battleStored(btlFoe);     // remember how battered it was
-        btlFoeAt = to;
-        btlFoe = btlFoeSquad[to];
-        btlHpShown[1] = btlFoe.hp;
-        btlSyncSprite(1, btlFoe);
-        btlLungeUntil[1] = btlHitUntil[1] = btlFaintUntil[1] = 0;
-        btlEnterUntil[1] = now + BTL_ENTER_MS;
-        btlSay(T(S_BTL_SENDS), lan.peerName, btlFoe.name);
+        btlFoeSwitchIn(to, lan.peerName);
         foeSwitched = true;
       }
       foeMove = 0;
@@ -7219,7 +7217,18 @@ static void btlResolve(uint8_t yourMove) {
     }
     lan.pendingAct = 0;
   } else {
-    foeMove = aiChooseMove(btlFoe, btlYou, btlHard);
+    if (btlFoeCoolAt != btlFoeAt) { btlFoeCoolAt = btlFoeAt; btlFoeCool = 0; }   // a creature came in
+    int8_t sw = btlZoneSwitch();
+    if (sw >= 0) {
+      btlFoeSwitchIn((uint8_t)sw, zoneFoe.name);   // the switch is its turn
+      btlFoeCoolAt = btlFoeAt;
+      btlFoeCool = 0;
+      foeSwitched = true;
+      foeMove = 0;
+    } else {
+      foeMove = aiChooseMove(btlFoe, btlYou, btlHard);
+      if (btlFoeCool < 255) btlFoeCool++;
+    }
     // A wild creature can leave. It spends its ACTION doing so rather than
     // fleeing and attacking in the same turn, so the fight simply ends -- with
     // no drops, which is what makes weakening it worth doing before it goes.
@@ -9302,6 +9311,7 @@ bool zoneStartFight(const ZoneFoe &f) {
   btlFoeAt = 0;
   btlFoeSent = 1;
   btlFoe = btlFoeSquad[0];
+  btlFoeCoolAt = 0xFF;      // the lead's stay starts on the first turn
   btlTrainer = -1;
   btlHard = f.smart != 0;   // the format decides (the gauntlet's later rounds)
   btlWild = false;

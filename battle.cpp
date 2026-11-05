@@ -500,3 +500,46 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
   }
   return best;
 }
+
+int battleMatchScore(int16_t c, int16_t p) {
+  int off = 0, def = 0;
+  uint8_t ct[2] = { DEX_TBL[c].type1, DEX_TBL[c].type2 }, pt[2] = { DEX_TBL[p].type1, DEX_TBL[p].type2 };
+  for (uint8_t a = 0; a < 2; a++) {
+    if (a && ct[1] == ct[0]) continue;
+    int e = typeEffPct(ct[a], pt[0], pt[1]);
+    if (e > off) off = e;
+  }
+  for (uint8_t a = 0; a < 2; a++) {
+    if (a && pt[1] == pt[0]) continue;
+    int e = typeEffPct(pt[a], ct[0], ct[1]);
+    if (e > def) def = e;
+  }
+  return off - def;
+}
+
+// The best of p's types against c (percent): what c takes coming in.
+static int battleHitsIn(int16_t p, int16_t c) {
+  uint8_t pt[2] = { DEX_TBL[p].type1, DEX_TBL[p].type2 };
+  int worst = 0;
+  for (uint8_t a = 0; a < 2; a++) {
+    if (a && pt[1] == pt[0]) continue;
+    int e = typeEffPct(pt[a], DEX_TBL[c].type1, DEX_TBL[c].type2);
+    if (e > worst) worst = e;
+  }
+  return worst;
+}
+
+int8_t aiSwitchTarget(const Combatant team[], uint8_t n, uint8_t at, const Combatant &foe) {
+  if (at >= n) return -1;
+  int cur = battleMatchScore(team[at].dex, foe.dex);
+  if (cur >= 0) return -1;                       // not losing: stay
+  int8_t best = -1;
+  int bestScore = cur + AI_SWITCH_MARGIN - 1;    // clearly better, or nothing
+  for (uint8_t k = 0; k < n; k++) {
+    if (k == at || team[k].fainted()) continue;
+    if (battleHitsIn(foe.dex, team[k].dex) > 100) continue;   // never into a big hit
+    int sc = battleMatchScore(team[k].dex, foe.dex);
+    if (sc > bestScore) { bestScore = sc; best = (int8_t)k; }
+  }
+  return best;
+}

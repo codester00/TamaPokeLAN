@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.04-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.05-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1386,6 +1386,12 @@ BP, the tournaments won and the gauntlet's best streak.
 - **The prize counter** trades BP for items: Master Ball 100, PP Up 16,
   Ether 2, Protein / Iron / Carbos 4, Linking Cord 16, each evolution stone 6,
   the Black Augurite 8.
+- **AI switching** (v4.05): only opponents whose format turns it on (the
+  gauntlet from its eleventh challenger) ever switch, and only sanely: the
+  creature out must be losing the type matchup, the one coming in must do at
+  least 100 points better on the matchup scale and take no more than neutral
+  damage from your creature's types, and a creature stays in for at least its
+  first 3 turns. The switch is its turn: it does not attack too.
 - **The tournament is not built yet**: its row reads COMING SOON.
 
 #### The gauntlet (v4.04)
@@ -1410,7 +1416,8 @@ Challengers one after another until you lose. **Rules** bind both sides:
   easy** and they ramp up: the first fights 10 levels under the cap (or under
   your team's highest level with no cap) and each one after is a level closer;
   IVs start at 10 and rise one a round (to 31); training is 0 for the first
-  two, then 4 a round (to 100); the smart AI from the sixth challenger. **BP**:
+  two, then 4 a round (to 100); the smart AI from the sixth challenger, and
+  switching from the eleventh (below). **BP**:
   2 a win, +1 every seven rounds. These are placeholders until tuned.
 - **The day's 2x**: the first DAILY run that beats a challenger doubles its BP
   for the rest of that run, however many days it lasts; a run that loses its

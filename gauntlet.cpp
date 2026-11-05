@@ -67,6 +67,8 @@ uint8_t gauntletLevel(uint16_t round, uint8_t top) {
 uint8_t gauntletIv(uint16_t round) { return round >= 21 ? 31 : (uint8_t)(10 + round); }
 uint8_t gauntletTr(uint16_t round) { return round < 2 ? 0 : round >= 27 ? 100 : (uint8_t)((round - 2) * 4); }
 bool gauntletSmart(uint16_t round) { return round >= 5; }
+// Switching last, after the smart AI (plan § 3's order), from the eleventh.
+bool gauntletSwitches(uint16_t round) { return round >= 10; }
 uint8_t gauntletBp(uint16_t round, bool doubled) {
   uint8_t bp = (uint8_t)(ZONE_BP_WIN[ZONE_GAUNTLET] + round / 7);
   return doubled ? (uint8_t)(bp * 2) : bp;
@@ -103,6 +105,7 @@ bool gauntletChallenger(const GauntletRules &r, uint16_t round, uint32_t seed,
   out.iv = gauntletIv(round);
   out.tr = gauntletTr(round);
   out.smart = gauntletSmart(round) ? 1 : 0;
+  out.switching = gauntletSwitches(round) ? 1 : 0;
   // A trainer class (avatars 3 onward: not RED, BLUE or GIRL, the player's).
   // The sketch names it from the avatar, the one includer of avatars.h.
   out.avatar = avatarCount > 3 ? (uint8_t)(3 + gRand(s) % (avatarCount - 3)) : 0;
