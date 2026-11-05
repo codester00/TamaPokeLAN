@@ -45,8 +45,8 @@ int FakeSerial::available() { return 0; } String FakeSerial::readStringUntil(cha
 void sfxPlay(uint8_t) {}
 
 static int N = 200;
-enum Prof { CASUAL, GOOD, PROF_COUNT };
-static const char *PROF_NAME[] = { "CASUAL", "GOOD" };
+enum Prof { CASUAL, GOOD, MID, PROF_COUNT };
+static const char *PROF_NAME[] = { "CASUAL", "GOOD", "MID" };
 
 static int bstOf(int16_t d) { const DexEntry &e = DEX_TBL[d]; return e.bHp + e.bAtk + e.bDef + e.bSpe + e.bSpA + e.bSpD; }
 
@@ -109,7 +109,7 @@ static bool fight(Combatant *a, uint8_t na, Combatant *b, uint8_t nb, bool smart
 }
 
 // ---- teams ---------------------------------------------------------------
-static std::vector<int16_t> casualPool, goodPool;
+static std::vector<int16_t> casualPool, goodPool, midPool;
 static void pools() {
   for (int16_t d = 1; d <= DEX_COUNT; d++) {
     const DexEntry &e = DEX_TBL[d];
@@ -117,6 +117,7 @@ static void pools() {
     int b = bstOf(d);
     if (b >= 470 && b <= 540) casualPool.push_back(d);
     if (b >= 500) goodPool.push_back(d);
+    if (b >= 500 && b <= 600) midPool.push_back(d);
   }
 }
 // GOOD: rank the pool once by 1v1 wins against a sample of the pool, take the
@@ -142,11 +143,12 @@ static void team(Prof p, uint8_t size, uint8_t lvl, uint8_t ups, uint32_t &s, Co
   while (picked.size() < size) {
     s = s * 1103515245u + 12345u;
     int16_t d = p == CASUAL ? casualPool[(s >> 8) % casualPool.size()]
+              : p == MID ? midPool[(s >> 8) % midPool.size()]
                             : goodRank[(s >> 8) % 12];   // one of the 12 strongest
     if (std::find(picked.begin(), picked.end(), d) == picked.end()) picked.push_back(d);
   }
   for (uint8_t i = 0; i < size; i++)
-    mk(out[i], picked[i], lvl, p == CASUAL ? 16 : 31, p == CASUAL ? 50 : 100, p == CASUAL, ups);
+    mk(out[i], picked[i], lvl, p == CASUAL ? 16 : p == MID ? 20 : 31, p == CASUAL ? 50 : p == MID ? 75 : 100, p == CASUAL, ups);
 }
 
 // ---- the gauntlet --------------------------------------------------------
@@ -239,7 +241,7 @@ static int tourRun(Prof p, uint8_t size, uint8_t ups, uint32_t seed, int *bp) {
       uint8_t a = idx[q], b = idx[q + 1];
       for (uint8_t c : { a, b }) {
         if (br[c] == TOUR_PLAYER || built[c]) continue;
-        ZoneFoe f; tourFoe(br[c], 0, seed, 19, f); tourBoost(br[c], f);
+        ZoneFoe f; tourFoe(br[c], 0, seed, 19, f);
         oppN[c] = f.count;
         for (uint8_t k = 0; k < f.count; k++) mk(opp[c][k], f.dex[k], f.level[k], f.iv, f.tr, false, 0);
         built[c] = true;
@@ -250,14 +252,14 @@ static int tourRun(Prof p, uint8_t size, uint8_t ups, uint32_t seed, int *bp) {
       bool sw = tourSwitches(round);
       if (br[a] == TOUR_PLAYER || br[b] == TOUR_PLAYER) {
         uint8_t o = br[a] == TOUR_PLAYER ? b : a;
-        ZoneFoe f; tourFoe(br[o], round, seed, 19, f); tourBoost(br[o], f);
+        ZoneFoe f; tourFoe(br[o], round, seed, 19, f);
         uint8_t cap = 1; for (uint8_t k = 0; k < f.count; k++) if (f.level[k] > cap) cap = f.level[k];
         Combatant mine[6], theirs[6];
         uint32_t s2 = seed ^ 0xABCD; team(p, size, cap, ups, s2, mine);    // the same six, at the cap
         for (uint8_t i = 0; i < size; i++) memcpy(mine[i].pp, usedPp[i], sizeof(mine[i].pp));
         freshOf(opp[o], oppN[o], theirs);
         uint8_t fieldN = getenv("ZS_TOURCAP") && oppN[o] < size ? oppN[o] : size;   // the hard ladder's team cap
-        uint8_t theirN = getenv("ZS_TOURMATCH") && oppN[o] > size ? size : oppN[o];  // they bring as many as you
+        uint8_t theirN = oppN[o] > size ? size : oppN[o];  // they bring as many as you (tourNextFight(), v4.10)
         bool won = fight(mine, fieldN, theirs, theirN, true, sw);
         for (uint8_t i = 0; i < fieldN; i++) memcpy(usedPp[i], mine[i].pp, sizeof(usedPp[i]));
         if (!won) return round;
@@ -390,38 +392,31 @@ int main() {
   }
 
   if (only && strstr(only, "hallx")) {
-    printf("HALL EXPERIMENTS (one PP refill every %d rungs), %d runs a cell: clear %%\n", 9, N);
-    gHallRefill = 9;
-    struct P { const char *nm; uint8_t iv, tr; bool lvlOnly; bool good; } PS[] = {
-      { "GOOD   IV31 tr100 TMs", 31, 100, false, true },
-      { "MID    IV20 tr 60 TMs", 20, 60, false, false },
-      { "CASUAL IV16 tr 50 lvl", 16, 50, true, false } };
-    struct V { const char *nm; int trMax; bool mirror; int l0, l1; } VS[] = {
-      { "firmware (foe tr to 100)", 100, false, 0, 0 },
-      { "mirror, foe level 80% -> 95% of the pet's", 100, true, 80, 95 },
-      { "mirror, foe level 75% -> 90%", 100, true, 75, 90 },
-      { "mirror, foe level 70% -> 90%", 100, true, 70, 90 },
-      { "firmware build, foe level 80% -> 95%", 100, false, 80, 95 },
-      { "firmware build, foe level 75% -> 90%", 100, false, 75, 90 } };
-    for (auto &v : VS) {
-      printf("  %s\n", v.nm);
-      for (auto &pp : PS) {
-        printf("    %-22s", pp.nm);
-        for (uint8_t lvl : { 25, 50, 75, 100 }) {
-          gPetIv = pp.iv; gPetTr = pp.tr; gPetLvlOnly = pp.lvlOnly; gHallTrMax = v.trMax; gHallMirror = v.mirror; gLvlPct0 = v.l0; gLvlPct1 = v.l1;
-          int clears = 0;
-          for (int i = 0; i < N; i++) {
-            int16_t d = pp.good ? goodRank[i % 12] : casualPool[(i * 37) % casualPool.size()];
-            uint32_t m; int b;
-            if (hallRun(d, lvl, 77 + i * 131, &m, &b) == HALL_RUNGS) clears++;
-          }
-          printf("  L%-3u %3d%%", lvl, clears * 100 / N);
-          fflush(stdout);
+    // v4.10: a perfectly trained pet (training 100, TMs) of any final form of
+    // base stats 470+, legendaries included, at three IV levels; the firmware's
+    // foe ramps; one PP refill (a night's sleep) halfway.
+    std::vector<int16_t> hp;
+    for (int16_t d = 1; d <= DEX_COUNT; d++)
+      if (!speciesEvolvesFurther(d) && speciesShowable(d) && bstOf(d) >= 470) hp.push_back(d);
+    gHallRefill = getenv("ZS_HALLREFILL") ? atoi(getenv("ZS_HALLREFILL")) : 9;
+    printf("HALL (foe IV %d->%d, training %d->%d, %d under to rung %d, smart from %d, PP refill every %d), %zu pets, %d runs: clear %%\n",
+           HALL_IV_LO, HALL_IV_HI, HALL_TR_LO, HALL_TR_HI, HALL_UNDER, HALL_LEVEL_AT, HALL_SMART_FROM, gHallRefill, hp.size(), N);
+    for (uint8_t iv : { 10, 20, 31 }) {
+      printf("  pet IV %2u, training 100:", iv);
+      for (uint8_t lvl : { 50, 75, 100 }) {
+        gPetIv = iv; gPetTr = 100; gPetLvlOnly = false;
+        int clears = 0; long rungs = 0;
+        for (int i = 0; i < N; i++) {
+          int16_t d = hp[(i * 7919u) % hp.size()];
+          uint32_t m; int b; int r = hallRun(d, lvl, 77 + i * 131, &m, &b);
+          rungs += r; if (r == HALL_RUNGS) clears++;
         }
-        printf("\n");
+        printf("  L%-3u %3d%% (avg %4.1f rungs)", lvl, clears * 100 / N, rungs / (double)N);
+        fflush(stdout);
       }
+      printf("\n");
     }
-    gPetIv = 31; gPetTr = 100; gPetLvlOnly = false; gHallTrMax = 100; gHallMirror = false; gHallRefill = 6; gLvlPct0 = gLvlPct1 = 0;
+    gPetIv = 31; gPetTr = 100; gHallRefill = 6;
     return 0;
   }
   if (!only || strstr(only, "hall")) {

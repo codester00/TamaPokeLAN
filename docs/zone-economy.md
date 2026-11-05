@@ -56,33 +56,42 @@ and somewhat better than GOOD.
 - BP for exactly W wins at 1x: 10 wins 30, 20 wins 70, 30 wins 100, **40 wins
   140**, 50 wins 170.
 
-## Tournament (500 entries a row)
+## Tournament (v4.10: six at level 100, they bring as many as you)
 
-| profile | team | champion | BP an entry | battles an entry |
-|---|---|---|---|---|
-| CASUAL | 3 | 0% | 3.2 | 2.1 |
-| CASUAL | 6 | 6% | 6.6 | 2.9 |
-| GOOD | 3 | 23% | 9.5 | 3.2 |
-| GOOD +PPUP | 3 | 33% | 11.2 | 3.3 |
-| GOOD | 6 | 99% | 22.0 | 4.0 |
+Every seat: its roster at final forms + fillers of its type, level 100; IVs
+4-24, training 0-80 and the smart AI from the middle, by story strength.
+MID = a typical endgame team: final forms of base stats 500-600 (no
+legendaries), IV 20, training 75, TMs. 500 entries a row.
 
-A full good team wins almost every time: ladder rosters at their own level
-cannot hold a curated six. Tried and NOT adopted (owner's call to make):
-full training for every opponent (GOOD 6: 93%), flattening every roster to its
-best level (93%), the hard ladder's team cap (81%, and casual teams fall to 0%).
-As it stands the tournament is the **money-to-BP** route: $2,500 for up to 22
-BP (~$115 a BP) against the gauntlet's $1,500 for ~70-90 BP (~$20 a BP).
+| profile | team | champion | BP an entry |
+|---|---|---|---|
+| CASUAL | 3 / 6 | 8% / 3% | 6.8 / 6.0 |
+| MID | 3 / 6 | 54% / 60% | 15.3 / 16.3 |
+| MID +PPUP | 3 / 6 | 55% / 63% | 15.3 / 16.7 |
+| GOOD (perfect, legendaries) | 3 / 6 | 99% / 100% | 22 |
 
-## Battle Hall (fully trained pet alone)
+A perfect team with legendaries is above the ceiling the owner's levers allow
+(a champion at IV 24, training 80, smart): measured even at IV 31 / training
+100 / strongest fillers it wins 93%+. Before v4.10 (story rosters, 2-6
+creatures): GOOD 6 99%, GOOD 3 27%, CASUAL 6 8%.
 
-| pet level | clears all 18 | $ a run | battles a run | a full clear pays |
-|---|---|---|---|---|
-| 50 | 2% | $4,100 | 9.2 | $11,700 |
-| 100 | 13% | $12,400 | 11.9 | $23,400 |
+## Battle Hall (v4.10)
 
-Energy for a clear is 108 (6 a fight). The clear rate is the Hall's own
-difficulty, not changed here: with the foes' training ramping to 50 instead of
-100 the clears are 7% / 28% -- an option for the owner.
+Foes from the 6 species of the rung's type nearest 80% of the pet's base
+stats, 3 levels under closing to level at the last rung, IV 4-16, training
+0-90, smart from rung 11. A fully trained pet (training 100, TMs) of any of
+426 final forms of base stats 470+ (legendaries included), 1,500 runs a cell:
+
+| pet IV | L50 | L75 | L100 |
+|---|---|---|---|
+| 10 | 2% | 3% | 2% |
+| 20 | 6% | 7% | 9% |
+| 31 | 11% | 15% | 17% |
+
+The 12 strongest species clear 26% (L50) / 45% (L100). Raising IV and
+training levers or refilling PP every rung moved these by a point or two; the
+parlay of 18 and the type matchups decide, and the 80% species pick was the
+lever that moved them.
 
 ## Money
 

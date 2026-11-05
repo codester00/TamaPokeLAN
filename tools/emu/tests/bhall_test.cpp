@@ -54,7 +54,8 @@ static void fightOut(bool win) {
   for (int t = 0; t < 300 && battleOpen; t++) {
     clearMsgs();
     if (!battleOpen) break;
-    if (win) { btlFoe.hp = 1; btlYou.hp = btlYou.maxHp; } else btlYou.hp = 1;
+    if (win) { btlFoe.hp = 1; btlYou.hp = btlYou.maxHp; }
+    else { btlYou.hp = 1; btlFoe.maxHp = btlFoe.hp = 999; }   // v4.10's foes are weaker: make the loss certain
     btlMenu = 1;
     int slot = 0;
     while (slot < 3 && (!btlYou.moves[slot] || !btlYou.pp[slot])) slot++;
@@ -87,15 +88,22 @@ int main() {
     uint8_t ty = bhallTypeAt(77, 0);
     ck((e.type1 == ty || e.type2 == ty) && speciesShowable(a.dex) && e.rarity != R_LEGENDARIO,
        "the foe has the rung's type, can be drawn, is no legendary");
-    int closer = 0, gap = abs(bstOf(a.dex) - bstOf(6));
+    int target = bstOf(6) * HALL_BST_PCT / 100;   // v4.10: species a little weaker than the pet
+    int closer = 0, gap = abs(bstOf(a.dex) - target);
     for (int16_t d = 1; d <= DEX_COUNT; d++) {
       const DexEntry &f = DEX_TBL[d];
-      if ((f.type1 == ty || f.type2 == ty) && speciesShowable(d) && f.rarity != R_LEGENDARIO && abs(bstOf(d) - bstOf(6)) < gap) closer++;
+      if ((f.type1 == ty || f.type2 == ty) && speciesShowable(d) && f.rarity != R_LEGENDARIO && abs(bstOf(d) - target) < gap) closer++;
     }
-    ck(closer < HALL_POOL, "and is among the species of that type nearest the pet in base stats");
-    ck(a.level == 47 && a.iv == 8 && a.tr == 0 && !a.smart, "the first rung starts below: 3 levels under, IV 8, no training, the simple AI");
+    ck(closer < HALL_POOL && HALL_BST_PCT < 100, "and is among the species of that type nearest HALL_BST_PCT of the pet's base stats");
+    ck(a.level == 50 - HALL_UNDER && a.iv == HALL_IV_LO && a.tr == HALL_TR_LO && !a.smart,
+       "the first rung starts below: HALL_UNDER levels under, the lowest IV and training, the simple AI");
     bhallFoe(77, HALL_RUNGS - 1, 6, 50, z);
-    ck(z.level == 50 && z.iv == 31 && z.tr == 100 && z.smart, "the last rung: level with the pet, IV 31, full training, the smart AI");
+    ck(z.level == 50 && z.iv == HALL_IV_HI && z.iv < 31 && z.tr == HALL_TR_HI && z.tr < 100 && z.smart,
+       "the last rung: level with the pet, moderate IVs (never perfect), ~90% training, the smart AI");
+    bool never = true;
+    for (uint8_t r = 0; r < HALL_RUNGS; r++) for (uint8_t lv : { 5, 50, 100 }) {
+      HallFoe h; if (bhallFoe(77, r, 6, lv, h) && h.level > lv) never = false; }
+    ck(never, "a foe never outlevels the pet, at any rung (owner, v4.10)");
     bool climbs = true; HallFoe p = a;
     for (uint8_t r = 1; r < HALL_RUNGS; r++) { HallFoe q; bhallFoe(77, r, 6, 50, q);
       if (q.level < p.level || q.iv < p.iv || q.tr < p.tr || (p.smart && !q.smart)) climbs = false; p = q; }

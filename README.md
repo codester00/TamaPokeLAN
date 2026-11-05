@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.09-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.10-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1385,11 +1385,16 @@ Part of normal play (v4.07), from the PLAZA's **BATTLE HALL** button. Your
 a rung at a time, in an order shuffled for each run.
 
 - **The foe** is a drawable, non-legendary species of the rung's type, drawn
-  from the 6 of that type nearest your pet's species in base-stat total.
-- **It starts below your pet and climbs**: the first rung is 3 levels under,
-  IV 8, no training and the simple AI; a level comes back every three rungs
-  (level with your pet from rung 10), IVs rise to 31 and training to 100 by
-  the 18th, and the smart AI fights from rung 7.
+  from the 6 of that type nearest **80%** of your pet's species' base-stat
+  total (v4.10): a parlay of 18, so each foe is a little weaker on paper and
+  the type matchups do the rest.
+- **It starts below your pet and climbs, and never outlevels it** (v4.10): the
+  first rung is 3 levels under, level with your pet only at the 18th; IVs rise
+  from 4 to a moderate 16 (never perfect, so a perfect-IV pet has the edge),
+  training from 0 to 90, and the smart AI fights from rung 11.
+- **Measured** (`docs/zone-economy.md`, a fully trained pet of any final form,
+  legendaries included): IV 20 clears 6-9% of runs, IV 31 11-17%, IV 10 2-3%,
+  at levels 50 to 100. The strongest species clear far more often.
 - **Each fight costs 6 energy** (a clear is about 108: a full bar and a nap); with less, the Hall waits (a tired pet
   rests, and the run is still there). It uses your pet's **real PP**, as a gym
   fight does, so a nap between sittings refills it. No items.
@@ -1466,15 +1471,21 @@ drawn at random from every gym leader, Elite Four member and champion whose
 whole team your installed sprite packs can draw (generated trainers fill the
 bracket when fewer than 15 can). Enter with any team of one to six.
 
-- **Seeding**: the opponents are seeded by their best level, the strongest
-  first, in the standard 16-draw: you meet the weakest first, and the
+- **Seeding**: the opponents are seeded by their story strength (their
+  roster's best level in the story), the strongest first, in the standard 16-draw: you meet the weakest first, and the
   strongest (seed 2, on the other half) only in the final.
-- **Each match caps your levels at the opponent's best**, the hard gym rule:
-  a level 100 team meets Brock at 14. Your team is otherwise as you raised it.
-- **Opponents** bring their own teams at their roster levels, with IV 31,
-  their hard-mode training and the smart AI. **They switch in the semi-final
-  and the final** (the AI switching rule above), the rounds where the
-  strongest seeds are.
+- **Every opponent brings six at level 100** (v4.10, the post-game, not the
+  story): their own roster, each at its final form (Brock's Geodude is a
+  Golem; a roster with a line twice brings two), then the open slots filled
+  with final forms of their specialty type -- the same team every time.
+  **In your match they bring as many as you do**, so a team of three meets
+  three. Your team fights at its own levels.
+- **How hard a seat fights** is its IVs, training and AI, set by how far into
+  its story it stood (its roster's best level, an early gym to a champion):
+  IVs 4 to 24, training 0 to 80, the smart AI from the middle of the ladder.
+  **They switch in the semi-final and the final** (the AI switching rule
+  above). Measured: a typical endgame team (IV 20, training 75, TMs) wins the
+  title 54-63%, a casual one 2-9%, a perfect team with legendaries ~100%.
 - **The other matches are fought in the background** by the real battle
   engine, AI against AI, so the same pairing can go either way.
 - **PP carries** through the run for you and for every opponent; HP is full

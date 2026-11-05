@@ -948,6 +948,32 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the tournament's full teams and the Hall's parlay (v4.10)
+
+Owner, 2026-11-05. `tour_test`, `bhall_test`; six guards negative-checked.
+Measured with `tools/emu/zone_sim.cpp` (`ZS_ONLY=tour`, `ZS_ONLY=hallx`);
+numbers in `docs/zone-economy.md`.
+
+- **Tournament: six at `TOUR_LEVEL` 100 for every seat** (`tourFoe()`): the
+  roster at final forms (`tourFinalForm()`, the `evolvesTo` chain, stopping at
+  the last drawable form; duplicates kept), then fillers from the seat's
+  `Trainer::type` (`tourFillFits()`: drawable, non-legendary final forms; a
+  stable pick per seat id; `TOUR_FILL_TOP` 0 = any). **The owner's levers only**:
+  `tourIv()/tourTr()/tourSmart()` by STORY strength (`tourBestLevel()` is now the
+  roster's story best level, also the seeding), `TOUR_STR_LO/HI` 14/75 ->
+  IV 4-24, training 0-80, smart from 500/1000. **Your match: they bring as many
+  as you** (`tourNextFight()` cuts `f.count` to `tour.n`) -- without it a team of
+  three won 0%; the owner did not ask for it, flagged. Measured: MID (IV 20,
+  training 75, TMs, no legendaries) 54-63%, CASUAL 2-9%, GOOD (perfect,
+  legendaries) ~100% whatever the levers -- above the champions' ceiling.
+- **Hall** (`bhallFoe()`): `HALL_UNDER` 3 levels under, level only at
+  `HALL_LEVEL_AT` 17 (never above -- `bhall_test` checks every rung at three
+  levels), IVs `HALL_IV_LO/HI` 4-16 (never perfect), training 0-90, smart from
+  rung index 10, foes from the 6 species nearest `HALL_BST_PCT` 80% of the pet's
+  base stats. IV/training/AI/PP alone barely moved it (the parlay and type
+  matchups decide); the 80% did. A fully trained pet of any final form: IV 20
+  6-9%, IV 31 11-17%, IV 10 2-3%, L50-100. All `#ifndef` so the sim sweeps them.
+
 ### Done: the Battle Zone tuning pass (v4.09)
 
 Owner, 2026-11-05, after a board playtest. **The economy is

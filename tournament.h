@@ -12,9 +12,42 @@
 #define TOUR_PLAYER 0xFFFF        // the player's entry in the bracket
 #define TOUR_GEN 0x8000           // a generated trainer: TOUR_GEN | k
 // A generated filler (only when too few packs are installed for 15 real
-// opponents): a gauntlet challenger of this round and level (placeholders).
+// opponents): a gauntlet challenger of this round at TOUR_LEVEL, fighting at
+// the strength of a TOUR_GEN_LEVEL seat.
 #define TOUR_GEN_ROUND 12   // v4.09: a filler is a fair seat, not a bye
 #define TOUR_GEN_LEVEL 50
+
+// v4.10 (owner, 2026-11-05): every contestant brings six at TOUR_LEVEL; how
+// hard each fights is its IVs, training and AI, rising with its STORY strength
+// (its roster's best level, TOUR_STR_LO an early gym .. TOUR_STR_HI a
+// champion). Tuned with tools/emu/zone_sim.cpp (docs/zone-economy.md); #ifndef
+// so the sim can sweep them.
+#define TOUR_LEVEL 100
+#define TOUR_STR_LO 14
+#define TOUR_STR_HI 75
+// Measured (500 entries a row): a typical endgame six (IV 20, training 75,
+// TMs, no legendaries) wins the title 62-71%, a casual one 5-10%; a perfect
+// team with legendaries ~100% whatever these are.
+#ifndef TOUR_IV_LO
+#define TOUR_IV_LO 4
+#endif
+#ifndef TOUR_IV_HI
+#define TOUR_IV_HI 24
+#endif
+#ifndef TOUR_TR_LO
+#define TOUR_TR_LO 0
+#endif
+#ifndef TOUR_TR_HI
+#define TOUR_TR_HI 80
+#endif
+#ifndef TOUR_FILL_TOP
+#define TOUR_FILL_TOP 0       // fillers: among the type's N strongest final forms; 0 = any of them
+#endif
+#ifndef TOUR_SMART_FROM
+#define TOUR_SMART_FROM 500   // of 1000: the smart AI from the middle of the story ladder
+#endif
+// The opponent in YOUR match brings as many as you do (v4.10): a team of three
+// meets three. The background matches are six on six.
 
 // A ladder seat as a contestant id: region * TRAINER_COUNT + seat.
 uint16_t tourSeatId(uint8_t region, uint8_t seat);
@@ -26,12 +59,18 @@ bool tourSeatDrawable(uint16_t id);
 // seed 2 only in the final. The same seed always gives the same draw.
 void tourDraw(uint32_t seed, uint16_t out[TOUR_SIZE]);
 // A contestant as a zone opponent for round `round` (0 = the round of 16):
-// a seat's own team at its roster levels, IV 31, its hard training
-// (HARD_TRAINING), the smart AI; generated ones from the gauntlet's builder.
+// six at TOUR_LEVEL (its roster at final forms, filled from its type), with
+// tourIv()/tourTr()/tourSmart() by its story strength; generated ones from the
+// gauntlet's builder.
 bool tourFoe(uint16_t id, uint8_t round, uint32_t seed, uint8_t avatarCount, ZoneFoe &out);
-// The best level on a contestant's team (the seeding's strength, and the cap
-// the player's team fights at -- the hard ladder's own rule).
+// A contestant's STORY strength: its roster's best level in the story (v4.10:
+// the seeding, and how hard it fights). Every seat fights at TOUR_LEVEL now.
 uint8_t tourBestLevel(uint16_t id, uint32_t seed);
+int16_t tourFinalForm(int16_t dex);
+bool tourFillFits(uint8_t type, int16_t dex);
+uint8_t tourIv(uint16_t id);
+uint8_t tourTr(uint16_t id);
+bool tourSmart(uint16_t id);
 // Opponents switch (aiSwitchTarget()) in the semi-final and the final only
 // (v4.06): the late rounds, where the strongest seeds are.
 bool tourSwitches(uint8_t round);

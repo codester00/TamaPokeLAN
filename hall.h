@@ -12,7 +12,39 @@
 // level-50 clear is ~$11,700 -- about one first champion win, not several.
 #define HALL_PAY 2
 #define HALL_CLASS 4
-#define HALL_POOL 6            // a rung's foe is drawn from the N species of its type nearest the pet in base stats
+// v4.10 (owner, 2026-11-05; tools/emu/zone_sim.cpp ZS_ONLY=hallx): the Hall is
+// a parlay of 18, so the foe never outlevels the pet (HALL_UNDER below, closing
+// to level only at the last rung), its IVs stay moderate (HALL_IV_HI) so a
+// perfect-IV pet has the edge, its training climbs from none to ~90%, the smart
+// AI comes late, and it is drawn from species near HALL_BST_PCT of the pet's
+// base stats -- the type matchups do the rest. Measured for a fully trained pet
+// of any final form (legendaries included): IV 20 clears 7-10%, IV 31 12-19%,
+// IV 10 2-3%, at levels 50-100. #ifndef so the sim can sweep them.
+#ifndef HALL_IV_LO
+#define HALL_IV_LO 4
+#endif
+#ifndef HALL_IV_HI
+#define HALL_IV_HI 16
+#endif
+#ifndef HALL_TR_LO
+#define HALL_TR_LO 0
+#endif
+#ifndef HALL_TR_HI
+#define HALL_TR_HI 90
+#endif
+#ifndef HALL_UNDER
+#define HALL_UNDER 3
+#endif
+#ifndef HALL_LEVEL_AT
+#define HALL_LEVEL_AT 17      // the rung (0-based) where it is level with the pet: the last
+#endif
+#ifndef HALL_SMART_FROM
+#define HALL_SMART_FROM 10    // the smart AI from the 11th rung
+#endif
+#ifndef HALL_BST_PCT
+#define HALL_BST_PCT 80
+#endif
+#define HALL_POOL 6            // a rung's foe is drawn from the N species of its type nearest HALL_BST_PCT of the pet's base stats
 
 // The rung-th type of a run (a shuffle of all 18 by the run's seed, so every
 // run meets them in its own order; the same seed, the same order).
@@ -27,11 +59,12 @@ struct HallFoe {
   uint8_t tr = 0;
   bool smart = false;
 };
-// The first rung starts BELOW the pet -- three levels under, IV 8, no
-// training, the simple AI -- and each rung climbs: a level back every three
-// rungs (level with the pet from rung 10), IVs to 31 and training to 100 by
-// the last, the smart AI from rung 7. False if the type has no drawable
-// species (the sketch then skips the rung). The same arguments, the same foe.
+// The first rung starts BELOW the pet -- HALL_UNDER levels under, IV
+// HALL_IV_LO, no training, the simple AI -- and each rung climbs: level with
+// the pet only at the last (never above it), IVs to HALL_IV_HI and training to
+// HALL_TR_HI, the smart AI from rung HALL_SMART_FROM + 1. False if the type has
+// no drawable species (the sketch then skips the rung). The same arguments,
+// the same foe.
 bool bhallFoe(uint32_t seed, uint8_t rung, int16_t petDex, uint8_t petLevel, HallFoe &out);
 
 // A rung's money: trainerPrize()'s Gen 3 shape, HALL_PAY x the foe's level x a

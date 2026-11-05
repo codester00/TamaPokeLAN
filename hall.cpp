@@ -27,7 +27,7 @@ bool bhallFoe(uint32_t seed, uint8_t rung, int16_t petDex, uint8_t petLevel, Hal
   out = HallFoe();
   if (rung >= HALL_RUNGS || petDex < 1 || petDex > DEX_COUNT) return false;
   uint8_t type = bhallTypeAt(seed, rung);
-  int target = bst(petDex);
+  int target = bst(petDex) * HALL_BST_PCT / 100;   // v4.10: a little weaker species than the pet
   // the HALL_POOL species of this type nearest the pet's base-stat total
   int16_t pool[HALL_POOL];
   int gap[HALL_POOL];
@@ -46,12 +46,16 @@ bool bhallFoe(uint32_t seed, uint8_t rung, int16_t petDex, uint8_t petLevel, Hal
   uint32_t s = seed ^ ((uint32_t)(rung + 1) * 0x2545F491u);
   hRand(s);
   out.dex = pool[hRand(s) % n];
-  int under = rung >= 9 ? 0 : 3 - rung / 3;   // 3, 3, 3, 2, 2, 2, 1, 1, 1, then 0
+  // HALL_UNDER levels below the pet at the first rung, closing to level with
+  // it at rung HALL_LEVEL_AT -- never above it (owner, 2026-11-05).
+  int under = rung >= HALL_LEVEL_AT ? 0 : HALL_UNDER - rung * HALL_UNDER / HALL_LEVEL_AT;
   int lvl = (int)petLevel - under;
   out.level = (uint8_t)(lvl < 1 ? 1 : lvl > 100 ? 100 : lvl);
-  out.iv = (uint8_t)(8 + rung * 23 / (HALL_RUNGS - 1));        // 8 .. 31
-  out.tr = (uint8_t)(rung * 100 / (HALL_RUNGS - 1));           // 0 .. 100
-  out.smart = rung >= 6;
+  // v4.10 (owner, 2026-11-05): IVs stay moderate (a perfect-IV pet has the
+  // edge, a poor one is behind), training climbs from a little to ~90%.
+  out.iv = (uint8_t)(HALL_IV_LO + rung * (HALL_IV_HI - HALL_IV_LO) / (HALL_RUNGS - 1));
+  out.tr = (uint8_t)(HALL_TR_LO + rung * (HALL_TR_HI - HALL_TR_LO) / (HALL_RUNGS - 1));
+  out.smart = rung >= HALL_SMART_FROM;
   return true;
 }
 

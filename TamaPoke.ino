@@ -60,7 +60,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.09"
+#define FW_VERSION "4.10"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -9619,6 +9619,8 @@ bool tourNextFight() {
   ZoneFoe f;
   uint8_t nf = tourTeam((uint8_t)opp, tour.round, foeTeam, &f);
   if (!nf) { tourEnd(TOUR_RES_OUT); return false; }
+  if (f.count > tour.n) f.count = tour.n;   // v4.10: they bring as many as you
+  if (nf > f.count) nf = f.count;
   uint8_t cap = 1;
   for (uint8_t k = 0; k < f.count; k++) if (f.level[k] > cap) cap = f.level[k];
   zoneRun.n = 0;

@@ -120,9 +120,28 @@ int main() {
        "the second round's possible opponents are no weaker than the first's");
     ZoneFoe f;
     uint16_t lance = tourSeatId(0, 12);
-    ck(tourFoe(lance, 0, 5, 19, f) && f.count == TRAINER_SETS[0].list[12].count && f.level[0] == TRAINER_SETS[0].list[12].team[0].level &&
-       f.iv == HARD_IV && f.tr == hardTraining(0, 12) && f.smart && !f.switching,
-       "a seat brings its own team at its roster levels, IV 31, its hard training, the smart AI");
+    // v4.10 (owner): six at level 100 -- the roster at its final forms, then
+    // fillers of the seat's type -- with IVs, training and AI by story strength
+    const Trainer &lt = TRAINER_SETS[0].list[12];
+    bool roster = true, fill = true, lv = true;
+    ck(tourFoe(lance, 0, 5, 19, f) && f.count == 6, "a seat brings six");
+    for (uint8_t k = 0; k < 6; k++) {
+      if (f.level[k] != TOUR_LEVEL) lv = false;
+      if (k < lt.count) { if (f.dex[k] != tourFinalForm((int16_t)lt.team[k].dex)) roster = false; }
+      else if (!tourFillFits(lt.type, f.dex[k])) fill = false;
+    }
+    ck(lv, "all at level 100");
+    ck(roster && fill, "its own roster at final forms first, then final forms of its type");
+    ck(f.iv == tourIv(lance) && f.tr == tourTr(lance) && f.smart == tourSmart(lance) && !f.switching,
+       "the levers: IVs, training and AI by its story strength");
+    ZoneFoe br;
+    uint16_t brock = tourSeatId(0, 0);
+    ck(tourFoe(brock, 0, 5, 19, br) && br.count == 6 && br.dex[0] == tourFinalForm(74) && br.dex[0] != 74,
+       "Brock's Geodude comes as its final form, and he brings six too");
+    ck(tourIv(brock) < tourIv(lance) && tourTr(brock) < tourTr(lance) && !tourSmart(brock) && tourSmart(lance),
+       "an early gym fights softer than a champion (and not with the smart AI)");
+    ZoneFoe again; tourFoe(brock, 0, 999, 19, again);
+    ck(!memcmp(again.dex, br.dex, sizeof(br.dex)), "a seat's tournament team is always the same team");
     ck(!tourSwitches(0) && !tourSwitches(1) && tourSwitches(2) && tourSwitches(3), "opponents switch in the semi-final and the final");
     tourFoe(lance, 2, 5, 19, f);
     ck(f.switching, "(and carry it)");
@@ -184,10 +203,10 @@ int main() {
   tapFight();
   ck(tour.active && battleOpen && btlZone && pet.wallet == w0 - ZONE_FEE[ZONE_TOURNAMENT], "FIGHT: the fee, the draw, the first match");
   ck(tour.fighting == 1 && nvs().count("tour") && nvs()["tour"][3] == 1, "saved as fighting before the battle");
-  uint8_t cap = tourBestLevel(tour.bracket[1], tour.seed);
-  ck(btlSquadN == 2 && btlSquad[0].level == (cap < 80 ? cap : 80) && btlSquad[1].level == (cap < 90 ? cap : 90),
-     "our levels capped at the opponent's best");
-  ck(btlHard && !zoneFoe.switching, "the round of 16: the smart AI, no switching");
+  ck(btlSquadN == 2 && btlSquad[0].level == 80 && btlSquad[1].level == 90,
+     "the opponent is level 100: our levels are our own");
+  ck(zoneFoe.count == 2 && btlFoeSquadN == 2, "they bring as many as we do (v4.10)");
+  ck(btlHard == tourSmart(tour.bracket[1]) && !zoneFoe.switching, "the round of 16: its own AI, no switching");
   fightOut(true);
   ck(!battleOpen && !strcmp(scr(), "zone") && zoneMode == 4, "a win comes back to the tournament page");
   ck(tour.round == 1 && aliveCount() == 8 && onePerPair(2) && (tour.alive & 1), "the other seven matches were fought: 8 left, one from each pair");
