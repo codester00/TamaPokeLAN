@@ -60,7 +60,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.10"
+#define FW_VERSION "4.11"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -10293,6 +10293,10 @@ void bhallLoad() {
     p.end();
   }
   if (h.magic != HALL_SAVE_MAGIC) h = HallSave();
+  // v4.11: those bytes were padding. A run saved by v4.10 keeps the shuffled
+  // order it began with (-1: bhallMatchup() scores every type alike), so it
+  // never meets a type twice or skips one.
+  if (h.version < 2) { h.orderDex = h.active ? -1 : 0; h.version = 2; }
   bhall = h;
   if (bhall.active && bhall.fighting) bhallEnd(HALL_RES_LOST);   // the power went mid-battle: the loss
 }
@@ -10301,6 +10305,12 @@ void bhallLoad() {
 // shown or used, so a pet that changed (a farewell, a swap, a hatch) ends it.
 static void bhallCheckPet() {
   if (bhall.active && (pet.isEgg() || !(pet.uid == bhall.uid))) bhallEnd(HALL_RES_CHANGED);
+}
+
+// The species the run's type order is for: the one it started with, so an
+// evolution mid-run does not reshuffle the rungs left (-1: a v4.10 run's shuffle).
+static int16_t bhallOrderDex() {
+  return bhall.orderDex ? bhall.orderDex : pet.speciesId;
 }
 
 bool bhallBegin() {
@@ -10312,6 +10322,7 @@ bool bhallBegin() {
   bhall.active = 1;
   bhall.seed = (uint32_t)random(1, 0x7FFFFFFF);
   bhall.uid = pet.uid;
+  bhall.orderDex = pet.speciesId;          // the type order is fixed for the run (v4.11)
   bhallQuitArmed = false;
   bhallSave();
   return true;
@@ -10324,7 +10335,7 @@ bool bhallNextFight() {
   if (!bhall.active || pet.isEgg() || pet.ceremony != CER_NONE) return false;
   if (pet.energy < HALL_ENERGY_COST) return false;
   HallFoe hf;
-  while (bhall.rung < HALL_RUNGS && !bhallFoe(bhall.seed, bhall.rung, pet.speciesId, pet.level(), hf))
+  while (bhall.rung < HALL_RUNGS && !bhallFoe(bhall.seed, bhall.rung, pet.speciesId, pet.level(), hf, bhallOrderDex()))
     bhall.rung++;                            // a type with nothing drawable is passed
   if (bhall.rung >= HALL_RUNGS) return false;
   buildSquad(0, 1, 0x01);                    // the live pet, and only it
@@ -10422,7 +10433,7 @@ void renderBHall() {
   zoneLine(ZONE_LINE2_Y, T(S_HALL_RULE), UI_INK_SOFT);
   bool tired = pet.energy < HALL_ENERGY_COST;
   if (bhall.active) {
-    snprintf(l, sizeof(l), T(S_TOUR_VS_FMT), typeName(bhallTypeAt(bhall.seed, bhall.rung)));
+    snprintf(l, sizeof(l), T(S_TOUR_VS_FMT), typeName(bhallTypeAt(bhall.seed, bhall.rung, bhallOrderDex())));
     if (tired) snprintf(sm, sizeof(sm), T(S_HALL_ENERGY_FMT), (unsigned)HALL_ENERGY_COST);
     else snprintf(sm, sizeof(sm), T(S_HALL_RUNG_FMT), (unsigned)(bhall.rung + 1), (unsigned)HALL_RUNGS);
     zoneRow(0, l, sm, !tired);

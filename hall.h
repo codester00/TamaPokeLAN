@@ -17,9 +17,11 @@
 // to level only at the last rung), its IVs stay moderate (HALL_IV_HI) so a
 // perfect-IV pet has the edge, its training climbs from none to ~90%, the smart
 // AI comes late, and it is drawn from species near HALL_BST_PCT of the pet's
-// base stats -- the type matchups do the rest. Measured for a fully trained pet
-// of any final form (legendaries included): IV 20 clears 7-10%, IV 31 12-19%,
-// IV 10 2-3%, at levels 50-100. #ifndef so the sim can sweep them.
+// base stats -- the type matchups do the rest. v4.11 orders the types worst
+// matchup first, which made it easier (IV 20 16-22%), so HALL_BST_PCT went
+// 80 -> 90. Measured for a fully trained pet of any final form (legendaries
+// included): IV 20 clears 8-11%, IV 31 15-23%, IV 10 4-5%, at levels 50-100.
+// #ifndef so the sim can sweep them.
 #ifndef HALL_IV_LO
 #define HALL_IV_LO 4
 #endif
@@ -42,13 +44,21 @@
 #define HALL_SMART_FROM 10    // the smart AI from the 11th rung
 #endif
 #ifndef HALL_BST_PCT
-#define HALL_BST_PCT 80
+#define HALL_BST_PCT 90
 #endif
 #define HALL_POOL 6            // a rung's foe is drawn from the N species of its type nearest HALL_BST_PCT of the pet's base stats
 
-// The rung-th type of a run (a shuffle of all 18 by the run's seed, so every
-// run meets them in its own order; the same seed, the same order).
-uint8_t bhallTypeAt(uint32_t seed, uint8_t rung);
+// How a type meets the pet: the pet's best type against it less that type
+// against the pet (typeEffPct percentages). Negative = a counter to the pet.
+int bhallMatchup(uint8_t type, int16_t petDex);
+
+// The rung-th type of a run: all 18, the pet's worst matchups FIRST and its
+// best LAST (v4.11, owner: lose to your counter early, while the foes are
+// weak; the strong late foes are the types you beat). Types that meet the pet
+// alike come in a shuffle by the run's seed. The same seed and pet, the same
+// order (an invalid petDex, e.g. -1, is the plain shuffle). petDex is the creature the run STARTED with (HallSave::orderDex), so
+// an evolution mid-run does not reshuffle what is left.
+uint8_t bhallTypeAt(uint32_t seed, uint8_t rung, int16_t petDex);
 
 // A rung's foe, ready for the sketch to build: a drawable, non-legendary
 // species of the rung's type, close to the pet's own species in base stats.
@@ -65,7 +75,8 @@ struct HallFoe {
 // HALL_TR_HI, the smart AI from rung HALL_SMART_FROM + 1. False if the type has
 // no drawable species (the sketch then skips the rung). The same arguments,
 // the same foe.
-bool bhallFoe(uint32_t seed, uint8_t rung, int16_t petDex, uint8_t petLevel, HallFoe &out);
+// orderDex: the species the run's type order is for (0 = petDex).
+bool bhallFoe(uint32_t seed, uint8_t rung, int16_t petDex, uint8_t petLevel, HallFoe &out, int16_t orderDex = 0);
 
 // A rung's money: trainerPrize()'s Gen 3 shape, HALL_PAY x the foe's level x a
 // class value, the class rising a point every three rungs from HALL_CLASS.
@@ -78,7 +89,7 @@ uint32_t bhallPrize(uint8_t rung, uint8_t foeLevel);
 enum : uint8_t { HALL_RES_NONE = 0, HALL_RES_CLEARED, HALL_RES_LOST, HALL_RES_CHANGED };
 struct HallSave {
   uint8_t magic = HALL_SAVE_MAGIC;
-  uint8_t version = 1;
+  uint8_t version = 2;            // 2 = v4.11, orderDex
   uint8_t active = 0;
   uint8_t fighting = 0;
   uint8_t rung = 0;               // the next rung, 0..17
@@ -88,4 +99,5 @@ struct HallSave {
   uint32_t seed = 0;
   CreatureUid uid;                // the creature the run belongs to
   uint16_t clears = 0;            // runs that cleared all 18
+  int16_t orderDex = 0;           // v4.11: the species the type order is for (the run's start; -1 = a v4.10 run's shuffle), in what was padding
 };

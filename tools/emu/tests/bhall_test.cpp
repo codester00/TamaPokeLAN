@@ -78,14 +78,33 @@ int main() {
   if (pet.awaitingStarter()) pet.chooseStarter(4);
 
   // --- 1. the rules ------------------------------------------------------------
-  { std::set<uint8_t> t; for (uint8_t r = 0; r < HALL_RUNGS; r++) t.insert(bhallTypeAt(77, r));
-    ck(t.size() == 18, "a run meets all 18 types, each once");
-    bool differs = false; for (uint8_t r = 0; r < HALL_RUNGS; r++) if (bhallTypeAt(77, r) != bhallTypeAt(78, r)) differs = true;
-    ck(differs && bhallTypeAt(77, 5) == bhallTypeAt(77, 5), "in its own order: the same seed, the same order"); }
+  { bool all18 = true, sorted = true, differs = false, ends = true;
+    for (int16_t pd : { 6, 9, 3, 130, 448 }) for (uint32_t sd : { 77u, 78u, 1234u }) {
+      std::set<uint8_t> t; int prev = -1000;
+      for (uint8_t r = 0; r < HALL_RUNGS; r++) {
+        uint8_t ty = bhallTypeAt(sd, r, pd); t.insert(ty);
+        int m = bhallMatchup(ty, pd); if (m < prev) sorted = false; prev = m;
+        if (ty != bhallTypeAt(sd + 1, r, pd)) differs = true;
+      }
+      if (t.size() != 18) all18 = false;
+      // the first is the pet's worst matchup and the last its best, over all 18
+      int lo = 1000, hi = -1000;
+      for (uint8_t ty = 0; ty < 18; ty++) { int m = bhallMatchup(ty, pd); if (m < lo) lo = m; if (m > hi) hi = m; }
+      if (bhallMatchup(bhallTypeAt(sd, 0, pd), pd) != lo || bhallMatchup(bhallTypeAt(sd, HALL_RUNGS - 1, pd), pd) != hi) ends = false;
+    }
+    ck(all18, "a run meets all 18 types, each once");
+    ck(sorted && ends, "the pet's counters first, the types it beats last (v4.11)");
+    ck(differs && bhallTypeAt(77, 5, 6) == bhallTypeAt(77, 5, 6), "equal matchups in the run's own shuffle: the same seed, the same order");
+    // CHARIZARD (fire/flying): ROCK is a double weakness -- it must open the run
+    ck(bhallTypeAt(77, 0, 6) == T_ROCK && bhallMatchup(T_ROCK, 6) < 0 && bhallMatchup(T_GRASS, 6) > 0,
+       "  CHARIZARD meets ROCK first; GRASS, which it beats, scores above 0");
+    HallFoe f, g;
+    bhallFoe(77, 0, 6, 50, f, 6); bhallFoe(77, 0, 5, 50, g, 6);   // evolved mid-run: the order is still CHARIZARD's
+    ck(DEX_TBL[g.dex].type1 == T_ROCK || DEX_TBL[g.dex].type2 == T_ROCK, "the order is the run's start species, not the pet as it is now"); }
   { HallFoe a, b, z;
     ck(bhallFoe(77, 0, 6, 50, a) && bhallFoe(77, 0, 6, 50, b) && a.dex == b.dex, "the same rung and seed, the same foe");
     const DexEntry &e = DEX_TBL[a.dex];
-    uint8_t ty = bhallTypeAt(77, 0);
+    uint8_t ty = bhallTypeAt(77, 0, 6);
     ck((e.type1 == ty || e.type2 == ty) && speciesShowable(a.dex) && e.rarity != R_LEGENDARIO,
        "the foe has the rung's type, can be drawn, is no legendary");
     int target = bstOf(6) * HALL_BST_PCT / 100;   // v4.10: species a little weaker than the pet
@@ -125,12 +144,13 @@ int main() {
   ck(!strcmp(scr(), "bhall") && !bhall.active, "the PLAZA's BATTLE HALL cell opens the Hall");
   tapRow(0);
   ck(bhall.active && bhall.rung == 0 && bhall.uid == pet.uid, "START begins a run for the live pet");
+  ck(bhall.orderDex == pet.speciesId && nvs()["bhall"][26] == (uint8_t)pet.speciesId, "  its type order is fixed for the creature it started with, and saved");
   uint8_t e0 = pet.energy;
   uint32_t w0 = pet.wallet;
   tapRow(0);
   ck(battleOpen && btlHall && btlSquadN == 1 && btlYou.uid == pet.uid, "the first rung: the live pet alone");
   ck(pet.energy == e0 - HALL_ENERGY_COST, "and the fight costs energy");
-  { uint8_t ty = bhallTypeAt(bhall.seed, 0);
+  { uint8_t ty = bhallTypeAt(bhall.seed, 0, bhall.orderDex);
     ck(DEX_TBL[btlFoe.dex].type1 == ty || DEX_TBL[btlFoe.dex].type2 == ty, "against the rung's type"); }
   ck(bhall.fighting == 1 && nvs().count("bhall") && nvs()["bhall"][3] == 1, "saved as fighting before the battle");
   { bool live; btlMainOpt(1, &live); ck(!live, "no bag in the Hall"); }
@@ -142,6 +162,15 @@ int main() {
     ck(spent, "the PP used is the PP book's, as in a gym fight"); }
   { HallSave before = bhall; bhall = HallSave(); bhallLoad();
     ck(bhall.active && !memcmp(&bhall, &before, sizeof(bhall)), "a reboot between rungs keeps the run"); }
+  { // a run saved by v4.10 (version 1, the tail was padding): it keeps its plain shuffle
+    HallSave keep = bhall, old = bhall; old.version = 1; old.orderDex = 0x5A5A;
+    { Preferences p; p.begin("tamapoke", false); p.putBytes("bhall", &old, sizeof(old)); p.end(); }
+    bhallLoad();
+    bool same = bhall.active && bhall.orderDex == -1 && bhall.version == 2;
+    for (uint8_t r = 0; r < HALL_RUNGS; r++) if (bhallTypeAt(bhall.seed, r, bhall.orderDex) != bhallTypeAt(bhall.seed, r, -1)) same = false;
+    std::set<uint8_t> t; for (uint8_t r = 0; r < HALL_RUNGS; r++) t.insert(bhallTypeAt(bhall.seed, r, -1));
+    ck(same && t.size() == 18, "a v4.10 run loads with its old shuffled order, all 18 still once");
+    bhall = keep; { Preferences p; p.begin("tamapoke", false); p.putBytes("bhall", &keep, sizeof(keep)); p.end(); } }
 
   // --- 3. too tired ----------------------------------------------------------------------
   pet.energy = HALL_ENERGY_COST - 1;

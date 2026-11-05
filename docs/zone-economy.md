@@ -1,4 +1,4 @@
-# The Battle Zone economy (v4.09 tuning pass, 2026-11-05)
+# The Battle Zone economy (v4.09 tuning pass, 2026-11-05; Hall v4.11)
 
 Measured with `tools/emu/zone_sim.cpp` (500 runs a row, the firmware's own
 rules: `gauntletChallenger()`, `tourDraw()`/`tourFoe()`, `bhallFoe()`, the real
@@ -75,18 +75,25 @@ A perfect team with legendaries is above the ceiling the owner's levers allow
 100 / strongest fillers it wins 93%+. Before v4.10 (story rosters, 2-6
 creatures): GOOD 6 99%, GOOD 3 27%, CASUAL 6 8%.
 
-## Battle Hall (v4.10)
+## Battle Hall (v4.11)
 
-Foes from the 6 species of the rung's type nearest 80% of the pet's base
-stats, 3 levels under closing to level at the last rung, IV 4-16, training
-0-90, smart from rung 11. A fully trained pet (training 100, TMs) of any of
-426 final forms of base stats 470+ (legendaries included), 1,500 runs a cell:
+The types come worst matchup for the pet first, best last (`bhallTypeAt()`,
+`bhallMatchup()`). Foes from the 6 species of the rung's type nearest 90% of
+the pet's base stats, 3 levels under closing to level at the last rung, IV
+4-16, training 0-90, smart from rung 11. A fully trained pet (training 100,
+TMs) of any of 426 final forms of base stats 470+ (legendaries included),
+1,500 runs a cell:
 
-| pet IV | L50 | L75 | L100 |
-|---|---|---|---|
-| 10 | 2% | 3% | 2% |
-| 20 | 6% | 7% | 9% |
-| 31 | 11% | 15% | 17% |
+| pet IV | L50 | L75 | L100 | losses in rungs 1-6 / 7-12 / 13-18 | losses to a counter |
+|---|---|---|---|---|---|
+| 10 | 4% | 4% | 6% | 53-59 / 27-30 / 12-15% | 44-50% |
+| 20 | 8% | 11% | 13% | 45-51 / 29-33 / 18-21% | 37-44% |
+| 31 | 14% | 19% | 23% | 41-46 / 28-32 / 24-26% | 34-40% |
+
+The ordering alone (v4.10's 80%) raised IV 20 to 16-22%: a counter met early
+faces a weak foe, and the strong late foes are the types the pet beats. 85%
+gave 11-15%, 95% 5-7%; 90% was adopted. v4.10 (shuffled order, 80%): IV 10
+2-3%, IV 20 6-9%, IV 31 11-17%.
 
 The 12 strongest species clear 26% (L50) / 45% (L100). Raising IV and
 training levers or refilling PP every rung moved these by a point or two; the

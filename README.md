@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.10-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.11-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1382,26 +1382,31 @@ nothing to choose waits. Since v4.02 both boards need v4.02 or later.
 
 Part of normal play (v4.07), from the PLAZA's **BATTLE HALL** button. Your
 **live pet alone**, 1 on 1, against one creature of **each of the 18 types**,
-a rung at a time, in an order shuffled for each run.
+a rung at a time.
 
+- **Your counters come first, the types you beat come last** (v4.11): the 18
+  types are ordered by how they meet your pet -- its best type against them,
+  less theirs against it -- so a loss to an obvious counter comes early, while
+  the foes are weakest, and the strong late foes are the types it beats. Types
+  that meet it alike are shuffled for each run. The order is fixed for the
+  species the run started with, so evolving mid-run changes nothing.
 - **The foe** is a drawable, non-legendary species of the rung's type, drawn
-  from the 6 of that type nearest **80%** of your pet's species' base-stat
-  total (v4.10): a parlay of 18, so each foe is a little weaker on paper and
-  the type matchups do the rest.
+  from the 6 of that type nearest **90%** of your pet's species' base-stat
+  total (v4.11; 80% in v4.10, before the ordering made the Hall easier).
 - **It starts below your pet and climbs, and never outlevels it** (v4.10): the
   first rung is 3 levels under, level with your pet only at the 18th; IVs rise
   from 4 to a moderate 16 (never perfect, so a perfect-IV pet has the edge),
   training from 0 to 90, and the smart AI fights from rung 11.
 - **Measured** (`docs/zone-economy.md`, a fully trained pet of any final form,
-  legendaries included): IV 20 clears 6-9% of runs, IV 31 11-17%, IV 10 2-3%,
-  at levels 50 to 100. The strongest species clear far more often.
+  legendaries included): IV 20 clears 8-13% of runs, IV 31 14-23%, IV 10 4-6%,
+  at levels 50 to 100; about half of all losses come in the first six rungs.
+  The strongest species clear far more often.
 - **Each fight costs 6 energy** (a clear is about 108: a full bar and a nap); with less, the Hall waits (a tired pet
   rests, and the run is still there). It uses your pet's **real PP**, as a gym
   fight does, so a nap between sittings refills it. No items.
 - **Pay**: a little money a rung -- 2 x the foe's level x (4 + a point every
   three rungs): about $11,700 for a level-50 clear, about one first champion
-  win (v4.09). Measured clear rates for a fully trained pet: 2% at level 50, 13%
-  at level 100 (`docs/zone-economy.md`).
+  win (v4.09).
 - **Saved between rungs**, for as long as you like. A loss, a reboot mid-fight,
   or **changing your live pet** ends the run; QUIT asks twice. A loss never
   blacks out.

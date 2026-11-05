@@ -948,6 +948,22 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the Hall's matchup order (v4.11)
+
+Owner, 2026-11-05: counters early (weak foes), favourable types late (strong
+foes). **`bhallMatchup(type, dex)`** = the pet's best type against `type` less
+`type` against the pet (typeEffPct). **`bhallTypeAt(seed, rung, dex)`** shuffles
+the 18 by the seed, then stable-sorts by it ascending, so equals keep the run's
+shuffle. The dex is **`HallSave::orderDex`** -- the species the run started with
+(`bhallBegin()`), in what was the struct's tail padding (size still 28,
+`version` 2; an active v1 run loads it as -1, its old plain shuffle, so it
+never meets a type twice), so an
+evolution mid-run does not reshuffle. `bhallFoe(..., orderDex)` takes it; the
+screen's "VS <type>" and `bhallNextFight()` ask `bhallOrderDex()`. The order made
+it easier (IV 20 16-22%), so `HALL_BST_PCT` 80 -> 90: IV 20 8-13%, IV 31 14-23%,
+IV 10 4-6%; ~half of losses in rungs 1-6 (`ZS_ONLY=hallx` now prints where runs
+end). `bhall_test`; three guards negative-checked.
+
 ### Done: the tournament's full teams and the Hall's parlay (v4.10)
 
 Owner, 2026-11-05. `tour_test`, `bhall_test`; six guards negative-checked.

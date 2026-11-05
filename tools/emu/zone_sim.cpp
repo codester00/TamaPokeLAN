@@ -405,13 +405,16 @@ int main() {
       printf("  pet IV %2u, training 100:", iv);
       for (uint8_t lvl : { 50, 75, 100 }) {
         gPetIv = iv; gPetTr = 100; gPetLvlOnly = false;
-        int clears = 0; long rungs = 0;
+        int clears = 0; long rungs = 0; int third[3] = { 0, 0, 0 }, counter = 0;
         for (int i = 0; i < N; i++) {
           int16_t d = hp[(i * 7919u) % hp.size()];
           uint32_t m; int b; int r = hallRun(d, lvl, 77 + i * 131, &m, &b);
           rungs += r; if (r == HALL_RUNGS) clears++;
+          else { third[r / 6]++; if (bhallMatchup(bhallTypeAt(77 + i * 131, (uint8_t)r, d), d) < 0) counter++; }
         }
-        printf("  L%-3u %3d%% (avg %4.1f rungs)", lvl, clears * 100 / N, rungs / (double)N);
+        int lost = N - clears; if (!lost) lost = 1;
+        printf("  L%-3u %3d%% (avg %4.1f rungs; losses in rungs 1-6/7-12/13-18 %d/%d/%d%%, to a counter %d%%)", lvl, clears * 100 / N,
+               rungs / (double)N, third[0] * 100 / lost, third[1] * 100 / lost, third[2] * 100 / lost, counter * 100 / lost);
         fflush(stdout);
       }
       printf("\n");
