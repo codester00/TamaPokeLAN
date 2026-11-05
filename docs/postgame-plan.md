@@ -211,5 +211,6 @@ them.
 4. **DONE (v4.04)** The gauntlet: the team generator, rules, scaling, daily, saving.
 5. **DONE (v4.06)** The tournament: the draw, seeding, fill, background matches, its PP.
 6. **DONE (v4.07)** The Hall (normal play).
-7. The new prizes: signature moves, PP Max, Bottle Cap.
+7. **DONE (v4.08)** The new prizes: signature moves (ten, BP TMs, their species only, never
+   an opponent's), PP Max, Bottle Cap, five counter TMs a day, the zone's symbols.
 8. Later: rental teams.

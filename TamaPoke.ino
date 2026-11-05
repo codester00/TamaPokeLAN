@@ -60,7 +60,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.07"
+#define FW_VERSION "4.08"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -174,6 +174,8 @@ uint8_t vitPick = 0;   // a vitamin waiting for its target on the party ring (v3
 #define PPUP_LIVE 0xFE
 uint8_t ppUpWho = PPUP_NONE;
 uint8_t ppPickItem = 0;   // the item the move pick is for: PP UP or ETHER (v3.94)
+// The Bottle Cap's row order (v4.08): the card's four IVs, top to bottom.
+enum : uint8_t { IVCAP_ATK = 0, IVCAP_DEF, IVCAP_SPE, IVCAP_HP, IVCAP_ROWS };
 uint8_t partyDetail = 0;   // 0 = the grid, else slot + 1
 // The box, reached from the party screen. `boxSwapFrom` is the party slot
 // waiting for something to trade with, 0 when nothing is pending.
@@ -8531,8 +8533,36 @@ static void renderPlayerMedals() {
   snprintf(tot, sizeof(tot), T(S_MEDALS_TOTAL_FMT), pet.totalMedals);
   gfx->setTextColor(UI_INK_SOFT);
   gfx->setTextSize(1);
-  gfx->setCursor(CX - (int)strlen(tot) * 3, 344);
+  gfx->setCursor(CX - (int)strlen(tot) * 3, 334);
   gfx->print(tot);
+  drawZoneSymbols(352);
+}
+
+// The Battle Zone's symbols (v4.08, cosmetic): earned ones in their colour,
+// the rest as grey outlines so a player can see what there is to win.
+void drawZoneSymbols(int y) {
+  static const StrId LBL[3] = { S_SYM_TOUR, S_SYM_SILVER, S_SYM_GOLD };
+  static const uint8_t BIT[3] = { ZSYM_TOUR, ZSYM_SILVER, ZSYM_GOLD };
+  const uint16_t COL[3] = { UI_BAR_WARN, C565(0xc0, 0xc8, 0xd0), C565(0xe8, 0xb8, 0x30) };
+  uint8_t m = zoneSymbols(pet.zoneTourWins, pet.zoneBestStreak);
+  for (int i = 0; i < 3; i++) {
+    int cx = CX + (i - 1) * 110;
+    bool got = (m & BIT[i]) != 0;
+    // a diamond, the Frontier's symbol shape
+    if (got) {
+      gfx->fillTriangle(cx, y, cx - 9, y + 9, cx + 9, y + 9, COL[i]);
+      gfx->fillTriangle(cx, y + 18, cx - 9, y + 9, cx + 9, y + 9, COL[i]);
+    }
+    gfx->drawLine(cx, y, cx - 9, y + 9, got ? UI_INK : UI_TRACK);
+    gfx->drawLine(cx - 9, y + 9, cx, y + 18, got ? UI_INK : UI_TRACK);
+    gfx->drawLine(cx, y + 18, cx + 9, y + 9, got ? UI_INK : UI_TRACK);
+    gfx->drawLine(cx + 9, y + 9, cx, y, got ? UI_INK : UI_TRACK);
+    gfx->setTextSize(1);
+    gfx->setTextColor(got ? UI_INK : UI_TRACK);
+    const char *t = T(LBL[i]);
+    gfx->setCursor(cx - (int)strlen(t) * 3, y + 24);
+    gfx->print(t);
+  }
 }
 
 void renderPlayer() {
@@ -9839,15 +9869,28 @@ int zoneRowAt(int16_t x, int16_t y) {
   }
   return -1;
 }
-uint8_t zonePrizePages() { return (uint8_t)((ZONE_PRIZE_COUNT + ZONE_ROWS - 1) / ZONE_ROWS); }
+uint8_t zonePrizePages() {
+  uint8_t n = zonePrizeCount(pet, pet.today());
+  return (uint8_t)(n ? (n + ZONE_ROWS - 1) / ZONE_ROWS : 1);
+}
+// A prize row's name: the item's, or "TM <move>" (v4.08).
+static void zonePrizeName(const ZonePrizeRow &z, char *buf, size_t n) {
+  if (z.kind == ZPR_TM) snprintf(buf, n, "TM %s", moveName(z.what));
+  else snprintf(buf, n, "%s", itemEntry((ItemKey)z.what).name);
+}
 
-// One prize for BP. Refused short of BP or with the stack full (nothing spent).
+// One prize for BP. Refused short of BP, with the stack full, or for a TM
+// already owned (nothing spent).
 bool zoneBuyPrize(uint8_t i) {
-  if (i >= ZONE_PRIZE_COUNT) return false;
-  const ZonePrize &z = ZONE_PRIZES[i];
-  if (pet.bp < z.bp || bag.count(z.item) >= BAG_STACK_MAX) return false;
-  if (!pet.spendBp(z.bp)) return false;
-  bag.add(z.item);
+  ZonePrizeRow z;
+  if (!zonePrizeAt(pet, pet.today(), i, &z) || pet.bp < z.bp) return false;
+  if (z.kind == ZPR_TM) {
+    if (pet.hasTm(z.what) || !pet.spendBp(z.bp)) return false;
+    pet.giveTm(z.what);
+  } else {
+    if (bag.count((ItemKey)z.what) >= BAG_STACK_MAX || !pet.spendBp(z.bp)) return false;
+    bag.add((ItemKey)z.what);
+  }
   pet.saveNow();
   return true;
 }
@@ -10045,29 +10088,34 @@ void renderZone() {
   if (zoneMode == ZM_RULES) { renderGauntRules(); return; }
   if (zoneMode == ZM_PRIZES) {
     zoneHeader(T(S_ZONE_PRIZES));
+    uint32_t day = pet.today();
+    if (zonePage >= zonePrizePages()) zonePage = 0;   // a bought TM can shorten the list
     for (uint8_t r = 0; r < ZONE_ROWS; r++) {
-      uint8_t i = (uint8_t)(zonePage * ZONE_ROWS + r);
-      if (i >= ZONE_PRIZE_COUNT) break;
+      ZonePrizeRow z;
+      if (!zonePrizeAt(pet, day, (uint8_t)(zonePage * ZONE_ROWS + r), &z)) break;
       int x, y, w, h;
       zoneRowRect(r, &x, &y, &w, &h);
-      bool afford = pet.bp >= ZONE_PRIZES[i].bp;
+      bool afford = pet.bp >= z.bp;
       gfx->fillRoundRect(x, y, w, h, 12, UI_BG_DAY);
       gfx->drawRoundRect(x, y, w, h, 12, afford ? UI_INK : UI_TRACK);
       gfx->setTextColor(afford ? UI_INK : UI_TRACK);
-      const char *nm = itemEntry(ZONE_PRIZES[i].item).name;
+      char nm[32];
+      zonePrizeName(z, nm, sizeof(nm));
       gfx->setTextSize(strlen(nm) * 12 <= (size_t)w - 24 ? 2 : 1);
       gfx->setCursor(x + 14, y + 16);
       gfx->print(nm);
       char c[16];
-      snprintf(c, sizeof(c), T(S_ZONE_COST_FMT), (unsigned)ZONE_PRIZES[i].bp);
+      snprintf(c, sizeof(c), T(S_ZONE_COST_FMT), (unsigned)z.bp);
       gfx->setTextSize(2);
       gfx->setCursor(x + w - 14 - (int)strlen(c) * 12, y + h - 28);
       gfx->print(c);
     }
-    if (zoneConfirm < ZONE_PRIZE_COUNT) {
-      char q[48], c[16];
-      snprintf(q, sizeof(q), T(S_ZONE_BUY_Q), itemEntry(ZONE_PRIZES[zoneConfirm].item).name);
-      snprintf(c, sizeof(c), T(S_ZONE_COST_FMT), (unsigned)ZONE_PRIZES[zoneConfirm].bp);
+    ZonePrizeRow cz;
+    if (zoneConfirm != 0xFF && zonePrizeAt(pet, day, zoneConfirm, &cz)) {
+      char q[48], c[16], nm[32];
+      zonePrizeName(cz, nm, sizeof(nm));
+      snprintf(q, sizeof(q), T(S_ZONE_BUY_Q), nm);
+      snprintf(c, sizeof(c), T(S_ZONE_COST_FMT), (unsigned)cz.bp);
       drawConfirmPanel(q, c, nullptr, UI_INK_SOFT, T(S_YES), UI_BAR_OK, UI_WHITE, T(S_NO), UI_TRACK, UI_INK);
     }
     uiChrome();
@@ -10107,7 +10155,7 @@ void renderZone() {
 }
 
 void zoneTap(int16_t x, int16_t y) {
-  if (zoneMode == ZM_PRIZES && zoneConfirm < ZONE_PRIZE_COUNT) {
+  if (zoneMode == ZM_PRIZES && zoneConfirm != 0xFF) {
     int b1Top, b1Bot, b2Top, b2Bot;
     uiConfirmRects(&b1Top, &b1Bot, &b2Top, &b2Bot);
     bool inX = (x >= CONFIRM_BTN_X && x <= CONFIRM_BTN_X + CONFIRM_BTN_W);
@@ -10123,8 +10171,9 @@ void zoneTap(int16_t x, int16_t y) {
     int r = zoneRowAt(x, y);
     if (r < 0) return;
     uint8_t i = (uint8_t)(zonePage * ZONE_ROWS + r);
-    if (i >= ZONE_PRIZE_COUNT) return;
-    if (pet.bp < ZONE_PRIZES[i].bp) { sfxPlay(SFX_DENY); return; }
+    ZonePrizeRow z;
+    if (!zonePrizeAt(pet, pet.today(), i, &z)) return;
+    if (pet.bp < z.bp) { sfxPlay(SFX_DENY); return; }
     sfxPlay(SFX_TAP);
     zoneConfirm = i;
     return;
@@ -11649,7 +11698,30 @@ void renderBag() {
   const uint8_t *pmoves = nullptr; uint8_t pups = 0; const CreatureUid *puid = nullptr;
   bool picking = ppUpWho != PPUP_NONE && ppUpTarget(ppUpWho, &pmoves, &pups, &puid);
   if (ppUpWho != PPUP_NONE && !picking) ppUpWho = PPUP_NONE;   // the creature went
-  if (picking) {
+  bool ivPick = picking && itemEntry((ItemKey)ppPickItem).category == IC_IVCAP;
+  if (ivPick) {
+    // the BOTTLE CAP's IV (v4.08): the card's four, each with its value now
+    static const StrId LBL[IVCAP_ROWS] = { S_STAT_ATK, S_STAT_DEF, S_STAT_SPE, S_STAT_VIT };
+    gfx->fillRect(60, 30, 346, 30, UI_BG_DAY);
+    gfx->setTextColor(UI_INK);
+    gfx->setCursor(CX - (int)strlen(T(S_IVCAP_PICK)) * 6, 40);
+    gfx->print(T(S_IVCAP_PICK));
+    for (uint8_t r = 0; r < IVCAP_ROWS; r++) {
+      uint8_t iv = ivCapValue(ppUpWho, r);
+      bool can = iv < (uint8_t)itemEntry(IT_BOTTLECAP).param;
+      int y = BAG_ROW_Y(r);
+      gfx->fillRoundRect(76, y, 314, 50, 10, can ? UI_WHITE : UI_TRACK);
+      gfx->drawRoundRect(76, y, 314, 50, 10, UI_INK);
+      gfx->setTextColor(can ? UI_INK : 0x8410);
+      gfx->setTextSize(2);
+      gfx->setCursor(92, y + 17);
+      gfx->print(T(LBL[r]));
+      char b[10];
+      snprintf(b, sizeof(b), T(S_IV_FMT), iv);
+      gfx->setCursor(374 - (int)strlen(b) * 12, y + 17);
+      gfx->print(b);
+    }
+  } else if (picking) {
     // PP UP's move (v3.92): the four slots, each with its PP and Ups so far
     gfx->fillRect(60, 30, 346, 30, UI_BG_DAY);
     gfx->setTextColor(UI_INK);
@@ -11836,7 +11908,7 @@ void vitPickTap(int16_t x, int16_t y) {
   partyOpen = false;
   bagOpen = true;
   if (!hub && i < 0) { sfxPlay(SFX_TAP); return; }   // cancelled: kept
-  if (itemEntry(k).category == IC_PPUP || itemEntry(k).category == IC_ETHER) {   // whose, then which move
+  if (itemPicksRow(k)) {   // whose, then which move (or which IV)
     ppPickItem = k;
     ppUpWho = hub ? PPUP_LIVE : (uint8_t)i;
     sfxPlay(SFX_TAP);
@@ -11861,18 +11933,70 @@ static bool ppUpTarget(uint8_t who, const uint8_t **moves, uint8_t *ups, const C
   *moves = party.slots[who].moves; *ups = party.slots[who].reserved[1]; *uid = &party.slots[who].uid;
   return true;
 }
-// One PP Up on `slot` of the creature `who`, saved. False when the slot has no
-// move or is at PP_UPS_MAX (the item is kept). The one way it is applied.
-bool ppUpOn(uint8_t who, int slot) {
+// Up to `n` PP Ups on `slot` of the creature `who`, saved: PP UP is one, PP MAX
+// (v4.08) as many as the slot has room for. False when the slot has no move or
+// is already at PP_UPS_MAX (the item is kept). The one way they are applied.
+bool ppUpsOn(uint8_t who, int slot, uint8_t n) {
+  uint8_t ups, moves[MOVE_SLOTS];
   if (who == PPUP_LIVE) {
-    if (pet.isEgg() || !ppUpAdd(pet.ppUps, pet.moves, slot)) return false;
-    pet.saveNow();
-    return true;
+    if (pet.isEgg()) return false;
+    ups = pet.ppUps;
+    memcpy(moves, pet.moves, sizeof(moves));
+  } else {
+    if (who >= PARTY_SLOTS || party.slots[who].empty() || tradeLocked(party.slots[who])) return false;
+    ups = party.slots[who].reserved[1];
+    memcpy(moves, party.slots[who].moves, sizeof(moves));
   }
-  if (who >= PARTY_SLOTS || party.slots[who].empty() || tradeLocked(party.slots[who])) return false;
-  PartyMon m = party.slots[who];
-  if (!ppUpAdd(m.reserved[1], m.moves, slot)) return false;
-  party.replaceAt(who, m);
+  uint8_t added = 0;
+  while (added < n && ppUpAdd(ups, moves, slot)) added++;
+  if (!added) return false;
+  if (who == PPUP_LIVE) {
+    pet.ppUps = ups;
+    pet.saveNow();
+  } else {
+    PartyMon m = party.slots[who];
+    m.reserved[1] = ups;
+    party.replaceAt(who, m);
+  }
+  return true;
+}
+bool ppUpOn(uint8_t who, int slot) { return ppUpsOn(who, slot, 1); }
+
+static uint8_t *ivCapField(uint8_t who, uint8_t row) {
+  uint8_t *f[IVCAP_ROWS];
+  if (who == PPUP_LIVE) {
+    if (pet.isEgg()) return nullptr;
+    f[0] = &pet.ivAtk; f[1] = &pet.ivDef; f[2] = &pet.ivSpe; f[3] = &pet.ivHp;
+  } else {
+    if (who >= PARTY_SLOTS || party.slots[who].empty()) return nullptr;
+    PartyMon &m = party.slots[who];
+    f[0] = &m.ivAtk; f[1] = &m.ivDef; f[2] = &m.ivSpe; f[3] = &m.ivHp;
+  }
+  return row < IVCAP_ROWS ? f[row] : nullptr;
+}
+// The IV a Bottle Cap row shows, 0xFF if the creature is gone.
+uint8_t ivCapValue(uint8_t who, uint8_t row) {
+  uint8_t *f = ivCapField(who, row);
+  return f ? *f : 0xFF;
+}
+// A BOTTLE CAP (v4.08): the chosen IV of `who` to the item's param (31),
+// saved. False when it is already there (the item is kept). Training is not
+// touched: a higher IV only raises the ceiling trMaxFor() allows. The one way
+// it is applied.
+bool ivCapOn(uint8_t who, uint8_t row) {
+  if (who != PPUP_LIVE && (who >= PARTY_SLOTS || tradeLocked(party.slots[who]))) return false;
+  uint8_t to = (uint8_t)itemEntry(IT_BOTTLECAP).param;
+  uint8_t cur = ivCapValue(who, row);
+  if (cur == 0xFF || cur >= to) return false;
+  if (who == PPUP_LIVE) {
+    *ivCapField(who, row) = to;
+    pet.saveNow();
+  } else {
+    PartyMon m = party.slots[who];
+    uint8_t *f[IVCAP_ROWS] = { &m.ivAtk, &m.ivDef, &m.ivSpe, &m.ivHp };
+    *f[row] = to;
+    party.replaceAt(who, m);
+  }
   return true;
 }
 // An ETHER on `slot` of `who` (v3.94): `param` PP back, never past the max.
@@ -11896,12 +12020,15 @@ bool etherOn(uint8_t who, int slot) {
 }
 static void ppUpPickTap(int16_t x, int16_t y) {
   uint8_t who = ppUpWho;
-  ItemKey k = ppPickItem == IT_ETHER ? IT_ETHER : IT_PPUP;
+  ItemKey k = itemPicksRow((ItemKey)ppPickItem) ? (ItemKey)ppPickItem : IT_PPUP;
   ppUpWho = PPUP_NONE;
   for (int s = 0; s < MOVE_SLOTS; s++) {
     int ry = BAG_ROW_Y(s);
     if (x < 76 || x > 390 || y < ry || y > ry + 50) continue;
-    bool ok = k == IT_ETHER ? etherOn(who, s) : ppUpOn(who, s);
+    uint8_t c = itemEntry(k).category;
+    bool ok = c == IC_ETHER ? etherOn(who, s)
+            : c == IC_IVCAP ? ivCapOn(who, (uint8_t)s)
+                            : ppUpsOn(who, s, itemEntry(k).amount);
     if (!ok) { sfxPlay(SFX_DENY); bagSay("%s", T(S_ITEM_NOUSE)); return; }
     bag.consume(k);
     sfxPlay(SFX_TAP);
@@ -11923,14 +12050,13 @@ void bagTap(int16_t x, int16_t y) {
     if (!itemUsableInField(k) || pet.isEgg()) { sfxPlay(SFX_DENY); return; }
     if (k == IT_LINKCORD) { cordFromBag(); return; }
     if (itemEntry(k).category == IC_STONE) { stoneFromBag(k); return; }
-    if ((itemEntry(k).category == IC_PPUP || itemEntry(k).category == IC_ETHER) && !party.count()) {
+    if (itemPicksRow(k) && !party.count()) {
       ppPickItem = k;
       ppUpWho = PPUP_LIVE;                 // no party: straight to the live pet's moves
       sfxPlay(SFX_TAP);
       return;
     }
-    if ((itemEntry(k).category == IC_TRAIN || itemEntry(k).category == IC_PPUP ||
-         itemEntry(k).category == IC_ETHER) && party.count()) {
+    if ((itemEntry(k).category == IC_TRAIN || itemPicksRow(k)) && party.count()) {
       // a vitamin with a party to choose from (v3.91): who gets it, on the ring
       bagOpen = false;
       partyOpen = true;

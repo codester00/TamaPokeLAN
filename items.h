@@ -36,6 +36,8 @@ enum : uint8_t {
   IT_XATTACK, IT_XDEFENSE, IT_XSPATK, IT_XSPDEF, IT_XSPEED,
   IT_PPUP,       // v3.92
   IT_ETHER,      // v3.94
+  IT_PPMAX,      // v4.08: the Battle Zone's prize counter only
+  IT_BOTTLECAP,  // v4.08: the Battle Zone's prize counter only
   ITEM_COUNT,
 };
 
@@ -49,6 +51,7 @@ enum ItemCategory : uint8_t {
   IC_XSTAT,      // v3.91: an X item, in battle (param: SI_* stat, amount: stages)
   IC_PPUP,       // v3.92: one more PP Up on a move slot of the live pet or a party creature
   IC_ETHER,      // v3.94: restores `param` PP to one move, out of battle
+  IC_IVCAP,      // v4.08: the Bottle Cap -- one IV of the player's choice to 31
 };
 
 // A ball whose param is this catches without rolling. It is a sentinel rather
@@ -123,6 +126,12 @@ static const ItemEntry ITEM_TBL[ITEM_COUNT] = {
   // only (owner), never sold -- so, like the Master Ball, never bought back.
   // Out of battle only: between League fights is what it is for.
   { "ETHER",        IC_ETHER, 10,                     0, 2,  0 },
+  // PP MAX (v4.08): every PP Up a move slot still has room for at once
+  // (`amount` Ups, the cap is PP_UPS_MAX). BOTTLE CAP (v4.08): one IV to 31,
+  // the games' Hyper Training. Both are BP prizes only (zone.h): never sold,
+  // never dropped, so never bought back.
+  { "PP MAX",       IC_PPUP,  0,                      3, 0,  0 },
+  { "BOTTLE CAP",   IC_IVCAP, 31,                     0, 0,  0 },
 };
 
 inline bool itemValid(ItemKey k) { return k > ITEM_NONE && k < ITEM_COUNT; }
@@ -141,7 +150,16 @@ inline bool itemUsableInField(ItemKey k) {
                           itemEntry(k).category == IC_LINK ||
                           itemEntry(k).category == IC_STONE ||
                           itemEntry(k).category == IC_PPUP ||
-                          itemEntry(k).category == IC_ETHER);
+                          itemEntry(k).category == IC_ETHER ||
+                          itemEntry(k).category == IC_IVCAP);
+}
+// An item that, once its creature is chosen, asks for ONE ROW of four on the
+// bag screen: a move slot (PP UP, PP MAX, ETHER) or an IV (BOTTLE CAP). The
+// one answer the bag, the party ring and the row pick share (v4.08).
+inline bool itemPicksRow(ItemKey k) {
+  if (!itemValid(k)) return false;
+  uint8_t c = itemEntry(k).category;
+  return c == IC_PPUP || c == IC_ETHER || c == IC_IVCAP;
 }
 // Usable from inside a fight. Training is permanent and belongs to the care
 // sim, so it stays out of the battle bag.

@@ -21,6 +21,7 @@
 #include "pet.h"
 #include "party.h"
 #include "trade.h"
+#include "moves.h"
 #include <cstdio>
 #include <cstring>
 #include <deque>
@@ -351,7 +352,7 @@ int main() {
     s.step(500);
     // A broken creature on the wire: forge an offer by hand.
     PartyMon bogus = s.b1;
-    bogus.moves[0] = 250;
+    bogus.moves[0] = (uint8_t)MOVE_COUNT;   // one past the last move (derived: v4.08 made 250 a move)
     uint8_t pkt[2 + 1 + sizeof(PartyMon)];
     pkt[0] = TM_OFFER; pkt[1] = 1 + sizeof(PartyMon); pkt[2] = 9;
     memcpy(pkt + 3, &bogus, sizeof(PartyMon));

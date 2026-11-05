@@ -18,7 +18,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dex_moves import (MOVES, MC_PHYS, MC_SPEC, MC_STATUS, EF_STAGE,
                        ST_ATK, ST_DEF, ST_SPA, ST_SPD, ST_SPE, TG_SELF, TG_FOE,
                        AIL_NONE, AIL_PARA, AIL_BURN, AIL_POISON, AIL_SLEEP,
-                       AIL_FREEZE, AIL_CONFUSE, HIT_STATS, MOVE_PP)
+                       AIL_FREEZE, AIL_CONFUSE, HIT_STATS, MOVE_PP,
+                       SIGNATURE)
 from dex_move_names import MOVE_NAME_LANGS, MOVE_NAMES
 
 # The ailment pair is optional in MOVES: only the ~17 moves that inflict one
@@ -202,10 +203,24 @@ def main():
              '// no filtra nada: lo decide la fase de UI.\n')
     o.append('struct LearnEntry { uint8_t move; uint8_t level; };\n\n')
 
+    # v4.08: a signature move is a level-0 (TM) row for its own species only,
+    # added here rather than to the fetched dex_learnsets.py.
+    sig_by_dex = {}
+    for slug, dexes in SIGNATURE.items():
+        if slug not in by_slug:
+            sys.exit('SIGNATURE names a move not in MOVES: %s' % slug)
+        for d in dexes:
+            if not 1 <= d <= DEX_COUNT:
+                sys.exit('SIGNATURE %s: dex %d out of range' % (slug, d))
+            sig_by_dex.setdefault(d, []).append(slug)
     flat, ofs = [], [0]
     empties = []
     for n in range(0, DEX_COUNT + 1):
         rows = LEARNSETS.get(n, []) if n else []
+        if n in sig_by_dex:
+            have = {sl for sl, _lv in rows}
+            rows = sorted(rows + [(sl, 0) for sl in sig_by_dex[n] if sl not in have],
+                          key=lambda r: (r[1], r[0]))
         for slug, lv in rows:
             flat.append((idx[by_slug[slug]], min(lv, 255), by_slug[slug]))
         if n and not rows:
@@ -241,13 +256,24 @@ def main():
     # index), and TM_MOVES is the catalogue the Mart, the drops and the prize
     # counters draw from. Its order is display only -- ownership is keyed by
     # move index, so regenerating this can never change what a save owns.
-    tm_ids = sorted({mid for mid, lv, _nm in flat if lv == 0})
+    sig_ids = sorted(idx[by_slug[sl]] for sl in SIGNATURE)
+    tm_ids = sorted({mid for mid, lv, _nm in flat if lv == 0} - set(sig_ids))
     o.append('// TM moves (a level-0 learnset row for some species), by move index.\n')
     o.append('#define TM_COUNT %d\n' % len(tm_ids))
     o.append('static const uint8_t TM_MOVES[TM_COUNT] = {\n')
     for i in range(0, len(tm_ids), 16):
         o.append('  ' + ' '.join('%3d,' % v for v in tm_ids[i:i + 16]) + '\n')
     o.append('};\n\n')
+    # v4.08: the signature moves' TMs, BP prizes only. Kept OUT of TM_MOVES, so
+    # the Mart's daily five, the drops and the Game Corners stay as they were.
+    o.append('// Signature-move TMs (v4.08): the Battle Zone prize counter only.\n')
+    o.append('#define SIG_TM_COUNT %d\n' % len(sig_ids))
+    o.append('static const uint8_t SIG_TM_MOVES[SIG_TM_COUNT] = { %s };\n\n'
+             % ', '.join('%d' % v for v in sig_ids))
+    o.append('static inline bool moveIsSignature(uint8_t mv) {\n'
+             '  for (uint8_t i = 0; i < SIG_TM_COUNT; i++) if (SIG_TM_MOVES[i] == mv) return true;\n'
+             '  return false;\n'
+             '}\n\n')
 
     o.append('// Cuantos movimientos puede usar la especie, y cual es el i-esimo.\n'
              '// DITTO y las dos crisalidas no aprenden ninguno de la lista: para\n'

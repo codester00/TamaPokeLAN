@@ -387,7 +387,40 @@ MOVES = [
     # the fight -- look, typing, stats bar HP, stages and moves at the move
     # table's PP (battle.cpp battleTransform()); nothing of it is kept.
     ("TRANSFORM", "transform", 'normal', MC_STATUS, 0, 0, EF_TRANSFORM, 0, 0, 0, TG_FOE),
+
+    # --- v4.08: the signature moves, BP TMs from the Battle Zone's prize
+    # counter (docs/postgame-plan.md section 5). Only moves the engine already
+    # expresses; each is learnable ONLY by the species in SIGNATURE below, and
+    # never by an opponent (pet.cpp tmLevelFor()). 4 move indices stay free.
+    ("ROAR OF TIME", "roar-of-time", 'dragon', MC_SPEC, 150, 90, EF_RECHARGE, 0, 0, 0, TG_FOE),
+    ("ETERNABEAM", "eternabeam", 'dragon', MC_SPEC, 160, 90, EF_RECHARGE, 0, 0, 0, TG_FOE),
+    ("SHADOW FORCE", "shadow-force", 'ghost', MC_PHYS, 120, 100, EF_CHARGE, 1, 0, 0, TG_FOE),
+    ("SEARING SHOT", "searing-shot", 'fire', MC_SPEC, 100, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_BURN, 30),
+    ("BLUE FLARE", "blue-flare", 'fire', MC_SPEC, 130, 85, EF_NONE, 0, 0, 0, TG_FOE, AIL_BURN, 20),
+    ("BOLT STRIKE", "bolt-strike", 'electric', MC_PHYS, 130, 85, EF_NONE, 0, 0, 0, TG_FOE, AIL_PARA, 20),
+    ("LAND'S WRATH", "lands-wrath", 'ground', MC_PHYS, 90, 100, EF_NONE, 0, 0, 0, TG_FOE),
+    ("BLAST BURN", "blast-burn", 'fire', MC_SPEC, 150, 90, EF_RECHARGE, 0, 0, 0, TG_FOE),
+    ("HYDRO CANNON", "hydro-cannon", 'water', MC_SPEC, 150, 90, EF_RECHARGE, 0, 0, 0, TG_FOE),
+    ("FRENZY PLANT", "frenzy-plant", 'grass', MC_SPEC, 150, 90, EF_RECHARGE, 0, 0, 0, TG_FOE),
 ]
+
+# v4.08: who may learn each signature move (slug -> dex numbers). gen_moves.py
+# adds a level-0 (TM) learnset row for exactly these species and emits the
+# moves as SIG_TM_MOVES, apart from TM_MOVES, so the Mart's daily five, the
+# drops and the Game Corners never offer one. The starter ultimates go to every
+# final-form starter of their type, as in the games.
+SIGNATURE = {
+    "roar-of-time": [483],                  # DIALGA
+    "eternabeam": [890],                    # ETERNATUS
+    "shadow-force": [487],                  # GIRATINA
+    "searing-shot": [494],                  # VICTINI
+    "blue-flare": [643],                    # RESHIRAM
+    "bolt-strike": [644],                   # ZEKROM
+    "lands-wrath": [718],                   # ZYGARDE
+    "blast-burn": [6, 157, 257, 392, 500, 655, 727, 815, 911],
+    "hydro-cannon": [9, 160, 260, 395, 503, 658, 730, 818, 914],
+    "frenzy-plant": [3, 154, 254, 389, 497, 652, 724, 812, 908],
+}
 
 # Accuracy drops (SAND ATTACK, SMOKESCREEN, FLASH) are deliberately left out:
 # accuracy stages are a whole second stage system for one marginal effect.
@@ -460,6 +493,16 @@ MOVE_PP = {
     "tackle": 35,
     "sketch": 1,
     "transform": 10,
+    "roar-of-time": 5,
+    "eternabeam": 5,
+    "shadow-force": 5,
+    "searing-shot": 5,
+    "blue-flare": 5,
+    "bolt-strike": 5,
+    "lands-wrath": 10,
+    "blast-burn": 5,
+    "hydro-cannon": 5,
+    "frenzy-plant": 5,
     "scratch": 35,
     "pound": 35,
     "fury-attack": 20,

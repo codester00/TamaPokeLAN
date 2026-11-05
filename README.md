@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.07-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.08-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1421,8 +1421,32 @@ BP, the tournaments won and the gauntlet's best streak.
   their next creature by matchup. A SKETCH learned in the
   zone is not kept. Running forfeits; a loss ends the run and never blacks out.
 - **The prize counter** trades BP for items: Master Ball 100, PP Up 16,
-  Ether 2, Protein / Iron / Carbos 4, Linking Cord 16, each evolution stone 6,
-  the Black Augurite 8.
+  **PP Max 40** (every PP Up a move slot still has room for, at once),
+  **Bottle Cap 25** (one IV of your choice to 31; training is untouched, only
+  its ceiling rises), Ether 2, Protein / Iron / Carbos 4, Linking Cord 16, each
+  evolution stone 6, the Black Augurite 8. PP Max and the Bottle Cap are sold
+  nowhere else (v4.08).
+- **TMs at the counter** (v4.08): the ten **signature-move TMs** you do not own,
+  48 BP each, then **five ordinary TMs a day** you do not own that the Mart is
+  not offering that day, at the Mart price / 250 (6-20 BP). A signature move is
+  learnable only by its own species, and no opponent or wild creature ever knows
+  one:
+
+  | move | type | power / acc. | effect | who |
+  |---|---|---|---|---|
+  | ROAR OF TIME | Dragon special | 150 / 90 | recharge | Dialga |
+  | ETERNABEAM | Dragon special | 160 / 90 | recharge | Eternatus |
+  | SHADOW FORCE | Ghost physical | 120 / 100 | charges a turn, hidden | Giratina |
+  | SEARING SHOT | Fire special | 100 / 100 | 30 % burn | Victini |
+  | BLUE FLARE | Fire special | 130 / 85 | 20 % burn | Reshiram |
+  | BOLT STRIKE | Electric physical | 130 / 85 | 20 % paralysis | Zekrom |
+  | LAND'S WRATH | Ground physical | 90 / 100 | -- | Zygarde |
+  | BLAST BURN | Fire special | 150 / 90 | recharge | every final Fire starter |
+  | HYDRO CANNON | Water special | 150 / 90 | recharge | every final Water starter |
+  | FRENZY PLANT | Grass special | 150 / 90 | recharge | every final Grass starter |
+- **The zone's symbols** (v4.08) are on the player card's medal page: one for
+  the first tournament won, a silver one at a gauntlet streak of 10 and a gold
+  one at 25. Placeholders, like every zone number.
 - **AI switching** (v4.05): only opponents whose format turns it on (the
   gauntlet from its eleventh challenger) ever switch, and only sanely: the
   creature out must be losing the type matchup, the one coming in must do at

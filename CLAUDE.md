@@ -948,6 +948,46 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the new prizes (v4.08)
+
+Step 7 of `docs/postgame-plan.md` § 6. `zoneprize_test`; seven guards
+negative-checked (one missed at first: a single day's Mart and counter TMs
+happened not to overlap, so the test now walks 400 days).
+
+- **Ten signature moves** appended (242-251, `MOVE_COUNT` 252, FOUR indices
+  left before a move stops fitting a byte): ROAR OF TIME, ETERNABEAM, SHADOW
+  FORCE, SEARING SHOT, BLUE FLARE, BOLT STRIKE, LAND'S WRATH and the three
+  starter ultimates. **`SIGNATURE` in `dex_moves.py`** names each one's species;
+  `gen_moves.py` adds their level-0 rows there (not in the fetched
+  `dex_learnsets.py`) and emits them as `SIG_TM_MOVES` + `moveIsSignature()`,
+  OUT of `TM_MOVES` -- so `TM_COUNT` stays 134 and the Mart's daily five, the
+  drops and the Game Corners are unchanged. Owned TMs are bits by move index,
+  so nothing in the save changed.
+- **Never an opponent's**: `tmLevelFor()` (pet.cpp) returns 255 for one, which
+  closes `moveUnlockLevel()`, `relearnFromLevel()` and its STAB fallback at
+  once; a wild Smeargle's whole-list pool skips them too. The tuned hard
+  leaders keep their movesets. The player's gate (`moveUnlockLevelFor()`) is
+  unchanged: owned TM + the species' row. CHEATS' ALL TMS gives them too.
+- **The counter is ONE list: `zonePrizeAt()` / `zonePrizeCount()`** (zone.h):
+  `ZONE_PRIZES` (now with PP MAX 40, BOTTLE CAP 25), the signature TMs not
+  owned (`ZONE_SIG_TM_BP` 48), then `zoneTmToday()` -- five unowned TMs a day
+  not in `martTmToday()`'s five, at `tmPrice() / 250`. Drawing, tapping,
+  paging and `zoneBuyPrize()` all walk it; a bought TM leaves it. The owner
+  wrote "the TMs the Mart has not offered": read as "not today", theirs to
+  overrule.
+- **PP MAX** = `IC_PPUP` with `amount` 3; **`ppUpsOn(who, slot, n)`** is THE
+  apply (`ppUpOn()` = 1). **BOTTLE CAP** = `IC_IVCAP`, param 31:
+  **`ivCapOn(who, row)`** (rows `IVCAP_ATK/DEF/SPE/HP`, the card's order) on the
+  live pet or a party creature, saved; training untouched. **`itemPicksRow()`**
+  (items.h) is THE "choose a creature, then one of four rows" answer the bag,
+  the ring and the row pick share. Not the PC (withdraw first), like vitamins.
+- **Symbols**: `zoneSymbols(tourWins, bestStreak)` (zone.h), drawn by
+  `drawZoneSymbols()` on the medal page. Derived, nothing saved. Thresholds
+  `ZONE_SYM_SILVER_STREAK` 10 / `ZONE_SYM_GOLD_STREAK` 25 are placeholders.
+- Trades and LAN between v4.07 and v4.08 refuse by the build tags (both carry
+  `MOVE_COUNT`); no protocol bump needed. `trade_test`'s forged bad move is
+  `MOVE_COUNT` now (it was the literal 250, which became a move).
+
 ### Done: the Battle Hall (v4.07)
 
 Step 6 of `docs/postgame-plan.md` § 6. `bhall_test`; guards negative-checked.

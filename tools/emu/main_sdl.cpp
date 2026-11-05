@@ -577,7 +577,10 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
     pet.badgesX[0] = 0x3F; pet.badgesHardX[0] = 0x05;   // Johto
     playerOpen = true; playerPage = 1;
   }
-  else if (!strcmp(screen, "medals2")) { pet.medals = 0x5B; pet.totalMedals = 12; playerOpen = true; playerPage = 1; }
+  else if (!strcmp(screen, "medals2")) {   // the medal page (the last), with the zone's symbols
+    pet.medals = 0x5B; pet.totalMedals = 12; pet.zoneTourWins = 1; pet.zoneBestStreak = 12;
+    playerOpen = true; playerPage = GYM_REGIONS;
+  }
   else if (!strcmp(screen, "gymfight")) { startTrainerBattle(0, false); }
   else if (!strcmp(screen, "learn")) {
     // fill the four slots, then cross a gate so the offer has to be answered

@@ -1554,8 +1554,11 @@ bool Pet::knowsMove(uint8_t mv) const {
 // what the power/2 version was papering over.
 #define TM_LEVEL 40
 
+// A signature move (v4.08, the Battle Zone's BP TMs) is the player's alone:
+// no opponent ever learns it, so the tuned leaders and the wild stay as they
+// were. 255 is past MAX_LEVEL -- the gate never opens.
 static uint8_t tmLevelFor(const MoveEntry &m) {
-  (void)m;
+  if (moveIsSignature((uint8_t)(&m - MOVE_TBL))) return 255;
   return TM_LEVEL;
 }
 
@@ -1597,8 +1600,8 @@ bool Pet::applyCheat(uint8_t id) {
     case CHEAT_COINS: addCoins(1000); break;
     case CHEAT_MONEY: wallet = wallet + 100000 > WALLET_CAP ? WALLET_CAP : wallet + 100000; break;
     case CHEAT_ALL_TMS:
-      for (uint16_t i = 0; i < TM_COUNT; i++) {
-        uint8_t mv = TM_MOVES[i];
+      for (uint16_t i = 0; i < TM_COUNT + SIG_TM_COUNT; i++) {
+        uint8_t mv = i < TM_COUNT ? TM_MOVES[i] : SIG_TM_MOVES[i - TM_COUNT];
         if (giveTm(mv)) tmCheated[mv >> 3] |= (uint8_t)(1 << (mv & 7));
       }
       break;
@@ -1658,7 +1661,7 @@ void Pet::rollWildMoves() {
   // 2026-10-27). Caught, it keeps them, as in the games.
   if (learnsSketch(speciesId)) {
     for (uint16_t mv = 1; mv < MOVE_COUNT; mv++)
-      if (mv != MV_SKETCH && mv != MV_STRUGGLE) pool[k++] = (uint8_t)mv;
+      if (mv != MV_SKETCH && mv != MV_STRUGGLE && !moveIsSignature((uint8_t)mv)) pool[k++] = (uint8_t)mv;
     n = 0;
   }
   for (uint8_t i = 0; i < n; i++) {
