@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.05-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.06-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -209,14 +209,15 @@ while it keeps trying — see § Trading in the manual below.
 
 ### The Battle Zone (post-game)
 
-| The zone | The prize counter | The gauntlet | Custom rules |
-|---|---|---|---|
-| <img src="docs/screens/zone.png" width="240"> | <img src="docs/screens/zoneprizes.png" width="240"> | <img src="docs/screens/gauntlet.png" width="240"> | <img src="docs/screens/gauntrules.png" width="240"> |
+| The zone | The prize counter | The gauntlet | Custom rules | The tournament |
+|---|---|---|---|---|
+| <img src="docs/screens/zone.png" width="240"> | <img src="docs/screens/zoneprizes.png" width="240"> | <img src="docs/screens/gauntlet.png" width="240"> | <img src="docs/screens/gauntrules.png" width="240"> | <img src="docs/screens/tour.png" width="240"> |
 
 On the PLAZA, open once every region's champion is beaten (either difficulty).
-Since v4.04 the **gauntlet** is open: challengers one after another, under a
-day's rules or your own, until you lose. The tournament comes later — see
-§ The Battle Zone in the manual below.
+The **gauntlet** (v4.04): challengers one after another, under a day's rules
+or your own, until you lose. The **tournament** (v4.06): a 16-trainer bracket
+of gym leaders, Elite Four and champions from every region. See § The Battle
+Zone in the manual below.
 
 ### Collecting
 
@@ -1392,7 +1393,30 @@ BP, the tournaments won and the gauntlet's best streak.
   least 100 points better on the matchup scale and take no more than neutral
   damage from your creature's types, and a creature stays in for at least its
   first 3 turns. The switch is its turn: it does not attack too.
-- **The tournament is not built yet**: its row reads COMING SOON.
+#### The tournament (v4.06)
+
+Sixteen contestants, four rounds, single elimination: you and 15 opponents
+drawn at random from every gym leader, Elite Four member and champion whose
+whole team your installed sprite packs can draw (generated trainers fill the
+bracket when fewer than 15 can). Enter with any team of one to six.
+
+- **Seeding**: the opponents are seeded by their best level, the strongest
+  first, in the standard 16-draw: you meet the weakest first, and the
+  strongest (seed 2, on the other half) only in the final.
+- **Each match caps your levels at the opponent's best**, the hard gym rule:
+  a level 100 team meets Brock at 14. Your team is otherwise as you raised it.
+- **Opponents** bring their own teams at their roster levels, with IV 31,
+  their hard-mode training and the smart AI. **They switch in the semi-final
+  and the final** (the AI switching rule above), the rounds where the
+  strongest seeds are.
+- **The other matches are fought in the background** by the real battle
+  engine, AI against AI, so the same pairing can go either way.
+- **PP carries** through the run for you and for every opponent; HP is full
+  every match. **BP**: 3 a win (a placeholder, like the $5,000 fee). Winning
+  the final counts a tournament win on the landing page.
+- **Saved between rounds**, one tournament at a time: CONTINUE plays your next
+  match. A reboot or power cut mid-match is the loss; a team member no longer
+  in the party (or as the live pet) ends the run. QUIT asks twice.
 
 #### The gauntlet (v4.04)
 

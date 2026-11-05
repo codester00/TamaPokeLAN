@@ -39,6 +39,7 @@
 #include "codes.h"
 #include "zone.h"
 #include "gauntlet.h"
+#include "tournament.h"
 #include "settings.h"
 #include "gamecorner.h"
 #include "gamecorner_art.h"
@@ -58,7 +59,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.05"
+#define FW_VERSION "4.06"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -512,7 +513,7 @@ bool plazaOpen = false;   // the PLAZA tile (v4.01); LAN and trading open over i
 // closes with no run on.
 bool zoneOpen = false;
 bool zoneViaCode = false;
-enum : uint8_t { ZM_HOME = 0, ZM_PRIZES, ZM_GAUNT, ZM_RULES };
+enum : uint8_t { ZM_HOME = 0, ZM_PRIZES, ZM_GAUNT, ZM_RULES, ZM_TOUR };
 uint8_t zoneMode = ZM_HOME;
 uint8_t zonePage = 0;
 uint8_t zoneConfirm = 0xFF;   // the prize being asked about, 0xFF none
@@ -533,7 +534,16 @@ bool gauntPendingDaily = false;
 GauntletRules gauntCustom;
 bool gauntQuitArmed = false;
 bool gauntBroken = false;    // the last CONTINUE found the team broken
-#define PICK_ZONE 0xFE       // the team picker, for the gauntlet
+#define PICK_ZONE 0xFE       // the team picker, for a zone format (pickZoneKind)
+uint8_t pickZoneKind = ZONE_GAUNTLET;
+// The tournament (v4.06): its saved run, and QUIT's second tap.
+TourSave tour;
+bool tourQuitArmed = false;
+void tourLoad();
+bool tourBegin(uint16_t mask);
+bool tourNextFight();
+void tourQuit();
+static void tourAfterFight(bool won);
 void gauntLoad();
 bool gauntletBegin(const GauntletRules &r, bool daily, uint16_t mask);
 bool gauntletNextFight();
@@ -1440,6 +1450,7 @@ void setup() {
   pcMigrateBox();
   backfillTransform();
   gauntLoad();          // a run saved mid-battle is the loss (v4.04)
+  tourLoad();           // the same for a tournament (v4.06)
   sdBegin();
   thumbs.load();
 
@@ -6488,7 +6499,8 @@ static uint8_t teamCapFor(const Trainer &t, bool hard) {
 }
 
 uint8_t squadCap(uint8_t idx, bool hard) {
-  if (idx == PICK_ZONE) return gauntPending.size;      // the gauntlet: its rules' size
+  if (idx == PICK_ZONE)                                 // the gauntlet: its rules' size; the tournament: up to six
+    return pickZoneKind == ZONE_TOURNAMENT ? TRAINER_TEAM_MAX : gauntPending.size;
   if (idx >= TRAINER_COUNT) return TRAINER_TEAM_MAX;   // PICK_LAN: uncapped six
   return teamCapFor(PICK_TRAINERS[idx], hard);
 }
@@ -8752,7 +8764,7 @@ void pickGoPos(int *x, int *y) { *x = PICK_GO_X + PICK_BTN_W / 2; *y = PICK_GO_Y
 // A tap on a candidate: in at the back of the order, or out of it.
 void pickToggle(uint8_t n) {
   if (!pickExists(n)) return;
-  if (pickTrainer == PICK_ZONE && !(squadMask & (1 << n)) && !gauntPickEligible(n)) { sfxPlay(SFX_DENY); return; }
+  if (pickTrainer == PICK_ZONE && pickZoneKind == ZONE_GAUNTLET && !(squadMask & (1 << n)) && !gauntPickEligible(n)) { sfxPlay(SFX_DENY); return; }
   uint8_t seq[PARTY_SLOTS + 1];
   uint8_t k = squadSequence(squadMask, seq);   // the order as shown, made explicit
   squadOrderN = 0;
@@ -8846,8 +8858,9 @@ void renderPick() {
     // "HOST BATTLE" / "JOIN BATTLE" already say what this is; no "LAN: " prefix.
     snprintf(head, sizeof(head), "%s", lanWantHost ? T(S_LAN_HOST) : T(S_LAN_JOIN));
   } else if (pickTrainer == PICK_ZONE) {
-    snprintf(head, sizeof(head), "%s", T(S_ZONE_GAUNT));
-    top = gauntPending.levelCap;
+    bool tr = pickZoneKind == ZONE_TOURNAMENT;
+    snprintf(head, sizeof(head), "%s", T(tr ? S_ZONE_TOUR : S_ZONE_GAUNT));
+    top = tr ? 0 : gauntPending.levelCap;
   } else {
     const Trainer &t = PICK_TRAINERS[pickTrainer];
     for (int k = 0; k < t.count; k++)
@@ -8915,6 +8928,14 @@ void pickTap(int16_t x, int16_t y) {
       x >= PICK_GO_X && x <= PICK_GO_X + PICK_BTN_W) {
     uint8_t cap = squadCap(pickTrainer, pickHard);
     if (pickChosen() == 0 || pickChosen() > cap) return;   // GO stays inert
+    if (pickTrainer == PICK_ZONE && pickZoneKind == ZONE_TOURNAMENT) {   // the tournament: any team
+      if (!tourBegin(squadMask)) { sfxPlay(SFX_DENY); return; }
+      sfxPlay(SFX_TAP);
+      pickOpen = false;
+      pickRemember();
+      tourNextFight();
+      return;
+    }
     if (pickTrainer == PICK_ZONE) {         // the gauntlet: the exact size, then the run
       if (pickChosen() != cap || !gauntletBegin(gauntPending, gauntPendingDaily, squadMask)) {
         sfxPlay(SFX_DENY);
@@ -9356,12 +9377,195 @@ void zoneAfterFight(bool won) {
       pet.saveNow();
     }
     if (kind == ZONE_GAUNTLET) gauntAfterFight(won);
+    if (kind == ZONE_TOURNAMENT) tourAfterFight(won);
     if (!won) zoneRunEnd();
-    zoneMode = kind == ZONE_GAUNTLET ? ZM_GAUNT : ZM_HOME;
+    zoneMode = kind == ZONE_GAUNTLET ? ZM_GAUNT : ZM_TOUR;
   } else {
     zoneMode = ZM_HOME;
   }
   zoneOpen = true;
+}
+
+// --- the tournament (v4.06, postgame-plan § 2) ---
+// Sixteen contestants, single elimination, saved between rounds in its own
+// NVS key like the gauntlet. The team is held by creature ID and rebuilt
+// before every match. Each match caps the player's levels at the opponent's
+// best (the hard ladder's rule), so a raised team still has to fight; the
+// other matches of the round are fought in the background by the real engine.
+
+static void tourSave() {
+  Preferences p;
+  if (!p.begin("tamapoke", false)) return;
+  p.putBytes("tour", &tour, sizeof(tour));
+  p.end();
+}
+
+// The run is over: how it ended (the page says so), and the record.
+static void tourEnd(uint8_t result) {
+  if (result == TOUR_RES_CHAMPION && pet.zoneTourWins < 0xFFFF) pet.zoneTourWins++;
+  tour.result = result;
+  tour.resultRound = tour.round;
+  tour.active = 0;
+  tour.fighting = 0;
+  zoneRun.active = false;
+  tourSave();
+  pet.saveNow();
+}
+
+void tourLoad() {
+  Preferences p;
+  TourSave t;
+  if (p.begin("tamapoke", true)) {
+    if (p.getBytesLength("tour") == sizeof(t)) p.getBytes("tour", &t, sizeof(t));
+    p.end();
+  }
+  if (t.magic != TOUR_SAVE_MAGIC) t = TourSave();
+  tour = t;
+  if (tour.active && tour.fighting) tourEnd(TOUR_RES_OUT);   // the power went mid-battle: the loss
+}
+
+// A run member by ID, its level capped at `cap` (0: none), as it is now.
+static bool tourMember(const CreatureUid &u, uint8_t cap, Combatant &out) {
+  if (!u.valid()) return false;
+  if (!pet.isEgg() && pet.uid == u) {
+    Pet tmp = pet;
+    if (cap && tmp.level() > cap) tmp.ageMinutes = (uint32_t)(cap - 1) * MINUTES_PER_LEVEL;
+    combatantFromPet(out, tmp);
+  } else {
+    int at = -1;
+    for (int i = 0; i < PARTY_SLOTS; i++) if (!party.slots[i].empty() && party.slots[i].uid == u) at = i;
+    if (at < 0) return false;
+    PartyMon m = party.slots[at];
+    if (cap && m.level > cap) m.level = cap;
+    combatantFromParty(out, m);
+  }
+  out.ppOn = !cheatOn(CT_UNLIMITED_PP);
+  return true;
+}
+
+// A contestant's team as Combatants, its PP as it has used it.
+static uint8_t tourTeam(uint8_t at, uint8_t round, Combatant *team, ZoneFoe *as) {
+  ZoneFoe f;
+  if (!tourFoe(tour.bracket[at], round, tour.seed, AVATAR_COUNT, f)) return 0;
+  if (!(tour.bracket[at] & TOUR_GEN) && f.name[0] == 0) return 0;
+  if (tour.bracket[at] & TOUR_GEN) snprintf(f.name, sizeof(f.name), "%s", AVATARS[f.avatar % AVATAR_COUNT].name);
+  for (uint8_t k = 0; k < f.count; k++) {
+    zoneFoeMon(team[k], f.dex[k], f.level[k], f.iv, f.tr);
+    battleFullPp(team[k]);
+    for (uint8_t m = 0; m < MOVE_SLOTS; m++)
+      team[k].pp[m] = tour.oppUsed[at][k][m] >= team[k].pp[m] ? 0 : (uint8_t)(team[k].pp[m] - tour.oppUsed[at][k][m]);
+  }
+  if (as) *as = f;
+  return f.count;
+}
+
+static void tourKeepPp(uint8_t at, const Combatant *team, uint8_t n) {
+  for (uint8_t k = 0; k < n && k < 6; k++) {
+    Combatant full = battleStored(team[k]);
+    Combatant mx = full;
+    battleFullPp(mx);
+    for (uint8_t m = 0; m < MOVE_SLOTS; m++)
+      tour.oppUsed[at][k][m] = mx.pp[m] > full.pp[m] ? (uint8_t)(mx.pp[m] - full.pp[m]) : 0;
+  }
+}
+
+// Every other match of this round, AI against AI, by the real engine.
+static void tourPlayRound() {
+  uint8_t idx[TOUR_SIZE], n = 0;
+  for (uint8_t i = 0; i < TOUR_SIZE; i++) if (tour.alive & (1u << i)) idx[n++] = i;
+  for (uint8_t p = 0; p + 1 < n; p += 2) {
+    uint8_t a = idx[p], b = idx[p + 1];
+    if (tour.bracket[a] == TOUR_PLAYER || tour.bracket[b] == TOUR_PLAYER) continue;
+    static Combatant ta[TRAINER_TEAM_MAX], tb[TRAINER_TEAM_MAX];
+    uint8_t na = tourTeam(a, tour.round, ta, nullptr), nb = tourTeam(b, tour.round, tb, nullptr);
+    uint8_t loser;
+    if (!na || !nb) loser = na ? b : a;
+    else {
+      bool sw = tourSwitches(tour.round);
+      loser = battleSimulate(ta, na, tb, nb, true, sw, sw) == 0 ? b : a;
+      if (loser == b) tourKeepPp(a, ta, na); else tourKeepPp(b, tb, nb);
+    }
+    tour.alive &= (uint16_t)~(1u << loser);
+  }
+}
+
+// Enters: any team of one to six (the fee through zoneRunBegin()), and the draw.
+bool tourBegin(uint16_t mask) {
+  if (tour.active || zoneRun.active) return false;
+  if (!zoneRunBegin(ZONE_TOURNAMENT, mask)) return false;
+  tour = TourSave();
+  tour.active = 1;
+  tour.seed = (uint32_t)random(1, 0x7FFFFFFF);
+  tourDraw(tour.seed, tour.bracket);
+  tour.alive = 0xFFFF;
+  tour.n = zoneRun.n;
+  for (uint8_t i = 0; i < zoneRun.n && i < 6; i++) {
+    tour.uid[i] = zoneRun.team[i].uid;
+    memcpy(tour.pp[i], zoneRun.pp[i], sizeof(tour.pp[i]));
+  }
+  tourQuitArmed = false;
+  tourSave();
+  return true;
+}
+
+// The player's next match: the team rebuilt at the opponent's best level,
+// the PP the run has left; `fighting` saved before the battle opens.
+bool tourNextFight() {
+  if (!tour.active) return false;
+  int8_t opp = tourPlayerOpponent(tour);
+  if (opp < 0) { tourEnd(TOUR_RES_OUT); return false; }
+  static Combatant foeTeam[TRAINER_TEAM_MAX];
+  ZoneFoe f;
+  uint8_t nf = tourTeam((uint8_t)opp, tour.round, foeTeam, &f);
+  if (!nf) { tourEnd(TOUR_RES_OUT); return false; }
+  uint8_t cap = 1;
+  for (uint8_t k = 0; k < f.count; k++) if (f.level[k] > cap) cap = f.level[k];
+  zoneRun.n = 0;
+  for (uint8_t i = 0; i < tour.n; i++) {
+    Combatant c;
+    if (!tourMember(tour.uid[i], cap, c)) { tourEnd(TOUR_RES_BROKEN); return false; }
+    battleFullPp(c);
+    for (int k = 0; k < MOVE_SLOTS; k++) if (tour.pp[i][k] < c.pp[k]) c.pp[k] = tour.pp[i][k];
+    zoneRun.team[zoneRun.n] = c;
+    memcpy(zoneRun.pp[zoneRun.n], c.pp, sizeof(c.pp));
+    zoneRun.n++;
+  }
+  zoneRun.active = true;
+  zoneRun.kind = ZONE_TOURNAMENT;
+  tour.fighting = 1;
+  tourSave();
+  if (!zoneStartFight(f)) return false;
+  for (uint8_t k = 0; k < btlFoeSquadN && k < nf; k++) memcpy(btlFoeSquad[k].pp, foeTeam[k].pp, sizeof(foeTeam[k].pp));
+  btlFoe = btlFoeSquad[0];
+  return true;
+}
+
+static void tourAfterFight(bool won) {
+  if (!tour.active) return;
+  tour.fighting = 0;
+  if (!won) { tourEnd(TOUR_RES_OUT); return; }
+  for (uint8_t i = 0; i < zoneRun.n && i < 6; i++) memcpy(tour.pp[i], zoneRun.pp[i], sizeof(tour.pp[i]));
+  int8_t opp = tourPlayerOpponent(tour);
+  tourPlayRound();                         // pairs the round as it stood, so before...
+  if (opp > 0) tour.alive &= (uint16_t)~(1u << opp);   // ...the player's opponent goes
+  if (tour.round + 1 >= TOUR_ROUNDS) { tourEnd(TOUR_RES_CHAMPION); return; }
+  tour.round++;
+  tourQuitArmed = false;
+  tourSave();
+}
+
+void tourQuit() {
+  if (!tour.active) return;
+  tourEnd(TOUR_RES_OUT);
+}
+
+static void tourOpenPicker() {
+  pickTrainer = PICK_ZONE;
+  pickZoneKind = ZONE_TOURNAMENT;
+  pickHard = false;
+  pickPage = 0;
+  pickDefault(TRAINER_TEAM_MAX);
+  pickOpen = true;
 }
 
 // --- the gauntlet (v4.04, postgame-plan § 3) ---
@@ -9537,6 +9741,7 @@ static void gauntOpenPicker(const GauntletRules &r, bool daily) {
   gauntPending = r;
   gauntPendingDaily = daily;
   pickTrainer = PICK_ZONE;
+  pickZoneKind = ZONE_GAUNTLET;
   pickHard = false;
   pickPage = 0;
   pickDefault(r.size);
@@ -9723,7 +9928,51 @@ static void renderGauntRules() {
   gfx->flush();
 }
 
+static void renderTour() {
+  zoneHeader(T(S_ZONE_TOUR));
+  char l[48], sm[32];
+  gfx->setTextSize(1);
+  if (!tour.active && tour.result == TOUR_RES_CHAMPION) {
+    gfx->setTextColor(UI_BAR_OK);
+    snprintf(l, sizeof(l), "%s", T(S_TOUR_CHAMP));
+  } else if (!tour.active && tour.result == TOUR_RES_BROKEN) {
+    gfx->setTextColor(UI_BAR_BAD);
+    snprintf(l, sizeof(l), "%s", T(S_GT_BROKEN));
+  } else if (!tour.active && tour.result == TOUR_RES_OUT) {
+    gfx->setTextColor(UI_BAR_BAD);
+    snprintf(l, sizeof(l), "%s: %s", T(S_TOUR_OUT), T((StrId)(S_TOUR_R0 + (tour.resultRound & 3))));
+  } else {
+    gfx->setTextColor(UI_INK_SOFT);
+    snprintf(l, sizeof(l), T(S_ZONE_WINS_FMT), (unsigned)pet.zoneTourWins);
+  }
+  gfx->setCursor(CX - (int)strlen(l) * 3, 110);
+  gfx->print(l);
+  snprintf(l, sizeof(l), T(S_GT_FEE_FMT), (unsigned long)ZONE_FEE[ZONE_TOURNAMENT]);
+  gfx->setTextColor(UI_INK_SOFT);
+  gfx->setCursor(CX - (int)strlen(l) * 3, 126);
+  gfx->print(l);
+  if (tour.active) {
+    int8_t opp = tourPlayerOpponent(tour);
+    ZoneFoe f;
+    char nm[16] = "?";
+    if (opp > 0 && tourFoe(tour.bracket[opp], tour.round, tour.seed, AVATAR_COUNT, f))
+      snprintf(nm, sizeof(nm), "%s", (tour.bracket[opp] & TOUR_GEN) ? AVATARS[f.avatar % AVATAR_COUNT].name : f.name);
+    snprintf(l, sizeof(l), T(S_TOUR_VS_FMT), nm);
+    zoneRow(0, l, T((StrId)(S_TOUR_R0 + (tour.round & 3))), true);
+    uint8_t left = 0;
+    for (uint8_t i = 0; i < TOUR_SIZE; i++) if (tour.alive & (1u << i)) left++;
+    snprintf(sm, sizeof(sm), T(S_TOUR_LEFT_FMT), (unsigned)left);
+    zoneRow(1, sm, nullptr, false);
+    zoneRow(2, tourQuitArmed ? T(S_LEAGUE_SURE) : T(S_GT_QUIT), nullptr, true);
+  } else {
+    zoneRow(0, T(S_TOUR_ENTER), nullptr, true);
+  }
+  uiChrome();
+  gfx->flush();
+}
+
 void renderZone() {
+  if (zoneMode == ZM_TOUR) { renderTour(); return; }
   if (zoneMode == ZM_GAUNT) { renderGauntlet(); return; }
   if (zoneMode == ZM_RULES) { renderGauntRules(); return; }
   if (zoneMode == ZM_PRIZES) {
@@ -9771,7 +10020,7 @@ void renderZone() {
   for (uint8_t r = 0; r < ZONE_ROWS; r++) {
     int x, y, w, h;
     zoneRowRect(r, &x, &y, &w, &h);
-    bool live = r != 0;                  // the tournament comes in step 5
+    bool live = true;
     gfx->fillRoundRect(x, y, w, h, 12, UI_BG_DAY);
     gfx->drawRoundRect(x, y, w, h, 12, live ? UI_INK : UI_TRACK);
     gfx->setTextColor(live ? UI_INK : UI_TRACK);
@@ -9844,9 +10093,28 @@ void zoneTap(int16_t x, int16_t y) {
     }
     return;
   }
+  if (zoneMode == ZM_TOUR) {
+    if (tour.active) {
+      if (r == 0) {
+        tourQuitArmed = false;
+        sfxPlay(tourNextFight() ? SFX_TAP : SFX_DENY);   // a broken team ends the run
+      } else if (r == 2) {
+        sfxPlay(SFX_TAP);
+        if (!tourQuitArmed) tourQuitArmed = true;
+        else { tourQuitArmed = false; tourQuit(); }
+      }
+      return;
+    }
+    if (r == 0) {
+      if (pet.wallet < ZONE_FEE[ZONE_TOURNAMENT]) { sfxPlay(SFX_DENY); return; }
+      sfxPlay(SFX_TAP);
+      tourOpenPicker();
+    }
+    return;
+  }
+  if (r == 0) { sfxPlay(SFX_TAP); zoneMode = ZM_TOUR; tourQuitArmed = false; return; }
   if (r == 1) { sfxPlay(SFX_TAP); zoneMode = ZM_GAUNT; gauntQuitArmed = false; return; }
   if (r == 2) { sfxPlay(SFX_TAP); zoneMode = ZM_PRIZES; zonePage = 0; return; }
-  sfxPlay(SFX_DENY);                     // TOURNAMENT: not built yet
 }
 
 // Down, one level: a question, then the prizes, then out to the PLAZA (where
@@ -9854,7 +10122,9 @@ void zoneTap(int16_t x, int16_t y) {
 void zoneBack() {
   if (zoneConfirm != 0xFF) { zoneConfirm = 0xFF; return; }
   if (zoneMode == ZM_RULES) { zoneMode = ZM_GAUNT; return; }
-  if (zoneMode == ZM_PRIZES || zoneMode == ZM_GAUNT) { zoneMode = ZM_HOME; gauntQuitArmed = false; return; }
+  if (zoneMode == ZM_PRIZES || zoneMode == ZM_GAUNT || zoneMode == ZM_TOUR) {
+    zoneMode = ZM_HOME; gauntQuitArmed = tourQuitArmed = false; return;
+  }
   zoneOpen = false;
   if (!zoneRun.active) zoneViaCode = false;
 }

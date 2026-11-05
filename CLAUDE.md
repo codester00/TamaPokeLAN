@@ -948,6 +948,40 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the tournament (v4.06)
+
+Step 5 of `docs/postgame-plan.md` § 6. `tour_test`; guards negative-checked.
+Decisions made for the owner, theirs to overrule:
+
+- **Levels capped at each opponent's best** (the hard ladder's rule), so a
+  raised team is not a walkover; any team of 1-6, no team-size cap.
+- **Switching in the semi-final and the final** (`tourSwitches(round)`,
+  round >= 2), for opponents in the player's matches AND the background ones.
+- **Seeding by best level** (`tourBestLevel()`), standard 16 draw (`SEED_AT`):
+  the player is seed 1, so seed 2 -- the strongest opponent -- is met only in
+  the final.
+
+The code:
+
+- **`tournament.cpp/.h`** are the rules, no screen: `tourDraw(seed, out)` (15
+  distinct seats at random from `tourSeatDrawable()` -- every team member
+  `speciesShowable()` -- then generated fillers `TOUR_GEN | k` from the
+  gauntlet's builder at `TOUR_GEN_ROUND`/`TOUR_GEN_LEVEL`), `tourFoe()` (a
+  seat's own team, IV 31, `hardTraining()`, smart), `tourPlayerOpponent()`.
+- **`battleSimulate()`** (battle.cpp) is a whole AI-vs-AI battle by the real
+  engine with no screen: `aiChooseMove(smart)`, replacements by matchup,
+  `aiSwitchTarget()` when switching is on, `BATTLE_SIM_TURNS` 400 then HP left
+  decides. The teams change in place, so PP carries.
+- **`TourSave tour`**, NVS key `tour` (`SAVE_FIELDS`, tpsave.py): the bracket,
+  the alive mask, the round, the team by `CreatureUid` and its PP, every
+  contestant's PP USED (`oppUsed`, 0 = full), how the last run ended.
+  `fighting` saved before the battle (`tourNextFight()`), `tourLoad()` at boot
+  treats it as the loss. **`tourAfterFight()` plays the rest of the round
+  (`tourPlayRound()`) BEFORE removing the player's opponent**: the pairs are
+  consecutive survivors, and removing first shifted every pair after it.
+- **Screens**: `ZM_TOUR` (ENTER, or VS <name> / the round / N LEFT / QUIT),
+  the picker's `pickZoneKind` (`ZONE_TOURNAMENT`: up to six, no rules).
+
 ### Done: AI switching in the zone (v4.05)
 
 Step 3 of `docs/postgame-plan.md` § 6. `aiswitch_test`; seven guards

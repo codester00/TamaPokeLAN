@@ -543,3 +543,66 @@ int8_t aiSwitchTarget(const Combatant team[], uint8_t n, uint8_t at, const Comba
   }
   return best;
 }
+
+// The next creature by matchup against `foe`, among the standing ones
+// (battleMatchScore x 8 + level, as the zone's replacements are picked).
+static int8_t simNext(const Combatant *t, uint8_t n, uint8_t at, const Combatant &foe) {
+  int8_t best = -1;
+  int bestScore = -100000;
+  for (uint8_t k = 0; k < n; k++) {
+    if (k == at || t[k].fainted()) continue;
+    int sc = battleMatchScore(t[k].dex, foe.dex) * 8 + t[k].level;
+    if (sc > bestScore) { bestScore = sc; best = (int8_t)k; }
+  }
+  return best;
+}
+
+static uint32_t simHpPermille(const Combatant *t, uint8_t n) {
+  uint32_t hp = 0, mx = 0;
+  for (uint8_t k = 0; k < n; k++) { hp += t[k].hp; mx += t[k].maxHp; }
+  return mx ? hp * 1000 / mx : 0;
+}
+
+uint8_t battleSimulate(Combatant *a, uint8_t na, Combatant *b, uint8_t nb,
+                       bool smart, bool swA, bool swB) {
+  int8_t ia = a[0].fainted() ? battleNextStanding(a, na, 0) : 0;
+  int8_t ib = b[0].fainted() ? battleNextStanding(b, nb, 0) : 0;
+  if (ia < 0) return 1;
+  if (ib < 0) return 0;
+  uint8_t coolA = 0, coolB = 0;
+  TurnLog lg;
+  for (int turn = 0; turn < BATTLE_SIM_TURNS; turn++) {
+    uint8_t ma = 0, mb = 0;
+    // a switch is that side's turn
+    int8_t ta = -1, tb = -1;
+    if (swA && coolA >= AI_SWITCH_COOLDOWN && !a[ia].charging && !a[ia].recharge)
+      ta = aiSwitchTarget(a, na, (uint8_t)ia, b[ib]);
+    if (swB && coolB >= AI_SWITCH_COOLDOWN && !b[ib].charging && !b[ib].recharge)
+      tb = aiSwitchTarget(b, nb, (uint8_t)ib, a[ia]);
+    if (ta >= 0) { a[ia] = battleStored(a[ia]); ia = ta; coolA = 0; }
+    if (tb >= 0) { b[ib] = battleStored(b[ib]); ib = tb; coolB = 0; }
+    if (ta < 0) ma = aiChooseMove(a[ia], b[ib], smart);
+    if (tb < 0) mb = aiChooseMove(b[ib], a[ia], smart);
+    Combatant &ca = a[ia], &cb = b[ib];
+    bool aFirst = battleMovesFirst(ca, ma, cb, mb);
+    Combatant &x = aFirst ? ca : cb, &y = aFirst ? cb : ca;
+    battleAct(x, y, aFirst ? ma : mb, lg);
+    if (!y.fainted() && !x.fainted()) battleAct(y, x, aFirst ? mb : ma, lg);
+    if (!ca.fainted() && !cb.fainted()) { battleEndTurn(ca, lg); battleEndTurn(cb, lg); }
+    if (coolA < 255) coolA++;
+    if (coolB < 255) coolB++;
+    if (ca.fainted()) {
+      a[ia] = battleStored(ca);
+      int8_t nx = simNext(a, na, (uint8_t)ia, b[ib]);
+      if (nx < 0) return 1;
+      ia = nx; coolA = 0;
+    }
+    if (b[ib].fainted()) {
+      b[ib] = battleStored(b[ib]);
+      int8_t nx = simNext(b, nb, (uint8_t)ib, a[ia]);
+      if (nx < 0) return 0;
+      ib = nx; coolB = 0;
+    }
+  }
+  return simHpPermille(a, na) >= simHpPermille(b, nb) ? 0 : 1;
+}

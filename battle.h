@@ -147,3 +147,14 @@ int battleMatchScore(int16_t c, int16_t p);
 #define AI_SWITCH_MARGIN 100
 #define AI_SWITCH_COOLDOWN 3
 int8_t aiSwitchTarget(const Combatant team[], uint8_t n, uint8_t at, const Combatant &foe);
+
+// A whole battle between two AI teams, fought by the real engine with no
+// screen (v4.06: the tournament's other matches). Each side picks its moves
+// with aiChooseMove(smart), its replacement by matchup, and switches through
+// aiSwitchTarget() when its sw flag is set (held AI_SWITCH_COOLDOWN turns).
+// The teams are changed in place (HP, PP), so PP used carries. Returns 0 if
+// side A wins, 1 if B; past BATTLE_SIM_TURNS the side with more of its total
+// HP left wins (a stall must still end).
+#define BATTLE_SIM_TURNS 400
+uint8_t battleSimulate(Combatant *a, uint8_t na, Combatant *b, uint8_t nb,
+                       bool smart, bool swA, bool swB);
