@@ -9314,7 +9314,7 @@ void renderPlaza() {
     int x, y, w, h;
     plazaBtnRect(i, &x, &y, &w, &h);
     bool live = (i == PLAZA_LAN || i == PLAZA_TRADE || i == PLAZA_HALL || (i == PLAZA_ZONE && zoneUnlocked()));
-    gfx->fillRoundRect(x, y, w, h, 12, live ? (i == PLAZA_TRADE ? UI_BAR_WARN : UI_BG_DAY) : UI_BG_DAY);
+    gfx->fillRoundRect(x, y, w, h, 12, UI_BG_DAY);   // every cell alike (v4.11: TRADE was yellow)
     gfx->drawRoundRect(x, y, w, h, 12, live ? UI_INK : UI_TRACK);
     gfx->setTextColor(live ? UI_INK : UI_TRACK);
     plazaLabel(T(NAME[i]), x, y, w, live ? y + h / 2 : y + h / 2 - 8);
