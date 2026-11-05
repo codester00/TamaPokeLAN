@@ -586,9 +586,10 @@ slot by itself, or, with all four full, the "forget a move?" offer -- and not at
 all while it still knows SKETCH, since no creature learns a move it knows. Used
 in a fight, SKETCH turns into the move the opponent used last, with that move's
 full PP, **for good**: the creature keeps it after the fight, saved on the spot,
-and its other moves are untouched. It fails -- and still spends its 1 PP -- if
-the opponent has not moved yet, used STRUGGLE or SKETCH, or the move is one
-SMEARGLE already knows. It works in LAN battles too: the host resolves it and the
+and its other moves are untouched. It fails if the opponent has not moved yet,
+used STRUGGLE or SKETCH, or the move is one SMEARGLE already knows -- and
+**a failed SKETCH keeps its 1 PP** (since v4.04), so it can be tried again
+next turn. It works in LAN battles too: the host resolves it and the
 guest's board keeps the move. A wild SMEARGLE meets you with four random moves
 from the whole list (at least one attack) and keeps them if caught; no trainer
 uses one.

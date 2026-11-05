@@ -298,7 +298,13 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   if (m.effect == EF_SKETCH) {
     uint8_t t = battleSketchTarget(atk, def);
     atk.lastMove = mv;
-    if (!t || slot < 0) { log.failed = true; return; }
+    if (!t || slot < 0) {
+      // A SKETCH with nothing to copy keeps its PP (owner, v4.04): it fails,
+      // and the one PP it has is still there for the next turn.
+      if (slot >= 0 && atk.ppOn && atk.moves[slot] == MV_SKETCH) atk.pp[slot]++;
+      log.failed = true;
+      return;
+    }
     atk.moves[slot] = t;
     atk.pp[slot] = ppMaxFor(t, ppUpsAt(atk.ppUps, slot));   // the slot keeps its PP Ups
     log.sketched = t;

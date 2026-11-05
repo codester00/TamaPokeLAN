@@ -90,16 +90,16 @@ int main() {
     battleAct(a, b, MV_SKETCH, lg);
     ck(lg.failed && !lg.sketched && a.moves[0] == MV_SKETCH && a.moves[1] == MV_SKETCH,
        "a SKETCH before the foe has moved fails");
-    ck(a.pp[0] == 0 && a.pp[1] == 1, "and spends that one slot's PP");
+    ck(a.pp[0] == 1 && a.pp[1] == 1, "and keeps its PP: a failed SKETCH spends none (v4.04)");
     battleAct(b, a, MV_FLAMETHROWER, lg);
     ck(b.lastMove == MV_FLAMETHROWER, "a creature remembers the move it used");
     battleAct(a, b, MV_SKETCH, lg);
-    ck(lg.sketched == MV_FLAMETHROWER && lg.sketchSlot == 1 && a.moves[1] == MV_FLAMETHROWER,
-       "the next SKETCH -- from the slot with PP left -- becomes the foe's last move");
-    ck(a.pp[1] == ppMax(MV_FLAMETHROWER), "with that move's full PP");
-    a.pp[0] = 1;
+    ck(lg.sketched == MV_FLAMETHROWER && lg.sketchSlot == 0 && a.moves[0] == MV_FLAMETHROWER,
+       "the next SKETCH -- the same slot, its PP kept -- becomes the foe's last move");
+    ck(a.pp[0] == ppMax(MV_FLAMETHROWER), "with that move's full PP");
     battleAct(a, b, MV_SKETCH, lg);
-    ck(lg.failed && a.moves[0] == MV_SKETCH, "a move it already knows cannot be copied again");
+    ck(lg.failed && a.moves[1] == MV_SKETCH && a.pp[1] == 1,
+       "a move it already knows cannot be copied again, and that costs no PP either");
     b.lastMove = MV_STRUGGLE;
     ck(!battleSketchTarget(a, b), "STRUGGLE cannot be copied");
     b.lastMove = MV_SKETCH;
