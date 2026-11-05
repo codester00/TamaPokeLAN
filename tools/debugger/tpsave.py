@@ -59,6 +59,7 @@ SAVE_FIELDS = [
     ("zone", SK_BYTES),   # v4.03: Battle Zone BP, tournaments won, best streak (u16 each)
     ("gnt", SK_BYTES),    # v4.04: the saved gauntlet run (GauntletSave in gauntlet.h)
     ("tour", SK_BYTES),   # v4.06: the saved tournament (TourSave in tournament.h)
+    ("bhall", SK_BYTES),  # v4.07: the saved Battle Hall run (HallSave in hall.h)
     ("party", SK_BYTES), ("box", SK_BYTES), ("bag", SK_BYTES),
     ("rivals", SK_BYTES),
     ("lang", SK_U8), ("snd", SK_BOOL), ("vol", SK_U8),
@@ -120,7 +121,7 @@ FRIENDLY_NAMES = {
     "uid": "Creature ID (board MAC - boot salt - serial)",
     "uidMac": "ID: board it started on (MAC)", "uidSalt": "ID: boot salt",
     "uidSerial": "ID: serial (0 = no ID yet)",
-    "flags": "Flags (1 = evolves by trade when next raised)",
+    "flags": "Flags (1 = evolves by trade when next raised, 2 = changed by a cheat, 4 = cleared the Battle Hall)",
     "tradeEvo": "Evolves by trade when raised",
     "unattended": "Awake minutes since last FULLY cared for (8-hour window = 480; v3.34)",
     "petStep": "Petting worn out: 0 = fresh (+10 joy) .. 5 = no effect until a joy game (v3.34)",
@@ -146,6 +147,7 @@ FRIENDLY_NAMES = {
     "zone": "Battle Zone (v4.03): BP, tournaments won, gauntlet best streak, u16 little-endian each",
     "gnt": "the saved gauntlet run (v4.04): GauntletSave in gauntlet.h; a run saved mid-battle loads as a loss",
     "tour": "the saved tournament (v4.06): TourSave in tournament.h; a run saved mid-battle loads as a loss",
+    "bhall": "the Battle Hall (v4.07): HallSave in hall.h -- the run, its creature ID, runs cleared; a run saved mid-battle loads as a loss",
     "lang": "Language index", "snd": "Sound enabled", "vol": "Volume (0-10)",
 }
 

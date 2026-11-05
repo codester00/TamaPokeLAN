@@ -48,6 +48,7 @@ const SaveField SAVE_FIELDS[] = {
   { "zone", SK_BYTES },   // the Battle Zone (v4.03): BP, tournaments won, best streak
   { "gnt", SK_BYTES },    // the saved gauntlet run (v4.04, GauntletSave)
   { "tour", SK_BYTES },   // the saved tournament (v4.06, TourSave)
+  { "bhall", SK_BYTES },  // the saved Battle Hall run and its clears (v4.07, HallSave)
   { "ldry", SK_U8 },      // farewell eggs since a legendary (v3.56, secret)
   { "lstk", SK_U8 },
   { "stng", SK_U16 },     // the hidden settings (v3.59)
@@ -81,7 +82,8 @@ const uint16_t SAVE_FIELD_COUNT = sizeof(SAVE_FIELDS) / sizeof(SAVE_FIELDS[0]);
 #define MAX_VAL (sizeof(PartyMon) * BOX_SLOTS)
 #include "gauntlet.h"
 #include "tournament.h"
-static_assert(sizeof(TourSave) <= MAX_VAL && sizeof(GauntletSave) <= MAX_VAL,
+#include "hall.h"
+static_assert(sizeof(TourSave) <= MAX_VAL && sizeof(GauntletSave) <= MAX_VAL && sizeof(HallSave) <= MAX_VAL,
               "a zone run must fit one backed-up value");
 
 static uint16_t crcStep(uint16_t c, uint8_t byte) {

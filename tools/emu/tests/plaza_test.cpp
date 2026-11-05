@@ -1,5 +1,5 @@
 // The PLAZA tile (v4.01): LAN BATTLE and LAN TRADE moved off the gym screens
-// to it, and the Battle Hall and Battle Zone wait there. Driven through the
+// to it, the Battle Hall opens over it and the Battle Zone waits there. Driven through the
 // firmware's own taps and swipes: each LAN screen opens OVER the PLAZA and
 // leaving it comes back there, the two that are not built do nothing, and the
 // Zone's row names its gate until every champion is beaten.
@@ -71,7 +71,9 @@ int main() {
   ck(!strcmp(scr(), "plaza"), "and leaving it comes back to the PLAZA");
 
   tapBtn(2);
-  ck(!strcmp(scr(), "plaza"), "the Battle Hall is not built: a tap stays");
+  ck(!strcmp(scr(), "bhall"), "BATTLE HALL opens the Hall (v4.07), for everyone");
+  onSwipeV(1);
+  ck(!strcmp(scr(), "plaza"), "and leaving it comes back to the PLAZA");
   tapBtn(3);
   ck(!strcmp(scr(), "plaza"), "nor the Battle Zone");
 

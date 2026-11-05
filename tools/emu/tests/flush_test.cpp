@@ -34,7 +34,7 @@ extern uint8_t cardPage;
 extern uint8_t partyDetail; extern uint16_t boxDetail;
 extern bool boxOpen, releaseConfirm;
 extern bool pcOpen, pcPick, jumpOpen; extern int16_t pcSpecies;
-extern bool leagueOpen, battleOpen, plazaOpen, zoneOpen;
+extern bool leagueOpen, battleOpen, plazaOpen, zoneOpen, bhallOpen;
 extern uint8_t zoneMode; extern uint16_t squadMask;
 void startTrainerBattle(uint8_t idx, bool hard); void leagueEnd(); int leagueNext();
 extern bool bagOpen;
@@ -129,6 +129,7 @@ int main(){
   clearAll(); plazaOpen=true; zoneOpen=true; zoneMode=3; check("gauntlet rules"); crumbIs("zone");
   clearAll(); plazaOpen=true; zoneOpen=true; zoneMode=4; check("tournament"); crumbIs("zone");
   zoneMode=1; check("zone prizes"); zoneOpen=false; zoneMode=0; plazaOpen=false;
+  clearAll(); plazaOpen=true; bhallOpen=true; check("battle hall"); crumbIs("bhall"); bhallOpen=false; plazaOpen=false;
   {                                 // the League screen (v3.94): a run on, between fights
     clearAll();
     for (uint8_t i = 0; i < TRAINER_COUNT - TRAINER_ELITE4 - 1; i++) pet.winBadge(0, i, false);

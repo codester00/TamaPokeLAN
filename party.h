@@ -126,6 +126,7 @@ struct PartyMon {
 static_assert(sizeof(PartyMon) == 64, "PartyMon layout changed -- see the comment above");
 #define PMON_TRADE_EVO 0x01
 #define PMON_CHEATED   0x02   // a cheat changed this creature (cheats.h); never cleared
+#define PMON_HALL      0x04   // cleared all 18 types of the Battle Hall (hall.h, v4.07); never cleared
 
 class Party {
 public:

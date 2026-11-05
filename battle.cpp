@@ -22,6 +22,7 @@ void combatantFromPet(Combatant &c, const Pet &p) {
   for (int i = 0; i < MOVE_SLOTS; i++) c.moves[i] = p.moves[i];
   c.shiny = p.shiny;
   c.cheated = p.cheated;
+  c.hall = p.hallMark;
   const char *nm = p.nick[0] ? p.nick : DEX_TBL[p.speciesId].name;
   snprintf(c.name, sizeof(c.name), "%s", nm);
   // PP starts full; the player's side then reads what is left from the PP
@@ -38,6 +39,7 @@ void combatantFromParty(Combatant &c, const PartyMon &m) {
   for (int i = 0; i < MOVE_SLOTS; i++) c.moves[i] = m.moves[i];
   c.shiny = m.shiny != 0;
   c.cheated = (m.flags & PMON_CHEATED) != 0;
+  c.hall = (m.flags & PMON_HALL) != 0;
   const char *nm = m.nick[0] ? m.nick : DEX_TBL[m.dex].name;
   snprintf(c.name, sizeof(c.name), "%s", nm);
   // PP starts full; the player's side then reads what is left from the PP

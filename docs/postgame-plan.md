@@ -210,6 +210,6 @@ them.
 3. **DONE (v4.05)** AI switching (upper tiers only). NOT yet measured with `league_sim`: the rule's numbers are placeholders.
 4. **DONE (v4.04)** The gauntlet: the team generator, rules, scaling, daily, saving.
 5. **DONE (v4.06)** The tournament: the draw, seeding, fill, background matches, its PP.
-6. The Hall (normal play).
+6. **DONE (v4.07)** The Hall (normal play).
 7. The new prizes: signature moves, PP Max, Bottle Cap.
 8. Later: rental teams.

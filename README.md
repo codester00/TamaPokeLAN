@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.06-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.07-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -206,6 +206,16 @@ Berry Catch raises joy and bond instead — see § Actions below.
 One creature for one, from the PLAZA's **LAN TRADE** button. If the boards lose
 each other mid-trade, each screen says what its board holds and counts down
 while it keeps trying — see § Trading in the manual below.
+
+### The Battle Hall
+
+| The Hall |
+|---|
+| <img src="docs/screens/bhall.png" width="240"> |
+
+On the PLAZA, open to everyone: your live pet alone against one creature of
+each of the 18 types, a rung at a time. Clear all 18 and it is marked HALL
+CHAMPION for good. See § The Battle Hall in the manual below.
 
 ### The Battle Zone (post-game)
 
@@ -1367,6 +1377,32 @@ keyed by their device, not their typed name, so renaming doesn't reset the
 score — and shown on the pairing screen the next time you two fight.
 Each player chooses their own replacement after a faint; the board with
 nothing to choose waits. Since v4.02 both boards need v4.02 or later.
+
+### The Battle Hall
+
+Part of normal play (v4.07), from the PLAZA's **BATTLE HALL** button. Your
+**live pet alone**, 1 on 1, against one creature of **each of the 18 types**,
+a rung at a time, in an order shuffled for each run.
+
+- **The foe** is a drawable, non-legendary species of the rung's type, drawn
+  from the 6 of that type nearest your pet's species in base-stat total.
+- **It starts below your pet and climbs**: the first rung is 3 levels under,
+  IV 8, no training and the simple AI; a level comes back every three rungs
+  (level with your pet from rung 10), IVs rise to 31 and training to 100 by
+  the 18th, and the smart AI fights from rung 7.
+- **Each fight costs 10 energy**; with less, the Hall waits (a tired pet
+  rests, and the run is still there). It uses your pet's **real PP**, as a gym
+  fight does, so a nap between sittings refills it. No items.
+- **Pay**: a little money a rung -- 4 x the foe's level x 8, plus a point
+  every three rungs (Gen 3's prize rule with a route trainer's class, against a
+  gym leader's 25).
+- **Saved between rungs**, for as long as you like. A loss, a reboot mid-fight,
+  or **changing your live pet** ends the run; QUIT asks twice. A loss never
+  blacks out.
+- **Clear all 18 and the creature is marked HALL CHAMPION** on its card and
+  sheet, and with a gold star on its battle plate. The mark is for good: it
+  stays when it is banked, in Bill's PC, traded (both boards need v4.07) and in
+  LAN fights, where the rival sees it. The Hall counts the runs you clear.
 
 ### The Battle Zone
 

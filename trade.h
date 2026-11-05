@@ -66,7 +66,7 @@
 // boards in one process, packets dropped and duplicated on purpose, and a
 // power cut at every single durable write. Only the radio is unverifiable here.
 
-#define TRADE_PROTO 4   // 4, v3.92: reserved[1] carries PP Ups; 3, v3.83: reserved[0] Meltan's walk
+#define TRADE_PROTO 5   // 5, v4.07: flags may carry PMON_HALL; 4, v3.92: reserved[1] carries PP Ups; 3, v3.83: reserved[0] Meltan's walk
 #define TRADE_NAME_LEN 12
 #define TRADE_LOG_CAP 8
 #define TRADE_RESEND_MS 400

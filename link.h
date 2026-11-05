@@ -39,7 +39,7 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 12       // bump on ANY wire change; a mismatch is refused (12: the player picks after a faint, LINK_PICK, v4.02)
+#define LINK_PROTO 13       // bump on ANY wire change; a mismatch is refused (13: LinkMon::flags carries PMON_HALL, v4.07; 12: the player picks after a faint, LINK_PICK, v4.02)
                             // (11: TRANSFORM rides LinkBeat::sketch, v3.96)
                             // (8, v3.64: LinkResult carries the turn's beats;
                             // 9, v3.69: SKETCH in the beats, the guest's moves)

@@ -276,8 +276,16 @@ public:
   // A cheat changed this creature (cheats.h). PMON_CHEATED on the wire, in the
   // party and in the pet checkpoint's flags byte; nothing clears it.
   bool cheated = false;
-  uint8_t monFlags() const { return (tradeEvo ? PMON_TRADE_EVO : 0) | (cheated ? PMON_CHEATED : 0); }
-  void setMonFlags(uint8_t f) { tradeEvo = (f & PMON_TRADE_EVO) != 0; cheated = (f & PMON_CHEATED) != 0; }
+  // Cleared the Battle Hall (hall.h, v4.07): PMON_HALL, the same way round.
+  bool hallMark = false;
+  uint8_t monFlags() const {
+    return (tradeEvo ? PMON_TRADE_EVO : 0) | (cheated ? PMON_CHEATED : 0) | (hallMark ? PMON_HALL : 0);
+  }
+  void setMonFlags(uint8_t f) {
+    tradeEvo = (f & PMON_TRADE_EVO) != 0;
+    cheated = (f & PMON_CHEATED) != 0;
+    hallMark = (f & PMON_HALL) != 0;
+  }
   bool wasFullyCared = false;   // graceCheck() restarts the window on the rising edge
   uint16_t unattended = 0;      // awake minutes since last fully cared for; see GRACE_MIN
   bool fullyCared() const;      // every need at CARE_FULL_PCT: what restarts the window

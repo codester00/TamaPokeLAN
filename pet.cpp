@@ -716,6 +716,7 @@ void Pet::newEgg() {
   uid = CreatureUid();   // an egg is not a creature yet; hatch() mints its ID
   tradeEvo = false;
   cheated = false;
+  hallMark = false;
   // A move offered to the creature that just ended goes with it (v3.87): left
   // queued, the learn screen drew the egg as species -1 and a tap taught it.
   learnQCount = 0;

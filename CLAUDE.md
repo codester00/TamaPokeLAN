@@ -948,6 +948,34 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the Battle Hall (v4.07)
+
+Step 6 of `docs/postgame-plan.md` § 6. `bhall_test`; guards negative-checked.
+"bhall" everywhere, because `hall*` is the Game Corner's (`hallOpen`,
+`hallPrize()`): a first build clashed on `hallPrize()`.
+
+- **`hall.cpp/.h`** are the rules: `bhallTypeAt(seed, rung)` (a shuffle of the
+  18), `bhallFoe(seed, rung, petDex, petLevel)` (the rung's type, drawable, not
+  legendary, from the `HALL_POOL` 6 nearest the pet's base-stat total; 3 levels
+  under to level by rung 10, IV 8 -> 31, training 0 -> 100, smart from rung 7),
+  `bhallPrize()` (4 x level x (`HALL_CLASS` 8 + rung / 3)). Placeholders.
+- **`HallSave bhall`**, NVS key `bhall` (`SAVE_FIELDS`, tpsave.py): the run,
+  the creature's `CreatureUid`, how the last run ended, runs cleared.
+  `bhallCheckPet()` is THE "the run belongs to one creature" rule, asked by
+  the screen, the tap and the fight. `fighting` saved before the battle,
+  `bhallLoad()` at boot treats it as the loss. A loss ends the run (owner's
+  plan does not say; decided here so the mark means something).
+- **A Hall fight is `btlHall`**: the live pet alone (`buildSquad(0, 1, 0x01)`),
+  `HALL_ENERGY_COST` 10 spent at the start (refused below it -- the first
+  battle anywhere that costs energy; the comment by `rewardTraining()` claims
+  fights do, they did not), the real PP book, no items (`btlMainOpt`), pay
+  said on the last line, no blackout, back to the Hall (`bhallAfterFight()`).
+  Every battle start clears `btlHall` beside `btlZone`.
+- **The mark: `PMON_HALL` 0x04**, `Pet::hallMark` through `monFlags()`/
+  `setMonFlags()`, `Combatant::hall`, `LinkMon::flags` (`LINK_PROTO` 13),
+  `tradeMonValid()` (`TRADE_PROTO` 5). Card and sheet (`drawCreatureMark()`)
+  and a gold `*` on the battle plate. `newEgg()` clears it.
+
 ### Done: the tournament (v4.06)
 
 Step 5 of `docs/postgame-plan.md` § 6. `tour_test`; guards negative-checked.

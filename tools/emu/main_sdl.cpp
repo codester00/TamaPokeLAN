@@ -203,6 +203,9 @@ extern GauntletSave gaunt;
 extern GauntletRules gauntCustom;
 #include "tournament.h"
 extern TourSave tour;
+#include "hall.h"
+extern HallSave bhall;
+extern bool bhallOpen;
 extern ItemKey martConfirmItem;
 extern bool galleryDirty;
 extern uint8_t galleryRegion;
@@ -439,6 +442,10 @@ static int shotMode(const char *screen, const char *out, int lvl, int iv, int de
     plazaOpen = zoneOpen = true; zoneMode = 2; pet.bp = 248;
     gaunt.active = 1; gaunt.wins = 6; gaunt.daily = 1; gaunt.doubled = 1;
     gaunt.rules.type = 10; gaunt.rules.levelCap = 50; gaunt.rules.tier = GT_FINAL; gaunt.rules.size = 3;
+  }
+  else if (!strcmp(screen, "bhall")) {
+    plazaOpen = bhallOpen = true;
+    bhall.active = 1; bhall.rung = 6; bhall.seed = 4242; bhall.uid = pet.uid; bhall.clears = 1;
   }
   else if (!strcmp(screen, "tour")) {
     plazaOpen = zoneOpen = true; zoneMode = 4; pet.bp = 248;
