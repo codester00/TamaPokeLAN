@@ -52,9 +52,21 @@ GauntletRules gauntletDaily(int32_t day) {
   return r;
 }
 
-uint8_t gauntletIv(uint16_t round) { return round >= 19 ? 31 : (uint8_t)(12 + round); }
-uint8_t gauntletTr(uint16_t round) { return round >= 20 ? 100 : (uint8_t)(round * 5); }
-bool gauntletSmart(uint16_t round) { return round >= 3; }
+bool gauntletLevelFits(const GauntletRules &r, uint8_t level) {
+  return !r.levelCap || level <= r.levelCap;
+}
+
+// The first challenger is GAUNTLET_LEVEL_RAMP levels under the top, one level
+// closer each round. IVs start at 10 (of 31), training at 0 and rises from the
+// third round, the smart AI from the sixth.
+uint8_t gauntletLevel(uint16_t round, uint8_t top) {
+  int under = round >= GAUNTLET_LEVEL_RAMP ? 0 : GAUNTLET_LEVEL_RAMP - (int)round;
+  int l = (int)top - under;
+  return (uint8_t)(l < 1 ? 1 : l > 100 ? 100 : l);
+}
+uint8_t gauntletIv(uint16_t round) { return round >= 21 ? 31 : (uint8_t)(10 + round); }
+uint8_t gauntletTr(uint16_t round) { return round < 2 ? 0 : round >= 27 ? 100 : (uint8_t)((round - 2) * 4); }
+bool gauntletSmart(uint16_t round) { return round >= 5; }
 uint8_t gauntletBp(uint16_t round, bool doubled) {
   uint8_t bp = (uint8_t)(ZONE_BP_WIN[ZONE_GAUNTLET] + round / 7);
   return doubled ? (uint8_t)(bp * 2) : bp;
@@ -85,8 +97,7 @@ bool gauntletChallenger(const GauntletRules &r, uint16_t round, uint32_t seed,
       out.dex[k] = chosen;
       break;
     }
-    uint8_t lvl = r.levelCap ? r.levelCap : teamLevel;
-    out.level[k] = lvl < 1 ? 1 : lvl > 100 ? 100 : lvl;
+    out.level[k] = gauntletLevel(round, r.levelCap ? r.levelCap : teamLevel);
   }
   out.count = size;
   out.iv = gauntletIv(round);

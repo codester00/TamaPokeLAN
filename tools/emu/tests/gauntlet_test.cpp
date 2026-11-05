@@ -1,6 +1,7 @@
 // The Battle Zone's gauntlet (v4.04, postgame-plan § 3). The rules (type,
-// level cap, evolution tier, team size), obeyed by the challengers too; the
-// daily rules from the day; challengers that depend only on (rules, round,
+// level cap -- which locks a creature above it out -- evolution tier, team
+// size), obeyed by the challengers too; easy first challengers that ramp up;
+// the daily rules from the day; challengers that depend only on (rules, round,
 // seed); the custom-rules screen and the team picker refusing a creature that
 // does not fit; the run saved between battles, a reboot mid-battle counting as
 // the loss, a team that broke the rules ending the run, QUIT asking twice; the
@@ -138,20 +139,30 @@ int main() {
       if (memcmp(c.dex, a.dex, sizeof(a.dex))) differs = true;
       if (c.count != 4) obeys = false;
       for (uint8_t i = 0; i < c.count; i++) {
-        if (!gauntletSpeciesFits(r, c.dex[i]) || DEX_TBL[c.dex[i]].rarity == R_LEGENDARIO || c.level[i] != 50) obeys = false;
+        if (!gauntletSpeciesFits(r, c.dex[i]) || DEX_TBL[c.dex[i]].rarity == R_LEGENDARIO || c.level[i] > 50) obeys = false;
         for (uint8_t j = 0; j < i; j++) if (c.dex[j] == c.dex[i]) obeys = false;
       }
       if (c.avatar < 3 || c.avatar >= AVATARS_N) obeys = false;
     }
     ck(differs, "another round, another challenger");
-    ck(obeys, "challengers obey the rules: water, final, no legends, Lv 50, four, no repeats");
+    ck(obeys, "challengers obey the rules: water, final, no legends, Lv 50 at most, four, no repeats");
+    gauntletChallenger(r, 0, 1234, 80, AVATARS_N, c);
+    ck(c.level[0] == 50 - GAUNTLET_LEVEL_RAMP && c.iv == 10 && c.tr == 0 && !c.smart,
+       "the first challenger is easy: under the cap, IV 10, no training, the plain AI");
+    gauntletChallenger(r, 4, 1234, 80, AVATARS_N, c);
+    ck(c.level[0] == 50 - GAUNTLET_LEVEL_RAMP + 4, "a level closer every round");
+    gauntletChallenger(r, GAUNTLET_LEVEL_RAMP, 1234, 80, AVATARS_N, c);
+    ck(c.level[0] == 50, "at the cap once the ramp is done");
     r.levelCap = 0;
     gauntletChallenger(r, 0, 9, 63, AVATARS_N, c);
-    ck(c.level[0] == 63, "no cap: they fight at the team's level");
+    ck(c.level[0] == 63 - GAUNTLET_LEVEL_RAMP, "no cap: they start under the team's best level");
+    gauntletChallenger(r, 30, 9, 63, AVATARS_N, c);
+    ck(c.level[0] == 63, "and reach it");
     bool rising = true;
     for (uint16_t k = 1; k < 40; k++) if (gauntletIv(k) < gauntletIv(k - 1) || gauntletTr(k) < gauntletTr(k - 1)) rising = false;
     ck(rising && gauntletIv(40) == 31 && gauntletTr(40) == 100, "they grow round by round, to IV 31 and full training");
-    ck(!gauntletSmart(0) && !gauntletSmart(2) && gauntletSmart(3), "the smart AI from the fourth");
+    ck(gauntletTr(0) == 0 && gauntletTr(1) == 0 && gauntletTr(3) > 0, "no training for the first two");
+    ck(!gauntletSmart(0) && !gauntletSmart(4) && gauntletSmart(5), "the smart AI from the sixth");
     ck(gauntletBp(4, true) == 2 * gauntletBp(4, false), "2x is twice the BP"); }
 
   // --- 4. the team, and into the zone -------------------------------------------------------
@@ -161,9 +172,10 @@ int main() {
   while (pet.hasLearnOffer()) pet.declineLearn();
   pet.energy = pet.fullness = pet.joy = pet.hygiene = 100;
   pet.sleeping = false;
-  party.slots[0] = mon(9, 60);   // BLASTOISE
+  party.slots[0] = mon(9, 60);   // BLASTOISE, over the cap
   party.slots[1] = mon(9, 40);
   party.slots[2] = mon(7, 20);   // SQUIRTLE: not final
+  party.slots[3] = mon(3, 45);   // VENUSAUR
   for (uint8_t r = 0; r < GYM_REGIONS; r++) pet.winBadge(r, TRAINER_COUNT - 1, false);
   pet.wallet = 500000;
   toPlaza();
@@ -196,17 +208,18 @@ int main() {
   tapCandidate(3);
   ck(!(squadMask & 0x08), "a creature that breaks the rules cannot be picked (SQUIRTLE, not final)");
   tapCandidate(1);
+  tapCandidate(0);
+  ck(squadMask == 0, "nor can one over the level cap (BLASTOISE L60, MEWTWO L80): no scaling down");
+  tapCandidate(2);
   uint32_t wallet0 = pet.wallet;
   tapFight();
   ck(!gaunt.active && !battleOpen && pet.wallet == wallet0, "one of two: FIGHT refuses, nothing charged");
-  tapCandidate(0);
+  tapCandidate(4);
   tapFight();
   ck(gaunt.active && battleOpen && btlZone, "two of two: the run starts with its first fight");
   ck(pet.wallet == wallet0 - ZONE_FEE[ZONE_GAUNTLET], "and the fee is paid");
-  ck(zoneFoe.count == 2 && zoneFoe.level[0] == 50 && zoneFoe.level[1] == 50, "the challenger brings two at Lv 50");
-  bool capped = true;
-  for (uint8_t i = 0; i < btlSquadN; i++) if (btlSquad[i].level != 50) capped = false;
-  ck(btlSquadN == 2 && capped, "and ours fight at the cap, though higher");
+  ck(zoneFoe.count == 2 && zoneFoe.level[0] == 50 - GAUNTLET_LEVEL_RAMP, "the challenger brings two, under the cap");
+  ck(btlSquadN == 2 && btlSquad[0].level == 40 && btlSquad[1].level == 45, "ours at their own levels");
   ck(!btlHard, "the first challenger plays the plain AI");
   ck(gaunt.fighting == 1 && nvs().count("gnt") && nvs()["gnt"][3] == 1, "the run is saved as fighting before the battle");
 
@@ -237,19 +250,26 @@ int main() {
 
   // --- 10. a team that broke the rules ------------------------------------------------------
   zoneOpen = true; zoneMode = 2;   // a fight closes the zone; back on its page
-  ck(gauntletBegin(gauntCustom, false, 0x03), "(a new run)");
-  party.slots[0] = PartyMon();          // BLASTOISE released
+  ck(gauntletBegin(gauntCustom, false, 0x14), "(a new run)");
+  party.slots[1] = PartyMon();          // BLASTOISE released
   tapRow(0);
   ck(!battleOpen && !gaunt.active && gauntBroken, "a member gone: CONTINUE ends the run and says why");
-  party.slots[0] = mon(9, 60);
-  ck(gauntletBegin(gauntCustom, false, 0x03), "(another)");
-  party.slots[0].dex = 8;               // now a WARTORTLE: not final
+  party.slots[1] = mon(9, 40);
+  ck(gauntletBegin(gauntCustom, false, 0x14), "(another)");
+  party.slots[1].dex = 8;               // now a WARTORTLE: not final
   ck(!gauntletNextFight() && !gaunt.active, "a member no longer fitting the rules ends it too");
-  party.slots[0].dex = 9;
+  party.slots[1].dex = 9;
+  ck(gauntletBegin(gauntCustom, false, 0x14), "(and another)");
+  party.slots[3].level = 51;            // grew past the cap
+  ck(!gauntletNextFight() && !gaunt.active, "and so does one over the level cap");
+  party.slots[3].level = 45;
 
   // --- 11. one at a time, and QUIT twice ------------------------------------------------------
-  ck(gauntletBegin(gauntCustom, false, 0x03), "(a run)");
-  ck(!gauntletBegin(gauntCustom, false, 0x03), "only one run at a time");
+  { uint32_t w = pet.wallet;
+    ck(!gauntletBegin(gauntCustom, false, 0x12) && !gaunt.active && pet.wallet == w,
+       "the start refuses one over the cap too (BLASTOISE L60), nothing charged"); }
+  ck(gauntletBegin(gauntCustom, false, 0x14), "(a run)");
+  ck(!gauntletBegin(gauntCustom, false, 0x14), "only one run at a time");
   tapRow(1);
   ck(gaunt.active && zoneMode == 2, "with a run on the page offers no new one");
   tapRow(2);
@@ -262,7 +282,7 @@ int main() {
   GauntletRules d = gauntletDaily(pet.today());
   uint8_t placed = 0;
   for (int16_t s = 1; s <= DEX_COUNT && placed < d.size; s++)
-    if (gauntletSpeciesFits(d, s) && speciesShowable(s) && DEX_TBL[s].rarity != R_LEGENDARIO) party.slots[placed++] = mon(s, 70);
+    if (gauntletSpeciesFits(d, s) && speciesShowable(s) && DEX_TBL[s].rarity != R_LEGENDARIO) party.slots[placed++] = mon(s, d.levelCap ? d.levelCap : 70);
   uint16_t mask = 0;
   for (uint8_t i = 0; i < placed; i++) mask |= (uint16_t)(2 << i);
   ck(placed == d.size, "(a team for the day's rules)");

@@ -9402,24 +9402,21 @@ void gauntLoad() {
 bool gauntPickEligible(uint8_t n) {
   if (!pickExists(n)) return false;
   int16_t dex = n == 0 ? pet.speciesId : party.slots[n - 1].dex;
-  return gauntletSpeciesFits(gauntPending, dex);
+  uint8_t lvl = n == 0 ? pet.level() : party.slots[n - 1].level;
+  return gauntletSpeciesFits(gauntPending, dex) && gauntletLevelFits(gauntPending, lvl);
 }
 
-// A team member by ID, as it is now: the live pet or a party member, capped
-// at the rules' level. False if it is no longer held there.
-static bool gauntMember(const CreatureUid &u, uint8_t cap, Combatant &out) {
+// A team member by ID, as it is now: the live pet or a party member. False if
+// it is no longer held there.
+static bool gauntMember(const CreatureUid &u, Combatant &out) {
   if (!u.valid()) return false;
   if (!pet.isEgg() && pet.uid == u) {
-    Pet tmp = pet;
-    if (cap && tmp.level() > cap) tmp.ageMinutes = (uint32_t)(cap - 1) * MINUTES_PER_LEVEL;
-    combatantFromPet(out, tmp);
+    combatantFromPet(out, pet);
   } else {
     int at = -1;
     for (int i = 0; i < PARTY_SLOTS; i++) if (!party.slots[i].empty() && party.slots[i].uid == u) at = i;
     if (at < 0) return false;
-    PartyMon m = party.slots[at];
-    if (cap && m.level > cap) m.level = cap;
-    combatantFromParty(out, m);
+    combatantFromParty(out, party.slots[at]);
   }
   out.ppOn = !cheatOn(CT_UNLIMITED_PP);
   return true;
@@ -9427,12 +9424,13 @@ static bool gauntMember(const CreatureUid &u, uint8_t cap, Combatant &out) {
 
 // The run's team, rebuilt into zoneRun before a fight. False -- and the run
 // ends -- if a member is gone or no longer fits the rules (it evolved past its
-// tier, say); a level past the cap is simply fought at the cap.
+// tier, or the live pet aged past the level cap).
 static bool gauntRebuild() {
   zoneRun.n = 0;
   for (uint8_t i = 0; i < gaunt.n && i < TRAINER_TEAM_MAX; i++) {
     Combatant c;
-    if (!gauntMember(gaunt.uid[i], gaunt.rules.levelCap, c) || !gauntletSpeciesFits(gaunt.rules, c.dex)) return false;
+    if (!gauntMember(gaunt.uid[i], c) || !gauntletSpeciesFits(gaunt.rules, c.dex) ||
+        !gauntletLevelFits(gaunt.rules, c.level)) return false;
     battleFullPp(c);
     for (int k = 0; k < MOVE_SLOTS; k++) if (gaunt.pp[i][k] < c.pp[k]) c.pp[k] = gaunt.pp[i][k];
     zoneRun.team[zoneRun.n] = c;
@@ -9452,7 +9450,7 @@ bool gauntletBegin(const GauntletRules &r, bool daily, uint16_t mask) {
   buildSquad(0, TRAINER_TEAM_MAX, mask);
   if (btlSquadN != r.size) return false;
   for (uint8_t i = 0; i < btlSquadN; i++)
-    if (!gauntletSpeciesFits(r, btlSquad[i].dex)) return false;
+    if (!gauntletSpeciesFits(r, btlSquad[i].dex) || !gauntletLevelFits(r, btlSquad[i].level)) return false;
   if (!zoneRunBegin(ZONE_GAUNTLET, mask)) return false;
   int32_t keepClaim = gaunt.claimDay, keepBestDay = gaunt.bestDay;
   uint16_t keepBest = gaunt.bestToday;

@@ -1395,7 +1395,7 @@ Challengers one after another until you lose. **Rules** bind both sides:
 | rule | values |
 |---|---|
 | TYPE | any, or one of the 18: every creature must have it |
-| LEVEL | no cap, 30, 50 or 70: a creature above it fights **at** it (not barred) |
+| LEVEL | no cap, 30, 50 or 70: a creature **above it cannot enter** (no scaling down) |
 | FORMS | all; BASIC (a base form that evolves); MIDDLE (an evolution that evolves again); FINAL (evolves no further, legendaries included); NO LEGENDS |
 | TEAM | 1-6, both sides |
 
@@ -1403,13 +1403,15 @@ Challengers one after another until you lose. **Rules** bind both sides:
   any one day in four; team 3-6; a day whose rules leave too few species for
   a team drops its FORMS rule). **CUSTOM** rules are set on the rules page:
   each cell steps to its next value. Then the team picker: exactly the rule's
-  team size, and a creature that breaks the rules cannot be picked.
+  team size, and a creature that breaks the rules cannot be picked. The level
+  cap is there to make you build a team other than your best six.
 - **Challengers** are trainers of the stock classes with a team drawn from
-  every drawable, non-legendary species that fits the rules, at the cap (or
-  your team's highest level with no cap). They grow each round: IVs 12 + the
-  round (to 31), training 5 a round (to 100), and the smart AI from the fourth
-  challenger. **BP**: 2 a win, +1 every seven rounds. These are placeholders
-  until tuned.
+  every drawable, non-legendary species that fits the rules. **The first are
+  easy** and they ramp up: the first fights 10 levels under the cap (or under
+  your team's highest level with no cap) and each one after is a level closer;
+  IVs start at 10 and rise one a round (to 31); training is 0 for the first
+  two, then 4 a round (to 100); the smart AI from the sixth challenger. **BP**:
+  2 a win, +1 every seven rounds. These are placeholders until tuned.
 - **The day's 2x**: the first DAILY run that beats a challenger doubles its BP
   for the rest of that run, however many days it lasts; a run that loses its
   first battle leaves the 2x unclaimed. Custom rules pay 1x.
@@ -1417,7 +1419,8 @@ Challengers one after another until you lose. **Rules** bind both sides:
   challenger, with the PP the run has left. **Only one run at a time**: QUIT
   (two taps) or lose to start another. **A reboot or power cut mid-battle is
   the loss.** A run ends if one of its creatures is no longer in the party or
-  the live pet, or no longer fits the rules (it evolved past its FORMS rule).
+  the live pet, or no longer fits the rules (it evolved past its FORMS rule, or
+  the live pet aged past the level cap).
 - **Records**: the best streak (challengers beaten in one run) and the day's
   best daily streak.
 

@@ -24,10 +24,12 @@ struct GauntletRules {
 // that evolves further, 2 a final form (or a creature that never evolves).
 uint8_t speciesStage(int16_t dex);
 bool speciesEvolvesFurther(int16_t dex);
-// Does this species fit the rules' type and tier? The level cap is not an
-// entry rule: a creature above it fights AT it, as in the later games' Level 50
-// battles (the team's own levels rise with age, and cannot be lowered).
+// Does this species fit the rules' type and tier? (Level is separate: it is
+// the creature's, not the species'.)
 bool gauntletSpeciesFits(const GauntletRules &r, int16_t dex);
+// The level cap LOCKS OUT a creature above it (owner, v4.04): no scaling down,
+// so a capped run is built from creatures other than the player's top six.
+bool gauntletLevelFits(const GauntletRules &r, uint8_t level);
 // The day's challenge: rules from a hash of the day, so every board shows the
 // same ones on the same day. -1 (no clock) gives a fixed set.
 GauntletRules gauntletDaily(int32_t day);
@@ -38,7 +40,11 @@ GauntletRules gauntletDaily(int32_t day);
 // names it). Returns false if the rules leave too few species for a team.
 bool gauntletChallenger(const GauntletRules &r, uint16_t round, uint32_t seed,
                         uint8_t teamLevel, uint8_t avatarCount, ZoneFoe &out);
-// How a challenger grows with the round (placeholders).
+// How a challenger grows with the round (placeholders). The first are easy on
+// purpose (owner): below the level, mid IVs, no training, the plain AI, so a
+// team that is not the player's best can still get going.
+#define GAUNTLET_LEVEL_RAMP 10   // rounds until a challenger reaches the level
+uint8_t gauntletLevel(uint16_t round, uint8_t top);   // top: the cap, or the team's best
 uint8_t gauntletIv(uint16_t round);
 uint8_t gauntletTr(uint16_t round);
 bool gauntletSmart(uint16_t round);

@@ -961,8 +961,13 @@ Step 4 of `docs/postgame-plan.md` § 6 (step 3, AI switching, comes next).
   seed, ...)` -- its own LCG, so a saved run meets the challenger it would have
   -- and the PLACEHOLDER pacing `gauntletIv/Tr/Smart/Bp`. It cannot include
   `avatars.h` (pixel art, the sketch's alone): it returns an avatar index, the
-  sketch names it. **The level cap is not an entry rule**: a creature above it
-  fights at it (`gauntMember()`), as the games' later Level 50 battles do.
+  sketch names it. **The level cap LOCKS OUT a creature above it**
+  (`gauntletLevelFits()`, owner: it forces teams other than the top six -- no
+  scaling down), checked by the picker, the start and every rebuild, so the
+  live pet ageing past the cap ends the run. **The first challengers are easy
+  on purpose** (owner): `gauntletLevel()` starts `GAUNTLET_LEVEL_RAMP` (10)
+  under the cap or the team's best and closes a level a round; IV 10 + round,
+  training 0 for two rounds then 4 a round, smart AI from round 5.
 - **The run is `GauntletSave gaunt`**, NVS key `gnt` (`SAVE_FIELDS`,
   tpsave.py): rules, daily, doubled, wins, startDay, seed, the team by
   `CreatureUid`, the PP left, plus `claimDay` (the day's 2x) and the day's best.
@@ -982,6 +987,7 @@ Step 4 of `docs/postgame-plan.md` § 6 (step 3, AI switching, comes next).
 - **SKETCH**: a failed SKETCH (`battleAct()`, nothing to copy) gives its PP back,
   as the games do. `sketch_test`.
 
+### Done: the Battle Zone shell (v4.03)
 
 Step 2 of `docs/postgame-plan.md` § 6. `zone_test`; nine guards
 negative-checked. **`zone.h`** holds the types (`ZoneFoe`, `ZoneRun`: there
