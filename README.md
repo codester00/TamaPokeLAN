@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.02-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.03-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -206,6 +206,16 @@ Berry Catch raises joy and bond instead — see § Actions below.
 One creature for one, from the PLAZA's **LAN TRADE** button. If the boards lose
 each other mid-trade, each screen says what its board holds and counts down
 while it keeps trying — see § Trading in the manual below.
+
+### The Battle Zone (post-game)
+
+| The zone | The prize counter |
+|---|---|
+| <img src="docs/screens/zone.png" width="240"> | <img src="docs/screens/zoneprizes.png" width="240"> |
+
+On the PLAZA, open once every region's champion is beaten (either difficulty).
+Being built in steps (v4.03 is the shell): its formats, the tournament and the
+gauntlet, come later — see § The Battle Zone in the manual below.
 
 ### Collecting
 
@@ -1354,6 +1364,28 @@ keyed by their device, not their typed name, so renaming doesn't reset the
 score — and shown on the pairing screen the next time you two fight.
 Each player chooses their own replacement after a faint; the board with
 nothing to choose waits. Since v4.02 both boards need v4.02 or later.
+
+### The Battle Zone
+
+The post-game, on the PLAZA tile, open once **every region's champion is
+beaten** on either difficulty (v4.03). It pays **Battle Points (BP)**, its own
+currency, capped at 9,999 and kept with the player. The landing page shows the
+BP, the tournaments won and the gauntlet's best streak.
+
+- **A run costs Pokedollars to enter** ($5,000 the tournament, $3,000 the
+  gauntlet) and **pays BP per win** (3 and 2). These are placeholders until the
+  formats are tuned.
+- **A zone fight**: your team as it entered, at full HP every fight; **PP is
+  the run's**: it starts full (PP Ups counted) and carries from fight to fight,
+  and the saved PP of your creatures is never touched. **No bag.** **SET
+  style** (no free switch when the foe's creature faints). The opponents use the
+  smart AI and pick their next creature by matchup. A SKETCH learned in the
+  zone is not kept. Running forfeits; a loss ends the run and never blacks out.
+- **The prize counter** trades BP for items: Master Ball 100, PP Up 16,
+  Ether 2, Protein / Iron / Carbos 4, Linking Cord 16, each evolution stone 6,
+  the Black Augurite 8.
+- **The tournament and the gauntlet are not built yet**: their rows read COMING
+  SOON.
 
 ### Trading
 

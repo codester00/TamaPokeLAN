@@ -32,7 +32,8 @@ extern bool codesOpen, codesCheats; extern uint8_t codesPage;
 extern bool pcOpen, pcPick; extern uint8_t pcPage, pcRegion; extern int16_t pcSpecies;
 extern uint8_t hallOpen, hallMode, hallPage;
 void exploreBtnRect(int *x, int *y, int *w, int *h);
-extern bool martOpen, plazaOpen;
+extern bool martOpen, plazaOpen, zoneOpen;
+extern uint8_t zoneMode, zonePage;
 extern uint8_t trainPage;
 extern bool btlWild;
 extern uint8_t cardPage, gymPage, playerPage, movePickPage, boxPage, pickPage, partyDetail;
@@ -64,7 +65,7 @@ static void clearAll(){
   cardOpen=galleryOpen=clockOpen=kbOpen=menuOpen=partyOpen=partyPick=false;
   trainOpen=movePickOpen=battleOpen=gymOpen=playerOpen=boxOpen=pickOpen=false;
   exploreOpen=false; areaListOpen=false; hallOpen=0;
-  martOpen=false; plazaOpen=false;
+  martOpen=false; plazaOpen=false; zoneOpen=false; zoneMode=0;
   bagOpen=false;
   partyDetail=0; boxSel=boxSwapFrom=0;
 }
@@ -115,6 +116,7 @@ int main(){
   // The Mart's catalogue is the static item table, not the bag -- always the
   // same length regardless of what is carried, so no seeding is needed.
   clearAll(); martOpen=true;                      check("mart",     &martOpen,     &martPage);
+  clearAll(); plazaOpen=true; zoneOpen=true; zoneMode=1; check("zone prizes", &zoneOpen, &zonePage);
   // The training menu lists GAMES (v3.34) and pages once there are more than
   // fit -- four today, three a page.
   clearAll(); trainOpen=true;                     check("training", &trainOpen,    &trainPage);

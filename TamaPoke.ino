@@ -37,6 +37,7 @@
 #include "tms.h"
 #include "pp.h"
 #include "codes.h"
+#include "zone.h"
 #include "settings.h"
 #include "gamecorner.h"
 #include "gamecorner_art.h"
@@ -56,7 +57,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.02"
+#define FW_VERSION "4.03"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -317,7 +318,7 @@ enum : uint8_t {
   SCR_STARTER = 0, SCR_REGION, SCR_GALLERY, SCR_DEXPICK, SCR_MOVEPICK, SCR_BOX,
   SCR_PARTY, SCR_KEYBOARD, SCR_CARD, SCR_PLAYER, SCR_CLOCK, SCR_GYM, SCR_GYMPICK,
   SCR_EXPLORE, SCR_MART, SCR_LAN, SCR_PICK, SCR_BATTLE, SCR_WIN, SCR_LEARN, SCR_TRAIN, SCR_MENU,
-  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_PC, SCR_PCPICK, SCR_PCRING, SCR_JUMP, SCR_LEAGUE, SCR_PLAZA, SCR_COUNT
+  SCR_BAGSCR, SCR_GAME, SCR_MAIN, SCR_TRADE, SCR_AVATAR, SCR_BLACKOUT, SCR_AREA, SCR_HALL, SCR_CODES, SCR_PC, SCR_PCPICK, SCR_PCRING, SCR_JUMP, SCR_LEAGUE, SCR_PLAZA, SCR_ZONE, SCR_COUNT
 };
 extern const char *const SCREEN_NAME[];   // const is internal linkage in C++
 
@@ -421,7 +422,7 @@ const char *const SCREEN_NAME[] = {
   "party", "keyboard", "card", "player", "clock", "gym", "gympick",
   "explore", "mart", "lan", "pick", "battle", "win", "learn", "train", "menu",
   "bag", "minigame", "main", "trade", "avatar", "blackout", "area", "hall",
-  "codes", "pc", "pcpick", "pcring", "jump", "league", "plaza"
+  "codes", "pc", "pcpick", "pcring", "jump", "league", "plaza", "zone"
 };
 // Unsized on purpose: sized by SCR_COUNT, five missing names compiled to null
 // and HEALTH and the crash breadcrumb printed "(null)" (v3.63-v3.92).
@@ -505,6 +506,29 @@ void gymHardSet(bool hard) {
 // normal battle screen takes over with btlLink set.
 bool lanOpen = false;
 bool plazaOpen = false;   // the PLAZA tile (v4.01); LAN and trading open over it
+// The Battle Zone (v4.03): its screen opens over the PLAZA. zoneViaCode is the
+// secret code's way in for this visit, with no marks; it lapses when the zone
+// closes with no run on.
+bool zoneOpen = false;
+bool zoneViaCode = false;
+enum : uint8_t { ZM_HOME = 0, ZM_PRIZES };
+uint8_t zoneMode = ZM_HOME;
+uint8_t zonePage = 0;
+uint8_t zoneConfirm = 0xFF;   // the prize being asked about, 0xFF none
+// A zone fight (v4.03): a team that came in with the run, PP carried from
+// fight to fight in the run's own ledger and never the PP book, no bag, SKETCH
+// not kept, SET style, the smart AI.
+bool btlZone = false;
+ZoneFoe zoneFoe;   // zone.h
+ZoneRun zoneRun;
+bool zoneUnlocked();
+bool zoneAccessible();
+void renderZone();
+void zoneTap(int16_t x, int16_t y);
+void zoneBack();
+uint8_t zonePrizePages();
+void zoneAfterFight(bool won);
+static int8_t btlZoneNext();
 Link lan;
 // Trading (trade.h): one screen for the whole flow, opened from the LAN screen.
 // `tradePicking` is its own creature picker on the party ring; `tradeAsk` the
@@ -2348,6 +2372,7 @@ void onSwipeV(int dir) {
   // The two multi-region tiles are two levels deep: chooser, then ladder/grid.
   // DOWN walks back out of them one step at a time; UP keeps the region
   // shortcut, which is now a convenience rather than the only way in.
+  if (zoneOpen) { if (back) zoneBack(); return; }
   if (plazaOpen) { if (back) uiTileGo(TILE_PET); return; }
   if (leagueOpen) { if (back) leagueLeave(); return; }   // down: the gym list; the run goes on
   if (gymOpen) {
@@ -2825,6 +2850,7 @@ void onSwipe(int dir) {
   // Off the axis are modals -- pickers, sheets, minigames. None of them page
   // any more, so here horizontal simply backs out.
   if (avatarPickOpen) { avatarPickOpen = false; return; }
+  if (zoneOpen) { zoneBack(); return; }
   if (hallOpen) { hallBack(); return; }
   if (areaListOpen) { areaListOpen = false; return; }
   if (pickOpen) { pickOpen = false; return; }
@@ -2947,6 +2973,10 @@ void onTap(int16_t x, int16_t y) {
   }
   if (leagueOpen) {
     leagueTap(x, y);
+    return;
+  }
+  if (zoneOpen) {
+    zoneTap(x, y);
     return;
   }
   if (plazaOpen) {
@@ -3420,6 +3450,7 @@ uint8_t uiCurrentScreen() {
   if (martOpen) return SCR_MART;
   if (leagueOpen) return SCR_LEAGUE;
   if (gymOpen) return gymPick ? SCR_GYMPICK : SCR_GYM;
+  if (zoneOpen) return SCR_ZONE;
   if (plazaOpen) return SCR_PLAZA;
   if (playerOpen) return avatarPickOpen ? SCR_AVATAR : SCR_PLAYER;
   if (pet.hasLearnOffer()) return SCR_LEARN;
@@ -3485,6 +3516,10 @@ void uiTileGo(int i) {
   if (i >= TILE_COUNT) i = TILE_COUNT - 1;
   exploreOpen = gymOpen = partyOpen = galleryOpen = playerOpen = false;
   plazaOpen = false;
+  zoneOpen = false;
+  zoneMode = ZM_HOME;
+  zoneConfirm = 0xFF;
+  if (!zoneRun.active) zoneViaCode = false;
   leagueOpen = false;   // the run itself goes on
   avatarPickOpen = false;
   areaListOpen = false;
@@ -3540,6 +3575,7 @@ static uint8_t *uiRimTarget(uint8_t *pages) {
     case SCR_PC:      p = &pcPage;      n = pcPages(); break;
     case SCR_BAGSCR:  p = &bagPage;     n = bagPages(); break;
     case SCR_MART:    p = &martPage;    n = martPages(); break;
+    case SCR_ZONE:    if (zoneMode == ZM_PRIZES) { p = &zonePage; n = zonePrizePages(); } break;
     case SCR_CARD:    p = &cardPage;    n = CARD_PAGES; break;
     case SCR_TRAIN:   p = &trainPage;   n = trainPages(); break;
     case SCR_MOVEPICK: {
@@ -4120,6 +4156,14 @@ void codeApply(uint8_t id) {
       trainOpen = false;
       uiTileGo(uiTileOf(SCR_EXPLORE));
       openHall(id == CODE_CELADON ? HALL_CELADON : id == CODE_GOLDENROD ? HALL_GOLDENROD : HALL_BEACH);
+      break;
+    case CODE_ZONE:            // the Battle Zone for this visit, no marks (v4.03)
+      miniGame = MG_NONE;
+      trainOpen = false;
+      uiTileGo(uiTileOf(SCR_PLAZA));
+      zoneViaCode = true;
+      zoneOpen = true;
+      zoneMode = ZM_HOME;
       break;
     case CODE_SETTINGS: case CODE_CHEATS:
       miniGame = MG_NONE;
@@ -5053,6 +5097,10 @@ void render() {
   if (gymOpen) {
     if (gymPick) renderRegionPick(RPICK_FOR_GYMS);
     else renderGyms();
+    return;
+  }
+  if (zoneOpen) {
+    renderZone();
     return;
   }
   if (plazaOpen) {
@@ -6108,7 +6156,7 @@ static void drawBattleBack() {
 // in the gym, each Elite Four seat in its own room, the champion in his, and a
 // LAN fight in the Battle Frontier. Wild and one-off fights stay outdoors.
 int8_t btlIndoorScene() {
-  if (btlLink) return INDOOR_FRONTIER;
+  if (btlLink || btlZone) return INDOOR_FRONTIER;
   if (btlTrainer < 0) return -1;
   if (btlTrainer < TRAINER_GYMS) return INDOOR_LEADER;
   if (btlTrainer < TRAINER_GYMS + TRAINER_ELITE4) return INDOOR_SIDNEY + (btlTrainer - TRAINER_GYMS);
@@ -6358,7 +6406,7 @@ bool sketchKeep(const CreatureUid &uid, uint8_t slot, uint8_t to) {
 static void btlSketched(bool ours, const TurnLog &lg) {
   if (!lg.sketched || lg.sketchSlot < 0) return;
   uint8_t s = (uint8_t)lg.sketchSlot;
-  if (ours) sketchKeep(btlYou.uid, s, lg.sketched);
+  if (ours && !btlZone) sketchKeep(btlYou.uid, s, lg.sketched);   // not kept from the zone
   if (!btlLink) return;
   if (ours && btlSquadAt < lan.mineN) lan.mine[btlSquadAt].moves[s] = lg.sketched;
   if (!ours && btlFoeAt < lan.theirsN) lan.theirs[btlFoeAt].moves[s] = lg.sketched;
@@ -6367,7 +6415,7 @@ static void btlSketched(bool ours, const TurnLog &lg) {
 // What the fight has left of your active creature's PP, into the book. Every
 // turn, so no way a fight ends can lose it; RAM only until loop() flushes.
 static void btlRecordPp() {
-  if (btlLink || !btlYou.ppOn) return;
+  if (btlLink || btlZone || !btlYou.ppOn) return;   // the zone keeps its own ledger
   Combatant real = battleStored(btlYou);       // a TRANSFORM's borrowed moves are not its own
   ppRecord(real.uid, real.moves, real.pp, real.ppUps);
 }
@@ -6452,6 +6500,7 @@ void startLinkBattle() {
   if (!btlSquadN) return;
   btlYou = btlSquad[0];
   btlLink = true;
+  btlZone = false;
   btlLinkHost = lan.isHost;
   btlWild = false;
   btlSafari = false;
@@ -6508,6 +6557,7 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlWild = false;
   btlSafari = false;
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
+  btlZone = false;
   btlFoeAt = 0;
   btlFoeSent = 1;
   foeFromSpecies(btlFoe, tr.team[0].dex, tr.team[0].level, hard, region, idx);
@@ -6549,6 +6599,7 @@ void startBattle(int16_t dex, uint8_t lvl) {
   btlWild = false;
   btlSafari = false;
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
+  btlZone = false;
   btlTrainer = -1;   // a one-off: never the last gym's leader, badge and all
   btlHard = false;
   btlMsgCount = 0;
@@ -6908,7 +6959,7 @@ const char *btlMainOpt(uint8_t i, bool *live) {
   static const StrId OPT[4] = { S_FIGHT, S_BAG, S_BTL_SWITCH, S_BTL_RUN };
   // The bag is dead in a link fight: an item the peer was never told about
   // would desync the two devices, and the host is authoritative.
-  if (i == 1 && btlLink) *live = false;
+  if (i == 1 && (btlLink || btlZone)) *live = false;   // no items in the zone either
   return T(OPT[i & 3]);
 }
 
@@ -7073,6 +7124,38 @@ static void btlUseItem(ItemKey k) {
 // creature it will face: the best of its own types against that creature's,
 // less the worst that creature's types do back -- the shape of the smart AI's
 // move scoring, judged on typing because the next creature is not built yet.
+// How well creature c's typing matches up against p's: the best of c's types
+// against p, less the best of p's against c (percent). The one matchup rule
+// btlTrainerNext() and btlZoneNext() share.
+static int btlMatchScore(int16_t c, int16_t p) {
+  int off = 0, def = 0;
+  uint8_t ct[2] = { DEX_TBL[c].type1, DEX_TBL[c].type2 }, pt[2] = { DEX_TBL[p].type1, DEX_TBL[p].type2 };
+  for (uint8_t a = 0; a < 2; a++) {
+    if (a && ct[1] == ct[0]) continue;
+    int e = typeEffPct(ct[a], pt[0], pt[1]);
+    if (e > off) off = e;
+  }
+  for (uint8_t a = 0; a < 2; a++) {
+    if (a && pt[1] == pt[0]) continue;
+    int e = typeEffPct(pt[a], ct[0], ct[1]);
+    if (e > def) def = e;
+  }
+  return off - def;
+}
+
+// A zone opponent's next (v4.03): by matchup, among its standing ones, as a
+// hard trainer picks.
+static int8_t btlZoneNext() {
+  int8_t best = -1;
+  int bestScore = -100000;
+  for (uint8_t k = 0; k < btlFoeSquadN; k++) {
+    if (k == btlFoeAt || btlFoeSquad[k].fainted()) continue;
+    int score = btlMatchScore(btlFoeSquad[k].dex, btlYou.dex) * 8 + btlFoeSquad[k].level;
+    if (score > bestScore) { bestScore = score; best = (int8_t)k; }
+  }
+  return best;
+}
+
 int8_t btlTrainerNext() {
   const Trainer &t = BTL_TRAINERS[btlTrainer];
   int8_t best = -1;
@@ -7080,20 +7163,7 @@ int8_t btlTrainerNext() {
   for (uint8_t k = 0; k < t.count; k++) {
     if (btlFoeSent & (1 << k)) continue;
     if (!btlHard) return (int8_t)k;
-    int16_t c = t.team[k].dex, p = btlYou.dex;
-    int off = 0, def = 0;
-    uint8_t ct[2] = { DEX_TBL[c].type1, DEX_TBL[c].type2 }, pt[2] = { DEX_TBL[p].type1, DEX_TBL[p].type2 };
-    for (uint8_t a = 0; a < 2; a++) {
-      if (a && ct[1] == ct[0]) continue;
-      int e = typeEffPct(ct[a], pt[0], pt[1]);
-      if (e > off) off = e;
-    }
-    for (uint8_t a = 0; a < 2; a++) {
-      if (a && pt[1] == pt[0]) continue;
-      int e = typeEffPct(pt[a], ct[0], ct[1]);
-      if (e > def) def = e;
-    }
-    int score = (off - def) * 8 + t.team[k].level;   // a level breaks a tie
+    int score = btlMatchScore(t.team[k].dex, btlYou.dex) * 8 + t.team[k].level;   // a level breaks a tie
     if (score > bestScore) { bestScore = score; best = (int8_t)k; }
   }
   return best;
@@ -7185,6 +7255,7 @@ static void btlResolve(uint8_t yourMove) {
   int8_t nFoe = -1;
   if (btlFoe.fainted()) {
     if (btlLink) nFoe = battleNextStanding(btlFoeSquad, btlFoeSquadN, btlFoeAt);
+    else if (btlZone) nFoe = btlZoneNext();
     else if (btlTrainer >= 0) nFoe = btlTrainerNext();
   }
   // AFTER the end of the turn: a poison or burn tick is part of the turn, and
@@ -7204,8 +7275,8 @@ static void btlResolve(uint8_t yourMove) {
     if (nFoe >= 0) {
       btlSwapDue |= 2;
       btlNextAt[1] = pickFoe ? LINK_PICK : (uint8_t)nFoe;
-      btlNextHp[1] = btlLink ? btlFoeSquad[nFoe].hp : 0;
-      btlNextAil[1] = btlLink ? btlFoeSquad[nFoe].ailment : 0;
+      btlNextHp[1] = (btlLink || btlZone) ? btlFoeSquad[nFoe].hp : 0;
+      btlNextAil[1] = (btlLink || btlZone) ? btlFoeSquad[nFoe].ailment : 0;
       btlFaintArm(1);
     }
     if (nYou >= 0) {
@@ -7272,6 +7343,9 @@ static void btlResolve(uint8_t yourMove) {
       if (rivalMac) pet.recordRivalResult(rivalMac, lan.peerName, btlWon);
     }
     if (btlLink) { btlSay("%s", btlWon ? T(S_BTL_WIN) : T(S_BTL_LOSE)); return; }
+    // A zone fight never blacks out: the run ends and the zone takes over
+    // (zoneAfterFight(), when the last line is dismissed).
+    if (btlZone) { btlSay("%s", btlWon ? T(S_BTL_WIN) : T(S_BTL_LOSE)); return; }
     // A wild win reports its drops as narration rather than on the win screen:
     // that screen is the badge ceremony, and it has no badge to show.
     if (btlWon && btlWild) { btlSay("%s", T(S_BTL_WIN)); wildGrantDrops(); return; }
@@ -7757,13 +7831,13 @@ void renderBattle() {
 static void btlDoSwap() {
   uint32_t now = millis();
   if (btlSwapDue & 2) {
-    if (btlLink) {
+    if (btlLink || btlZone) {   // a squad held as combatants (LAN, the zone)
       btlFoeSquad[btlFoeAt] = battleStored(btlFoe);            // remember how battered it was
       btlFoeAt = btlNextAt[1];
       btlFoe = btlFoeSquad[btlFoeAt];
       btlFoe.hp = btlNextHp[1] > btlFoe.maxHp ? btlFoe.maxHp : btlNextHp[1];
       btlFoe.ailment = btlNextAil[1];
-      btlSay(T(S_BTL_SENDS), lan.peerName, btlFoe.name);
+      btlSay(T(S_BTL_SENDS), btlLink ? lan.peerName : zoneFoe.name, btlFoe.name);
     } else {
       const Trainer &t = BTL_TRAINERS[btlTrainer];
       btlFoeAt = btlNextAt[1];
@@ -7814,7 +7888,7 @@ static void btlSwitchTo(uint8_t i) {
 // creature faints, you are told what comes next and may switch for free first
 // -- everywhere but a LAN fight, which is SET, as the games' link battles are
 // (the Battle Zone will be SET too). A fixed rule, not a setting.
-bool battleStyleShift() { return !btlLink; }
+bool battleStyleShift() { return !btlLink && !btlZone; }
 
 // How many of yours could come on now: standing, and not the one out.
 static uint8_t btlStandingOthers() {
@@ -7976,6 +8050,7 @@ static void btlRun() {
   btlFreeSprites();
   audioMusic(MUS_NONE);
   if (btlLink) { lanLeave(); btlLink = false; lanOpen = true; }
+  if (btlZone) { btlZone = false; zoneAfterFight(false); }   // running from the zone forfeits
   battleOpen = false;
   btlWild = false;
   btlSafari = false;
@@ -8025,6 +8100,10 @@ void battleTap(int16_t x, int16_t y) {
       battleOpen = false;
       btlWild = false;
       btlSafari = false;
+      if (btlZone) {               // back to the zone, the run settled (v4.03)
+        btlZone = false;
+        zoneAfterFight(btlWon);
+      }
       if (btlLost && !btlLink) {   // out of creatures: black out, Mom takes over
         btlLost = false;
         blackoutOpen = true;
@@ -8085,7 +8164,7 @@ void battleTap(int16_t x, int16_t y) {
   if (btlMenu == 0) {
     if (btlCellHit(0, x, y)) { sfxPlay(SFX_TAP); btlMenu = 1; return; }   // FIGHT
     if (btlCellHit(1, x, y)) {
-      if (btlLink) { sfxPlay(SFX_DENY); return; }   // see renderBattle
+      if (btlLink || btlZone) { sfxPlay(SFX_DENY); return; }   // see btlMainOpt
       sfxPlay(SFX_TAP); btlMenu = 3; btlBagPage = 0; return;
     }
     if (btlCellHit(2, x, y)) { sfxPlay(SFX_TAP); btlMenu = 2; return; }
@@ -9078,13 +9157,13 @@ void renderPlaza() {
   for (uint8_t i = 0; i < PLAZA_COUNT; i++) {
     int x, y, w, h;
     plazaBtnRect(i, &x, &y, &w, &h);
-    bool live = (i == PLAZA_LAN || i == PLAZA_TRADE);
+    bool live = (i == PLAZA_LAN || i == PLAZA_TRADE || (i == PLAZA_ZONE && zoneUnlocked()));
     gfx->fillRoundRect(x, y, w, h, 12, live ? (i == PLAZA_TRADE ? UI_BAR_WARN : UI_BG_DAY) : UI_BG_DAY);
     gfx->drawRoundRect(x, y, w, h, 12, live ? UI_INK : UI_TRACK);
     gfx->setTextColor(live ? UI_INK : UI_TRACK);
     plazaLabel(T(NAME[i]), x, y, w, live ? y + h / 2 : y + h / 2 - 8);
     if (!live) {   // what it waits for, small, under its name
-      const char *why = (i == PLAZA_ZONE && !zoneUnlocked()) ? T(S_PLZ_NEEDS_CHAMPS) : T(S_PLZ_SOON);
+      const char *why = i == PLAZA_ZONE ? T(S_PLZ_NEEDS_CHAMPS) : T(S_PLZ_SOON);
       gfx->setTextSize(1);
       gfx->setCursor(x + (w - (int)strlen(why) * 6) / 2, y + h - 18);
       gfx->print(why);
@@ -9107,7 +9186,281 @@ void plazaTap(int16_t x, int16_t y) {
     tradeOpenScreen();
     return;
   }
-  if (b >= 0) sfxPlay(SFX_DENY);   // the Hall and the Zone are not built yet
+  if (b == PLAZA_ZONE && zoneUnlocked()) {
+    sfxPlay(SFX_TAP);
+    zoneOpen = true;       // over the PLAZA
+    zoneMode = ZM_HOME;
+    return;
+  }
+  if (b >= 0) sfxPlay(SFX_DENY);   // the Hall is not built yet; the Zone is locked
+}
+
+// ---------- the Battle Zone (v4.03) ----------
+// The post-game (docs/postgame-plan.md). Step 2 of its build is this shell: the
+// gate and the code, the landing page, BP, the prize counter, the records, and
+// the zone FIGHT with its own PP ledger. The formats (the gauntlet, the
+// tournament) arrive in steps 4-5 and drive the run API below.
+
+// THE way in: every champion beaten (zoneUnlocked()), or the code this visit.
+bool zoneAccessible() { return zoneUnlocked() || zoneViaCode; }
+
+// Starts a run: the fee paid, the team copied as it is now, every move at full
+// PP (PP Ups counted). Nothing is written to the creatures or the PP book.
+// Refused without access, with a run already on, with no team, or short of the
+// fee (nothing is charged then).
+bool zoneRunBegin(uint8_t kind, uint16_t mask) {
+  if (kind >= ZONE_KINDS || !zoneAccessible() || zoneRun.active) return false;
+  if (pet.isEgg() || pet.ceremony != CER_NONE) return false;
+  buildSquad(0, TRAINER_TEAM_MAX, mask);        // no level cap: the player brings what they raised
+  if (!btlSquadN) return false;
+  if (!pet.spendWallet(ZONE_FEE[kind])) return false;
+  zoneRun.active = true;
+  zoneRun.kind = kind;
+  zoneRun.n = btlSquadN;
+  zoneRun.wins = 0;
+  for (uint8_t i = 0; i < btlSquadN; i++) {
+    zoneRun.team[i] = btlSquad[i];
+    battleFullPp(zoneRun.team[i]);
+    memcpy(zoneRun.pp[i], zoneRun.team[i].pp, sizeof(zoneRun.pp[i]));
+  }
+  return true;
+}
+
+// The end of a run, won or lost: the records it set, and nothing else to undo
+// -- the creatures and the PP book were never touched.
+void zoneRunEnd() {
+  if (!zoneRun.active) return;
+  if (zoneRun.kind == ZONE_GAUNTLET && zoneRun.wins > pet.zoneBestStreak) pet.zoneBestStreak = zoneRun.wins;
+  zoneRun.active = false;
+  pet.saveNow();
+}
+
+// A zone opponent's creature: the leader's builder, with the format's IVs and
+// training rather than a ladder seat's.
+static void zoneFoeMon(Combatant &c, int16_t dex, uint8_t lvl, uint8_t iv, uint8_t tr) {
+  Pet foe;
+  foe.dbgHatchAs(dex, false);
+  if (iv > 31) iv = 31;
+  foe.ivAtk = foe.ivDef = foe.ivSpe = foe.ivHp = iv;
+  if (tr > Pet::trMaxFor(iv)) tr = Pet::trMaxFor(iv);
+  foe.trAtk = foe.trDef = foe.trSpe = tr;
+  foe.ageMinutes = (uint32_t)(lvl ? lvl - 1 : 0) * MINUTES_PER_LEVEL;
+  foe.relearnFromLevel();
+  combatantFromPet(c, foe);
+}
+
+// One fight of the run: the run's team at full HP with the PP it has left,
+// against `f`. SET style, the smart AI, no bag, the Battle Frontier.
+bool zoneStartFight(const ZoneFoe &f) {
+  if (!zoneRun.active || !f.count || f.count > TRAINER_TEAM_MAX) return false;
+  zoneFoe = f;
+  btlSquadN = zoneRun.n;
+  btlSquadAt = 0;
+  btlPetIn = false;      // no training reward from the zone
+  for (uint8_t i = 0; i < btlSquadN; i++) {
+    btlSquad[i] = zoneRun.team[i];             // fresh: full HP, no ailment, no stages
+    memcpy(btlSquad[i].pp, zoneRun.pp[i], sizeof(zoneRun.pp[i]));
+  }
+  btlYou = btlSquad[0];
+  btlFoeSquadN = 0;
+  for (uint8_t k = 0; k < f.count; k++) zoneFoeMon(btlFoeSquad[btlFoeSquadN++], f.dex[k], f.level[k], f.iv, f.tr);
+  btlFoeAt = 0;
+  btlFoeSent = 1;
+  btlFoe = btlFoeSquad[0];
+  btlTrainer = -1;
+  btlHard = true;
+  btlWild = false;
+  btlSafari = false;
+  btlLink = false;
+  btlZone = true;
+  btlMsgCount = 0;
+  btlOver = false;
+  btlWon = false;
+  btlMenu = 0;
+  btlWinUntil = 0;
+  btlWinPending = false;
+  btlLost = false;
+  btlSwapDue = 0;
+  btlFaintUntil[0] = btlFaintUntil[1] = 0;
+  btlEnterUntil[0] = btlEnterUntil[1] = 0;
+  btlHpShown[0] = btlYou.maxHp;
+  btlHpShown[1] = btlFoe.maxHp;
+  btlSyncSprite(0, btlYou);
+  btlSyncSprite(1, btlFoe);
+  audioMusic(btlMusic(false));
+  btlLungeUntil[0] = btlLungeUntil[1] = 0;
+  btlHitUntil[0] = btlHitUntil[1] = 0;
+  btlFixScene();
+  zoneOpen = false;
+  battleOpen = true;
+  return true;
+}
+
+// A zone fight is over (its last line read, or run from): the PP it used goes
+// into the run's ledger, a win pays BP, a loss ends the run. Back to the zone.
+void zoneAfterFight(bool won) {
+  if (zoneRun.active) {
+    btlSquad[btlSquadAt] = battleStored(btlYou);
+    for (uint8_t i = 0; i < zoneRun.n && i < btlSquadN; i++)
+      memcpy(zoneRun.pp[i], btlSquad[i].pp, sizeof(zoneRun.pp[i]));
+    if (won) {
+      zoneRun.wins++;
+      pet.addBp(ZONE_BP_WIN[zoneRun.kind]);
+      pet.saveNow();
+    } else {
+      zoneRunEnd();
+    }
+  }
+  zoneOpen = true;
+  zoneMode = ZM_HOME;
+}
+
+// --- the screens ---
+#define ZONE_ROWS 3
+#define ZONE_ROW_Y0 150
+#define ZONE_ROW_H 80
+#define ZONE_ROW_GAP 8
+void zoneRowRect(uint8_t i, int *x, int *y, int *w, int *h) {
+  *y = ZONE_ROW_Y0 + i * (ZONE_ROW_H + ZONE_ROW_GAP);
+  *h = ZONE_ROW_H;
+  int half = uiSafeHalfWidthFor(*y, *y + *h) - 18;
+  if (half > 150) half = 150;
+  *x = CX - half;
+  *w = 2 * half;
+}
+int zoneRowAt(int16_t x, int16_t y) {
+  for (uint8_t i = 0; i < ZONE_ROWS; i++) {
+    int rx, ry, rw, rh;
+    zoneRowRect(i, &rx, &ry, &rw, &rh);
+    if (x >= rx && x <= rx + rw && y >= ry - ZONE_ROW_GAP / 2 && y <= ry + rh + ZONE_ROW_GAP / 2) return i;
+  }
+  return -1;
+}
+uint8_t zonePrizePages() { return (uint8_t)((ZONE_PRIZE_COUNT + ZONE_ROWS - 1) / ZONE_ROWS); }
+
+// One prize for BP. Refused short of BP or with the stack full (nothing spent).
+bool zoneBuyPrize(uint8_t i) {
+  if (i >= ZONE_PRIZE_COUNT) return false;
+  const ZonePrize &z = ZONE_PRIZES[i];
+  if (pet.bp < z.bp || bag.count(z.item) >= BAG_STACK_MAX) return false;
+  if (!pet.spendBp(z.bp)) return false;
+  bag.add(z.item);
+  pet.saveNow();
+  return true;
+}
+
+static void zoneHeader(const char *title) {
+  gfx->fillScreen(RGB565_BLACK);
+  gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
+  gfx->setTextColor(UI_INK);
+  gfx->setTextSize(2);
+  gfx->setCursor(CX - (int)strlen(title) * 6, 48);
+  gfx->print(title);
+  char b[24];
+  snprintf(b, sizeof(b), T(S_ZONE_BP_FMT), (unsigned)pet.bp);
+  gfx->setTextColor(UI_BAR_WARN);
+  gfx->setCursor(CX - (int)strlen(b) * 6, 78);
+  gfx->print(b);
+}
+
+void renderZone() {
+  if (zoneMode == ZM_PRIZES) {
+    zoneHeader(T(S_ZONE_PRIZES));
+    for (uint8_t r = 0; r < ZONE_ROWS; r++) {
+      uint8_t i = (uint8_t)(zonePage * ZONE_ROWS + r);
+      if (i >= ZONE_PRIZE_COUNT) break;
+      int x, y, w, h;
+      zoneRowRect(r, &x, &y, &w, &h);
+      bool afford = pet.bp >= ZONE_PRIZES[i].bp;
+      gfx->fillRoundRect(x, y, w, h, 12, UI_BG_DAY);
+      gfx->drawRoundRect(x, y, w, h, 12, afford ? UI_INK : UI_TRACK);
+      gfx->setTextColor(afford ? UI_INK : UI_TRACK);
+      const char *nm = itemEntry(ZONE_PRIZES[i].item).name;
+      gfx->setTextSize(strlen(nm) * 12 <= (size_t)w - 24 ? 2 : 1);
+      gfx->setCursor(x + 14, y + 16);
+      gfx->print(nm);
+      char c[16];
+      snprintf(c, sizeof(c), T(S_ZONE_COST_FMT), (unsigned)ZONE_PRIZES[i].bp);
+      gfx->setTextSize(2);
+      gfx->setCursor(x + w - 14 - (int)strlen(c) * 12, y + h - 28);
+      gfx->print(c);
+    }
+    if (zoneConfirm < ZONE_PRIZE_COUNT) {
+      char q[48], c[16];
+      snprintf(q, sizeof(q), T(S_ZONE_BUY_Q), itemEntry(ZONE_PRIZES[zoneConfirm].item).name);
+      snprintf(c, sizeof(c), T(S_ZONE_COST_FMT), (unsigned)ZONE_PRIZES[zoneConfirm].bp);
+      drawConfirmPanel(q, c, nullptr, UI_INK_SOFT, T(S_YES), UI_BAR_OK, UI_WHITE, T(S_NO), UI_TRACK, UI_INK);
+    }
+    uiChrome();
+    gfx->flush();
+    return;
+  }
+  zoneHeader(T(S_ZONE_TITLE));
+  char l[32];
+  gfx->setTextColor(UI_INK_SOFT);
+  gfx->setTextSize(1);
+  snprintf(l, sizeof(l), T(S_ZONE_WINS_FMT), (unsigned)pet.zoneTourWins);
+  gfx->setCursor(CX - (int)strlen(l) * 3, 106);
+  gfx->print(l);
+  snprintf(l, sizeof(l), T(S_ZONE_STREAK_FMT), (unsigned)pet.zoneBestStreak);
+  gfx->setCursor(CX - (int)strlen(l) * 3, 122);
+  gfx->print(l);
+  static const StrId ROW[ZONE_ROWS] = { S_ZONE_TOUR, S_ZONE_GAUNT, S_ZONE_PRIZES };
+  for (uint8_t r = 0; r < ZONE_ROWS; r++) {
+    int x, y, w, h;
+    zoneRowRect(r, &x, &y, &w, &h);
+    bool live = r == 2;                  // the formats come in steps 4-5
+    gfx->fillRoundRect(x, y, w, h, 12, UI_BG_DAY);
+    gfx->drawRoundRect(x, y, w, h, 12, live ? UI_INK : UI_TRACK);
+    gfx->setTextColor(live ? UI_INK : UI_TRACK);
+    gfx->setTextSize(2);
+    const char *t = T(ROW[r]);
+    gfx->setCursor(CX - (int)strlen(t) * 6, live ? y + h / 2 - 8 : y + 18);
+    gfx->print(t);
+    if (!live) {
+      gfx->setTextSize(1);
+      gfx->setCursor(CX - (int)strlen(T(S_PLZ_SOON)) * 3, y + h - 24);
+      gfx->print(T(S_PLZ_SOON));
+    }
+  }
+  uiChrome();
+  gfx->flush();
+}
+
+void zoneTap(int16_t x, int16_t y) {
+  if (zoneMode == ZM_PRIZES && zoneConfirm < ZONE_PRIZE_COUNT) {
+    int b1Top, b1Bot, b2Top, b2Bot;
+    uiConfirmRects(&b1Top, &b1Bot, &b2Top, &b2Bot);
+    bool inX = (x >= CONFIRM_BTN_X && x <= CONFIRM_BTN_X + CONFIRM_BTN_W);
+    if (inX && y >= b1Top && y <= b1Bot) {
+      sfxPlay(zoneBuyPrize(zoneConfirm) ? SFX_TAP : SFX_DENY);
+      zoneConfirm = 0xFF;
+    } else if (inX && y >= b2Top && y <= b2Bot) {
+      zoneConfirm = 0xFF;
+    }
+    return;
+  }
+  int r = zoneRowAt(x, y);
+  if (r < 0) return;
+  if (zoneMode == ZM_PRIZES) {
+    uint8_t i = (uint8_t)(zonePage * ZONE_ROWS + r);
+    if (i >= ZONE_PRIZE_COUNT) return;
+    if (pet.bp < ZONE_PRIZES[i].bp) { sfxPlay(SFX_DENY); return; }
+    sfxPlay(SFX_TAP);
+    zoneConfirm = i;
+    return;
+  }
+  if (r == 2) { sfxPlay(SFX_TAP); zoneMode = ZM_PRIZES; zonePage = 0; return; }
+  sfxPlay(SFX_DENY);                     // TOURNAMENT and GAUNTLET: not built yet
+}
+
+// Down, one level: a question, then the prizes, then out to the PLAZA (where
+// the code's visit lapses unless a run is on).
+void zoneBack() {
+  if (zoneConfirm != 0xFF) { zoneConfirm = 0xFF; return; }
+  if (zoneMode == ZM_PRIZES) { zoneMode = ZM_HOME; return; }
+  zoneOpen = false;
+  if (!zoneRun.active) zoneViaCode = false;
 }
 
 // ---------- trading ----------
@@ -11050,6 +11403,7 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlSafari = safari;
   if (safari) safariBegin(btlSafariSt, dex, wildSafariRules(exploreAreaOf(region)));
   btlLink = false;   // never a leftover from a LAN fight that closed some other way
+  btlZone = false;
   btlLink = false;
   btlTrainer = -1;
   btlHard = hard;

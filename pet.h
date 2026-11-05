@@ -237,6 +237,8 @@ struct RivalRecord {
 // the road, the Power Plant's Electrode... one bit each, met and caught. 4
 // bytes = 32; wild.cpp fails the build before WILD_FIXED outgrows it.
 #define FIXED_BYTES 4
+#define BP_CAP 9999          // the Battle Zone's points, as the games cap them
+#define ZONE_REC_BYTES 6     // bp, tournaments won, best streak: u16 each
 // Owned TMs (v3.51): one bit per MOVE INDEX, so every index a uint8_t can hold
 // has a bit. Keyed by move, never by TM number: the TM list is regenerated,
 // the move indices are append-only (CLAUDE.md trap 2).
@@ -604,6 +606,13 @@ public:
   // Does this creature age and evolve? Not a revived companion -- unless the
   // hidden setting says companions grow. Ageing, evolving and the cord ask it.
   bool grows() const { return !frozen || settingOn(SET_COMPANION_GROWS); }
+  // The Battle Zone (v4.03): Battle Points and its records. Player record v11
+  // tail (a length byte, then ZONE_REC_BYTES) and legacy key "zone".
+  uint16_t bp = 0;
+  uint16_t zoneTourWins = 0;     // tournaments won
+  uint16_t zoneBestStreak = 0;   // the gauntlet's best run, challengers beaten
+  void addBp(uint32_t n) { uint32_t c = (uint32_t)bp + n; bp = c > BP_CAP ? BP_CAP : (uint16_t)c; pendingSave = true; }
+  bool spendBp(uint16_t n) { if (bp < n) return false; bp -= n; pendingSave = true; return true; }
   void addCoins(uint32_t n) { uint32_t c = (uint32_t)coins + n; coins = c > COINS_CAP ? COINS_CAP : (uint16_t)c; pendingSave = true; }
   bool spendCoins(uint16_t n) { if (coins < n) return false; coins -= n; pendingSave = true; return true; }
 

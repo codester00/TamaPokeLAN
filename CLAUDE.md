@@ -948,6 +948,35 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the Battle Zone shell (v4.03)
+
+Step 2 of `docs/postgame-plan.md` § 6. `zone_test`; nine guards
+negative-checked. **`zone.h`** holds the types (`ZoneFoe`, `ZoneRun`: there
+because the emulator's generated prototypes sit above the sketch's structs, so
+`genproto.py` includes it) and the PLACEHOLDER numbers: `ZONE_FEE`,
+`ZONE_BP_WIN`, `ZONE_PRIZES`.
+
+- **Access: `zoneAccessible()`** = `zoneUnlocked()` or `zoneViaCode` (the ZONE
+  code, `codeApply()`: opens the zone over the PLAZA, no marks; lapses when the
+  zone closes with no run on -- `zoneBack()` and `uiTileGo()`).
+- **Save**: `Pet::bp` (`BP_CAP` 9999, `addBp()`/`spendBp()`),
+  `zoneTourWins`, `zoneBestStreak`: player record v11 tail (a length byte,
+  `ZONE_REC_BYTES` 6) and legacy key `zone` (`SAVE_FIELDS`, tpsave.py).
+- **The run API** the formats will drive: `zoneRunBegin(kind, mask)` (access,
+  one run, the fee through `spendWallet()`, the team copied fresh at full PP),
+  `zoneStartFight(foe)`, `zoneAfterFight(won)` (the PP ledger, BP for a win,
+  `zoneRunEnd()` on a loss -- the gauntlet's best streak), all RAM only.
+- **A zone fight is `btlZone`**: the foe is a held squad like LAN's
+  (`btlDoSwap()`'s `btlLink || btlZone` branch, `zoneFoe.name`),
+  `btlZoneNext()` by `btlMatchScore()` (shared with `btlTrainerNext()`), smart AI,
+  the Frontier scene; `btlRecordPp()` skips (the ledger is `zoneRun.pp`),
+  `btlSketched()` keeps nothing, the bag is dead, `battleStyleShift()` is SET,
+  `btlRun()` forfeits, the end never blacks out. Every other start clears it.
+- **Screens**: `SCR_ZONE` over the PLAZA (`zoneOpen`; `ZM_HOME`/`ZM_PRIZES`),
+  `zoneRowRect()`/`zoneRowAt()`, three rows; the prizes page on the rim
+  (`uiRimTarget`, `swipe_test`), each behind the confirm panel
+  (`zoneBuyPrize()`). TOURNAMENT and GAUNTLET read COMING SOON.
+
 ### Done: the player picks after a faint, shift and set (v4.02)
 
 Step 1 of `docs/postgame-plan.md` § 6. `faintpick_test`, `lanpick_test`;
@@ -2132,6 +2161,7 @@ the round with no pay.
 | SURF | 0 2 0 2 1 3 1 3 | opens Surfing Pikachu, this visit only |
 | SETTINGS | 0 0 2 2 3 1 3 1 | the hidden SETTINGS screen (`SCR_CODES`) |
 | CHEATS | 2 2 0 0 1 3 1 3 | nothing yet (v3.60) |
+| ZONE | 1 1 3 3 1 1 3 3 | the Battle Zone, this visit only, no marks (v4.03) |
 
 - A hall code just calls `openHall()` from the Explore tile: no `hallViaCode`
   flag was needed, because nothing inside a hall re-checks its gate, and the

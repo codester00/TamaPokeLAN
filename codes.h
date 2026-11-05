@@ -6,7 +6,7 @@
 #pragma once
 #include <stdint.h>
 
-enum CodeId : uint8_t { CODE_CELADON, CODE_GOLDENROD, CODE_SURF, CODE_SETTINGS, CODE_CHEATS, CODE_COUNT };
+enum CodeId : uint8_t { CODE_CELADON, CODE_GOLDENROD, CODE_SURF, CODE_SETTINGS, CODE_CHEATS, CODE_ZONE, CODE_COUNT };
 #define CODE_LEN 8
 
 struct SecretCode { const char *name; uint8_t seq[CODE_LEN]; };
@@ -17,6 +17,7 @@ static const SecretCode CODES[CODE_COUNT] = {
   { "SURF",      { 0, 2, 0, 2, 1, 3, 1, 3 } },
   { "SETTINGS",  { 0, 0, 2, 2, 3, 1, 3, 1 } },   // up up down down left right left right
   { "CHEATS",    { 2, 2, 0, 0, 1, 3, 1, 3 } },   // the same, upside down
+  { "ZONE",      { 1, 1, 3, 3, 1, 1, 3, 3 } },   // the Battle Zone, once, no marks (v4.03)
 };
 
 // Which code the last CODE_LEN taps (oldest first) spell, or -1.

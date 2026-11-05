@@ -205,7 +205,7 @@ them.
    it).
 1. **DONE (v4.02)** The player picks their replacement after a faint, everywhere including LAN
    (protocol bump); the AI picks its replacement by matchup.
-2. The zone shell: gate, code, landing page, BP, entry fees, prize counter,
+2. **DONE (v4.03)** The zone shell: gate, code, landing page, BP, entry fees, prize counter,
    records, the zone PP ledger, no items, SKETCH not kept.
 3. AI switching (upper tiers only), measured with `league_sim`.
 4. The gauntlet: the team generator, rules, scaling, daily, saving.

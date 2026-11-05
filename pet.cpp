@@ -340,7 +340,9 @@ static constexpr uint32_t PLAYER_MAGIC = 0x31594B54UL;   // "TKY1"
 // no coins, no score -- what a save from before them truly had.
 // v6 appended the legendary safety net's counter (one byte, after surfHi).
 // v7 appended the farming lockout's attempt count (one byte, after that).
-static constexpr uint16_t PLAYER_VERSION = 10;
+// v11 appended the Battle Zone's BP and records (a length byte, then
+// ZONE_REC_BYTES), v4.03.
+static constexpr uint16_t PLAYER_VERSION = 11;
 static constexpr size_t PLAYER_FIXED = 42;   // header + every scalar, before the arrays
 static constexpr size_t PLAYER_CAP = 512;
 static constexpr size_t PLAYER_DEX_BYTES = (DEX_COUNT + 7) / 8;
@@ -352,7 +354,7 @@ static constexpr size_t PLAYER_MAX =
     2 * REGION_COUNT + 12 /* trainerName */ + 8 /* wallet + stepsTotal */ +
     4 /* uidSerial */ + 1 + 2 * LEGEND_BYTES /* v4 legendaries */ +
     1 + TM_BYTES + 2 + 2 /* v5 TMs, coins, surfHi */ + 1 /* v6 legendDry */ + 1 /* v7 legendAttempts */ + 4 /* v8 settings, rulesUsed */ + 4 + 1 + 1 + 1 + TM_BYTES /* v9 cheats */ +
-    1 + 2 * FIXED_BYTES /* v10 fixed one-offs */ + CKPT_CRC;
+    1 + 2 * FIXED_BYTES /* v10 fixed one-offs */ + 1 + ZONE_REC_BYTES /* v11 zone */ + CKPT_CRC;
 static_assert(PLAYER_MAX <= PLAYER_CAP, "raise PLAYER_CAP for the player record");
 
 // A bounds-checked cursor over the variable tail of a blob. Overrunning sets
@@ -460,6 +462,11 @@ bool Pet::savePlayerSnapshot() {
   cur.put(&fixedBytes, 1);
   cur.put(fixedMetBits, sizeof(fixedMetBits));
   cur.put(fixedCaughtBits, sizeof(fixedCaughtBits));
+  const uint8_t zoneBytes = ZONE_REC_BYTES;  // v11
+  cur.put(&zoneBytes, 1);
+  cur.put(&bp, 2);
+  cur.put(&zoneTourWins, 2);
+  cur.put(&zoneBestStreak, 2);
   if (cur.bad) {   // PLAYER_MAX static_asserts this cannot happen; say so if it does
     Serial.println("save: player record does not fit PLAYER_CAP");
     return false;
@@ -599,6 +606,19 @@ bool Pet::loadPlayerSnapshot() {
                   CkptCursor fc{ buf, v10 + 1, body };
                   fc.take(fixedMetBits, sizeof(fixedMetBits), fb);
                   fc.take(fixedCaughtBits, sizeof(fixedCaughtBits), fb);
+                  // v11: the Battle Zone, behind its own length byte. A
+                  // shorter block leaves the rest at 0.
+                  const size_t v11 = v10 + 1 + 2 * fb;
+                  if (body >= v11 + 1) {
+                    size_t zb = buf[v11];
+                    uint8_t z[ZONE_REC_BYTES] = { 0 };
+                    if (body >= v11 + 1 + zb) {
+                      memcpy(z, buf + v11 + 1, zb < sizeof(z) ? zb : sizeof(z));
+                      memcpy(&bp, z, 2);
+                      memcpy(&zoneTourWins, z + 2, 2);
+                      memcpy(&zoneBestStreak, z + 4, 2);
+                    }
+                  }
                 }
               }
             }
@@ -2808,6 +2828,11 @@ bool Pet::save() {
   SAVE_KEY(prefs.putBytes("tms", tmOwned, sizeof(tmOwned)), "tms");   // v3.51
   SAVE_KEY(prefs.putUShort("coins", coins), "coins");                // v3.53
   SAVE_KEY(prefs.putUShort("surfhi", surfHi), "surfhi");             // v3.54
+  {
+    uint8_t z[ZONE_REC_BYTES];                                        // v4.03
+    memcpy(z, &bp, 2); memcpy(z + 2, &zoneTourWins, 2); memcpy(z + 4, &zoneBestStreak, 2);
+    SAVE_KEY(prefs.putBytes("zone", z, sizeof(z)), "zone");
+  }
   SAVE_KEY(prefs.putUChar("ldry", legendDry), "ldry");                // v3.56
   SAVE_KEY(prefs.putUChar("lstk", legendAttempts), "lstk");           // v3.56
   SAVE_KEY(prefs.putUShort("stng", gameSettings), "stng");            // v3.59
@@ -2905,6 +2930,11 @@ void Pet::load() {
   coins = prefs.getUShort("coins", 0);
   if (coins > COINS_CAP) coins = COINS_CAP;
   surfHi = prefs.getUShort("surfhi", 0);
+  {
+    uint8_t z[ZONE_REC_BYTES] = { 0 };
+    loadBlob(prefs, "zone", z, sizeof(z));
+    memcpy(&bp, z, 2); memcpy(&zoneTourWins, z + 2, 2); memcpy(&zoneBestStreak, z + 4, 2);
+  }
   legendDry = prefs.getUChar("ldry", 0);
   legendAttempts = prefs.getUChar("lstk", 0);
   gameSettings = prefs.getUShort("stng", 0);

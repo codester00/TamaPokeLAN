@@ -45,6 +45,7 @@ const SaveField SAVE_FIELDS[] = {
   { "tms", SK_BYTES },    // owned TMs, one bit per move index (v3.51)
   { "coins", SK_U16 },    // the Game Corner's coin case
   { "surfhi", SK_U16 },   // Surfing Pikachu's best score
+  { "zone", SK_BYTES },   // the Battle Zone (v4.03): BP, tournaments won, best streak
   { "ldry", SK_U8 },      // farewell eggs since a legendary (v3.56, secret)
   { "lstk", SK_U8 },
   { "stng", SK_U16 },     // the hidden settings (v3.59)
