@@ -60,7 +60,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.08"
+#define FW_VERSION "4.09"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -110,7 +110,7 @@ bool galleryDirty = false;
 // tap zone starts a few px below what is above it, so a tap just short of the
 // pill lands on nothing. backPillRect()/backZoneY() are THE answer for both the
 // drawing and the tap.
-enum { BACK_RPICK, BACK_DEX, BACK_JUMP };
+enum { BACK_RPICK, BACK_DEX, BACK_JUMP, BACK_ZONE };   // BACK_ZONE (v4.09): the Battle Zone's screens and the Battle Hall
 #define BACK_PILL_H 44
 #define GAL_REGIONS (REGION_COUNT - 1)          // the real regions, not ALL
 #define GAL_LO (REGIONS[galleryRegion % GAL_REGIONS].lo)
@@ -9500,7 +9500,10 @@ static void tourSave() {
 
 // The run is over: how it ended (the page says so), and the record.
 static void tourEnd(uint8_t result) {
-  if (result == TOUR_RES_CHAMPION && pet.zoneTourWins < 0xFFFF) pet.zoneTourWins++;
+  if (result == TOUR_RES_CHAMPION) {
+    if (pet.zoneTourWins < 0xFFFF) pet.zoneTourWins++;
+    pet.addBp(ZONE_TOUR_CHAMP_BP);   // v4.09: the title pays on top of the final's win
+  }
   tour.result = result;
   tour.resultRound = tour.round;
   tour.active = 0;
@@ -9829,7 +9832,7 @@ static void gauntRulesText(const GauntletRules &r, char *out, size_t cap) {
   if (r.levelCap) snprintf(cp, sizeof(cp), T(S_GT_CAP_FMT), r.levelCap);
   else snprintf(cp, sizeof(cp), "%s", T(S_GT_NOCAP));
   snprintf(sz, sizeof(sz), T(S_GT_SIZE_FMT), r.size, r.size);
-  snprintf(out, cap, "%s  %s  %s  %s",
+  snprintf(out, cap, "%s/%s/%s/%s",   // v4.09: tight, so the line fits at text size 2
            r.type == GAUNTLET_TYPE_ANY ? T(S_GT_ANYTYPE) : typeName(r.type), cp,
            T((StrId)(S_GT_TIER0 + (r.tier < GT_COUNT ? r.tier : 0))), sz);
 }
@@ -9850,14 +9853,19 @@ static void gauntOpenPicker(const GauntletRules &r, bool daily) {
 
 // --- the screens ---
 #define ZONE_ROWS 3
-#define ZONE_ROW_Y0 150
-#define ZONE_ROW_H 80
-#define ZONE_ROW_GAP 8
+// v4.09: the rows moved up and lost 8 px each so the band under them is a
+// BACK button (owner, from a board: the screens had no way back but a swipe).
+#define ZONE_ROW_Y0 140
+#define ZONE_ROW_H 72
+#define ZONE_ROW_GAP 6
+#define ZONE_BACK_Y 378
+static_assert(ZONE_ROW_Y0 + ZONE_ROWS * ZONE_ROW_H + (ZONE_ROWS - 1) * ZONE_ROW_GAP + ZONE_ROW_GAP / 2 < ZONE_BACK_Y - 4,
+              "the last row's tap area must end above the BACK zone");
 void zoneRowRect(uint8_t i, int *x, int *y, int *w, int *h) {
   *y = ZONE_ROW_Y0 + i * (ZONE_ROW_H + ZONE_ROW_GAP);
   *h = ZONE_ROW_H;
   int half = uiSafeHalfWidthFor(*y, *y + *h) - 18;
-  if (half > 150) half = 150;
+  if (half > 180) half = 180;   // v4.09: 150 kept a run's rules line at text size 1
   *x = CX - half;
   *w = 2 * half;
 }
@@ -9909,17 +9917,30 @@ static void zoneHeader(const char *title) {
   gfx->print(b);
 }
 
+// A status line under the zone header (v4.09): text size 2 when it fits the
+// panel at that height, else 1 -- the owner found the size-1 lines hard to read.
+void zoneLine(int y, const char *t, uint16_t color) {
+  int half = uiSafeHalfWidthFor(y, y + 16) - 16;
+  bool big = (int)strlen(t) * 12 <= 2 * half;
+  gfx->setTextSize(big ? 2 : 1);
+  gfx->setTextColor(color);
+  gfx->setCursor(CX - (int)strlen(t) * (big ? 6 : 3), big ? y : y + 4);
+  gfx->print(t);
+}
+#define ZONE_LINE1_Y 100
+#define ZONE_LINE2_Y 120
+
 // The custom rules: four cells in two rows (TYPE LEVEL / FORMS TEAM), then START.
 #define GT_RULE_CELLS 5
 void gauntRuleRect(uint8_t i, int *x, int *y, int *w, int *h) {
   if (i >= 4) {                       // START
-    *y = 318; *h = UI_TAP_FINGER - 14;
+    *y = 300; *h = 66;
     int half = uiSafeHalfWidthFor(*y, *y + *h) - 24;
     if (half > 140) half = 140;
     *x = CX - half; *w = 2 * half;
     return;
   }
-  *y = 110 + (i / 2) * (UI_TAP_FINGER + 8);
+  *y = 100 + (i / 2) * (UI_TAP_FINGER + 6);
   *h = UI_TAP_FINGER;
   int half = uiSafeHalfWidthFor(*y, *y + *h) - 18;
   if (half > 180) half = 180;
@@ -9964,12 +9985,13 @@ static void zoneRow(uint8_t r, const char *big, const char *small, bool live) {
   gfx->drawRoundRect(x, y, w, h, 12, live ? UI_INK : UI_TRACK);
   gfx->setTextColor(live ? UI_INK : UI_TRACK);
   gfx->setTextSize(strlen(big) * 12 <= (size_t)w - 20 ? 2 : 1);
-  gfx->setCursor(CX - (int)strlen(big) * (strlen(big) * 12 <= (size_t)w - 20 ? 6 : 3), small ? y + 18 : y + h / 2 - 8);
+  gfx->setCursor(CX - (int)strlen(big) * (strlen(big) * 12 <= (size_t)w - 20 ? 6 : 3), small ? y + 12 : y + h / 2 - 8);
   gfx->print(big);
-  if (small) {
-    gfx->setTextSize(1);
+  if (small) {   // v4.09: size 2 when it fits the row
+    bool sbig = strlen(small) * 12 <= (size_t)w - 20;
+    gfx->setTextSize(sbig ? 2 : 1);
     gfx->setTextColor(live ? UI_INK_SOFT : UI_TRACK);
-    gfx->setCursor(CX - (int)strlen(small) * 3, y + h - 26);
+    gfx->setCursor(CX - (int)strlen(small) * (sbig ? 6 : 3), y + h - (sbig ? 26 : 20));
     gfx->print(small);
   }
 }
@@ -9977,22 +9999,15 @@ static void zoneRow(uint8_t r, const char *big, const char *small, bool live) {
 static void renderGauntlet() {
   zoneHeader(T(S_ZONE_GAUNT));
   char l[48], rt[64];
-  gfx->setTextSize(1);
   if (gauntBroken) {
-    gfx->setTextColor(UI_BAR_BAD);
-    gfx->setCursor(CX - (int)strlen(T(S_GT_BROKEN)) * 3, 110);
-    gfx->print(T(S_GT_BROKEN));
+    zoneLine(ZONE_LINE1_Y, T(S_GT_BROKEN), UI_BAR_BAD);
   } else {
     int32_t today = pet.today();
     snprintf(l, sizeof(l), T(S_GT_TODAY_FMT), (unsigned)(gaunt.bestDay == today ? gaunt.bestToday : 0));
-    gfx->setTextColor(UI_INK_SOFT);
-    gfx->setCursor(CX - (int)strlen(l) * 3, 110);
-    gfx->print(l);
+    zoneLine(ZONE_LINE1_Y, l, UI_INK_SOFT);
   }
   snprintf(l, sizeof(l), T(S_GT_FEE_FMT), (unsigned long)ZONE_FEE[ZONE_GAUNTLET]);
-  gfx->setTextColor(UI_INK_SOFT);
-  gfx->setCursor(CX - (int)strlen(l) * 3, 126);
-  gfx->print(l);
+  zoneLine(ZONE_LINE2_Y, l, UI_INK_SOFT);
   if (gaunt.active) {
     gauntRulesText(gaunt.rules, rt, sizeof(rt));
     snprintf(l, sizeof(l), T(S_GT_CONTINUE_FMT), (unsigned)(gaunt.wins + 1));
@@ -10007,6 +10022,7 @@ static void renderGauntlet() {
     zoneRow(0, l, rt, true);
     zoneRow(1, T(S_GT_CUSTOM), nullptr, true);
   }
+  drawBackPill(BACK_ZONE);
   uiChrome();
   gfx->flush();
 }
@@ -10025,16 +10041,18 @@ static void renderGauntRules() {
     gfx->setTextColor(start ? UI_WHITE : UI_INK);
     bool big = strlen(v) * 12 <= (size_t)w - 12;
     gfx->setTextSize(big ? 2 : 1);
-    gfx->setCursor(x + w / 2 - (int)strlen(v) * (big ? 6 : 3), start ? y + h / 2 - 8 : y + h - 36);
+    gfx->setCursor(x + w / 2 - (int)strlen(v) * (big ? 6 : 3), start ? y + h / 2 - 8 : y + h - 34);
     gfx->print(v);
-    if (!start) {
-      gfx->setTextSize(1);
-      gfx->setTextColor(UI_INK_SOFT);
+    if (!start) {   // v4.09: the label at size 2 when it fits the cell
       const char *t = T(LBL[i]);
-      gfx->setCursor(x + w / 2 - (int)strlen(t) * 3, y + 16);
+      bool lbig = strlen(t) * 12 <= (size_t)w - 12;
+      gfx->setTextSize(lbig ? 2 : 1);
+      gfx->setTextColor(UI_INK_SOFT);
+      gfx->setCursor(x + w / 2 - (int)strlen(t) * (lbig ? 6 : 3), y + 14);
       gfx->print(t);
     }
   }
+  drawBackPill(BACK_ZONE);
   uiChrome();
   gfx->flush();
 }
@@ -10042,26 +10060,22 @@ static void renderGauntRules() {
 static void renderTour() {
   zoneHeader(T(S_ZONE_TOUR));
   char l[48], sm[32];
-  gfx->setTextSize(1);
+  uint16_t lc = UI_INK_SOFT;
   if (!tour.active && tour.result == TOUR_RES_CHAMPION) {
-    gfx->setTextColor(UI_BAR_OK);
+    lc = UI_BAR_OK;
     snprintf(l, sizeof(l), "%s", T(S_TOUR_CHAMP));
   } else if (!tour.active && tour.result == TOUR_RES_BROKEN) {
-    gfx->setTextColor(UI_BAR_BAD);
+    lc = UI_BAR_BAD;
     snprintf(l, sizeof(l), "%s", T(S_GT_BROKEN));
   } else if (!tour.active && tour.result == TOUR_RES_OUT) {
-    gfx->setTextColor(UI_BAR_BAD);
+    lc = UI_BAR_BAD;
     snprintf(l, sizeof(l), "%s: %s", T(S_TOUR_OUT), T((StrId)(S_TOUR_R0 + (tour.resultRound & 3))));
   } else {
-    gfx->setTextColor(UI_INK_SOFT);
     snprintf(l, sizeof(l), T(S_ZONE_WINS_FMT), (unsigned)pet.zoneTourWins);
   }
-  gfx->setCursor(CX - (int)strlen(l) * 3, 110);
-  gfx->print(l);
+  zoneLine(ZONE_LINE1_Y, l, lc);
   snprintf(l, sizeof(l), T(S_GT_FEE_FMT), (unsigned long)ZONE_FEE[ZONE_TOURNAMENT]);
-  gfx->setTextColor(UI_INK_SOFT);
-  gfx->setCursor(CX - (int)strlen(l) * 3, 126);
-  gfx->print(l);
+  zoneLine(ZONE_LINE2_Y, l, UI_INK_SOFT);
   if (tour.active) {
     int8_t opp = tourPlayerOpponent(tour);
     ZoneFoe f;
@@ -10078,6 +10092,7 @@ static void renderTour() {
   } else {
     zoneRow(0, T(S_TOUR_ENTER), nullptr, true);
   }
+  drawBackPill(BACK_ZONE);
   uiChrome();
   gfx->flush();
 }
@@ -10117,6 +10132,8 @@ void renderZone() {
       snprintf(q, sizeof(q), T(S_ZONE_BUY_Q), nm);
       snprintf(c, sizeof(c), T(S_ZONE_COST_FMT), (unsigned)cz.bp);
       drawConfirmPanel(q, c, nullptr, UI_INK_SOFT, T(S_YES), UI_BAR_OK, UI_WHITE, T(S_NO), UI_TRACK, UI_INK);
+    } else {
+      drawBackPill(BACK_ZONE);
     }
     uiChrome();
     gfx->flush();
@@ -10124,14 +10141,10 @@ void renderZone() {
   }
   zoneHeader(T(S_ZONE_TITLE));
   char l[32];
-  gfx->setTextColor(UI_INK_SOFT);
-  gfx->setTextSize(1);
   snprintf(l, sizeof(l), T(S_ZONE_WINS_FMT), (unsigned)pet.zoneTourWins);
-  gfx->setCursor(CX - (int)strlen(l) * 3, 106);
-  gfx->print(l);
+  zoneLine(ZONE_LINE1_Y, l, UI_INK_SOFT);
   snprintf(l, sizeof(l), T(S_ZONE_STREAK_FMT), (unsigned)pet.zoneBestStreak);
-  gfx->setCursor(CX - (int)strlen(l) * 3, 122);
-  gfx->print(l);
+  zoneLine(ZONE_LINE2_Y, l, UI_INK_SOFT);
   static const StrId ROW[ZONE_ROWS] = { S_ZONE_TOUR, S_ZONE_GAUNT, S_ZONE_PRIZES };
   for (uint8_t r = 0; r < ZONE_ROWS; r++) {
     int x, y, w, h;
@@ -10150,6 +10163,7 @@ void renderZone() {
       gfx->print(T(S_PLZ_SOON));
     }
   }
+  drawBackPill(BACK_ZONE);
   uiChrome();
   gfx->flush();
 }
@@ -10167,6 +10181,7 @@ void zoneTap(int16_t x, int16_t y) {
     }
     return;
   }
+  if (y >= backZoneY(BACK_ZONE)) { sfxPlay(SFX_TAP); zoneBack(); return; }   // v4.09: every zone screen
   if (zoneMode == ZM_PRIZES) {
     int r = zoneRowAt(x, y);
     if (r < 0) return;
@@ -10388,25 +10403,21 @@ void renderBHall() {
     gfx->setCursor(CX - (int)strlen(nm) * 6, 78);
     gfx->print(nm);
   }
-  gfx->setTextSize(1);
+  uint16_t lc = UI_INK_SOFT;
   if (!bhall.active && bhall.result == HALL_RES_CLEARED) {
-    gfx->setTextColor(UI_BAR_OK);
+    lc = UI_BAR_OK;
     snprintf(l, sizeof(l), "%s", T(S_HALL_DONE));
   } else if (!bhall.active && bhall.result == HALL_RES_LOST) {
-    gfx->setTextColor(UI_BAR_BAD);
+    lc = UI_BAR_BAD;
     snprintf(l, sizeof(l), T(S_HALL_LOST_FMT), (unsigned)(bhall.resultRung + 1), (unsigned)HALL_RUNGS);
   } else if (!bhall.active && bhall.result == HALL_RES_CHANGED) {
-    gfx->setTextColor(UI_BAR_BAD);
+    lc = UI_BAR_BAD;
     snprintf(l, sizeof(l), "%s", T(S_HALL_CHANGED));
   } else {
-    gfx->setTextColor(UI_INK_SOFT);
     snprintf(l, sizeof(l), T(S_HALL_CLEARS_FMT), (unsigned)bhall.clears);
   }
-  gfx->setCursor(CX - (int)strlen(l) * 3, 110);
-  gfx->print(l);
-  gfx->setTextColor(UI_INK_SOFT);
-  gfx->setCursor(CX - (int)strlen(T(S_HALL_RULE)) * 3, 126);
-  gfx->print(T(S_HALL_RULE));
+  zoneLine(ZONE_LINE1_Y, l, lc);
+  zoneLine(ZONE_LINE2_Y, T(S_HALL_RULE), UI_INK_SOFT);
   bool tired = pet.energy < HALL_ENERGY_COST;
   if (bhall.active) {
     snprintf(l, sizeof(l), T(S_TOUR_VS_FMT), typeName(bhallTypeAt(bhall.seed, bhall.rung)));
@@ -10417,12 +10428,14 @@ void renderBHall() {
   } else {
     zoneRow(0, T(S_GT_START), nullptr, !pet.isEgg());
   }
+  drawBackPill(BACK_ZONE);
   uiChrome();
   gfx->flush();
 }
 
 void bhallTap(int16_t x, int16_t y) {
   bhallCheckPet();
+  if (y >= backZoneY(BACK_ZONE)) { sfxPlay(SFX_TAP); bhallOpen = false; bhallQuitArmed = false; return; }   // v4.09
   int r = zoneRowAt(x, y);
   if (r < 0) return;
   if (bhall.active) {
@@ -14620,7 +14633,8 @@ void backPillRect(uint8_t which, int *x, int *y, int *w, int *h) {
   *w = ww < 96 ? 96 : ww;
   *x = CX - *w / 2;
   *h = BACK_PILL_H;
-  *y = which == BACK_RPICK ? RPICK_BACK_PILL_Y : which == BACK_DEX ? DEX_BACK_Y + 8 : JUMP_BACK_Y + 8;
+  *y = which == BACK_RPICK ? RPICK_BACK_PILL_Y : which == BACK_DEX ? DEX_BACK_Y + 8 :
+       which == BACK_ZONE ? ZONE_BACK_Y : JUMP_BACK_Y + 8;
 }
 // A tap at or below this is BACK, across the whole width (the panel narrows).
 int backZoneY(uint8_t which) { int x, y, w, h; backPillRect(which, &x, &y, &w, &h); return y - 4; }

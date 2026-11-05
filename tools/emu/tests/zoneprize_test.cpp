@@ -141,12 +141,12 @@ int main() {
     if (!sig) {
       for (uint8_t j = 0; j < nm; j++) if (mart[j] == z.what) listOk = false;
       if (z.bp != tmPrice(z.what) / 250 || z.bp < 6 || z.bp > 20) priceOk = false;
-    } else if (z.bp != ZONE_SIG_TM_BP) priceOk = false;
+    } else if (z.bp != zoneSigTmBp(z.what)) priceOk = false;
   }
   ZonePrizeRow past;
   ck(listOk && !zonePrizeAt(pet, day, n, &past), "every row resolves, distinct, unowned, none of the Mart's five");
   ck(sigOk, "signature TMs first, then the day's ordinary ones");
-  ck(priceOk, "TM BP: Mart price / 250 (6-20), a signature 48");
+  ck(priceOk, "TM BP: Mart price / 250 (6-20), a signature 48 or 32");
   ck(nm == MART_TM_PER_DAY, "the Mart still has its five that day");
   // one day can miss an overlap by chance: 400 days cannot (~1 in 6 would clash)
   {
@@ -184,7 +184,7 @@ int main() {
   tapZoneRow(at % ZONE_ROWS_T);
   ck(zoneConfirm == at, "a TM row asks first");
   tapYes();
-  ck(pet.hasTm(first.what) && pet.bp == 100 - ZONE_SIG_TM_BP, "YES: the TM is owned, its BP spent");
+  ck(pet.hasTm(first.what) && pet.bp == 100 - zoneSigTmBp(first.what), "YES: the TM is owned, its BP spent");
   ck(zonePrizeCount(pet, day) == n - 1, "and it leaves the list (TMs are reusable)");
   ZonePrizeRow now; zonePrizeAt(pet, day, at, &now);
   ck(now.what != first.what, "the next one takes its row");

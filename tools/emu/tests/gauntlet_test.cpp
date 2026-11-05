@@ -159,9 +159,14 @@ int main() {
     gauntletChallenger(r, 30, 9, 63, AVATARS_N, c);
     ck(c.level[0] == 63, "and reach it");
     bool rising = true;
-    for (uint16_t k = 1; k < 40; k++) if (gauntletIv(k) < gauntletIv(k - 1) || gauntletTr(k) < gauntletTr(k - 1)) rising = false;
+    // (a boss, v4.09, is everything at once: compare the challengers around it)
+    for (uint16_t k = 1; k < 40; k++) {
+      uint16_t p = gauntletIsBoss(k - 1) ? k - 2 : k - 1;
+      if (gauntletIsBoss(k)) continue;
+      if (gauntletIv(k) < gauntletIv(p) || gauntletTr(k) < gauntletTr(p)) rising = false;
+    }
     ck(rising && gauntletIv(40) == 31 && gauntletTr(40) == 100, "they grow round by round, to IV 31 and full training");
-    ck(gauntletTr(0) == 0 && gauntletTr(1) == 0 && gauntletTr(3) > 0, "no training for the first two");
+    ck(gauntletTr(0) == 0 && gauntletTr(2) == 0 && gauntletTr(3) > 0, "no training for the first three");
     ck(!gauntletSmart(0) && !gauntletSmart(4) && gauntletSmart(5), "the smart AI from the sixth");
     ck(gauntletBp(4, true) == 2 * gauntletBp(4, false), "2x is twice the BP"); }
 

@@ -218,7 +218,8 @@ int main() {
   ck(battleOpen && zoneFoe.switching, "the final: switching too");
   fightOut(true);
   ck(!tour.active && tour.result == TOUR_RES_CHAMPION && pet.zoneTourWins == wins0 + 1, "four wins: champion, and the record");
-  ck(pet.bp == 4 * ZONE_BP_WIN[ZONE_TOURNAMENT] && !zoneRun.active, "BP for every win; the run is over");
+  ck(pet.bp == 4 * ZONE_BP_WIN[ZONE_TOURNAMENT] + ZONE_TOUR_CHAMP_BP && !zoneRun.active,
+     "BP for every win and the champion's bonus (v4.09); the run is over");
 
   // --- 4. a reboot mid-battle is the loss --------------------------------------
   startRun();

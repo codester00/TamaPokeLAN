@@ -948,6 +948,44 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the Battle Zone tuning pass (v4.09)
+
+Owner, 2026-11-05, after a board playtest. **The economy is
+`docs/zone-economy.md`**, measured by **`tools/emu/zone_sim.cpp`** (a report,
+not a test: the gauntlet, tournament, Hall and rematch money by profile, with
+and without PP UPs). `zonetune_test`; six guards negative-checked.
+
+- **The owner's intent is pinned as RULES** in `zonetune_test`, not as the
+  numbers: PP MAX and the BOTTLE CAP cost at most one 40-win run and 3-4.5
+  ten-win runs; the Master Ball 6-7 PP MAXes; three PP UPs dearer than a PP MAX;
+  gauntlet BP flat bar bosses; an entry fee under one hard rematch's pay. Retune
+  the prices with the sim, then keep the test green.
+- **Gauntlet**: `gauntletBp()` is flat (`ZONE_BP_WIN` 3) plus `GAUNTLET_BOSS_BP`
+  10. **Bosses** (`gauntletIsBoss()`, every `GAUNTLET_BOSS_EVERY` 20th): IV 31,
+  training 100, the team's level, smart, switching, drawn from the
+  `GAUNTLET_BOSS_TOP` (100) strongest species that fit (`gauntletBst()`).
+  Training stays +4 a round, 0 for three (a +5 ramp walled good teams before the
+  first boss). Switching from the twelfth. The symbols ARE the bosses:
+  `ZONE_SYM_SILVER/GOLD_STREAK` 20/40, held to `GAUNTLET_BOSS_EVERY` by a
+  `static_assert` in gauntlet.cpp.
+- **Fees** $1,500 / $2,500; **`ZONE_TOUR_CHAMP_BP`** 10 paid in `tourEnd()`;
+  `TOUR_GEN_ROUND` 12. A full strong six wins the tournament ~99% -- measured,
+  three fixes tried, none adopted (the doc lists them); the owner's call.
+- **Hall**: `HALL_ENERGY_COST` 6, pay `HALL_PAY` 2 x level x (`HALL_CLASS` 4 +
+  rung / 3). Clear rates 2% (L50) / 13% (L100) are the Hall's own difficulty,
+  unchanged; foes' training to 50 would give 7% / 28% (owner's call).
+- **Prices** (zone.h): Master Ball 800, PP UP 45, PP MAX 120, BOTTLE CAP 120,
+  Ether 4, vitamins 40, Linking Cord 40, stones 10 (Black Augurite 14),
+  signature TMs 48 / 32 (`zoneSigTmBp()`, the starter ultimates cheaper).
+- **BACK on every zone screen and the Hall**: `BACK_ZONE` in
+  `backPillRect()`/`backZoneY()` (`ZONE_BACK_Y` 378), asked first by `zoneTap()`
+  (after a pending confirm) and `bhallTap()`. The rows moved up and shrank
+  (`ZONE_ROW_Y0` 140, `ZONE_ROW_H` 72, a `static_assert` keeps them clear of the
+  BACK zone); the rules page's cells start at 100, START at 300.
+- **Bigger text**: `zoneLine()` draws the two status lines at size 2 when they
+  fit the chord (`ZONE_LINE1_Y/2_Y` 100/120); `zoneRow()`'s second line and the
+  rules page's labels are size 2 when they fit.
+
 ### Done: the new prizes (v4.08)
 
 Step 7 of `docs/postgame-plan.md` § 6. `zoneprize_test`; seven guards

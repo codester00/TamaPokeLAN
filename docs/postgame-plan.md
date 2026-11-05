@@ -213,4 +213,9 @@ them.
 6. **DONE (v4.07)** The Hall (normal play).
 7. **DONE (v4.08)** The new prizes: signature moves (ten, BP TMs, their species only, never
    an opponent's), PP Max, Bottle Cap, five counter TMs a day, the zone's symbols.
+   **Tuned (v4.09)** to the owner's intent of 2026-11-05: PP MAX / BOTTLE CAP = one
+   ~40-win gauntlet run or 3-4 casual runs, the Master Ball 6-7 of them (about a
+   week), walking supplementary, gym rematches an income source, money worth
+   spending but never a wall, and PP the gauntlet's barrier that PP UPs answer.
+   Measurements and prices: `docs/zone-economy.md`.
 8. Later: rental teams.

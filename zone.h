@@ -35,22 +35,35 @@ struct ZoneRun {
 enum : uint8_t { ZONE_TOURNAMENT = 0, ZONE_GAUNTLET, ZONE_KINDS };
 
 // Pokedollars to start a run.
-static const uint32_t ZONE_FEE[ZONE_KINDS] = { 5000, 3000 };
+// v4.09: about a third of a day's walking, and less than one hard gym rematch
+// pays -- a retry, never a wall.
+static const uint32_t ZONE_FEE[ZONE_KINDS] = { 2500, 1500 };
 // BP a won battle pays, by format (the formats will scale it; plan § 2-3).
-static const uint8_t ZONE_BP_WIN[ZONE_KINDS] = { 3, 2 };
+// v4.09: the gauntlet's is flat (gauntletBp() adds the bosses').
+static const uint8_t ZONE_BP_WIN[ZONE_KINDS] = { 3, 3 };
+// BP on top for winning the whole tournament (v4.09): reaching the final
+// should not pay nearly what winning it does.
+#define ZONE_TOUR_CHAMP_BP 10
 
 // The prize counter (plan § 5): items, for BP. The Master Ball is here because
 // the Mart never sells it; PP MAX and the BOTTLE CAP (v4.08) are sold nowhere
 // else. After the items the counter lists TMs (zonePrizeAt(), below).
+//
+// v4.09 prices (owner, 2026-11-05; measured by tools/emu/zone_sim.cpp, see
+// docs/zone-economy.md): PP MAX and the BOTTLE CAP cost one 40-win gauntlet run
+// (3 BP a win + two bosses = 140) or three to four casual runs (~30 each); the
+// Master Ball about 6.5 of them, about a week of steady play. What the Mart also
+// sells is priced at about $220 a BP (PP UP 45 = $10,000), so BP and money are
+// two roads to the same thing; three PP UPs (135) stay dearer than a PP MAX.
 struct ZonePrize { ItemKey item; uint16_t bp; };
 static const ZonePrize ZONE_PRIZES[] = {
-  { IT_MASTERBALL, 100 },
-  { IT_PPUP, 16 }, { IT_PPMAX, 40 }, { IT_BOTTLECAP, 25 }, { IT_ETHER, 2 },
-  { IT_PROTEIN, 4 }, { IT_IRON, 4 }, { IT_CARBOS, 4 },
-  { IT_LINKCORD, 16 },
-  { IT_FIRESTONE, 6 }, { IT_WATERSTONE, 6 }, { IT_THUNDERSTONE, 6 }, { IT_LEAFSTONE, 6 },
-  { IT_MOONSTONE, 6 }, { IT_SUNSTONE, 6 }, { IT_SHINYSTONE, 6 }, { IT_DUSKSTONE, 6 },
-  { IT_DAWNSTONE, 6 }, { IT_ICESTONE, 6 }, { IT_BLACKAUGURITE, 8 },
+  { IT_MASTERBALL, 800 },
+  { IT_PPUP, 45 }, { IT_PPMAX, 120 }, { IT_BOTTLECAP, 120 }, { IT_ETHER, 4 },
+  { IT_PROTEIN, 40 }, { IT_IRON, 40 }, { IT_CARBOS, 40 },
+  { IT_LINKCORD, 40 },
+  { IT_FIRESTONE, 10 }, { IT_WATERSTONE, 10 }, { IT_THUNDERSTONE, 10 }, { IT_LEAFSTONE, 10 },
+  { IT_MOONSTONE, 10 }, { IT_SUNSTONE, 10 }, { IT_SHINYSTONE, 10 }, { IT_DUSKSTONE, 10 },
+  { IT_DAWNSTONE, 10 }, { IT_ICESTONE, 10 }, { IT_BLACKAUGURITE, 14 },
 };
 static const uint8_t ZONE_PRIZE_COUNT = sizeof(ZONE_PRIZES) / sizeof(ZONE_PRIZES[0]);
 
@@ -63,7 +76,8 @@ static const uint8_t ZONE_PRIZE_COUNT = sizeof(ZONE_PRIZES) / sizeof(ZONE_PRIZES
 // are reusable). zonePrizeAt() is THE list: the drawing, the tap, the paging
 // and the purchase all walk it.
 #define ZONE_TM_PER_DAY 5
-#define ZONE_SIG_TM_BP 48
+#define ZONE_SIG_TM_BP 48   // a legendary's own move
+#define ZONE_ULT_TM_BP 32   // v4.09: a starter ultimate (nine species can use each, and weaker)
 enum : uint8_t { ZPR_ITEM = 0, ZPR_TM };
 struct ZonePrizeRow { uint8_t kind; uint8_t what; uint16_t bp; };
 
@@ -90,6 +104,10 @@ inline uint8_t zoneTmToday(const Pet &p, uint32_t day, uint8_t out[ZONE_TM_PER_D
   return n;
 }
 
+// A signature TM's BP: the starter ultimates are cheaper than a legendary's own.
+inline uint16_t zoneSigTmBp(uint8_t mv) {
+  return mv == MV_BLAST_BURN || mv == MV_HYDRO_CANNON || mv == MV_FRENZY_PLANT ? ZONE_ULT_TM_BP : ZONE_SIG_TM_BP;
+}
 inline uint8_t zonePrizeCount(const Pet &p, uint32_t day) {
   uint8_t n = ZONE_PRIZE_COUNT;
   for (uint8_t i = 0; i < SIG_TM_COUNT; i++) if (!p.hasTm(SIG_TM_MOVES[i])) n++;
@@ -104,7 +122,7 @@ inline bool zonePrizeAt(const Pet &p, uint32_t day, uint8_t i, ZonePrizeRow *out
   i -= ZONE_PRIZE_COUNT;
   for (uint8_t s = 0; s < SIG_TM_COUNT; s++) {
     if (p.hasTm(SIG_TM_MOVES[s])) continue;
-    if (!i) { *out = { ZPR_TM, SIG_TM_MOVES[s], ZONE_SIG_TM_BP }; return true; }
+    if (!i) { *out = { ZPR_TM, SIG_TM_MOVES[s], zoneSigTmBp(SIG_TM_MOVES[s]) }; return true; }
     i--;
   }
   uint8_t t[ZONE_TM_PER_DAY];
@@ -117,8 +135,8 @@ inline bool zonePrizeAt(const Pet &p, uint32_t day, uint8_t i, ZonePrizeRow *out
 // The zone's symbols on the player card (plan § 5, cosmetic), derived from what
 // is already saved: the first tournament won, and the gauntlet's best streak.
 // PLACEHOLDER thresholds, like every zone number.
-#define ZONE_SYM_SILVER_STREAK 10
-#define ZONE_SYM_GOLD_STREAK 25
+#define ZONE_SYM_SILVER_STREAK 20   // v4.09: the first boss beaten (GAUNTLET_BOSS_EVERY)
+#define ZONE_SYM_GOLD_STREAK 40     // the second
 enum : uint8_t { ZSYM_TOUR = 1, ZSYM_SILVER = 2, ZSYM_GOLD = 4 };
 inline uint8_t zoneSymbols(uint16_t tourWins, uint16_t bestStreak) {
   uint8_t m = 0;

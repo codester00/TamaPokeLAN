@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.08-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.09-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -1390,12 +1390,13 @@ a rung at a time, in an order shuffled for each run.
   IV 8, no training and the simple AI; a level comes back every three rungs
   (level with your pet from rung 10), IVs rise to 31 and training to 100 by
   the 18th, and the smart AI fights from rung 7.
-- **Each fight costs 10 energy**; with less, the Hall waits (a tired pet
+- **Each fight costs 6 energy** (a clear is about 108: a full bar and a nap); with less, the Hall waits (a tired pet
   rests, and the run is still there). It uses your pet's **real PP**, as a gym
   fight does, so a nap between sittings refills it. No items.
-- **Pay**: a little money a rung -- 4 x the foe's level x 8, plus a point
-  every three rungs (Gen 3's prize rule with a route trainer's class, against a
-  gym leader's 25).
+- **Pay**: a little money a rung -- 2 x the foe's level x (4 + a point every
+  three rungs): about $11,700 for a level-50 clear, about one first champion
+  win (v4.09). Measured clear rates for a fully trained pet: 2% at level 50, 13%
+  at level 100 (`docs/zone-economy.md`).
 - **Saved between rungs**, for as long as you like. A loss, a reboot mid-fight,
   or **changing your live pet** ends the run; QUIT asks twice. A loss never
   blacks out.
@@ -1411,23 +1412,28 @@ beaten** on either difficulty (v4.03). It pays **Battle Points (BP)**, its own
 currency, capped at 9,999 and kept with the player. The landing page shows the
 BP, the tournaments won and the gauntlet's best streak.
 
-- **A run costs Pokedollars to enter** ($5,000 the tournament, $3,000 the
-  gauntlet) and **pays BP per win** (3 and 2). These are placeholders until the
-  formats are tuned.
+- **A run costs Pokedollars to enter** ($2,500 the tournament, $1,500 the
+  gauntlet: less than one hard gym rematch pays) and **pays BP per win** (3 in
+  both). Tuned in v4.09 with `tools/emu/zone_sim.cpp`; the measurements and the
+  owner's targets are in `docs/zone-economy.md`.
+- **Every zone screen has a BACK button** at the bottom (v4.09), as well as the
+  swipe down.
 - **A zone fight**: your team as it entered, at full HP every fight; **PP is
   the run's**: it starts full (PP Ups counted) and carries from fight to fight,
   and the saved PP of your creatures is never touched. **No bag.** **SET
   style** (no free switch when the foe's creature faints). The opponents pick
   their next creature by matchup. A SKETCH learned in the
   zone is not kept. Running forfeits; a loss ends the run and never blacks out.
-- **The prize counter** trades BP for items: Master Ball 100, PP Up 16,
-  **PP Max 40** (every PP Up a move slot still has room for, at once),
-  **Bottle Cap 25** (one IV of your choice to 31; training is untouched, only
-  its ceiling rises), Ether 2, Protein / Iron / Carbos 4, Linking Cord 16, each
-  evolution stone 6, the Black Augurite 8. PP Max and the Bottle Cap are sold
-  nowhere else (v4.08).
+- **The prize counter** trades BP for items (v4.09 prices): Master Ball 800,
+  PP Up 45, **PP Max 120** (every PP Up a move slot still has room for, at
+  once), **Bottle Cap 120** (one IV of your choice to 31; training is untouched,
+  only its ceiling rises), Ether 4, Protein / Iron / Carbos 40, Linking Cord 40,
+  each evolution stone 10, the Black Augurite 14. PP Max and the Bottle Cap are
+  sold nowhere else (v4.08). A PP Max or a Bottle Cap is one 40-win gauntlet
+  run or about four casual ones; the Master Ball about a week of steady play;
+  what the Mart also sells is about $220 a BP.
 - **TMs at the counter** (v4.08): the ten **signature-move TMs** you do not own,
-  48 BP each, then **five ordinary TMs a day** you do not own that the Mart is
+  48 BP for a legendary's, 32 for a starter ultimate (v4.09), then **five ordinary TMs a day** you do not own that the Mart is
   not offering that day, at the Mart price / 250 (6-20 BP). A signature move is
   learnable only by its own species, and no opponent or wild creature ever knows
   one:
@@ -1445,10 +1451,10 @@ BP, the tournaments won and the gauntlet's best streak.
   | HYDRO CANNON | Water special | 150 / 90 | recharge | every final Water starter |
   | FRENZY PLANT | Grass special | 150 / 90 | recharge | every final Grass starter |
 - **The zone's symbols** (v4.08) are on the player card's medal page: one for
-  the first tournament won, a silver one at a gauntlet streak of 10 and a gold
-  one at 25. Placeholders, like every zone number.
+  the first tournament won, a silver one for beating the gauntlet's first boss
+  (a streak of 20) and a gold one for the second (40), v4.09.
 - **AI switching** (v4.05): only opponents whose format turns it on (the
-  gauntlet from its eleventh challenger) ever switch, and only sanely: the
+  gauntlet from its twelfth challenger, v4.09) ever switch, and only sanely: the
   creature out must be losing the type matchup, the one coming in must do at
   least 100 points better on the matchup scale and take no more than neutral
   damage from your creature's types, and a creature stays in for at least its
@@ -1472,8 +1478,10 @@ bracket when fewer than 15 can). Enter with any team of one to six.
 - **The other matches are fought in the background** by the real battle
   engine, AI against AI, so the same pairing can go either way.
 - **PP carries** through the run for you and for every opponent; HP is full
-  every match. **BP**: 3 a win (a placeholder, like the $5,000 fee). Winning
-  the final counts a tournament win on the landing page.
+  every match. **BP**: 3 a win and **10 more for the title** (v4.09). Winning
+  the final counts a tournament win on the landing page. A full, strong team
+  of six wins almost every time (99% in `docs/zone-economy.md`); the tournament
+  is the quick way to turn money into BP.
 - **Saved between rounds**, one tournament at a time: CONTINUE plays your next
   match. A reboot or power cut mid-match is the loss; a team member no longer
   in the party (or as the live pet) ends the run. QUIT asks twice.
@@ -1500,9 +1508,14 @@ Challengers one after another until you lose. **Rules** bind both sides:
   easy** and they ramp up: the first fights 10 levels under the cap (or under
   your team's highest level with no cap) and each one after is a level closer;
   IVs start at 10 and rise one a round (to 31); training is 0 for the first
-  two, then 4 a round (to 100); the smart AI from the sixth challenger, and
-  switching from the eleventh (below). **BP**:
-  2 a win, +1 every seven rounds. These are placeholders until tuned.
+  three, then 4 a round (to 100); the smart AI from the sixth challenger, and
+  switching from the twelfth (below). **Every 20th challenger is a BOSS**
+  (v4.09): IV 31, full training, your team's level, the smart AI and switching,
+  with a team drawn from the 100 strongest species the rules allow. **BP**: 3 a
+  win, flat, +10 for a boss (v4.09).
+- **PP is the run's barrier.** HP is full every fight but PP carries, so a
+  strong team usually ends a run out of its best moves: PP Ups on those slots
+  are what take it past the first boss (measured: +5-8 wins for a good team).
 - **The day's 2x**: the first DAILY run that beats a challenger doubles its BP
   for the rest of that run, however many days it lasts; a run that loses its
   first battle leaves the 2x unclaimed. Custom rules pay 1x.

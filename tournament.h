@@ -13,7 +13,7 @@
 #define TOUR_GEN 0x8000           // a generated trainer: TOUR_GEN | k
 // A generated filler (only when too few packs are installed for 15 real
 // opponents): a gauntlet challenger of this round and level (placeholders).
-#define TOUR_GEN_ROUND 8
+#define TOUR_GEN_ROUND 12   // v4.09: a filler is a fair seat, not a bye
 #define TOUR_GEN_LEVEL 50
 
 // A ladder seat as a contestant id: region * TRAINER_COUNT + seat.

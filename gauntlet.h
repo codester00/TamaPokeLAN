@@ -49,6 +49,16 @@ uint8_t gauntletIv(uint16_t round);
 uint8_t gauntletTr(uint16_t round);
 bool gauntletSmart(uint16_t round);
 bool gauntletSwitches(uint16_t round);   // AI switching (v4.05), the upper rounds only
+// v4.09: every GAUNTLET_BOSS_EVERY-th challenger is a BOSS -- IV 31, full
+// training, the team's level, the smart AI and switching, drawn from the
+// GAUNTLET_BOSS_TOP strongest species the rules allow -- and pays
+// GAUNTLET_BOSS_BP more. Beating the first two earns the silver and gold
+// symbols (zone.h zoneSymbols(): a best streak of 20 / 40).
+#define GAUNTLET_BOSS_EVERY 20
+#define GAUNTLET_BOSS_TOP 100
+#define GAUNTLET_BOSS_BP 10
+bool gauntletIsBoss(uint16_t round);
+int gauntletBst(int16_t dex);   // base-stat total
 // BP for beating the round-th challenger (doubled for the day's first daily win).
 uint8_t gauntletBp(uint16_t round, bool doubled);
 

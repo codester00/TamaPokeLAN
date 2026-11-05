@@ -84,9 +84,9 @@ int main() {
     ck(aiSwitchTarget(t, 2, 0, charizard) == -1, "...but takes a big hit coming in: no switch"); }
 
   // --- 2. who switches ---------------------------------------------------------
-  ck(!gauntletSwitches(9) && gauntletSwitches(10), "the gauntlet switches from the eleventh challenger");
+  ck(!gauntletSwitches(10) && gauntletSwitches(11), "the gauntlet switches from the twelfth challenger");
   { GauntletRules r; ZoneFoe a, b;
-    gauntletChallenger(r, 9, 77, 50, 19, a); gauntletChallenger(r, 10, 77, 50, 19, b);
+    gauntletChallenger(r, 10, 77, 50, 19, a); gauntletChallenger(r, 11, 77, 50, 19, b);
     ck(!a.switching && b.switching, "and its challengers carry it"); }
 
   // --- 3. in a zone fight ----------------------------------------------------------

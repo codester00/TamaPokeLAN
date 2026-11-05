@@ -104,7 +104,7 @@ int main() {
     for (uint32_t sd = 1; sd < 30; sd++) for (uint8_t r = 0; r < HALL_RUNGS; r++) {
       HallFoe q; if (bhallFoe(sd, r, 150, 70, q) && DEX_TBL[q.dex].rarity == R_LEGENDARIO) noLegend = false; }
     ck(noLegend, "never a legendary, even against a legendary's base stats");
-    ck(bhallPrize(0, 50) == 4u * 50 * HALL_CLASS && bhallPrize(17, 50) > bhallPrize(0, 50), "a little money a rung, rising");
+    ck(bhallPrize(0, 50) == (uint32_t)HALL_PAY * 50 * HALL_CLASS && bhallPrize(17, 50) > bhallPrize(0, 50), "a little money a rung, rising");
     ck(bhallPrize(17, 50) < trainerPrize(0, 7, true, true) * 50 / TRAINER_SETS[0].list[7].team[TRAINER_SETS[0].list[7].count - 1].level,
        "less than a gym leader at the same level"); }
 

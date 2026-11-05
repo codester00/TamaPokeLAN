@@ -7,8 +7,11 @@
 #include "party.h"
 
 #define HALL_RUNGS 18          // one rung per type
-#define HALL_ENERGY_COST 10    // each battle tires the pet; a tired one rests and continues
-#define HALL_CLASS 8           // trainerPrize()'s class value for a Hall foe (a leader's is 25)
+#define HALL_ENERGY_COST 6     // v4.09: a clear is ~108 energy, a full bar and a nap
+// v4.09: a rung pays HALL_PAY x the foe's level x (HALL_CLASS + rung / 3), so a
+// level-50 clear is ~$11,700 -- about one first champion win, not several.
+#define HALL_PAY 2
+#define HALL_CLASS 4
 #define HALL_POOL 6            // a rung's foe is drawn from the N species of its type nearest the pet in base stats
 
 // The rung-th type of a run (a shuffle of all 18 by the run's seed, so every
@@ -31,8 +34,8 @@ struct HallFoe {
 // species (the sketch then skips the rung). The same arguments, the same foe.
 bool bhallFoe(uint32_t seed, uint8_t rung, int16_t petDex, uint8_t petLevel, HallFoe &out);
 
-// A rung's money: trainerPrize()'s Gen 3 rule, 4 x the foe's level x a class
-// value, with the class rising a point every three rungs from HALL_CLASS.
+// A rung's money: trainerPrize()'s Gen 3 shape, HALL_PAY x the foe's level x a
+// class value, the class rising a point every three rungs from HALL_CLASS.
 uint32_t bhallPrize(uint8_t rung, uint8_t foeLevel);
 
 // The saved run (NVS key "bhall"): kept between rungs for as long as you

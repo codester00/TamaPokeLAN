@@ -56,5 +56,5 @@ bool bhallFoe(uint32_t seed, uint8_t rung, int16_t petDex, uint8_t petLevel, Hal
 }
 
 uint32_t bhallPrize(uint8_t rung, uint8_t foeLevel) {
-  return 4u * foeLevel * (HALL_CLASS + rung / 3u);
+  return (uint32_t)HALL_PAY * foeLevel * (HALL_CLASS + rung / 3u);
 }

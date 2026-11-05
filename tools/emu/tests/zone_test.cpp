@@ -135,14 +135,14 @@ int main() {
   ck(zoneMode == 1, "PRIZES opens the counter");
   tapRow(0);
   ck(zoneConfirm == 0xFF, "with no BP a prize is refused before it is asked");
-  pet.bp = 120;
+  pet.bp = ZONE_PRIZES[0].bp + 20;   // derived: v4.09 repriced the counter
   uint8_t had = bag.count(ZONE_PRIZES[0].item);
   tapRow(0);
   ck(zoneConfirm == 0, "with enough it asks first");
   tapNo();
-  ck(pet.bp == 120 && bag.count(ZONE_PRIZES[0].item) == had, "NO takes nothing");
+  ck(pet.bp == ZONE_PRIZES[0].bp + 20 && bag.count(ZONE_PRIZES[0].item) == had, "NO takes nothing");
   tapRow(0); tapYes();
-  ck(pet.bp == 120 - ZONE_PRIZES[0].bp && bag.count(ZONE_PRIZES[0].item) == had + 1,
+  ck(pet.bp == 20 && bag.count(ZONE_PRIZES[0].item) == had + 1,
      "YES trades the BP for the prize");
   onSwipeV(1);
   ck(zoneMode == 0 && zoneOpen, "down: back to the landing page");
