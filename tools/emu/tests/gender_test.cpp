@@ -20,7 +20,7 @@ String FakeSerial::readStringUntil(char) { return String(""); }
 
 void setup();
 void renderCard();
-void renderMonSheet(const PartyMon &m, bool fromBox);
+void renderMonSheet(const PartyMon &m, bool fromBox, bool forTrade);
 extern Pet pet;
 extern bool cardOpen;
 extern uint8_t cardPage;
@@ -137,7 +137,7 @@ int main() {
     ck(!inkOnNameLine(MALE_INK) && !inkOnNameLine(FEMALE_INK), "a genderless one neither");
     raiseAs(pet, 113, 20, GENDER_FEMALE);
     PartyMon m = pet.toPartyMon();
-    renderMonSheet(m, false);
+    renderMonSheet(m, false, false);
     ck(inkOnNameLine(FEMALE_INK), "and a banked creature's sheet shows it too");
     cardOpen = false;
   }

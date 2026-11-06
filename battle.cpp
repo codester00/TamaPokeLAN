@@ -239,12 +239,20 @@ bool battleTransform(Combatant &atk, const Combatant &def) {
 
 Combatant battleStored(const Combatant &c) {
   Combatant s = c;
+  s.charging = 0;          // off the field it forgets a wind-up (v4.12)
+  s.recharge = false;
   if (!s.trueDex) return s;
   s.dex = s.trueDex;
   for (int k = 0; k < SI_COUNT; k++) { s.base[k] = s.trueBase[k]; s.stage[k] = 0; }
   for (int i = 0; i < MOVE_SLOTS; i++) { s.moves[i] = s.trueMoves[i]; s.pp[i] = s.truePp[i]; }
   s.trueDex = 0;
   return s;
+}
+
+uint8_t battleHidden(const Combatant &c) {
+  if (!c.charging || c.charging >= MOVE_COUNT || c.fainted()) return HIDE_NONE;
+  const MoveEntry &m = MOVE_TBL[c.charging];
+  return (m.effect == EF_CHARGE && m.param > 0) ? (uint8_t)m.param : HIDE_NONE;
 }
 
 void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
@@ -315,6 +323,17 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   }
   atk.lastMove = mv;   // what a SKETCH facing it copies, hit or miss
 
+  // A target hidden by a two-turn move (DIG, FLY...) is out of reach of
+  // anything aimed at it, bar the few moves that reach where it is (v4.12).
+  uint8_t hideMult = 1;
+  if (m.target == TG_FOE) {
+    uint8_t hide = battleHidden(def);
+    if (hide) {
+      hideMult = moveHitsHidden(mv, hide);
+      if (!hideMult) { log.evaded = true; return; }
+    }
+  }
+
   // TRANSFORM never misses (acc 0), and is decided before anything else.
   if (m.effect == EF_TRANSFORM) {
     if (battleTransform(atk, def)) log.transformed = true;
@@ -352,6 +371,7 @@ void battleAct(Combatant &atk, Combatant &def, uint8_t mv, TurnLog &log) {
   for (uint8_t h = 0; h < hits; h++) {
     bool crit = random(16) == 0;                 // ~6%, the series' base rate
     uint16_t d = battleDamage(atk, def, mv, crit, (uint8_t)(217 + random(39)));
+    if (hideMult > 1) d = (uint16_t)(d * hideMult > 65535 ? 65535 : d * hideMult);   // EARTHQUAKE into a DIG
     total += d;
     if (crit) log.crit = true;
     hurt(def, d);
@@ -477,8 +497,13 @@ uint8_t aiChooseMove(const Combatant &self, const Combatant &foe, bool smart) {
       } else {
         sc = 5;
       }
+      // a move aimed at a hidden foe does nothing (v4.12)
+      if (m.target == TG_FOE && battleHidden(foe)) sc = -100;
     } else {
       uint16_t dmg = battleDamage(self, foe, mv, false, 236);  // average roll
+      // a foe hidden by DIG or FLY (v4.12): only what reaches it counts
+      uint8_t hide = m.target == TG_FOE ? battleHidden(foe) : HIDE_NONE;
+      if (hide) dmg = (uint16_t)(dmg * moveHitsHidden(mv, hide));
       sc = dmg;
       if (dmg >= foe.hp) sc += 1000;              // a kill this turn beats all
       uint8_t acc = m.acc ? m.acc : 100;

@@ -533,7 +533,7 @@ bool wildFixedShiny(uint8_t i) {
 
 int8_t wildWeekday(const Pet &p) {
   uint32_t d = p.today();
-  return d ? (int8_t)((d + 4) % 7) : -1;   // 1970-01-01 was a Thursday
+  return d ? (int8_t)Pet::weekdayOfDay(d) : -1;
 }
 
 bool wildFixedToday(uint8_t i, const Pet &p) {

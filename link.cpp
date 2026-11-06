@@ -166,6 +166,7 @@ void Link::start() {
   // this function returns. Sending first left us still LISTENING when the
   // answer landed, and each side answered the other's hello forever.
   state = LINK_HANDSHAKE;
+  peerForfeit = false;
   sendHello(*this);
 }
 
@@ -201,6 +202,17 @@ void Link::sendBye() {
   state = LINK_LOST;
 }
 
+// Running from a fight (v4.12). Sent three times rather than kept: the board
+// that runs closes its radio straight after, so there is no later resend --
+// and a peer that hears none of them sees the rival leave, as before.
+void Link::sendForfeit() {
+  if (state == LINK_OFF) return;
+  for (int i = 0; i < 3; i++) put(*this, LM_FORFEIT, nullptr, 0);
+  txLive = false;
+  youWon = false;
+  state = LINK_LOST;
+}
+
 void Link::sendRematch() {
   if (!theirsN || !mineN) return;
   put(*this, LM_REMATCH, nullptr, 0);
@@ -216,6 +228,7 @@ void Link::rearm() {
   resultN = 0;
   resultNew = false;
   youWon = false;
+  peerForfeit = false;
   txLive = false;
   state = LINK_READY;
 }
@@ -388,6 +401,13 @@ void Link::onPacket(const uint8_t *buf, uint8_t len) {
       return;
     case LM_PING:
       sawActivity = false;   // liveness only -- sawRx above already did its job
+      return;
+    case LM_FORFEIT:         // the rival ran: our win
+      if (state != LINK_READY && state != LINK_WAITING) return;
+      youWon = true;
+      peerForfeit = true;
+      txLive = false;
+      state = LINK_DONE;
       return;
     default:
       return;                          // unknown type: ignore, do not desync

@@ -56,7 +56,14 @@ EF_NEVER_MISS = 7   # skips the accuracy roll entirely
 EF_MULTI = 8        # hits 2-5 times, power is per hit
 EF_HEAL = 9         # param = percent of max VIT restored
 EF_RECHARGE = 10    # user loses the following turn, exposed
-EF_CHARGE = 11      # turn 1 charges; param 1 = invulnerable while charging
+EF_CHARGE = 11      # turn 1 charges; param = where it hides meanwhile (HIDE_*), 0 = it does not
+# Where an EF_CHARGE move hides its user until it strikes (v4.12): nothing aimed
+# at a hidden creature lands, except the moves HITS_HIDDEN names.
+HIDE_NONE = 0
+HIDE_UNDERGROUND = 1   # DIG
+HIDE_SKY = 2           # FLY, BOUNCE
+HIDE_UNDERWATER = 3    # DIVE
+HIDE_VANISHED = 4      # SHADOW FORCE
 EF_SKETCH = 12      # replaces itself, for good, with the target's last move
 EF_TRANSFORM = 13   # v3.96: the user becomes the target for the fight
 
@@ -131,12 +138,12 @@ MOVES = [
     ("SLUDGE BOMB",  "sludge-bomb",   'poison',   MC_SPEC,  90, 100, EF_NONE,      0, 0, 0, TG_FOE, AIL_POISON, 30),  # LATER (Gen 2)
     # --- GROUND -----------------------------------------------------------
     ("BONE CLUB",    "bone-club",     'ground',   MC_PHYS,  65,  85, EF_NONE,      0, 0, 0, TG_FOE),
-    ("DIG",          "dig",           'ground',   MC_PHYS,  80, 100, EF_CHARGE,    1, 0, 0, TG_FOE),
+    ("DIG",          "dig",           'ground',   MC_PHYS,  80, 100, EF_CHARGE,    HIDE_UNDERGROUND, 0, 0, TG_FOE),
     ("EARTHQUAKE",   "earthquake",    'ground',   MC_PHYS, 100, 100, EF_NONE,      0, 0, 0, TG_FOE),
     # --- FLYING -----------------------------------------------------------
     ("WING ATTACK",  "wing-attack",   'flying',   MC_PHYS,  60, 100, EF_NONE,      0, 0, 0, TG_FOE),
     ("DRILL PECK",   "drill-peck",    'flying',   MC_PHYS,  80, 100, EF_NONE,      0, 0, 0, TG_FOE),
-    ("FLY",          "fly",           'flying',   MC_PHYS,  90,  95, EF_CHARGE,    1, 0, 0, TG_FOE),
+    ("FLY",          "fly",           'flying',   MC_PHYS,  90,  95, EF_CHARGE,    HIDE_SKY, 0, 0, TG_FOE),
     # --- PSYCHIC ----------------------------------------------------------
     ("PSYWAVE",      "psywave",       'psychic',  MC_SPEC,  30, 100, EF_NONE,      0, 0, 0, TG_FOE),
     ("CONFUSION",    "confusion",     'psychic',  MC_SPEC,  50, 100, EF_NONE,      0, 0, 0, TG_FOE, AIL_CONFUSE, 10),
@@ -278,7 +285,7 @@ MOVES = [
     ("WORK UP", "work-up", 'normal', MC_STATUS, 0, 0, EF_STAGE, 0, ST_ATK | ST_SPA, 1, TG_SELF),
     ("CALM MIND", "calm-mind", 'psychic', MC_STATUS, 0, 0, EF_STAGE, 0, ST_SPA | ST_SPD, 1, TG_SELF),
     ("FLAME CHARGE", "flame-charge", 'fire', MC_PHYS, 50, 100, EF_NONE, 0, 0, 0, TG_FOE),
-    ("BOUNCE", "bounce", 'flying', MC_PHYS, 85, 85, EF_CHARGE, 1, 0, 0, TG_FOE, AIL_PARA, 30),
+    ("BOUNCE", "bounce", 'flying', MC_PHYS, 85, 85, EF_CHARGE, HIDE_SKY, 0, 0, TG_FOE, AIL_PARA, 30),
     ("GIGA IMPACT", "giga-impact", 'normal', MC_PHYS, 150, 90, EF_RECHARGE, 0, 0, 0, TG_FOE),
     ("ZAP CANNON", "zap-cannon", 'electric', MC_SPEC, 120, 50, EF_NONE, 0, 0, 0, TG_FOE, AIL_PARA, 100),
     ("HAMMER ARM", "hammer-arm", 'fighting', MC_PHYS, 100, 90, EF_NONE, 0, 0, 0, TG_FOE),
@@ -316,7 +323,7 @@ MOVES = [
     ("SNARL", "snarl", 'dark', MC_SPEC, 55, 95, EF_NONE, 0, 0, 0, TG_FOE),
     ("LUNGE", "lunge", 'bug', MC_PHYS, 80, 100, EF_NONE, 0, 0, 0, TG_FOE),
     ("FLAME WHEEL", "flame-wheel", 'fire', MC_PHYS, 60, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_BURN, 10),
-    ("DIVE", "dive", 'water', MC_PHYS, 80, 100, EF_CHARGE, 1, 0, 0, TG_FOE),
+    ("DIVE", "dive", 'water', MC_PHYS, 80, 100, EF_CHARGE, HIDE_UNDERWATER, 0, 0, TG_FOE),
     ("ROCK CLIMB", "rock-climb", 'normal', MC_PHYS, 90, 85, EF_NONE, 0, 0, 0, TG_FOE, AIL_CONFUSE, 20),
     ("AURA SPHERE", "aura-sphere", 'fighting', MC_SPEC, 80, 0, EF_NEVER_MISS, 0, 0, 0, TG_FOE),
     ("MEDITATE", "meditate", 'psychic', MC_STATUS, 0, 0, EF_STAGE, 0, ST_ATK, 1, TG_SELF),
@@ -394,7 +401,7 @@ MOVES = [
     # never by an opponent (pet.cpp tmLevelFor()). 4 move indices stay free.
     ("ROAR OF TIME", "roar-of-time", 'dragon', MC_SPEC, 150, 90, EF_RECHARGE, 0, 0, 0, TG_FOE),
     ("ETERNABEAM", "eternabeam", 'dragon', MC_SPEC, 160, 90, EF_RECHARGE, 0, 0, 0, TG_FOE),
-    ("SHADOW FORCE", "shadow-force", 'ghost', MC_PHYS, 120, 100, EF_CHARGE, 1, 0, 0, TG_FOE),
+    ("SHADOW FORCE", "shadow-force", 'ghost', MC_PHYS, 120, 100, EF_CHARGE, HIDE_VANISHED, 0, 0, TG_FOE),
     ("SEARING SHOT", "searing-shot", 'fire', MC_SPEC, 100, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_BURN, 30),
     ("BLUE FLARE", "blue-flare", 'fire', MC_SPEC, 130, 85, EF_NONE, 0, 0, 0, TG_FOE, AIL_BURN, 20),
     ("BOLT STRIKE", "bolt-strike", 'electric', MC_PHYS, 130, 85, EF_NONE, 0, 0, 0, TG_FOE, AIL_PARA, 20),
@@ -424,6 +431,17 @@ SIGNATURE = {
 
 # Accuracy drops (SAND ATTACK, SMOKESCREEN, FLASH) are deliberately left out:
 # accuracy stages are a whole second stage system for one marginal effect.
+
+# The moves that still land on a hidden creature, and their damage multiplier
+# there (v4.12, the games' rules: Gen 5+). Everything else misses it.
+HITS_HIDDEN = {
+    "earthquake":   (HIDE_UNDERGROUND, 2),
+    "gust":         (HIDE_SKY, 2),
+    "thunder":      (HIDE_SKY, 1),
+    "hurricane":    (HIDE_SKY, 1),
+    "sky-uppercut": (HIDE_SKY, 1),
+    "surf":         (HIDE_UNDERWATER, 2),
+}
 
 SLUG_TO_NAME = {slug: name for name, slug, *_ in MOVES if slug}
 

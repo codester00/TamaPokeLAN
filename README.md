@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.11-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.12-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -396,9 +396,15 @@ While **awake**:
 - 🌙 **Sleep:** rest — ENE **+6/min**, FOOD and JOY fall **1 every 18 min**
   and HYG **1 every 24 min**, with floors (FOOD 30 / JOY 35 / HYG 45). Sleep
   doesn't count toward the 8-hour window. No poops, no slip-ups, can't run away while
-  asleep. **Screen off between midnight and 06:00 puts it to sleep**, and it
-  stays asleep until you turn the screen back on — it wakes when *you* do, not
-  at a fixed hour. The light button always overrides the screen.
+  asleep. **Screen off between midnight and 06:00 puts it to sleep**, and
+  turning the screen back on wakes it. The light button always overrides the
+  screen.
+- ⏰ **The morning (v4.12):** from 06:00 to 08:00 it **sleeps in**: a creature
+  that went to bed at night stays asleep until 08:00. **From 08:00 to 18:00
+  anything still asleep gets up by itself once its energy is full** — a
+  night's bed, the screen-off sleep or a nap alike. Wake it by hand whenever
+  you like; put back to bed between 06:00 and 18:00, it is a nap. (Before
+  v4.12 a creature put to bed before 06:00 never got up on its own.)
 - 💤 **Naps (light button, 06:00–18:00):** a daytime bed is a **nap**, and the
   creature **gets up by itself once fully rested** (from tired, about
   15 minutes) — so you can put it down and go to school.
@@ -409,9 +415,15 @@ While **awake**:
     nap **changes nothing about the 8-hour window**. With 3 hours of it left,
     it wakes with those same 3 hours, and slip-ups count once they run out. A
     window that was already over stays over: a nap is not a top-up.
-  - **Bed after 18:00 is bedtime:** it sleeps until you wake it, whatever the
-    clock says. With the clock never set there's no daytime, so a bed by hand
-    is always bedtime.
+  - **Bed from 18:00 to 06:00 is bedtime:** it sleeps through the night until
+    you wake it, and sleeps in until 08:00. With the clock never set there's no
+    daytime, so a bed by hand is always bedtime.
+- 📅 **The day of the week (v4.12):** SETTINGS shows it under SET TIME — tap
+  the right half for the next day, the left half for the one before — and SET
+  moves the board's date to the nearest such day, keeping the time. The
+  one-off encounters that keep a weekday (Lapras on Fridays) follow it. Until
+  v4.12 only the time could be set, so a board's weekday was whatever its first
+  boot's date had counted on to.
 
 ### Eggs & who you get (spawn odds)
 
@@ -567,6 +579,25 @@ see `docs/move-expansion-report.md`). Two kinds:
   includes their TM moves, so a wild creature *may* know one, never must; each
   set has at least one attack when the creature has any. See which by watching
   what it uses, or by catching it.
+
+**Two-turn moves that hide (v4.12).** DIG digs a hole, FLY flies up high,
+BOUNCE springs up, DIVE hides underwater and SHADOW FORCE vanishes: the first
+turn says so and the creature leaves the field (up off the screen, down into the
+ground or the water, or blinking out), and the next turn it strikes and comes
+back. **While it is away, anything aimed at it is avoided** ("X avoided the
+attack!") — status moves too — **except the moves that reach it, as in the
+games:**
+
+| Hidden by | Still reached by |
+|---|---|
+| DIG | EARTHQUAKE, at **double** damage |
+| FLY, BOUNCE | GUST at **double**; THUNDER, HURRICANE, SKY UPPERCUT at normal |
+| DIVE | SURF, at **double** |
+| SHADOW FORCE | nothing |
+
+While your creature is winding up, FIGHT strikes at once and the bag and
+switching wait. SOLAR BEAM and SOLAR BLADE still take a turn to charge, in
+plain sight. The same rules hold in LAN battles; both boards need v4.12.
 
 **Stat changes.** Stages run from −6 to +6 on ATTACK, DEFENSE, SP. ATK, SP. DEF
 and SPEED, reset on switching out, and the battle text says when one moves
@@ -1138,7 +1169,7 @@ a rare repeat. Levels are read from the games' scripts:
 | Snorlax | Routes 12-15, and another on Routes 16-18 | 30 | FireRed's two |
 | Electrode, twice | Power Plant | 34 | after Zapdos |
 | Sudowoodo | Routes 36-37 | 20 | Crystal |
-| Lapras | Union Cave B2F | 20 | **Fridays only**, by the board's clock (none without one), repeats too |
+| Lapras | Union Cave B2F | 20 | **Fridays only**, by the board's day of the week (set it under SET TIME; none without a clock), repeats too |
 | Gyarados | Lake of Rage | 30 | **always shiny** -- the red one, repeats too |
 | Kecleon | Route 120 | 30 | Emerald's Devon Scope Kecleon |
 
@@ -1328,6 +1359,15 @@ happens when you actually make it the one you raise.
 A tap or a swipe takes you back to your creature. Nothing is taken from you — no
 money and no training; it is a moment, not a penalty. A LAN battle never blacks
 out: a friendly match is just a result.
+
+**Running is a loss (v4.12).** RUN from a wild creature is the usual escape
+roll. From anything else — a gym leader, the League, the Battle Zone, the
+Battle Hall or a LAN rival — it first asks *"Leave? It counts as a loss"*. NO
+goes back to the fight; YES ends it as a loss: a gym or League fight blacks out
+(and ends a League run), the zone's run and the Hall's end as on any loss, and
+in LAN your rival is told and wins by forfeit, with both head-to-head records
+counting it. The QUIT button that appears after waiting a long time on a silent
+rival is not a loss: they are the one who dropped.
 
 ### Gym battles and badges
 
@@ -1549,10 +1589,14 @@ Challengers one after another until you lose. **Rules** bind both sides:
 Tap the PLAZA's **LAN TRADE** button on both boards.
 They find each other on their own (no host or join).
 
-- **What can be traded:** any creature in your **party or box**, never the
-  one you are raising. One for one. Tap **YOU GIVE** to choose (the middle of
-  the ring flips between your party and each page of Bill's PC); the other
-  player's offer appears under **YOU GET**.
+- **What can be traded:** any creature in your **party or Bill's PC**, never
+  the one you are raising. One for one. Tap **YOU GIVE** to choose: your party
+  is on the ring, and the middle of the ring opens **Bill's PC** (regions, the
+  grid, GO TO #, the six of a species), browsed as everywhere else; the header
+  of the PC's grid reaches what did not fit the PC. Tapping a creature opens its
+  **card** — its moves and stats — with **TRADE** and **BACK** (v4.12): TRADE
+  puts it under YOU GIVE, BACK goes back without offering it. The other player's
+  offer appears under **YOU GET**.
 - **Both players tap ACCEPT** on the same two creatures. Changing either offer
   takes both acceptances back, so nobody can be switched out at the last
   second. Tap ACCEPT again to take yours back.

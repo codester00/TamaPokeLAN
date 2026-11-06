@@ -17,6 +17,7 @@
 #include "i18n.h"
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 uint32_t g_seed = 0x17E5;
 FakeSerial Serial; FakeESP ESP; FakeWire Wire;
@@ -131,6 +132,19 @@ int main() {
   tapCell(1); render(); tapCell(0);              // now X SPEED is the first
   ck(btlYou.stage[SI_SPE] == 6 && bag.count(IT_XSPEED) == 1, "at +6 an X item is refused and kept");
   ck(itemUsableInBattle(IT_XDEFENSE) && !itemUsableInField(IT_XDEFENSE), "X items are for battle only");
+
+  // The bag's pages are the rim scrollbar's (v4.12): no "1/2" printed at y 386,
+  // where it overlapped the fifth row.
+  {
+    for (int k = 0; k < 12; k++) bag.add((ItemKey)(k + 1), 1);
+    extern uint8_t bagPage;
+    uint8_t bagPages();
+    bagOpen = true; partyOpen = false; battleOpen = false; bagPage = 0;
+    std::string log; Arduino_Canvas::textLog = &log; render(); Arduino_Canvas::textLog = nullptr;
+    char pg[12]; snprintf(pg, sizeof(pg), "1/%u", (unsigned)bagPages());
+    ck(bagPages() > 1 && log.find(pg) == std::string::npos, "the bag prints no page number; the rim bar shows it");
+    bagOpen = false;
+  }
 
   printf(bad ? "FAILED %d\n" : "OK\n", bad);
   return bad ? 1 : 0;

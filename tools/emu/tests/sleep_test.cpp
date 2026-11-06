@@ -97,13 +97,18 @@ int main(){
     ck(!p.canRunawayNow(), "NOWHERE NEAR running away");
     ck(p.speciesId == 147, "the creature is still there");
 
-    // AND IT DOES NOT GET UP BY ITSELF. Waking at 06:00 would reopen the hole:
-    // from the floors, food empties by 06:15 and everything by 07:40, so anyone
-    // who sleeps past eight would find it ready to run away all over again.
-    liveMinutes(p, 6, 3 * 60);           // through to 09:00, screen still off
-    ck(p.sleeping, "still asleep at 09:00 -- you might be too");
+    // It sleeps in until 08:00, and then gets up once rested (v4.12, the
+    // owner's rule) -- it used to sleep until the screen came back on. The
+    // morning it then spends alone must not leave it ready to run away.
+    liveMinutes(p, 6, 2 * 60 - 1);       // 06:00 -> 07:59, screen still off
+    ck(p.sleeping, "still asleep at 07:59: it sleeps in");
+    liveMinutes(p, 8, 2 * 60);           // 08:00 -> 10:00, screen still off
+    ck(!p.sleeping, "up by itself after 08:00, once rested");
+    printf("      at 10:00, alone since 08:00: food=%u joy=%u ene=%u hyg=%u ready=%d\n",
+           p.fullness, p.joy, p.energy, p.hygiene, (int)p.canRunawayNow());
+    ck(!p.canRunawayNow(), "and two hours alone after it does NOT make it ready to leave");
     ck(!p.canRunawayNow(), "and STILL nowhere near running away");
-    printf("      at 09:00 unattended: food=%u joy=%u ene=%u hyg=%u\n",
+    printf("      at 10:00 unattended: food=%u joy=%u ene=%u hyg=%u\n",
            p.fullness, p.joy, p.energy, p.hygiene);
 
     // it wakes when YOU do
@@ -171,7 +176,7 @@ int main(){
     p.setScreenOff(true);                            // 23:00, not the window yet
     ck(!p.sleeping, "screen off before midnight does not sleep it yet");
 
-    for (int i = 0; i < 540; i++) {                  // through to 08:00
+    for (int i = 0; i < 539; i++) {                  // through to 07:59 (from 08:00 it gets up: v4.12)
       p.lastSeenEpoch = atHour(23) + (uint32_t)i * 60;
       p.dbgTick();
     }
@@ -194,6 +199,55 @@ int main(){
     p.dbgSetSeen(atHour(9));                         // morning, awake, still empty
     p.fullness = p.joy = p.energy = p.hygiene = 0;
     ck(p.canRunawayNow(), "genuinely empty on waking is still ready to leave");
+  }
+
+  // --- THE MORNING (v4.12, the owner's rule). A bed by hand at night sleeps in
+  //     until 08:00; from 08:00 to 18:00 anything asleep gets up once rested;
+  //     woken between 06:00 and 08:00, a bed by hand is a nap again.
+  {
+    // put down at 05:00 (night): asleep through 06:00 and 07:59, up at 08:00
+    Pet p; fresh(p, 5);
+    p.energy = 20;
+    p.toggleLight();
+    ck(p.sleeping && p.sleepAuto == SLEEP_PLAYER, "bed at 05:00 is a night's sleep");
+    liveMinutes(p, 5, 3 * 60 - 1);                   // to 07:59
+    ck(p.sleeping && p.energy == 100, "rested, it still sleeps in until 08:00");
+    liveMinutes(p, 8, 2);
+    ck(!p.sleeping, "at 08:00 it gets up by itself (it never woke, before v4.12)");
+
+    // put down at 22:00: the whole night, and 06:00-08:00, asleep
+    Pet q; fresh(q, 22);
+    q.toggleLight();
+    liveMinutes(q, 22, 9 * 60 + 59);                 // to 07:59
+    ck(q.sleeping, "bed at 22:00 sleeps through the night and the sleep-in");
+    q.toggleLight();                                 // woken at 07:59 by hand
+    ck(!q.sleeping, "and the player can wake it whenever they like");
+
+    // woken at 06:30, back to bed: a nap, so it gets up once rested
+    Pet r; fresh(r, 6);
+    r.lastSeenEpoch = atHour(6) + 30 * 60;
+    r.energy = 40;
+    r.toggleLight();
+    ck(r.sleeping && r.sleepAuto == SLEEP_NAP, "a bed by hand at 06:30 is a nap");
+    for (int i = 0; i < 30 && r.sleeping; i++) { r.lastSeenEpoch += 60; r.dbgTick(); }
+    ck(!r.sleeping, "and it ends once its energy is full, before 08:00");
+
+    // the screen-off sleep, still asleep after 08:00: it gets up once rested too
+    Pet a; fresh(a, 3);
+    a.energy = 30;
+    a.setScreenOff(true);
+    ck(a.sleeping && a.sleepAuto == SLEEP_AUTO, "(screen off at 03:00 sleeps it)");
+    liveMinutes(a, 3, 5 * 60 - 1);                   // to 07:59, screen still off
+    ck(a.sleeping, "the screen-off sleep sleeps in too");
+    liveMinutes(a, 8, 2);
+    ck(!a.sleeping, "and from 08:00 it gets up once rested");
+
+    // a night's bed at 19:00 stays: 18:00 onward is bedtime, as before
+    Pet b; fresh(b, 19);
+    b.energy = 50;
+    b.toggleLight();
+    liveMinutes(b, 19, 60);
+    ck(b.sleeping && b.energy == 100, "a bed at 19:00 does not end when it is rested");
   }
 
   // --- an egg is not something you put to sleep

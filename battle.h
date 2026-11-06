@@ -106,7 +106,15 @@ struct TurnLog {
   int8_t sketchSlot = -1;
   bool failed = false;
   bool transformed = false;   // TRANSFORM took (v3.96)
+  bool evaded = false;        // the target was hidden by a two-turn move (v4.12)
 };
+
+// Where a creature winding up an EF_CHARGE move hides until it strikes (v4.12):
+// the move's param (tools/dex_moves.py HIDE_*). Nothing aimed at it lands but
+// the moves moveHitsHidden() names (moves.h, from HITS_HIDDEN), which deal
+// their multiplier there. 0 = in plain sight.
+enum : uint8_t { HIDE_NONE = 0, HIDE_UNDERGROUND, HIDE_SKY, HIDE_UNDERWATER, HIDE_VANISHED };
+uint8_t battleHidden(const Combatant &c);
 
 // SKETCH's one rule: what it copies from `def` into `atk`, or 0 when it fails
 // (the foe has not moved, used STRUGGLE or SKETCH, or `atk` already knows it).

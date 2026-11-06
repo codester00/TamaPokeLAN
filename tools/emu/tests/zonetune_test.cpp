@@ -118,6 +118,9 @@ int main() {
   tapPlaza(3);
   ck(!strcmp(scr(), "zone") && zoneMode == 0, "the zone's landing page");
   ck(pillDrawn(), "  BACK is drawn");
+  { std::string h = drawn();
+    ck(h.find("BEST GAUNTLET RUN") != std::string::npos && h.find("BEST STREAK") == std::string::npos,
+       "  the header names the gauntlet: BEST GAUNTLET RUN (v4.12)"); }
   { int x, y, w, h, bx, by, bw, bh; zoneRowRect(2, &x, &y, &w, &h); backPillRect(BACK_ZONE_T, &bx, &by, &bw, &bh);
     ck(y + h < backZoneY(BACK_ZONE_T) && by + bh < 440, "  the last row ends above the BACK zone, the pill above the tile dots"); }
   tapRow(2); ck(zoneMode == 1 && pillDrawn(), "prizes: BACK drawn");

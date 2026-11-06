@@ -60,7 +60,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.11"
+#define FW_VERSION "4.12"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -218,6 +218,10 @@ char partyBannerName[14] = "";
 
 bool clockOpen = false;       // pantalla de ajuste de hora (deslizar abajo)
 int clockH = 12, clockM = 0;  // hora en edicion
+// The weekday being set (v4.12, 0 Sunday). Only the time could be set before,
+// so a board's weekday was wherever its first boot's seed date had drifted to
+// -- and Lapras's Friday was whatever day that happened to be.
+uint8_t clockWd = 0;
 
 // escena de bano: espuma sobre el bicho y limpieza al reventar
 uint32_t bathUntil = 0;
@@ -581,7 +585,17 @@ Link lan;
 // cannot-be-undone confirm in front of REVERT (1) or KEEP (2).
 bool tradeOpen = false;
 bool tradePicking = false;
-uint8_t tradePickSrc = 0;      // 0 the party, 1.. a box page
+uint8_t tradePickSrc = 0;      // 0 the party, 1.. a box page (since v4.12 the leftovers only)
+// v4.12: choosing what to give opens the creature's card first (TRADE / BACK),
+// and the picker's hub opens Bill's PC itself rather than paging the old box.
+// The card shows a COPY: the creature stays where it is until it is offered.
+bool tradeSheetOpen = false;
+PartyMon tradeSheetMon;
+// Which layer of the trade screen is on top -- THE one answer render(),
+// uiCurrentScreen(), onTap() and the swipe all ask, so the PC screens opened
+// from a trade can never be drawn but not tapped, or tapped but not drawn.
+enum : uint8_t { TL_MAIN = 0, TL_SHEET, TL_JUMP, TL_PC };
+uint8_t tradeLayer();
 uint8_t tradeAsk = 0;
 bool tradeNoRadio = false;
 Trade trade;
@@ -746,6 +760,11 @@ static_assert(PLAZA_Y0 + 2 * PLAZA_H + PLAZA_GAP + 20 < 440 - 3, "the PLAZA grid
 #define PDET_R_W 64
 #define PDET_P_X 64
 #define PDET_P_W 60
+// The trade card's two buttons (v4.12): TRADE and BACK, side by side and the
+// same size, so leaving without offering is as plain as offering.
+#define TRSH_TRADE_X 76
+#define TRSH_BACK_X 240
+#define TRSH_W 150
 static_assert(PDET_L_X > PDET_P_X + PDET_P_W + 8, "TO PC needs a dead gap before the primary");
 static_assert(PDET_L_X < 233 && 233 < PDET_L_X + PDET_L_W,
               "the panel centre must land on the sheet's PRIMARY button, not between the two");
@@ -771,6 +790,8 @@ bool btlLinkHost = false;
 // lanIsWaiting()), so this is not a host/guest split.
 #define LAN_QUIT_AFTER_MS 30000
 bool lanQuitConfirm = false;
+// RUN from any fight but a wild one asks first (v4.12): running is a loss.
+bool btlRunAsk = false;
 uint32_t lanWaitSince = 0;   // 0 = not currently waiting on the rival
 
 // True whenever this device has done everything it can for the current turn
@@ -1081,6 +1102,12 @@ int16_t btlShowDex[2] = { 0, 0 };
 // in only once the player dismisses that message.
 uint32_t btlFaintUntil[2] = { 0, 0 };
 uint32_t btlEnterUntil[2] = { 0, 0 };
+// A two-turn move's hiding place on screen (v4.12): the HIDE_* kind the sprite
+// is in (0 = on the field) and when it last left or came back.
+uint8_t btlHideKind[2] = { 0, 0 };
+uint8_t btlHideShown[2] = { 0, 0 };    // the kind it is animating out of / into
+uint32_t btlHideAt[2] = { 0, 0 };
+#define BTL_HIDE_MS 360
 // Replacements due after a faint: bit 0 your side, bit 1 the foe's -- both can
 // fall in one turn (recoil, a poison tick). btlNextAt/Hp/Ail say who comes on.
 // The HOST decides them at resolution and ships them in the result, so in a LAN
@@ -1117,6 +1144,13 @@ uint8_t btlMsgCount = 0;   // queued lines; a tap shows the next
 // poison tick with its own -- as the games do -- not all at once when the
 // moves are picked.
 uint16_t btlMsgHp[8][2];
+// And WHO was out on each side when it was said (v4.12): the squad index of
+// yours and of theirs. A line written before a creature came on (the foe's
+// "sends out" before your replacement, "Go, X!" before the trainer's next)
+// holds the HP of the one it replaced -- usually 0 -- and the newcomer's bar
+// drained to it and refilled a line later. btlEaseBars() uses a line's HP only
+// for the creature that line was said about.
+uint8_t btlMsgAt[8][2];
 // Which side's faint each queued line announces (bit 0 ours, bit 1 theirs).
 // The sprite drops out of frame when that line comes on screen (v3.71), with
 // the text and the empty bar -- not when the moves resolve, which hid a foe
@@ -1126,6 +1160,12 @@ uint16_t btlMsgHp[8][2];
 // comes on screen, the same way.
 uint8_t btlMsgFaint[8];
 #define BTL_MSG_XFORM(who) ((uint8_t)(4 << (who)))
+// Bits 4-5 (BTL_MSG_HIDE) mark a two-turn move's wind-up line ("X dug a
+// hole!"), bits 6-7 (BTL_MSG_SHOW) its strike (v4.12): the sprite leaves the
+// field -- up into the sky, down into the ground or the water, or blinking out
+// -- and comes back with the lines, as the faint and TRANSFORM do.
+#define BTL_MSG_HIDE(who) ((uint8_t)(16 << (who)))
+#define BTL_MSG_SHOW(who) ((uint8_t)(64 << (who)))
 #define BTL_CELL_W 160
 #define BTL_CELL_H 54
 #define BTL_GRID_X 69
@@ -2381,7 +2421,11 @@ void onSwipeV(int dir) {
   if (jumpOpen) { if (back) jumpOpen = false; return; }
   if (tradeOpen) {          // down backs out one level; a pending trade cannot be left
     if (!back) return;
-    if (tradePicking) tradePicking = false;
+    uint8_t l = tradeLayer();
+    if (l == TL_SHEET) tradeSheetOpen = false;   // the card: back to where it was picked
+    else if (l == TL_JUMP) jumpOpen = false;
+    else if (l == TL_PC) pcBack();               // the PC's own levels, then the picker
+    else if (tradePicking) tradePicking = false;
     else if (tradeAsk) tradeAsk = 0;
     else tradeLeave();
     return;
@@ -2516,7 +2560,7 @@ void drawGenderIcon(int cx, int cy, uint8_t g, int r) {
   }
 }
 
-void renderMonSheet(const PartyMon &m, bool fromBox) {
+void renderMonSheet(const PartyMon &m, bool fromBox, bool forTrade) {
   const DexEntry &d = DEX_TBL[m.dex];
   gfx->fillScreen(RGB565_BLACK);
   gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
@@ -2549,6 +2593,21 @@ void renderMonSheet(const PartyMon &m, bool fromBox) {
   gfx->setTextSize(1);
   gfx->setCursor(CX - (int)strlen(st) * 3, 300);
   gfx->print(st);
+
+  if (forTrade) {   // the trade card (v4.12): TRADE, or BACK without offering it
+    const char *lb[2] = { T(S_TRADE_BTN), T(S_BACK) };
+    for (int k = 0; k < 2; k++) {
+      int bx = k ? TRSH_BACK_X : TRSH_TRADE_X;
+      gfx->fillRoundRect(bx, PDET_BTN_Y, TRSH_W, PDET_BTN_H, 10, k ? UI_TRACK : UI_BAR_OK);
+      gfx->drawRoundRect(bx, PDET_BTN_Y, TRSH_W, PDET_BTN_H, 10, UI_INK);
+      gfx->setTextColor(k ? UI_INK : UI_BG_DAY);
+      gfx->setTextSize(2);
+      gfx->setCursor(bx + TRSH_W / 2 - (int)strlen(lb[k]) * 6, PDET_BTN_Y + PDET_BTN_H / 2 - 8);
+      gfx->print(lb[k]);
+    }
+    gfx->flush();
+    return;
+  }
 
   // Which creature you are RAISING is now a choice you can make at any time.
   // It is a true exchange -- the one on the main screen takes the slot this one
@@ -2621,7 +2680,7 @@ void renderPartyDetail() {
     renderParty();
     return;
   }
-  renderMonSheet(party.slots[partyDetail - 1], false);
+  renderMonSheet(party.slots[partyDetail - 1], false, false);
 }
 
 void renderBoxDetail() {
@@ -2632,7 +2691,7 @@ void renderBoxDetail() {
     renderBox();
     return;
   }
-  renderMonSheet(m, true);
+  renderMonSheet(m, true, false);
 }
 
 // The two buttons' hit areas, so a test can prove they do not overlap without
@@ -2947,7 +3006,12 @@ void onTap(int16_t x, int16_t y) {
     return;
   }
   if (tradeOpen) {
-    tradeTap(x, y);
+    switch (tradeLayer()) {
+      case TL_SHEET: tradeSheetTap(x, y); break;
+      case TL_JUMP:  jumpTap(x, y); break;
+      case TL_PC:    pcTap(x, y); break;
+      default:       tradeTap(x, y); break;
+    }
     return;
   }
   if (codesOpen) {
@@ -3493,7 +3557,12 @@ RTC_NOINIT_ATTR uint32_t gCrumbHeap;
 // a tap on the party ring could teach the pet a move from the hidden offer.
 uint8_t uiCurrentScreen() {
   if (pet.awaitingStarter()) return starterRegionDone ? SCR_STARTER : SCR_REGION;
-  if (tradeOpen) return SCR_TRADE;
+  if (tradeOpen) {   // the PC opened from a trade is the PC (v4.12): it pages on the rim
+    uint8_t l = tradeLayer();
+    if (l == TL_JUMP) return SCR_JUMP;
+    if (l == TL_PC) return pcPick ? SCR_PCPICK : pcSpecies ? SCR_PCRING : SCR_PC;
+    return SCR_TRADE;
+  }
   if (codesOpen) return SCR_CODES;
   if (jumpOpen) return SCR_JUMP;
   if (blackoutOpen) return SCR_BLACKOUT;
@@ -3723,9 +3792,19 @@ static inline uint16_t uiChromeInk() {
 // nothing on the panel mentions is precisely how Johto and Hoenn came to be
 // built, reachable and completely invisible; an axis nobody can see is that
 // same mistake one level up.
+// The axis dots belong on a tile's TOP screen only (v4.12): past a region
+// chooser -- the Pokedex grid and a creature's page, a gym ladder -- they sat
+// over the BACK pill and said nothing a level down. Swiping along the axis is
+// unchanged; this is only what is drawn.
+bool uiTileDotsShown() {
+  int t = uiTileIndex();
+  if (t < 0) return false;
+  return TILE[t].alt == TILE[t].scr || uiCurrentScreen() == TILE[t].alt;
+}
+
 void uiDrawTileDots() {
   int t = uiTileIndex();
-  if (t < 0) return;
+  if (t < 0 || !uiTileDotsShown()) return;
   uint16_t ink = uiChromeInk();
   if (t == TILE_PET) {
     char left[28], right[24];
@@ -5065,7 +5144,12 @@ void render() {
   }
   // Modal, and above everything: a pending trade keeps the player here.
   if (tradeOpen) {
-    renderTrade();
+    switch (tradeLayer()) {
+      case TL_SHEET: renderMonSheet(tradeSheetMon, false, true); break;
+      case TL_JUMP:  renderJump(); break;
+      case TL_PC:    renderPc(); break;
+      default:       renderTrade(); break;
+    }
     return;
   }
   if (codesOpen) {
@@ -5699,12 +5783,19 @@ void openClock() {
   uint32_t e = pet.lastSeenEpoch ? pet.lastSeenEpoch : rtcEpoch();
   clockH = (e / 3600) % 24;
   clockM = (e / 60) % 60;
+  clockWd = Pet::weekdayOfDay(e / 86400);
   clockOpen = true;
 }
 
 void applyClock() {
   uint32_t base = pet.lastSeenEpoch ? pet.lastSeenEpoch : rtcEpoch();
-  uint32_t e = (base / 86400) * 86400 + (uint32_t)clockH * 3600 + (uint32_t)clockM * 60;
+  // the weekday moves the date to the NEAREST day that is that weekday (three
+  // days either way), so setting it changes the date as little as it can
+  uint32_t day = base / 86400;
+  int shift = ((int)clockWd - (int)Pet::weekdayOfDay(day) + 7) % 7;
+  if (shift > 3) shift -= 7;
+  day = (uint32_t)((int32_t)day + shift);
+  uint32_t e = day * 86400 + (uint32_t)clockH * 3600 + (uint32_t)clockM * 60;
   rtcSetEpoch(e);
   pet.setClock(e);
   clockOpen = false;
@@ -5730,19 +5821,42 @@ void drawClockBtn(int x, int y, const char *l) {
 #define VOL_PLUS_X 276
 #define VOL_BTN_W 48
 static const char *const LANG_CODES[LANG_COUNT] = { "ES", "EN", "FR", "DE", "IT", "PT" };
+// The weekday pill (v4.12), between the title and the time.
+#define CLOCK_DAY_X 123
+#define CLOCK_DAY_Y 62
+#define CLOCK_DAY_W 220
+#define CLOCK_DAY_H 48
+void clockDayRect(int *x, int *y, int *w, int *h) { *x = CLOCK_DAY_X; *y = CLOCK_DAY_Y; *w = CLOCK_DAY_W; *h = CLOCK_DAY_H; }
 
 void renderClock() {
   gfx->fillScreen(RGB565_BLACK);
   gfx->fillCircle(CX, CY, 231, UI_BG_DAY);
   gfx->setTextColor(UI_INK);
   gfx->setTextSize(3);
-  gfx->setCursor(CX - strlen(T(S_SET_TIME)) * 9, 44);
+  gfx->setCursor(CX - strlen(T(S_SET_TIME)) * 9, 28);
   gfx->print(T(S_SET_TIME));
+
+  // the weekday (v4.12): the left half steps back, the right half on
+  {
+    static const StrId WD[7] = { S_WD_SUN, S_WD_MON, S_WD_TUE, S_WD_WED, S_WD_THU, S_WD_FRI, S_WD_SAT };
+    gfx->fillRoundRect(CLOCK_DAY_X, CLOCK_DAY_Y, CLOCK_DAY_W, CLOCK_DAY_H, 12, UI_WHITE);
+    gfx->drawRoundRect(CLOCK_DAY_X, CLOCK_DAY_Y, CLOCK_DAY_W, CLOCK_DAY_H, 12, UI_INK);
+    char dl[24];
+    snprintf(dl, sizeof(dl), "%s %s", T(S_DAY), T(WD[clockWd % 7]));
+    gfx->setTextColor(UI_INK);
+    gfx->setTextSize(2);
+    gfx->setCursor(CX - (int)strlen(dl) * 6, CLOCK_DAY_Y + CLOCK_DAY_H / 2 - 8);
+    gfx->print(dl);
+    gfx->setCursor(CLOCK_DAY_X + 12, CLOCK_DAY_Y + CLOCK_DAY_H / 2 - 8);
+    gfx->print("<");
+    gfx->setCursor(CLOCK_DAY_X + CLOCK_DAY_W - 24, CLOCK_DAY_Y + CLOCK_DAY_H / 2 - 8);
+    gfx->print(">");
+  }
 
   char t[8];
   snprintf(t, sizeof(t), "%02d:%02d", clockH, clockM);
   gfx->setTextSize(7);
-  gfx->setCursor(CX - 105, 108);
+  gfx->setCursor(CX - 105, 122);
   gfx->print(t);
 
   drawClockBtn(104, 190, "-");  // hora -
@@ -5823,6 +5937,11 @@ void renderClock() {
 }
 
 void clockTap(int16_t x, int16_t y) {
+  if (y >= CLOCK_DAY_Y && y < CLOCK_DAY_Y + CLOCK_DAY_H && x >= CLOCK_DAY_X && x < CLOCK_DAY_X + CLOCK_DAY_W) {
+    clockWd = (uint8_t)((clockWd + (x < CX ? 6 : 1)) % 7);   // left back, right on
+    sfxPlay(SFX_TAP);
+    return;
+  }
   if (y >= 190 && y <= 248) {  // fila de botones +/-
     if (x >= 104 && x < 162) clockH = (clockH + 23) % 24;
     else if (x >= 170 && x < 228) clockH = (clockH + 1) % 24;
@@ -6267,6 +6386,8 @@ static void btlSay(const char *fmt, ...) {
   va_end(ap);
   btlMsgHp[btlMsgCount][0] = btlYou.hp;
   btlMsgHp[btlMsgCount][1] = btlFoe.hp;
+  btlMsgAt[btlMsgCount][0] = btlSquadAt;
+  btlMsgAt[btlMsgCount][1] = btlFoeAt;
   btlMsgFaint[btlMsgCount] = 0;
   btlMsgCount++;
 }
@@ -6295,6 +6416,25 @@ static void btlFaintArm(uint8_t who) {
 
 // The line on screen announces a faint: start that drop (once -- the bit is
 // spent). Called every frame and after every dismiss.
+// A two-turn move's sprite leaving (`out`) or coming back (v4.12). The kind
+// is read off the creature's wound-up move when it leaves.
+void btlHideStart(uint8_t who, bool out) {
+  const Combatant &c = who == 0 ? btlYou : btlFoe;
+  if (out) {
+    uint8_t k = battleHidden(c);
+    if (!k && c.charging < MOVE_COUNT && MOVE_TBL[c.charging].effect == EF_CHARGE)
+      k = (uint8_t)MOVE_TBL[c.charging].param;
+    if (!k) return;
+    btlHideKind[who] = btlHideShown[who] = k;
+  } else {
+    if (!btlHideKind[who]) return;
+    btlHideKind[who] = 0;
+  }
+  btlHideAt[who] = millis();
+}
+// A creature coming on, or a fight starting, is in plain sight.
+static void btlHideReset(uint8_t who) { btlHideKind[who] = btlHideShown[who] = 0; btlHideAt[who] = 0; }
+
 void btlFaintFromHead() {
   if (!btlMsgCount || !btlMsgFaint[0]) return;
   for (uint8_t who = 0; who < 2; who++) {
@@ -6302,6 +6442,8 @@ void btlFaintFromHead() {
     // A TRANSFORM line: the sprite becomes what it copied (v3.98). The name
     // stays the creature's own, as in the games ("DITTO used TACKLE").
     if (btlMsgFaint[0] & BTL_MSG_XFORM(who)) btlSyncSprite(who, who == 0 ? btlYou : btlFoe);
+    if (btlMsgFaint[0] & BTL_MSG_HIDE(who)) btlHideStart(who, true);
+    if (btlMsgFaint[0] & BTL_MSG_SHOW(who)) btlHideStart(who, false);
   }
   btlMsgFaint[0] = 0;
 }
@@ -6325,8 +6467,31 @@ static void btlNarrate(const Combatant &actor, const Combatant &target, const Tu
   if (lg.skipped) return;
   btlSfxFor(lg);
   if (lg.hurtSelf) { btlSay(T(S_BTL_HURTSELF)); return; }
-  if (lg.charged) { btlSay(T(S_BTL_USED), actor.name, moveName(lg.move)); return; }
-  if (lg.move) btlSay(T(S_BTL_USED), actor.name, moveName(lg.move));
+  if (lg.charged) {   // the wind-up, in the games' words, and the sprite leaves (v4.12)
+    uint8_t who = btlSideOf(actor);
+    uint8_t hide = lg.move < MOVE_COUNT ? (uint8_t)MOVE_TBL[lg.move].param : 0;
+    static const StrId CHG[5] = { S_CHG_SUN, S_CHG_DIG, S_CHG_FLY, S_CHG_DIVE, S_CHG_VANISH };
+    StrId line = hide < 5 ? CHG[hide] : S_CHG_SUN;
+    if (lg.move == MV_BOUNCE) line = S_CHG_BOUNCE;
+    uint8_t n = btlMsgCount;
+    btlSay(T(line), actor.name);
+    if (hide) {
+      if (btlMsgCount > n) btlMsgFaint[n] |= BTL_MSG_HIDE(who);
+      else btlHideStart(who, true);   // no room for the line: now
+    }
+    return;
+  }
+  if (lg.move) {
+    uint8_t n = btlMsgCount;
+    btlSay(T(S_BTL_USED), actor.name, moveName(lg.move));
+    // the strike of a hiding move: it comes back with its line (v4.12)
+    if (lg.move < MOVE_COUNT && MOVE_TBL[lg.move].effect == EF_CHARGE && MOVE_TBL[lg.move].param > 0) {
+      uint8_t who = btlSideOf(actor);
+      if (btlMsgCount > n) btlMsgFaint[n] |= BTL_MSG_SHOW(who);
+      else btlHideStart(who, false);
+    }
+  }
+  if (lg.evaded) { btlSay(T(S_BTL_AVOIDED), target.name); return; }
   if (lg.missed) { btlSay(T(S_BTL_MISS), actor.name); return; }
   if (lg.failed) { btlSay(T(S_BTL_FAILED)); return; }
   if (lg.transformed) {
@@ -6386,7 +6551,7 @@ static void btlBeat(bool hostActed, uint8_t kind, const TurnLog &lg) {
   b.flags = (lg.missed ? LB_MISSED : 0) | (lg.crit ? LB_CRIT : 0) | (lg.immune ? LB_IMMUNE : 0) |
             (lg.hurtSelf ? LB_HURTSELF : 0) | (lg.charged ? LB_CHARGED : 0) |
             (lg.targetFainted ? LB_FAINTED : 0) | (lg.stageOnUser ? LB_STAGE_USER : 0);
-  b.eff = !lg.damage ? 0 : lg.effPct > 100 ? 1 : lg.effPct < 100 ? 2 : 3;
+  b.eff = lg.evaded ? LB_EFF_EVADED : !lg.damage ? 0 : lg.effPct > 100 ? 1 : lg.effPct < 100 ? 2 : 3;
   b.inflicted = lg.inflicted;
   b.stageMask = lg.stageMask;
   b.stageDelta = lg.stageDelta;
@@ -6409,7 +6574,8 @@ static TurnLog btlBeatLog(const LinkBeat &b) {
   lg.targetFainted = b.flags & LB_FAINTED;
   lg.stageOnUser = b.flags & LB_STAGE_USER;
   lg.effPct = b.eff == 1 ? 200 : b.eff == 2 ? 50 : 100;
-  lg.damage = b.eff ? 1 : 0;
+  lg.evaded = b.eff == LB_EFF_EVADED;
+  lg.damage = (b.eff && !lg.evaded) ? 1 : 0;
   lg.inflicted = b.inflicted < 7 ? b.inflicted : 0;
   lg.stageMask = b.stageMask;
   lg.stageDelta = b.stageDelta;
@@ -6602,6 +6768,8 @@ void startLinkBattle() {
   lanQuitConfirm = false;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
+  btlHideReset(0); btlHideReset(1);
+  btlRunAsk = false;
   btlHpShown[0] = btlYou.maxHp;
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
@@ -6646,6 +6814,8 @@ void startTrainerBattle(uint8_t idx, bool hard) {
   btlSwapDue = 0;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
+  btlHideReset(0); btlHideReset(1);
+  btlRunAsk = false;
   btlHpShown[0] = btlYou.maxHp;
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
@@ -6688,6 +6858,8 @@ void startBattle(int16_t dex, uint8_t lvl) {
   btlSwapDue = 0;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
+  btlHideReset(0); btlHideReset(1);
+  btlRunAsk = false;
   btlHpShown[0] = btlYou.maxHp;
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
@@ -6724,8 +6896,7 @@ static void btlApplyResult() {
     btlYou = btlSquad[btlSquadAt];
     btlSyncSprite(0, btlYou);
     btlLungeUntil[0] = btlHitUntil[0] = btlFaintUntil[0] = 0;
-    btlEnterUntil[0] = now + BTL_ENTER_MS;
-    btlSay(T(S_BTL_GO), btlYou.name);
+    btlEnterUntil[0] = now + BTL_ENTER_MS; btlHideReset(0);
     youIn = true;
   }
   if (r.hostIdx < btlFoeSquadN && r.hostIdx != btlFoeAt) {
@@ -6736,12 +6907,14 @@ static void btlApplyResult() {
     btlFoe = btlFoeSquad[btlFoeAt];
     btlSyncSprite(1, btlFoe);
     btlLungeUntil[1] = btlHitUntil[1] = btlFaintUntil[1] = 0;
-    btlEnterUntil[1] = now + BTL_ENTER_MS;
-    btlSay(T(S_BTL_SENDS), lan.peerName, btlFoe.name);
+    btlEnterUntil[1] = now + BTL_ENTER_MS; btlHideReset(1);
     foeIn = true;
   }
   btlYou.hp = r.guestHp > btlYou.maxHp ? btlYou.maxHp : r.guestHp;
   btlFoe.hp = r.hostHp > btlFoe.maxHp ? btlFoe.maxHp : r.hostHp;
+  // said once the HP is the host's, so the line carries the newcomer's real HP (v4.12)
+  if (youIn) btlSay(T(S_BTL_GO), btlYou.name);
+  if (foeIn) btlSay(T(S_BTL_SENDS), lan.peerName, btlFoe.name);
   btlYou.ailment = r.guestAil;
   btlFoe.ailment = r.hostAil;
   // A SKETCH the host resolved for us: kept, over a SKETCH slot only (v3.69).
@@ -6772,6 +6945,9 @@ static void btlApplyResult() {
     // boards already hold (the moves came with the pairing), before the line
     // that names it
     if (lg.transformed) battleTransform(actor, target);
+    // a two-turn move: this board's copy winds up and strikes with the host's,
+    // so the sprite leaves and the menu locks the same way (v4.12)
+    if (b.kind == 0 && lg.move) actor.charging = lg.charged ? lg.move : 0;
     if (b.kind == 1) btlNarrateTick(actor, lg);
     else btlNarrate(actor, target, lg);
   }
@@ -6862,6 +7038,7 @@ static void btlLinkPoll() {
     btlWon = lan.youWon;
     audioMusic(btlWon ? btlMusic(true) : MUS_NONE);
     if (btlWon) sfxPlay(SFX_VICTORY);
+    if (lan.peerForfeit) btlSay(T(S_LAN_FORFEIT), lan.peerName);   // the rival ran (v4.12)
     btlSay("%s", btlWon ? T(S_BTL_WIN) : T(S_BTL_LOSE));
     const uint8_t *rivalMac = linkNowPeerMac();
     if (rivalMac) pet.recordRivalResult(rivalMac, lan.peerName, btlWon);
@@ -7234,7 +7411,7 @@ static void btlFoeSwitchIn(uint8_t to, const char *who) {
   btlHpShown[1] = btlFoe.hp;
   btlSyncSprite(1, btlFoe);
   btlLungeUntil[1] = btlHitUntil[1] = btlFaintUntil[1] = 0;
-  btlEnterUntil[1] = millis() + BTL_ENTER_MS;
+  btlEnterUntil[1] = millis() + BTL_ENTER_MS; btlHideReset(1);
   btlSay(T(S_BTL_SENDS), who, btlFoe.name);
 }
 
@@ -7525,6 +7702,25 @@ static void btlSide(int tx, int ty, int sx, int sy, const Combatant &c, uint8_t 
   uint32_t now = millis();
   int ox = 0, oy = 0;
   bool flash = false;
+  // A two-turn move (v4.12): up and off the panel into the sky, down into the
+  // ground or the water, or blinking out -- and back the same way to strike.
+  if (btlHideShown[who]) {
+    uint32_t t = now - btlHideAt[who];
+    bool out = btlHideKind[who] != 0;
+    if (t >= BTL_HIDE_MS) {
+      if (out) return;                     // gone until it strikes
+      btlHideShown[who] = 0;
+    } else {
+      int p = (int)(t * 100 / BTL_HIDE_MS);
+      if (!out) p = 100 - p;               // 0 on the field, 100 gone
+      switch (btlHideShown[who]) {
+        case HIDE_SKY:        oy -= p * 320 / 100; break;
+        case HIDE_UNDERGROUND:
+        case HIDE_UNDERWATER: oy += p * 70 / 100; break;
+        default:              if ((t / 60) % 2) return; break;   // HIDE_VANISHED: blinks
+      }
+    }
+  }
   if (timerRunning(now, btlFaintUntil[who])) {          // sinks out of frame as it faints
     uint32_t left = btlFaintUntil[who] - now;
     oy += (int)((BTL_FAINT_MS - left) * 70 / BTL_FAINT_MS);
@@ -7587,11 +7783,14 @@ static void btlSafariSide(int tx, int ty, int sx, int sy) {
 // Bars drain rather than snap: a hit that removes half your health should be
 // visible as it happens, not as a value that was already different.
 static void btlEaseBars() {
-  // the HP as of the line on screen, else the real thing (btlMsgHp)
+  // the HP as of the line on screen, else the real thing (btlMsgHp) -- and the
+  // line's HP only if it was said about the creature out now (btlMsgAt)
   uint16_t real[2] = { btlYou.hp, btlFoe.hp };
   if (btlMsgCount) {
-    real[0] = btlMsgHp[0][0] > btlYou.maxHp ? btlYou.maxHp : btlMsgHp[0][0];
-    real[1] = btlMsgHp[0][1] > btlFoe.maxHp ? btlFoe.maxHp : btlMsgHp[0][1];
+    if (btlMsgAt[0][0] == btlSquadAt)
+      real[0] = btlMsgHp[0][0] > btlYou.maxHp ? btlYou.maxHp : btlMsgHp[0][0];
+    if (btlMsgAt[0][1] == btlFoeAt)
+      real[1] = btlMsgHp[0][1] > btlFoe.maxHp ? btlFoe.maxHp : btlMsgHp[0][1];
   }
   for (int i = 0; i < 2; i++) {
     int diff = (int)real[i] - (int)btlHpShown[i];
@@ -7918,6 +8117,10 @@ void renderBattle() {
       }
     }
   }
+  if (btlOver) btlRunAsk = false;   // the fight ended under the question (the rival ran, the link dropped)
+  if (btlRunAsk)   // RUN from a trainer, the zone, the Hall or a rival: a loss (v4.12)
+    drawConfirmPanel(T(S_RUN_Q), nullptr, nullptr, UI_BAR_BAD,
+                     T(S_YES), UI_BAR_BAD, UI_WHITE, T(S_NO), UI_TRACK, UI_INK);
   gfx->flush();
 }
 
@@ -7946,7 +8149,7 @@ static void btlDoSwap() {
     btlHpShown[1] = btlFoe.hp;
     btlSyncSprite(1, btlFoe);
     btlLungeUntil[1] = btlHitUntil[1] = btlFaintUntil[1] = 0;
-    btlEnterUntil[1] = now + BTL_ENTER_MS;
+    btlEnterUntil[1] = now + BTL_ENTER_MS; btlHideReset(1);
   }
   if (btlSwapDue & 1) {
     btlSquad[btlSquadAt] = battleStored(btlYou);               // remember how battered it was
@@ -7957,7 +8160,7 @@ static void btlDoSwap() {
     btlHpShown[0] = btlYou.hp;
     btlSyncSprite(0, btlYou);
     btlLungeUntil[0] = btlHitUntil[0] = btlFaintUntil[0] = 0;
-    btlEnterUntil[0] = now + BTL_ENTER_MS;
+    btlEnterUntil[0] = now + BTL_ENTER_MS; btlHideReset(0);
     btlSay(T(S_BTL_GO), btlYou.name);
   }
   btlSwapDue = 0;
@@ -7972,7 +8175,7 @@ static void btlBringOn(uint8_t i) {
   btlHpShown[0] = btlYou.hp;
   btlSyncSprite(0, btlYou);
   btlLungeUntil[0] = btlHitUntil[0] = btlFaintUntil[0] = 0;
-  btlEnterUntil[0] = millis() + BTL_ENTER_MS;
+  btlEnterUntil[0] = millis() + BTL_ENTER_MS; btlHideReset(0);
   btlMenu = 0;
   btlSay(T(S_BTL_GO), btlYou.name);
 }
@@ -8156,6 +8359,60 @@ static void btlRun() {
   btlMenu = 0;
 }
 
+// The move in slot i is chosen: resolved here, latched by a LAN host, or sent
+// by a LAN guest. The one place a move choice leaves the menu.
+static void btlCommitSlot(uint8_t i) {
+  sfxPlay(SFX_TAP);
+  btlMenu = 0;
+  if (btlLink && !btlLinkHost) {
+    lan.sendAct(LINK_ACT_MOVE(i));   // the guest asks; the host decides
+    return;
+  }
+  if (btlLink) {
+    // Latched, not discarded. The host used to throw the tap away when the
+    // rival had not chosen yet, so you had to keep jabbing at the move until
+    // the timing happened to line up.
+    btlMyAct = LINK_ACT_MOVE(i);
+    if (!lan.hasPeerAct()) return;   // resolved by btlLinkPoll when it lands
+    btlMyAct = 0;
+  }
+  btlResolve(battleMoveForSlot(btlYou, i));
+}
+
+// Wound up for a two-turn move (v4.12): FIGHT strikes with it, and the bag and
+// switching wait, as in the games -- the engine fires the wound-up move
+// whatever is chosen, so a switch would have stored a creature mid-air.
+static int8_t btlChargingSlot() {
+  if (!btlYou.charging) return -1;
+  for (uint8_t i = 0; i < MOVE_SLOTS; i++) if (btlYou.moves[i] == btlYou.charging) return (int8_t)i;
+  return 0;
+}
+
+// Running from anything but a wild creature (v4.12, owner): a loss. The fight
+// is over at once, said as one line; dismissing it ends the fight the way a
+// loss does -- the zone's run and the Hall's end, a trainer's blacks out, the
+// League run ends -- and in LAN the rival is told, so both boards record it.
+static void btlForfeit() {
+  btlRunAsk = false;
+  btlMenu = 0;
+  btlOver = true;
+  btlWon = false;
+  btlWinPending = false;
+  btlMsgCount = 0;
+  sfxPlay(SFX_DENY);
+  audioMusic(MUS_NONE);
+  if (btlLink) {
+    const uint8_t *rivalMac = linkNowPeerMac();
+    if (rivalMac) pet.recordRivalResult(rivalMac, lan.peerName, false);
+    lan.sendForfeit();
+  } else if (!btlZone && !btlHall) {
+    if (btlTrainer >= 0 && btlTrainer >= LEAGUE_FIRST) leagueAfterFight((uint8_t)btlTrainer, false);
+    btlLost = true;    // Mom's blackout, as for any trainer loss
+  }
+  pet.saveNow();
+  btlSay("%s", T(S_BTL_FORFEIT));
+}
+
 void battleTap(int16_t x, int16_t y) {
   if (btlWinUntil) {          // dismiss the win screen and leave the fight
     btlWinUntil = 0;
@@ -8179,6 +8436,8 @@ void battleTap(int16_t x, int16_t y) {
       memcpy(btlMsg[i - 1], btlMsg[i], sizeof(btlMsg[0]));
       btlMsgHp[i - 1][0] = btlMsgHp[i][0];
       btlMsgHp[i - 1][1] = btlMsgHp[i][1];
+      btlMsgAt[i - 1][0] = btlMsgAt[i][0];
+      btlMsgAt[i - 1][1] = btlMsgAt[i][1];
       btlMsgFaint[i - 1] = btlMsgFaint[i];
     }
     btlMsgCount--;
@@ -8225,6 +8484,14 @@ void battleTap(int16_t x, int16_t y) {
     if (btlSwapDue) btlAfterFaint();    // a choice first, or straight on (v4.02)
     return;
   }
+  if (btlRunAsk) {   // modal: only its two buttons answer
+    int c1t, c1b, c2t, c2b;
+    uiConfirmRects(&c1t, &c1b, &c2t, &c2b);
+    bool inX = (x >= CONFIRM_BTN_X && x <= CONFIRM_BTN_X + CONFIRM_BTN_W);
+    if (inX && y >= c1t && y <= c1b) { btlForfeit(); return; }
+    if (inX && y >= c2t && y <= c2b) { btlRunAsk = false; sfxPlay(SFX_TAP); }
+    return;
+  }
   if (lanQuitConfirm) {
     int c1t, c1b, c2t, c2b;
     uiConfirmRects(&c1t, &c1b, &c2t, &c2b);
@@ -8265,13 +8532,21 @@ void battleTap(int16_t x, int16_t y) {
     return;
   }
   if (btlMenu == 0) {
+    int8_t chg = btlChargingSlot();
+    if (chg >= 0 && btlCellHit(0, x, y)) { btlCommitSlot((uint8_t)chg); return; }   // FIGHT: it strikes
+    if (chg >= 0 && (btlCellHit(1, x, y) || btlCellHit(2, x, y))) { sfxPlay(SFX_DENY); return; }
     if (btlCellHit(0, x, y)) { sfxPlay(SFX_TAP); btlMenu = 1; return; }   // FIGHT
     if (btlCellHit(1, x, y)) {
       if (btlLink || btlZone || btlHall) { sfxPlay(SFX_DENY); return; }   // see btlMainOpt
       sfxPlay(SFX_TAP); btlMenu = 3; btlBagPage = 0; return;
     }
     if (btlCellHit(2, x, y)) { sfxPlay(SFX_TAP); btlMenu = 2; return; }
-    if (btlCellHit(3, x, y)) { btlRun(); return; }
+    if (btlCellHit(3, x, y)) {
+      if (btlWild) { btlRun(); return; }    // a wild creature: the escape roll
+      sfxPlay(SFX_TAP);
+      btlRunAsk = true;                     // anything else is a loss: ask first
+      return;
+    }
     return;
   }
   if (btlMenu == 3) {
@@ -8378,21 +8653,7 @@ void battleTap(int16_t x, int16_t y) {
       // In a link fight the move goes over the wire as usual: the host's
       // battleAct() turns an empty move into STRUGGLE, the one rule for both.
     }
-    sfxPlay(SFX_TAP);
-    btlMenu = 0;
-    if (btlLink && !btlLinkHost) {
-      lan.sendAct(LINK_ACT_MOVE(i));   // the guest asks; the host decides
-      return;
-    }
-    if (btlLink) {
-      // Latched, not discarded. The host used to throw the tap away when the
-      // rival had not chosen yet, so you had to keep jabbing at the move until
-      // the timing happened to line up.
-      btlMyAct = LINK_ACT_MOVE(i);
-      if (!lan.hasPeerAct()) return;   // resolved by btlLinkPoll when it lands
-      btlMyAct = 0;
-    }
-    btlResolve(battleMoveForSlot(btlYou, i));
+    btlCommitSlot((uint8_t)i);
     return;
   }
   btlMenu = 0;        // a tap off the grid goes back to FIGHT/POKEMON
@@ -9447,6 +9708,8 @@ bool zoneStartFight(const ZoneFoe &f) {
   btlSwapDue = 0;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
+  btlHideReset(0); btlHideReset(1);
+  btlRunAsk = false;
   btlHpShown[0] = btlYou.maxHp;
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
@@ -10362,6 +10625,8 @@ bool bhallNextFight() {
   btlSwapDue = 0;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
+  btlHideReset(0); btlHideReset(1);
+  btlRunAsk = false;
   btlHpShown[0] = btlYou.maxHp;
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
@@ -10610,6 +10875,9 @@ void tradeOpenScreen() {
   trade.ctx = nullptr;
   tradeOpen = true;
   tradePicking = false;
+  tradeSheetOpen = false;
+  pcOpen = false;
+  jumpOpen = false;
   tradeAsk = 0;
   tradeNoRadio = !linkNowOpen(tradeRx, &trade, TM_FIRST, TM_LAST, false);
   // Started even without a radio: a pending trade must still count down to
@@ -10633,7 +10901,45 @@ void tradeLeave() {
   linkNowEnd();
   tradeOpen = false;
   tradePicking = false;
+  tradeSheetOpen = false;
+  pcOpen = false;
+  jumpOpen = false;
   tradeAsk = 0;
+}
+
+uint8_t tradeLayer() {
+  if (!tradeOpen) return TL_MAIN;
+  if (tradeSheetOpen) return TL_SHEET;
+  if (pcOpen && jumpOpen) return TL_JUMP;
+  if (pcOpen) return TL_PC;
+  return TL_MAIN;
+}
+
+// The card's buttons (v4.12): which one a tap lands on, for the tap and tests.
+bool tradeSheetBtn(int16_t x, int16_t y, bool trade) {
+  int bx = trade ? TRSH_TRADE_X : TRSH_BACK_X;
+  return x >= bx && x < bx + TRSH_W && y >= PDET_BTN_Y && y < PDET_BTN_Y + PDET_BTN_H;
+}
+
+// A creature chosen in the picker or the PC: its card, not an offer.
+static void tradeShowSheet(const PartyMon &m) {
+  if (m.empty()) { sfxPlay(SFX_DENY); return; }
+  tradeSheetMon = m;
+  tradeSheetOpen = true;
+  sfxPlay(SFX_TAP);
+}
+
+// TRADE offers it and goes back to GIVE / GET; BACK goes back to where it was
+// picked. Nothing else on the card answers: leaving is the button, said plainly.
+void tradeSheetTap(int16_t x, int16_t y) {
+  if (tradeSheetBtn(x, y, false)) { tradeSheetOpen = false; sfxPlay(SFX_TAP); return; }
+  if (!tradeSheetBtn(x, y, true)) return;
+  if (trade.state != TRADE_CHOOSING || !trade.offer(tradeSheetMon.uid)) { sfxPlay(SFX_DENY); return; }
+  tradeSheetOpen = false;
+  pcOpen = false;
+  jumpOpen = false;
+  tradePicking = false;
+  sfxPlay(SFX_TAP);
 }
 
 void tradePoll(uint32_t now) {
@@ -10641,6 +10947,13 @@ void tradePoll(uint32_t now) {
   linkNowPoll();
   trade.tick(now);
   if (!tradePending()) tradeAsk = 0;   // settled by a reconnect while asking
+  // choosing is over (the rival left, or both accepted): the card and the PC
+  // opened to choose with close, so the screen shows what is happening (v4.12)
+  if (trade.state != TRADE_CHOOSING && (tradeSheetOpen || pcOpen)) {
+    tradeSheetOpen = false;
+    pcOpen = false;
+    jumpOpen = false;
+  }
 }
 
 static const char *monName(const PartyMon &m) {
@@ -10738,7 +11051,8 @@ static void renderTradePick() {
   char top[16];
   if (tradePickSrc == 0) snprintf(top, sizeof(top), "%s", T(S_TRADE_PARTYLBL));
   else snprintf(top, sizeof(top), "%s %u", T(S_BOX_BTN), (unsigned)tradePickSrc);
-  drawPartyHub(top, T(S_TRADE_HUBHINT), false);
+  // the hub opens Bill's PC (v4.12); on the old box's pages it pages on
+  drawPartyHub(top, (tradePickSrc == 0 && pcAvailable()) ? T(S_PC_BTN) : T(S_TRADE_HUBHINT), false);
   for (int i = 0; i < PARTY_SLOTS; i++) {
     PartyMon m;
     if (tradePickSrc == 0) m = party.slots[i];
@@ -10897,7 +11211,11 @@ void renderTrade() {
 }
 
 static void tradePickTap(int16_t x, int16_t y) {
-  if (partyHubAt(x, y)) {   // party -> each page of the PC -> party
+  if (partyHubAt(x, y)) {
+    // v4.12: the hub opens Bill's PC itself, browsed as everywhere else. With
+    // the PC down (v3.66) it still pages the old box; on the leftovers' pages
+    // (reached from the PC grid's header) it pages on, then back to the party.
+    if (tradePickSrc == 0 && pcAvailable()) { pcOpenFresh(); sfxPlay(SFX_TAP); return; }
     tradePickSrc = (uint8_t)((tradePickSrc + 1) % (1 + boxViewPages()));
     sfxPlay(SFX_TAP);
     return;
@@ -10912,9 +11230,7 @@ static void tradePickTap(int16_t x, int16_t y) {
   PartyMon m;
   if (tradePickSrc == 0) m = party.slots[i];
   else boxViewAt((uint16_t)((tradePickSrc - 1) * BOX_PER_PAGE + i), m);
-  if (m.empty() || !trade.offer(m.uid)) { sfxPlay(SFX_DENY); return; }
-  tradePicking = false;
-  sfxPlay(SFX_TAP);
+  tradeShowSheet(m);   // its card first (v4.12): TRADE offers it, BACK does not
 }
 
 void tradeTap(int16_t x, int16_t y) {
@@ -11798,16 +12114,8 @@ void renderBag() {
     gfx->setCursor(374 - (int)strlen(cnt) * 12, y + 17);
     gfx->print(cnt);
   }
-  // A page NUMBER, not a dot row: the catalogue is append-only and a dot per
-  // page stopped fitting the round panel once the Pokedex reached 25 of them.
-  if (pages > 1 && !picking) {
-    char pg[12];
-    snprintf(pg, sizeof(pg), "%u/%u", bagPage + 1, pages);
-    gfx->setTextColor(UI_INK);
-    gfx->setTextSize(2);
-    gfx->setCursor(CX - (int)strlen(pg) * 6, 386);
-    gfx->print(pg);
-  }
+  // No page number (v4.12): it sat at y 386 over the fifth row (344-394), and
+  // the rim scrollbar uiChrome() draws already says which page this is.
   if (timerRunning(millis(), bagMsgUntil)) {
     gfx->fillRoundRect(66, CY - 26, 334, 52, 12, UI_WHITE);
     gfx->drawRoundRect(66, CY - 26, 334, 52, 12, UI_INK);
@@ -12501,6 +12809,8 @@ bool startWildBattle(uint8_t region, bool hard) {
   btlSwapDue = 0;
   btlFaintUntil[0] = btlFaintUntil[1] = 0;
   btlEnterUntil[0] = btlEnterUntil[1] = 0;
+  btlHideReset(0); btlHideReset(1);
+  btlRunAsk = false;
   btlHpShown[0] = btlYou.maxHp;
   btlHpShown[1] = btlFoe.maxHp;
   btlSyncSprite(0, btlYou);
@@ -14148,6 +14458,15 @@ void renderPc() {
 }
 
 static void pcRingTap(int16_t x, int16_t y) {
+  if (tradeOpen) {                         // chosen for a trade (v4.12): its card
+    if (partyHubAt(x, y)) { pcBack(); sfxPlay(SFX_TAP); return; }
+    int i = partySlotAt(x, y);
+    if (i < 0 || i >= PC_PER_SPECIES) return;
+    PartyMon m;
+    if (!pcGet(pcSpecies, (uint8_t)i, m)) { sfxPlay(SFX_DENY); return; }
+    tradeShowSheet(m);
+    return;
+  }
   if (boxDetail) {                         // the sheet, as the box's
     if (releaseConfirm) { monSheetConfirmTap(x, y, true); return; }
     if (monSheetBtn(x, y, true)) {         // TO PARTY: a free slot, or choose who steps out
@@ -14202,6 +14521,12 @@ void pcTap(int16_t x, int16_t y) {
   }
   if (pcSpecies) { pcRingTap(x, y); return; }
   if (y < GAL_Y) {                          // the header: the list of what did not fit
+    if (party.boxCount() && tradeOpen) {    // in a trade: the picker on the leftovers' pages
+      pcOpen = false;
+      tradePickSrc = (uint8_t)(pcSpeciesHeld() + 1);
+      sfxPlay(SFX_TAP);
+      return;
+    }
     if (party.boxCount()) { pcOpen = false; boxOpen = true; boxPage = 0; sfxPlay(SFX_TAP); }
     return;
   }
@@ -14893,6 +15218,8 @@ void drawCeremony() {
 // dialogo de decision (2 botones apilados): evolucionar/mantener o despedirse/quedaros
 // The two confirm buttons' hit areas, so a test can hold them to UI_TAP_MIN and
 // prove they do not overlap without restating the numbers.
+// The confirm buttons' x span, so a test aims beside them without restating it.
+void uiConfirmX(int *x0, int *x1) { *x0 = CONFIRM_BTN_X; *x1 = CONFIRM_BTN_X + CONFIRM_BTN_W; }
 void uiConfirmRects(int *b1Top, int *b1Bot, int *b2Top, int *b2Bot) {
   *b1Top = CONFIRM_B1_Y;
   *b1Bot = CONFIRM_B1_Y + CONFIRM_BTN_H;

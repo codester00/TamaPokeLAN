@@ -39,7 +39,7 @@
 // whole handshake without a radio, and a deliberately lossy transport exercises
 // all of the above. Only the radio itself is unverifiable here.
 
-#define LINK_PROTO 13       // bump on ANY wire change; a mismatch is refused (13: LinkMon::flags carries PMON_HALL, v4.07; 12: the player picks after a faint, LINK_PICK, v4.02)
+#define LINK_PROTO 14       // bump on ANY wire change; a mismatch is refused (14: LM_FORFEIT and LinkBeat::eff LB_EFF_EVADED, v4.12; 13: LinkMon::flags carries PMON_HALL, v4.07; 12: the player picks after a faint, LINK_PICK, v4.02)
                             // (11: TRANSFORM rides LinkBeat::sketch, v3.96)
                             // (8, v3.64: LinkResult carries the turn's beats;
                             // 9, v3.69: SKETCH in the beats, the guest's moves)
@@ -110,6 +110,7 @@ enum LinkMsg : uint8_t {
   LM_PING,       // idle heartbeat: liveness only, no payload, not `keep`d --
                  // tick() sends a fresh one each idle beat rather than
                  // resending one until "superseded" by nothing
+  LM_FORFEIT,    // v4.12: the sender ran, which is a loss -- the peer wins
 };
 
 // A creature on the wire. Deliberately not `Combatant` itself: that carries
@@ -159,6 +160,7 @@ struct LinkBeat {
   uint8_t sketch;       // v3.69: the move SKETCH copied, LB_SKETCH_FAILED, or 0
 };
 #define LB_SKETCH_FAILED 0xFF
+#define LB_EFF_EVADED 4    // LinkBeat::eff: the target was hidden by a two-turn move (v4.12)
 
 struct LinkResult {
   uint16_t hostHp, guestHp;
@@ -221,6 +223,7 @@ struct Link {
   uint8_t turn = 0;            // the exchange both sides are on
   uint8_t pendingAct = 0;      // host: the guest's action for `turn`, 0 = none
   bool youWon = false;
+  bool peerForfeit = false;   // v4.12: the fight ended because the rival ran
 
   // guest: the last turn the host resolved. `resultNew` is cleared by whoever
   // renders it, so a dropped or duplicated frame cannot replay a turn twice.
@@ -258,6 +261,7 @@ struct Link {
   void sendResult(const uint8_t *blob, uint8_t len);   // host -> guest
   void sendEnd(bool hostWon);
   void sendBye();                     // leaving deliberately
+  void sendForfeit();                 // running: a loss for us, a win for the peer (v4.12)
   void sendRematch();
   void rearm();                       // same squads, fresh fight
 

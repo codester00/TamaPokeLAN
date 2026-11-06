@@ -121,6 +121,13 @@
 // with no clock there is no daytime, so it never naps. Pet::napWake().
 #define NAP_START 6
 #define NAP_END 18
+// The morning (v4.12, the owner's rule). A creature put to bed by hand at night
+// (before NAP_START, or from NAP_END) sleeps in until SLEEP_IN_END; woken in
+// that time, a bed by hand is a nap, as all day. From SLEEP_IN_END to NAP_END
+// EVERY sleeping creature -- a night's bed, the screen-off sleep, a nap -- gets
+// up by itself once its energy is full. Before v4.12 a night's bed lost its
+// marker at 06:00 and nothing ever woke it.
+#define SLEEP_IN_END 8
 enum : uint8_t { SLEEP_NONE = 0, SLEEP_AUTO, SLEEP_PLAYER, SLEEP_NAP };
 #define DEF_TRAIN_TICKS 60                 // minutos de bienestar por +1 de DEF
 // Weight. A creature starts at a natural weight rather than 0.
@@ -296,6 +303,9 @@ public:
   // The day number of that clock, 0 when it was never set: the streak's day,
   // and the day Galar's weather is drawn for (wildAreaWeather()).
   uint32_t today() const { return lastSeenEpoch ? lastSeenEpoch / 86400 : 0; }
+  // THE weekday of a day number (0 Sunday .. 6 Saturday): 1970-01-01 was a
+  // Thursday. The one-offs (Lapras on Fridays) and the clock screen ask it.
+  static uint8_t weekdayOfDay(uint32_t day) { return (uint8_t)((day + 4) % 7); }
   uint8_t ceremony = CER_NONE;  // despedida/escapada/liberacion en curso
   uint8_t lastEnd = CER_NONE;   // como acabo la anterior (afecta al huevo)
   // A finished ceremony hands the creature over here before newEgg() wipes the

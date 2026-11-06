@@ -366,7 +366,7 @@ static const MoveEntry MOVE_TBL[MOVE_COUNT] = {
   { "EARTHQUAKE", T_GROUND, MC_PHYS, 100, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 10 },  // 44
   { "WING ATTACK", T_FLYING, MC_PHYS, 60, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 35 },  // 45
   { "DRILL PECK", T_FLYING, MC_PHYS, 80, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 20 },  // 46
-  { "FLY", T_FLYING, MC_PHYS, 90, 95, EF_CHARGE, 1, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 15 },  // 47
+  { "FLY", T_FLYING, MC_PHYS, 90, 95, EF_CHARGE, 2, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 15 },  // 47
   { "PSYWAVE", T_PSYCHIC, MC_SPEC, 30, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 15 },  // 48
   { "CONFUSION", T_PSYCHIC, MC_SPEC, 50, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_CONFUSE, 10, 0, 0, TG_FOE, 0, 25 },  // 49
   { "PSYBEAM", T_PSYCHIC, MC_SPEC, 65, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_CONFUSE, 10, 0, 0, TG_FOE, 0, 20 },  // 50
@@ -462,7 +462,7 @@ static const MoveEntry MOVE_TBL[MOVE_COUNT] = {
   { "WORK UP", T_NORMAL, MC_STATUS, 0, 0, EF_STAGE, 0, ST_ATK | ST_SPA, 1, TG_SELF, AIL_NONE, 0, 0, 0, TG_FOE, 0, 30 },  // 140
   { "CALM MIND", T_PSYCHIC, MC_STATUS, 0, 0, EF_STAGE, 0, ST_SPA | ST_SPD, 1, TG_SELF, AIL_NONE, 0, 0, 0, TG_FOE, 0, 20 },  // 141
   { "FLAME CHARGE", T_FIRE, MC_PHYS, 50, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_NONE, 0, ST_SPE, 1, TG_SELF, 100, 20 },  // 142
-  { "BOUNCE", T_FLYING, MC_PHYS, 85, 85, EF_CHARGE, 1, 0, 0, TG_FOE, AIL_PARA, 30, 0, 0, TG_FOE, 0, 5 },  // 143
+  { "BOUNCE", T_FLYING, MC_PHYS, 85, 85, EF_CHARGE, 2, 0, 0, TG_FOE, AIL_PARA, 30, 0, 0, TG_FOE, 0, 5 },  // 143
   { "GIGA IMPACT", T_NORMAL, MC_PHYS, 150, 90, EF_RECHARGE, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 5 },  // 144
   { "ZAP CANNON", T_ELECTRIC, MC_SPEC, 120, 50, EF_NONE, 0, 0, 0, TG_FOE, AIL_PARA, 100, 0, 0, TG_FOE, 0, 5 },  // 145
   { "HAMMER ARM", T_FIGHTING, MC_PHYS, 100, 90, EF_NONE, 0, 0, 0, TG_FOE, AIL_NONE, 0, ST_SPE, -1, TG_SELF, 100, 10 },  // 146
@@ -500,7 +500,7 @@ static const MoveEntry MOVE_TBL[MOVE_COUNT] = {
   { "SNARL", T_DARK, MC_SPEC, 55, 95, EF_NONE, 0, 0, 0, TG_FOE, AIL_NONE, 0, ST_SPA, -1, TG_FOE, 100, 15 },  // 178
   { "LUNGE", T_BUG, MC_PHYS, 80, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_NONE, 0, ST_ATK, -1, TG_FOE, 100, 15 },  // 179
   { "FLAME WHEEL", T_FIRE, MC_PHYS, 60, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_BURN, 10, 0, 0, TG_FOE, 0, 25 },  // 180
-  { "DIVE", T_WATER, MC_PHYS, 80, 100, EF_CHARGE, 1, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 10 },  // 181
+  { "DIVE", T_WATER, MC_PHYS, 80, 100, EF_CHARGE, 3, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 10 },  // 181
   { "ROCK CLIMB", T_NORMAL, MC_PHYS, 90, 85, EF_NONE, 0, 0, 0, TG_FOE, AIL_CONFUSE, 20, 0, 0, TG_FOE, 0, 20 },  // 182
   { "AURA SPHERE", T_FIGHTING, MC_SPEC, 80, 0, EF_NEVER_MISS, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 20 },  // 183
   { "MEDITATE", T_PSYCHIC, MC_STATUS, 0, 0, EF_STAGE, 0, ST_ATK, 1, TG_SELF, AIL_NONE, 0, 0, 0, TG_FOE, 0, 40 },  // 184
@@ -563,7 +563,7 @@ static const MoveEntry MOVE_TBL[MOVE_COUNT] = {
   { "TRANSFORM", T_NORMAL, MC_STATUS, 0, 0, EF_TRANSFORM, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 10 },  // 241
   { "ROAR OF TIME", T_DRAGON, MC_SPEC, 150, 90, EF_RECHARGE, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 5 },  // 242
   { "ETERNABEAM", T_DRAGON, MC_SPEC, 160, 90, EF_RECHARGE, 0, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 5 },  // 243
-  { "SHADOW FORCE", T_GHOST, MC_PHYS, 120, 100, EF_CHARGE, 1, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 5 },  // 244
+  { "SHADOW FORCE", T_GHOST, MC_PHYS, 120, 100, EF_CHARGE, 4, 0, 0, TG_FOE, AIL_NONE, 0, 0, 0, TG_FOE, 0, 5 },  // 244
   { "SEARING SHOT", T_FIRE, MC_SPEC, 100, 100, EF_NONE, 0, 0, 0, TG_FOE, AIL_BURN, 30, 0, 0, TG_FOE, 0, 5 },  // 245
   { "BLUE FLARE", T_FIRE, MC_SPEC, 130, 85, EF_NONE, 0, 0, 0, TG_FOE, AIL_BURN, 20, 0, 0, TG_FOE, 0, 5 },  // 246
   { "BOLT STRIKE", T_ELECTRIC, MC_PHYS, 130, 85, EF_NONE, 0, 0, 0, TG_FOE, AIL_PARA, 20, 0, 0, TG_FOE, 0, 5 },  // 247
@@ -5227,6 +5227,18 @@ static const uint8_t SIG_TM_MOVES[SIG_TM_COUNT] = { 242, 243, 244, 245, 246, 247
 static inline bool moveIsSignature(uint8_t mv) {
   for (uint8_t i = 0; i < SIG_TM_COUNT; i++) if (SIG_TM_MOVES[i] == mv) return true;
   return false;
+}
+
+// Moves that land on a creature hidden by a two-turn move (v4.12): the
+// hiding place (a charge move's param) and the damage multiplier there.
+struct HitsHidden { uint8_t move, hide, mult; };
+#define HITS_HIDDEN_COUNT 6
+static const HitsHidden HITS_HIDDEN[HITS_HIDDEN_COUNT] = { { 18, 3, 2 }, { 24, 2, 1 }, { 44, 1, 2 }, { 91, 2, 2 }, { 115, 2, 1 }, { 190, 2, 1 } };
+// 0 = it misses a creature hidden there, else its damage multiplier.
+static inline uint8_t moveHitsHidden(uint8_t mv, uint8_t hide) {
+  for (uint8_t i = 0; i < HITS_HIDDEN_COUNT; i++)
+    if (HITS_HIDDEN[i].move == mv && HITS_HIDDEN[i].hide == hide) return HITS_HIDDEN[i].mult;
+  return 0;
 }
 
 // Cuantos movimientos puede usar la especie, y cual es el i-esimo.

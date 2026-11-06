@@ -2445,12 +2445,18 @@ void Pet::applyAutoSleep() {
     sleepAuto = SLEEP_AUTO;
     pendingSave = true;
   }
-  // NOTHING wakes it here, and that is the whole point. Waking at 06:00 would
-  // reopen the hole this exists to close: from the sleep floors, food is empty
-  // by 06:15 and every stat by 07:40, so anyone who sleeps past eight would
-  // find the creature ready to run away again. It sleeps until YOU are up,
-  // which is the screen coming back on.
-  if (!night && sleepAuto == SLEEP_PLAYER) sleepAuto = SLEEP_NONE;  // a new day
+  // Nothing wakes it at 06:00: it sleeps in until SLEEP_IN_END. From then until
+  // NAP_END every sleeping creature, however it went to bed, gets up once its
+  // energy is full (v4.12, the owner's rule) -- it is a nap from here on, and
+  // drainMinute() ends a nap. Before v4.12 a night's bed lost its marker at
+  // 06:00 and nothing ever woke it.
+  if (sleeping && sleepAuto != SLEEP_NAP && lastSeenEpoch) {
+    int h = (int)((lastSeenEpoch / 3600) % 24);
+    if (h >= SLEEP_IN_END && h < NAP_END) { sleepAuto = SLEEP_NAP; pendingSave = true; }
+  }
+  // An AWAKE creature the player woke in the night keeps the auto-sleep off
+  // until morning; the day clears that.
+  if (!sleeping && !night && sleepAuto == SLEEP_PLAYER) sleepAuto = SLEEP_NONE;
 }
 
 void Pet::setScreenOff(bool off) {

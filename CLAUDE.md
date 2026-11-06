@@ -948,6 +948,56 @@ from 24/48 with a floor of 8, so a well-cared farewell was 1 in 10.
 subtraction and a fixed 1 in 10. README manual updated. Wild shinies stay
 1/4096; the CHEATS shiny egg is untouched.
 
+### Done: the owner's playtest list (v4.12)
+
+Owner, 2026-11-06. New suites `hpbar_test`, `runloss_test`, `chargemove_test`,
+`clockday_test`; `link_test`, `lanfight_test`, `trade_ui_test`, `sleep_test`,
+`dexnav_test`, `items_test`, `zonetune_test` extended. Every guard negative-checked.
+
+- **HP bars after a faint**: each queued line also records who was out
+  (`btlMsgAt`, squad indices); `btlEaseBars()` uses a line's HP only for that
+  creature. A line said before a creature came on (SHIFT's "Go, X!" before the
+  trainer's next; the foe's "sends out" before your pick when both fell; the LAN
+  guest's lines before the host's HP) drained the newcomer to 0 and back.
+- **Two-turn moves hide** (`HIDE_*` = the EF_CHARGE param in `dex_moves.py`;
+  `HITS_HIDDEN` -> `moveHitsHidden()` in moves.h; `battleHidden()`). In
+  `battleAct()` a TG_FOE move at a hidden target is `log.evaded` unless it
+  reaches (EARTHQUAKE x2 vs DIG, GUST x2 / THUNDER / HURRICANE / SKY UPPERCUT vs
+  the sky, SURF x2 vs DIVE, nothing vs SHADOW FORCE). The AI scores accordingly.
+  Narration: `S_CHG_*` wind-up lines, `S_BTL_AVOIDED`; the sprite leaves and
+  returns with its lines (`BTL_MSG_HIDE/SHOW` in `btlMsgFaint`, `btlHideKind`,
+  `btlHideStart()`, reset by `btlHideReset()` wherever a creature comes on).
+  `btlChargingSlot()`: FIGHT strikes, bag and switch wait. `battleStored()`
+  clears `charging`/`recharge`. LAN: `LinkBeat::eff` = `LB_EFF_EVADED` (4), the
+  guest syncs `charging` from the beats.
+- **RUN is a loss** (`btlRunAsk` -> `btlForfeit()`), every fight but a wild one:
+  a trainer's blacks out (owner) and ends a League run; zone and Hall end their
+  runs on the dismiss as before; LAN records the loss and `lan.sendForfeit()`
+  (`LM_FORFEIT`, sent three times, `LINK_PROTO` 14) -- the peer wins with
+  `peerForfeit` ("X forfeited!"). The waiting QUIT (`lanQuitConfirm`) is not a loss.
+- **Trade from Bill's PC**: `tradeLayer()` (`TL_SHEET/JUMP/PC/MAIN`) is THE
+  answer for render(), uiCurrentScreen(), onTap() and the swipe while trading.
+  The picker's hub opens the PC (`pcOpenFresh()`; the old box paging stays for a
+  PC that is down and for the leftovers, reached from the PC grid's header). A
+  creature opens its card (`tradeSheetMon`, `renderMonSheet(..., forTrade)`) with
+  TRADE / BACK (`tradeSheetBtn()`); TRADE offers and returns to GIVE / GET.
+  `renderMonSheet()` takes the flag explicitly (no default argument: arduino-cli
+  hoists prototypes). Choosing ending (`trade.state`) closes the card and the PC.
+- **Sleep, the owner's morning**: `SLEEP_IN_END` 8. A night's bed (before 06:00
+  or from 18:00) sleeps in to 08:00; from 08:00 to 18:00 `applyAutoSleep()` turns
+  ANY sleep (bed, screen-off, nap) into `SLEEP_NAP`, which `drainMinute()` ends
+  at full energy. The old "new day" line cleared `SLEEP_PLAYER` on a SLEEPING
+  creature, so a bed before 06:00 never woke. `sleep_test` measures the
+  screen-off case: up at 08:00, nowhere near a runaway by 10:00.
+- **The weekday**: `Pet::weekdayOfDay()` is THE rule (wild.cpp's
+  `wildWeekday()` asks it). The clock screen's DAY pill (`clockWd`,
+  `clockDayRect()`); `applyClock()` moves the date to the NEAREST day with that
+  weekday (+-3), keeping the time. Before, only the time was settable and the
+  date was the first boot's seed (a Thursday) counted on.
+- Display: the bag's page number is gone (the rim bar); `uiTileDotsShown()`
+  draws the axis dots on a tile's top screen only (the Pokedex and gym choosers,
+  not the grid, a creature's page or a ladder); "BEST GAUNTLET RUN".
+
 ### Done: the Hall's matchup order (v4.11)
 
 Owner, 2026-11-05: counters early (weak foes), favourable types late (strong

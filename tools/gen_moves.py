@@ -19,7 +19,7 @@ from dex_moves import (MOVES, MC_PHYS, MC_SPEC, MC_STATUS, EF_STAGE,
                        ST_ATK, ST_DEF, ST_SPA, ST_SPD, ST_SPE, TG_SELF, TG_FOE,
                        AIL_NONE, AIL_PARA, AIL_BURN, AIL_POISON, AIL_SLEEP,
                        AIL_FREEZE, AIL_CONFUSE, HIT_STATS, MOVE_PP,
-                       SIGNATURE)
+                       SIGNATURE, HITS_HIDDEN)
 from dex_move_names import MOVE_NAME_LANGS, MOVE_NAMES
 
 # The ailment pair is optional in MOVES: only the ~17 moves that inflict one
@@ -273,6 +273,25 @@ def main():
     o.append('static inline bool moveIsSignature(uint8_t mv) {\n'
              '  for (uint8_t i = 0; i < SIG_TM_COUNT; i++) if (SIG_TM_MOVES[i] == mv) return true;\n'
              '  return false;\n'
+             '}\n\n')
+
+    # v4.12: the moves that land on a creature hidden by a two-turn move.
+    hh = []
+    for slug, (kind, mult) in sorted(HITS_HIDDEN.items(), key=lambda kv: idx[by_slug[kv[0]]]):
+        if slug not in by_slug:
+            sys.exit('HITS_HIDDEN names a move not in MOVES: %s' % slug)
+        hh.append((idx[by_slug[slug]], kind, mult))
+    o.append('// Moves that land on a creature hidden by a two-turn move (v4.12): the\n'
+             '// hiding place (a charge move\'s param) and the damage multiplier there.\n')
+    o.append('struct HitsHidden { uint8_t move, hide, mult; };\n')
+    o.append('#define HITS_HIDDEN_COUNT %d\n' % len(hh))
+    o.append('static const HitsHidden HITS_HIDDEN[HITS_HIDDEN_COUNT] = { %s };\n'
+             % ', '.join('{ %d, %d, %d }' % t for t in hh))
+    o.append('// 0 = it misses a creature hidden there, else its damage multiplier.\n'
+             'static inline uint8_t moveHitsHidden(uint8_t mv, uint8_t hide) {\n'
+             '  for (uint8_t i = 0; i < HITS_HIDDEN_COUNT; i++)\n'
+             '    if (HITS_HIDDEN[i].move == mv && HITS_HIDDEN[i].hide == hide) return HITS_HIDDEN[i].mult;\n'
+             '  return 0;\n'
              '}\n\n')
 
     o.append('// Cuantos movimientos puede usar la especie, y cual es el i-esimo.\n'

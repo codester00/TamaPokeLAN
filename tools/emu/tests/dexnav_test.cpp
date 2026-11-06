@@ -29,6 +29,9 @@ extern Pet pet;
 extern bool galleryOpen, galleryPick, galleryDirty, jumpOpen;
 extern uint8_t galleryPage, galleryRegion;
 extern int16_t galleryDetail;
+extern bool gymOpen, gymPick;
+extern Arduino_Canvas *gfx;
+bool uiTileDotsShown();
 
 static int bad = 0;
 static void ck(bool ok, const char *w) { printf("%s  %s\n", ok ? "PASS" : "FAIL", w); if (!ok) bad++; }
@@ -99,6 +102,30 @@ int main() {
   grid(1);
   onSwipeV(1);
   ck(galleryOpen && galleryPick, "a swipe down on the grid also returns to the chooser");
+
+  // 6. The axis dots belong on a tile's top screen only (v4.12): past the
+  //    region chooser they sat over the BACK pill. Read off the panel: the
+  //    first dot's pixel on the chooser, and the same pixel on the grid.
+  {
+    auto dotPx = []() { galleryDirty = true; render(); return gfx->buffer()[440 * 466 + (233 - 7 * 13)]; };
+    galleryOpen = true; galleryPick = true; jumpOpen = false;
+    uint16_t onChooser = dotPx();
+    uint16_t bgNear = gfx->buffer()[452 * 466 + (233 - 7 * 13)];
+    ck(uiTileDotsShown() && onChooser != bgNear, "the Pokedex chooser shows the axis dots");
+    grid(0);
+    uint16_t onGrid = dotPx();
+    ck(!uiTileDotsShown() && onGrid != onChooser, "the grid does not: nothing over its BACK");
+    galleryDetail = 1;
+    ck(!uiTileDotsShown(), "nor a creature's page");
+    galleryOpen = false; galleryDetail = 0;
+    gymOpen = true; gymPick = true;
+    render();
+    ck(uiTileDotsShown(), "the gym chooser shows them");
+    gymPick = false;
+    render();
+    ck(!uiTileDotsShown(), "a gym ladder does not");
+    gymOpen = false;
+  }
 
   printf(bad ? "FAILED %d\n" : "OK\n", bad);
   return bad ? 1 : 0;

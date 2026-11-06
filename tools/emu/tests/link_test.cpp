@@ -118,6 +118,23 @@ int main(){
   ck(A.state==LINK_DONE && B.state==LINK_DONE, "both see the end");
   ck(A.youWon && !B.youWon, "and agree on who won");
 
+  // --- v4.12: running is a loss, and the rival is told it won
+  A.rearm(); B.rearm();
+  ck(A.state==LINK_READY && B.state==LINK_READY && !A.peerForfeit && !B.peerForfeit, "(a rematch, nobody has run)");
+  B.sendForfeit();
+  ck(A.state==LINK_DONE && A.youWon && A.peerForfeit, "the guest runs: the host sees a win by forfeit");
+  ck(!B.live() && !B.youWon, "and the guest has left, having lost");
+  A.rearm(); B.rearm();
+  A.sendForfeit();
+  ck(B.state==LINK_DONE && B.youWon && B.peerForfeit, "the host runs: the guest sees a win by forfeit");
+  A.rearm(); B.rearm();
+  ck(!A.peerForfeit && !B.peerForfeit, "a rematch forgets the forfeit");
+  // a forfeit outside a fight (pairing, already over) changes nothing
+  A.state = LINK_DONE; A.youWon = false; A.peerForfeit = false;
+  B.state = LINK_READY; B.sendForfeit();
+  ck(A.state==LINK_DONE && !A.youWon && !A.peerForfeit, "a forfeit after the end does not rewrite the result");
+  A.rearm(); B.rearm();
+
   // --- roles: two hosts, or two guests, must resolve to exactly one host
   {
     Link C,D; static Link *pC=&C,*pD=&D;

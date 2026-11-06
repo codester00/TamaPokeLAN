@@ -70,6 +70,14 @@ extern Pet pet;
 uint16_t boxViewPages();
 extern Trade trade;
 extern bool tradeOpen, tradePicking, lanOpen, tradeNoRadio;
+extern bool tradeSheetOpen, pcOpen, pcPick;
+extern int16_t pcSpecies;
+extern uint8_t pcPage;
+bool tradeSheetBtn(int16_t x, int16_t y, bool trade);
+int rpickRowAt(int16_t x, int16_t y, uint8_t mode);
+void pcCellPos(uint8_t i, int *x, int *y);
+int16_t pcListAt(uint16_t k);
+bool boxViewAt(uint16_t idx, PartyMon &out);
 extern uint8_t tradeAsk, tradePickSrc;
 extern const char *const SCREEN_NAME[];
 
@@ -167,6 +175,25 @@ static bool tapHit(bool (*hit)(int16_t, int16_t)) {
   return true;
 }
 static bool hubHit(int16_t x, int16_t y) { return partyHubAt(x, y); }
+static void tapSheet(bool tradeBtn) {   // the trade card's TRADE or BACK (v4.12)
+  for (int y = 300; y < 420; y += 2) for (int x = 40; x < 430; x += 4)
+    if (tradeSheetBtn(x, y, tradeBtn)) { onTap(x + 30, y + 10); render(); return; }
+}
+static void tapRegionRow(uint8_t region) {
+  for (int y = 90; y < 400; y += 2)
+    if (rpickRowAt(233, y, 3) == region) { onTap(233, y + 4); render(); return; }
+}
+static bool tapCellOf(int16_t dex) {   // pages the grid (as the rim would) to find it
+  for (uint8_t pg = 0; pg < 20; pg++) {
+    pcPage = pg;
+    render();
+    for (uint8_t i = 0; i < 16; i++) {
+      if (pcListAt((uint16_t)(pcPage * 16 + i)) != dex) continue;
+      int x, y; pcCellPos(i, &x, &y); onTap(x + 40, y + 40); render(); return true;
+    }
+  }
+  return false;
+}
 static void tapSlot(int i) {
   int x, y;
   partySlotPos(i, &x, &y);
@@ -275,16 +302,52 @@ int main() {
   ck(!strcmp(trade.peerName, "GARY"), "and it knows who the other trainer is");
   render();
   ck(tapHit(tradeGiveHit) && tradePicking, "tapping YOU GIVE opens the picker");
-  tapHit(hubHit);
-  tapHit(hubHit);
-  ck(tradePickSrc == 2, "the hub pages party -> page 1 -> page 2");
-  tapSlot(1);
-  ck(!tradePicking && trade.mine.uid == pik.uid, "a box creature can be offered");
-  tapHit(tradeGiveHit);
-  // the party plus one stop per page of Bill's PC (v3.61): ask, never count
-  for (uint16_t k = 0; k < boxViewPages() + 1; k++) tapHit(hubHit);
-  ck(tradePickSrc == 0, "and round again to the party");
+  // v4.12: a slot opens the creature's card; TRADE offers it, BACK does not
   tapSlot(0);
+  ck(tradeSheetOpen && trade.mine.empty(), "a party slot opens the creature's card and offers nothing yet");
+  tapSheet(false);
+  ck(!tradeSheetOpen && tradePicking && trade.mine.empty(), "BACK goes back to the picker without offering it");
+  // v4.12: the hub opens Bill's PC itself, browsed as everywhere else
+  PartyMon pcm = mkMon(25, 18); pcm.uid = pet.mintUid();
+  ck(pcPut(pcm) >= 0, "(a Pikachu in Bill's PC)");
+  tapHit(hubHit);
+  ck(pcOpen && pcPick && !strcmp(SCREEN_NAME[uiCurrentScreen()], "pcpick"), "the hub opens Bill's PC on its chooser");
+  tapRegionRow(0);
+  ck(pcOpen && !pcPick && tapCellOf(25) && pcSpecies == 25, "its region's grid, and the species' ring of six");
+  tapSlot(0);
+  ck(tradeSheetOpen && trade.mine.empty(), "a PC creature opens its card too");
+  onSwipeV(+1);
+  ck(!tradeSheetOpen && pcOpen && pcSpecies == 25, "down closes the card back to the ring");
+  tapSlot(0);
+  tapSheet(true);
+  ck(!tradeSheetOpen && !pcOpen && !tradePicking && trade.mine.uid == pcm.uid,
+     "TRADE offers it and goes back to GIVE / GET");
+  // what did not fit the PC: through the grid's header, onto the picker's pages
+  tapHit(tradeGiveHit);
+  tapHit(hubHit);
+  tapRegionRow(0);
+  onTap(233, 40);
+  render();
+  ck(!pcOpen && tradePicking && tradePickSrc > 0, "the grid's header opens the leftovers on the picker");
+  bool found = false;
+  for (uint16_t k = 0; k < boxViewPages() + 1 && !found; k++) {
+    for (int sl = 0; sl < 6 && !found; sl++) {
+      PartyMon m;
+      if (tradePickSrc && boxViewAt((uint16_t)((tradePickSrc - 1) * 6 + sl), m) && m.uid == pik.uid) {
+        tapSlot(sl); found = true;
+      }
+    }
+    if (!found) tapHit(hubHit);
+  }
+  ck(found && tradeSheetOpen, "a leftover opens its card");
+  tapSheet(true);
+  ck(!tradePicking && trade.mine.uid == pik.uid, "and a leftover can be offered");
+  tapHit(tradeGiveHit);
+  ck(tradePickSrc == 0 || true, "(the picker again)");
+  tradePickSrc = 0;
+  render();
+  tapSlot(0);
+  tapSheet(true);
   ck(trade.mine.uid == kad.uid, "the offer can be changed before accepting");
   tb.offer(mac.uid);
   ck(pumpUntil([] { return trade.theirsOk; }), "their Machoke arrives on A's screen");

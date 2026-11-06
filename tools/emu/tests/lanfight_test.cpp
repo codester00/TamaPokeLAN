@@ -40,6 +40,7 @@ extern int8_t btlSceneIndoor;
 extern char btlMsg[8][40];
 extern uint16_t btlMsgHp[8][2];
 extern uint16_t btlHpShown[2];
+extern uint8_t btlHideKind[2];
 extern bool btlWild;
 bool btlFoeCaught();
 uint8_t ownedCount(int16_t dex);
@@ -416,6 +417,54 @@ int main() {
     for (int i = 0; i < MOVE_SLOTS; i++)
       ppOk &= btlYou.pp[i] == r.guestPp[i] && (!snore[i] || btlYou.pp[i] <= MOVE_TBL[snore[i]].pp);
     ck(ppOk && btlYou.pp[0] > 0, "and shows the PP the host spends for it, at the move table's PP");
+    battleOpen = false;
+  }
+
+  // --- 11. DIG over LAN (v4.12): the guest sees the same wind-up, the same
+  //         "avoided", and its copy of the host's creature goes underground
+  {
+    lan.begin(true, "HOST");
+    snprintf(lan.peerName, sizeof(lan.peerName), "%s", "GUEST");
+    lan.addMon(mon(51, 50, "DUGGY"));      // DUGTRIO, fast
+    lan.theirs[0] = mon(143, 50, "SNORE"); // SNORLAX, slow
+    lan.theirsN = 1;
+    lan.state = LINK_READY;
+    lan.send = capture;
+    startLinkBattle();
+    btlYou.moves[0] = MV_DIG; btlYou.pp[0] = 10;
+    for (int i = 0; i < 4; i++) { btlFoe.moves[i] = MV_TACKLE; btlFoe.pp[i] = 30; }
+    btlMenu = 1; btlMsgCount = 0; btlSwapDue = 0; btlMyAct = 0;
+    battleTap(69 + 80, 270 + 27);
+    lan.pendingAct = LINK_ACT_MOVE(0);
+    render();
+    char hostLines[8][40]; uint8_t hostN = btlMsgCount;
+    bool dug = false, avoided = false;
+    for (uint8_t i = 0; i < hostN; i++) {
+      memcpy(hostLines[i], btlMsg[i], 40);
+      dug |= strstr(btlMsg[i], "dug a hole") != nullptr;
+      avoided |= strstr(btlMsg[i], "avoided the attack") != nullptr;
+    }
+    ck(dug && avoided, "(the host dug, and the guest's TACKLE was avoided)");
+    LinkResult r{};
+    ck(lastResult(r), "(the result went out)");
+    battleOpen = false;
+
+    lan.begin(false, "GUEST");
+    snprintf(lan.peerName, sizeof(lan.peerName), "%s", "HOST");
+    lan.addMon(mon(143, 50, "SNORE"));
+    lan.theirs[0] = mon(51, 50, "DUGGY");
+    lan.theirsN = 1;
+    lan.state = LINK_READY;
+    startLinkBattle();
+    btlMsgCount = 0;
+    memcpy(lan.result, &r, sizeof(r)); lan.resultN = sizeof(r); lan.resultNew = true;
+    render();
+    bool same = btlMsgCount == hostN;
+    for (uint8_t i = 0; same && i < hostN; i++) same = !strcmp(btlMsg[i], hostLines[i]);
+    ck(same, "the guest reads the wind-up and the miss exactly as the host did");
+    ck(btlFoe.charging == MV_DIG, "the guest's copy of the digger is wound up too");
+    for (int f = 0; f < 3; f++) render();
+    ck(btlHideKind[1] == HIDE_UNDERGROUND, "and goes underground on the guest's screen");
     battleOpen = false;
   }
 
