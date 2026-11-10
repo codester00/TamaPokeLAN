@@ -1,6 +1,7 @@
 # Player's strategy guide -- notes for when it is written
 
-Decided with the owner, 2026-10-30. Nothing is written yet; this is the brief.
+Decided with the owner, 2026-10-30. **Written in v4.12: `docs/players-guide.md`**
+(see CLAUDE.md § "The player's guide"). Kept as the original brief.
 It comes last, after the items and selling, the economy rerun and (possibly)
 the post-game battle league, so it describes the finished game.
 

@@ -33,6 +33,7 @@ Personal, non-commercial fan project. Code MIT; sprites CC BY-NC (PMD SpriteColl
 | `tools/*.py` | Sprite pipeline (PMD fetch/pack, thumbs, bundle, USB send) |
 | `tools/emu/` | Desktop emulator: runs the real firmware in an SDL window |
 | `tools/debugger/` | Serial monitor + save editor GUI, for live hardware debugging (`python3 tools/debugger/debugger_gui.py`). Not part of the firmware |
+| `docs/players-guide.md`, `docs/players-guide/` | The player's guide (v4.12). Part 1 and the strategy chapters are hand-written; the region chapters, every-pokemon.md, tms.md and the `GENERATED` blocks come from `tools/gen_guide.py` over `tools/emu/guide_data.cpp` (see § "The player's guide") |
 | `web/` | ESP Web Tools installer page + prebuilt `tamapoke.bin` + `sprites-<region>.pak` (committed: release assets have no CORS) |
 
 ## Screenshots — and why they went a dozen releases stale
@@ -100,6 +101,31 @@ been broken by a confident guess: "nine regions" (`REGION_COUNT` is 10 and
 *includes* `REGION_ALL`), "39 trainers" (three verified regions x 13 — run
 `tools/verify_rosters.py`), and "1025 species". Derive the number; do not assume
 the doc is wrong just because it looks old.
+
+## The player's guide
+
+`docs/players-guide.md` is for PLAYERS: no file or function names, like the
+release notes. Its lists are not typed: `tools/emu/guide_data.cpp` builds
+against the real sources (run.sh's `CORE`, read from that file) and dumps the
+game's tables and rules as JSON -- a leader's moves from `relearnFromLevel()`,
+prizes from `trainerPrize()`, Safari odds by playing `safariFlees()`/
+`safariBallShakes()` -- and `tools/gen_guide.py` writes the nine region
+chapters, `every-pokemon.md`, `tms.md` and every
+`<!-- BEGIN GENERATED: x -->` block in the main file.
+
+```bash
+python3 tools/gen_guide.py           # after ANY change to a rule, price, area or roster
+python3 tools/gen_guide.py --check   # run.sh and check_release.py both run this
+```
+
+`--check` fails when a generated file differs from what the firmware now says,
+and when the hand-written text quotes an item next to a price that is not that
+item's (both negative-checked). It cannot read prose that restates a RULE --
+re-read the chapter you touched. The hidden rules (the rod and water-mode gates,
+the 8-hour window's invisibility, the safety net, the lockout, Surfing Pikachu's
+conditions) and the codes live ONLY in the guide's unlisted spoiler section at
+the very end, after the appendices; the region chapters say "later in the
+story", never why. The owner's call: keep it that way.
 
 ## The web installer's save vault
 

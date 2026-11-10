@@ -66,6 +66,11 @@ else
   echo "=== check_savefile: SKIPPED (node not installed)"
 fi
 
+# The player's guide: its tables are generated from the firmware's own data, so
+# a rule or a price that changed without re-running tools/gen_guide.py fails here.
+echo "=== gen_guide --check (docs/players-guide)"
+python3 "$ROOT/tools/gen_guide.py" --check || { echo "    ^ the guide is stale: python3 tools/gen_guide.py"; exit 1; }
+
 # arrays, not a string: the sprite dir has to reach the compiler still quoted,
 # and passing these through eval silently strips them
 CORE=("$ROOT/gbsynth.cpp" "$ROOT/musicplay.cpp" "$ROOT/pet.cpp" "$ROOT/i18n.cpp" "$ROOT/party.cpp" "$ROOT/battle.cpp" "$ROOT/link.cpp" "$ROOT/trade.cpp" "$ROOT/save.cpp" "$ROOT/inventory.cpp" "$ROOT/wild.cpp" "$ROOT/pp.cpp" "$ROOT/gamecorner.cpp" "$ROOT/gauntlet.cpp" "$ROOT/tournament.cpp" "$ROOT/hall.cpp" "$ROOT/surf.cpp" "$ROOT/pcstore.cpp" "$EMU/pcfs_host.cpp" "$EMU/nvsinfo_stub.cpp")

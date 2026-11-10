@@ -88,6 +88,13 @@ def main():
     if check.returncode:
         fail('installer safety check failed')
 
+    # The player's guide is generated from the firmware's data: a release whose
+    # guide still describes the last one's rules, prices or areas is refused.
+    guide = subprocess.run([sys.executable, str(ROOT / 'tools' / 'gen_guide.py'), '--check'],
+                           cwd=ROOT, check=False)
+    if guide.returncode:
+        fail('docs/players-guide is out of date; run python3 tools/gen_guide.py')
+
     # The JS cache keys, on the same terms as the firmware parts above. Pages sits
     # behind a CDN, so a fresh installer.js paired with a STALE savefile.js is a
     # real failure -- and it would look like the save backup quietly behaving the
