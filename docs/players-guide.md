@@ -807,8 +807,16 @@ moves, weaknesses and the Pokemon you can catch before the fight.
 
 How to read a leader's advice: **Hit them with** lists the types that hurt most
 of their team. **Their attacks are** the types of their damaging moves.
-**Careful with** names the types those attacks hit hard. The suggestions are
-worked out from the types; a well-trained team of the right types is what wins.
+**Careful with** names the types those attacks hit hard. **Tested team** is
+measured, not guessed: for every leader, every Pokemon you can catch in that
+region by then was raised to the leader's level (evolving by level where it can)
+and battled against each of the leader's Pokemon; the six that won most were
+then played against the leader as a team, 40 times on easy and 40 on hard, at
+IVs around 20 and training 75. Nearly every leader falls to its tested team on
+both difficulties. The hard exceptions are Misty, Johto's champion and Sinnoh's
+Lucian. For those, bring a team from another region, higher IVs or full
+training, or X items. A League seat's number is for that battle on its own; in a
+League run your PP carries over, so bring PP Ups and Ethers.
 
 ## Your first week
 

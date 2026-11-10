@@ -81,7 +81,7 @@ Rock specialist. 2 Pokemon, best level 14: your team fights at level 14 at most,
 | Geodude | Rock/Ground | 12 | Bulldoze, Rock Throw, Tackle, Harden |
 | Onix | Rock/Ground | 14 | Bulldoze, Rock Tomb, Rock Throw, Tackle |
 
-**Hit them with** Steel, Ground, Fighting moves. **Their attacks are** Normal, Ground, Rock. **Careful with** Fire Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Mankey (ROUTE 22).
+**Hit them with** Steel, Ground, Fighting moves. **Their attacks are** Normal, Ground, Rock. **Careful with** Fire Pokemon: several of those attacks hit them hard. **Tested team:** Psyduck, Slowpoke, Mankey, Butterfree, Beedrill, Pikachu. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 14 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Boulder Badge
 
@@ -156,7 +156,7 @@ Water specialist. 2 Pokemon, best level 21: your team fights at level 21 at most
 | Staryu | Water | 18 | Water Gun, Tackle, Psywave, Recover |
 | Starmie | Water/Psychic | 21 | Hydro Pump, Psychic, Surf, Bubble Beam |
 
-**Hit them with** Grass, Electric, Dark moves. **Their attacks are** Normal, Water, Psychic. **Catchable before this fight:** Pikachu (VIRIDIAN FOREST), Oddish (ROUTES 24-25), Bellsprout (ROUTES 24-25), Paras (MT. MOON).
+**Hit them with** Grass, Electric, Dark moves. **Their attacks are** Normal, Water, Psychic. **Tested team:** Fearow, Raticate, Kadabra, Gloom, Weepinbell, Pikachu. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 21 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **10%** on hard (bringing the first 2). On hard, a team from other regions, perfect IVs, full training or X items will be needed.
 
 ## With the Cascade Badge
 
@@ -215,7 +215,7 @@ Electric specialist. 3 Pokemon, best level 24: your team fights at level 24 at m
 | Pikachu | Electric | 18 | Thundershock, Swift, Quick Attack, Feint |
 | Raichu | Electric | 24 | Thunderbolt, Discharge, Thunderpunch, Spark |
 
-**Hit them with** Ground moves. **Their attacks are** Normal, Electric. **Catchable before this fight:** Dugtrio (DIGLETTS CAVE), Geodude (MT. MOON), Sandshrew (ROUTE 11), Diglett (DIGLETTS CAVE).
+**Hit them with** Ground moves. **Their attacks are** Normal, Electric. **Tested team:** Sandslash, Dugtrio, Parasect, Gloom, Geodude, Diglett. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 24 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Thunder Badge
 
@@ -291,7 +291,7 @@ Grass specialist. 3 Pokemon, best level 29: your team fights at level 29 at most
 | Tangela | Grass | 24 | Vine Whip, Ancientpower, Absorb, Confusion |
 | Vileplume | Grass/Poison | 29 | Giga Drain, Moonblast, Acid, Mega Drain |
 
-**Hit them with** Flying, Ice, Fire moves. **Their attacks are** Grass, Poison, Psychic, Rock, Fairy. **Careful with** Fighting Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Growlithe (ROUTES 7-8), Vulpix (ROUTES 7-8), Spearow (ROUTES 9-10), Pidgey (ROUTES 7-8). On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Flying, Ice, Fire moves. **Their attacks are** Grass, Poison, Psychic, Rock, Fairy. **Careful with** Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Arbok, Kadabra, Crobat, Hypno, Beedrill, Fearow. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 29 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Rainbow Badge
 
@@ -385,7 +385,7 @@ Poison specialist. 4 Pokemon, best level 43: your team fights at level 43 at mos
 | Koffing | Poison | 37 | Sludge Bomb, Sludge, Smog, Tackle |
 | Weezing | Poison | 43 | Sludge Bomb, Sludge, Heat Wave, Smog |
 
-**Hit them with** Psychic, Ground moves. **Their attacks are** Normal, Fire, Poison, Fairy. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Dugtrio (DIGLETTS CAVE), Graveler (ROCK TUNNEL), Onix (ROCK TUNNEL), Drowzee (ROUTE 11).
+**Hit them with** Psychic, Ground moves. **Their attacks are** Normal, Fire, Poison, Fairy. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Tested team:** Rhyperior, Starmie, Tentacruel, Nidoking, Nidoqueen, Alakazam. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 43 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Soul Badge
 
@@ -477,7 +477,7 @@ Psychic specialist. 4 Pokemon, best level 43: your team fights at level 43 at mo
 | Venomoth | Bug/Poison | 38 | Bug Buzz, Leech Life, Signal Beam, Silver Wind |
 | Alakazam | Psychic | 43 | Psychic, Psybeam, Confusion, Calm Mind |
 
-**Hit them with** Ghost, Dark, Steel moves. **Their attacks are** Grass, Psychic, Bug. **Catchable before this fight:** Magneton (POWER PLANT), Haunter (POKEMON TOWER), Magnemite (POWER PLANT), Gastly (POKEMON TOWER).
+**Hit them with** Ghost, Dark, Steel moves. **Their attacks are** Grass, Psychic, Bug. **Tested team:** Magnezone, Starmie, Scizor, Kangaskhan, Rhyperior, Steelix. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 43 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Marsh Badge
 
@@ -491,7 +491,7 @@ Fire specialist. 4 Pokemon, best level 47: your team fights at level 47 at most,
 | Rapidash | Fire | 42 | Inferno, Double-Edge, Megahorn, Flame Wheel |
 | Arcanine | Fire | 47 | Flare Blitz, Flamethrower, Double-Edge, Flame Wheel |
 
-**Hit them with** Rock, Ground, Water moves. **Their attacks are** Normal, Fire, Bug, Dragon. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Gyarados (SEA ROUTES 19-21), Golduck (SEAFOAM ISLANDS), Slowbro (POKEMON MANSION), Dewgong (SEAFOAM ISLANDS).
+**Hit them with** Rock, Ground, Water moves. **Their attacks are** Normal, Fire, Bug, Dragon. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Tested team:** Kingdra, Rhyperior, Poliwrath, Golduck, Golem, Kingler. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 47 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Volcano Badge
 
@@ -605,7 +605,7 @@ Ground specialist. 5 Pokemon, best level 50: your team fights at level 50 at mos
 | Nidoking | Poison/Ground | 45 | Earth Power, Megahorn, Sludge Wave, Poison Jab |
 | Rhydon | Ground/Rock | 50 | Double-Edge, Hammer Arm, Rock Slide, Take Down |
 
-**Hit them with** Ice, Water, Ground moves. **Their attacks are** Normal, Fighting, Poison, Ground, Bug, Rock. **Careful with** Fire, Grass, Ice Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Gyarados (CAPE BRINK), Tentacruel (BERRY FOREST), Golduck (CAPE BRINK), Slowbro (CAPE BRINK).
+**Hit them with** Ice, Water, Ground moves. **Their attacks are** Normal, Fighting, Poison, Ground, Bug, Rock. **Careful with** Fire, Grass, Ice Pokemon: several of those attacks hit them hard. **Tested team:** Kingdra, Gyarados, Starmie, Tentacruel, Poliwrath, Golduck. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 50 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 ## With the Earth Badge
 
@@ -661,7 +661,7 @@ Ice specialist. 5 Pokemon, best level 54: your team fights at level 54 at most, 
 | Jynx | Ice/Psychic | 54 | Psychic, Ice Punch, Body Slam, Confusion |
 | Lapras | Water/Ice | 54 | Hydro Pump, Surf, Ice Beam, Dragon Pulse |
 
-**Hit them with** Rock, Grass, Electric moves. **Their attacks are** Normal, Water, Ice, Psychic, Dragon. **Careful with** Ground, Dragon Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Rock, Grass, Electric moves. **Their attacks are** Normal, Water, Ice, Psychic, Dragon. **Careful with** Ground, Dragon Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Electivire, Pinsir, Raichu, Starmie, Slowbro. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 54 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 2: Bruno
 Fighting specialist. 5 Pokemon, best level 56: your team fights at level 56 at most, and on hard you bring 5 at most. Prize money: $2,800 on easy, $5,600 on hard (half again for a rematch).
@@ -674,7 +674,7 @@ Fighting specialist. 5 Pokemon, best level 56: your team fights at level 56 at m
 | Onix | Rock/Ground | 54 | Earthquake, Iron Tail, Dig, Rock Slide |
 | Machamp | Fighting | 56 | Superpower, Close Combat, Drain Punch, Submission |
 
-**Hit them with** Fairy, Psychic, Steel moves. **Their attacks are** Normal, Fighting, Ground, Rock, Steel. **Careful with** Ice, Rock, Fire Pokemon: several of those attacks hit them hard.
+**Hit them with** Fairy, Psychic, Steel moves. **Their attacks are** Normal, Fighting, Ground, Rock, Steel. **Careful with** Ice, Rock, Fire Pokemon: several of those attacks hit them hard. **Tested team:** Dragonite, Annihilape, Starmie, Gengar, Alakazam, Slowbro. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 56 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 3: Agatha
 Ghost specialist. 5 Pokemon, best level 58: your team fights at level 58 at most, and on hard you bring 5 at most. Prize money: $2,900 on easy, $5,800 on hard (half again for a rematch).
@@ -687,7 +687,7 @@ Ghost specialist. 5 Pokemon, best level 58: your team fights at level 58 at most
 | Arbok | Poison | 56 | Gunk Shot, Sludge Bomb, Poison Jab, Acid |
 | Gengar | Ghost/Poison | 58 | Shadow Ball, Shadow Punch, Dark Pulse, Lick |
 
-**Hit them with** Psychic, Dark, Ghost moves. **Their attacks are** Poison, Flying, Bug, Ghost, Dark. **Careful with** Grass, Psychic, Ghost Pokemon: several of those attacks hit them hard.
+**Hit them with** Psychic, Dark, Ghost moves. **Their attacks are** Poison, Flying, Bug, Ghost, Dark. **Careful with** Grass, Psychic, Ghost Pokemon: several of those attacks hit them hard. **Tested team:** Rhyperior, Nidoqueen, Golem, Sandslash, Kangaskhan, Clefable. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 58 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 4: Lance
 Dragon specialist. 5 Pokemon, best level 60: your team fights at level 60 at most, and on hard you bring 5 at most. Prize money: $3,000 on easy, $6,000 on hard (half again for a rematch).
@@ -700,7 +700,7 @@ Dragon specialist. 5 Pokemon, best level 60: your team fights at level 60 at mos
 | Aerodactyl | Rock/Flying | 58 | Fly, Hyper Beam, Rock Slide, Ancientpower |
 | Dragonite | Dragon/Flying | 60 | Wing Attack, Aqua Tail, Slam, Extremespeed |
 
-**Hit them with** Ice, Fairy, Dragon moves. **Their attacks are** Normal, Water, Flying, Rock, Dragon. **Careful with** Fire, Bug Pokemon: several of those attacks hit them hard.
+**Hit them with** Ice, Fairy, Dragon moves. **Their attacks are** Normal, Water, Flying, Rock, Dragon. **Careful with** Fire, Bug Pokemon: several of those attacks hit them hard. **Tested team:** Clefable, Starmie, Kingdra, Magnezone, Tauros, Tentacruel. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 60 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Champion: Rival
 Normal specialist. 6 Pokemon, best level 65: your team fights at level 65 at most, and on hard you bring 6 at most. Prize money: $6,500 on easy, $13,000 on hard (half again for a rematch).
@@ -714,7 +714,7 @@ Normal specialist. 6 Pokemon, best level 65: your team fights at level 65 at mos
 | Exeggutor | Grass/Psychic | 61 | Leaf Storm, Wood Hammer, Power Whip, Solar Beam |
 | Blastoise | Water | 65 | Aqua Tail, Bubble Beam, Water Pulse, Water Gun |
 
-**Hit them with** Dark, Ghost, Rock moves. **Their attacks are** Normal, Fire, Water, Grass, Fighting, Ground, Flying, Psychic. **Careful with** Rock, Steel, Fire Pokemon: several of those attacks hit them hard.
+**Hit them with** Dark, Ghost, Rock moves. **Their attacks are** Normal, Fire, Water, Grass, Fighting, Ground, Flying, Psychic. **Careful with** Rock, Steel, Fire Pokemon: several of those attacks hit them hard. **Tested team:** Dragonite, Gyarados, Starmie, Tentacruel, Slowbro, Kingdra. Chosen by simulated battles from the Pokemon you can catch in Kanto by this point, raised to level 65 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 6).
 
 ## After the champion
 

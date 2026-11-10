@@ -3,6 +3,8 @@
 
     python3 tools/gen_guide.py           # rebuild, then write the guide
     python3 tools/gen_guide.py --check   # fail if anything committed has drifted
+    python3 tools/gen_guide.py --sim     # re-measure the tested teams (minutes), then write
+    python3 tools/gen_guide.py --pdf     # also print docs/players-guide.pdf
 
 Every list in the guide that comes from the game's data is written here, from
 the firmware's own tables and rules (tools/emu/guide_data.cpp dumps them as
@@ -78,6 +80,27 @@ NAMES = {'NIDORAN H': 'Nidoran (female)', 'NIDORAN M': 'Nidoran (male)', 'LT SUR
          'ELITE 4': 'Elite Four'}
 
 
+SIM = os.path.join(OUTDIR, 'sim.json')
+
+
+def run_sim():
+    """Builds tools/emu/guide_sim.cpp and plays every leader (minutes)."""
+    exe = os.path.join('/tmp', 'tamapoke_guide_sim')
+    subprocess.run(['g++', '-std=c++17', '-O2', '-w', '-I' + EMU, '-I' + ROOT,
+                    os.path.join(EMU, 'guide_sim.cpp')] + core_sources() + ['-o', exe], check=True)
+    out = subprocess.run([exe], check=True, capture_output=True, text=True).stdout
+    rows = [json.loads(l) for l in out.splitlines() if l.startswith('{')]
+    with open(SIM, 'w') as f:
+        json.dump(rows, f, indent=0)
+        f.write('\n')
+
+
+def load_sim():
+    if not os.path.exists(SIM):
+        return {}
+    return {(x['r'], x['s']): x for x in json.load(open(SIM))}
+
+
 def title(s):
     """PIKACHU -> Pikachu, MR. MIME -> Mr. Mime, HO-OH -> Ho-Oh."""
     if s in NAMES:
@@ -99,6 +122,7 @@ class Game:
         self.stones = [title(s) for s in d['stones']]
         self.prev = defaultdict(list)       # species -> [(from, how)]
         self._evolutions()
+        self.sim = load_sim()
 
     def name(self, x):
         return title(self.dex[x]['n'])
@@ -391,6 +415,21 @@ def leader_section(g, region, seat):
     if risky:
         tips.append('**Careful with** ' + ', '.join(g.types[t] for t in risky) +
                     ' Pokemon: several of those attacks hit them hard.')
+    sim = g.sim.get((region, seat))
+    if sim and sim['team']:
+        hard_n = min(len(T['team']), len(sim['team']))
+        tips.append('**Tested team:** %s. Chosen by simulated battles from the Pokemon you can catch '
+                    'in %s by this point, raised to level %d and evolved by level where they can; '
+                    'with IVs around 20 and training 75 it won **%d%%** of battles on easy and **%d%%** '
+                    'on hard (bringing the first %d).' % (
+                        ', '.join(g.name(x) for x in sim['team']), g.region_name(region), top,
+                        sim['easy'], sim['hard'], hard_n))
+        if sim['hard'] < 50:
+            tips.append('On hard, a team from other regions, perfect IVs, full training or X items '
+                        'will be needed.')
+        out.append(' '.join(tips))
+        out.append('')
+        return out
     seen = catchable_before(g, region, seat)
     picks = []
     for dexno in sorted(seen, key=lambda x: -g.bst(x)):
@@ -762,8 +801,52 @@ def check_prices(text, g):
     return bad
 
 
+def build_pdf():
+    """docs/players-guide.pdf: the guide, then the region chapters, every
+    Pokemon and every TM, and the spoilers last. pandoc makes the HTML, the
+    preinstalled Chromium prints it."""
+    main_md = open(GUIDE).read()
+    cut = main_md.index('# Spoilers ahead')
+    body, spoil = main_md[:cut], main_md[cut:]
+    body = re.sub(r'(<br>\s*)+', '', body).rstrip().rstrip('-').rstrip()
+    parts = [body]
+    for f in REGION_FILES + ['every-pokemon', 'tms']:
+        t = open(os.path.join(OUTDIR, f + '.md')).read()
+        t = re.sub(r'^<!--.*?-->\s*', '', t, flags=re.S)
+        t = re.sub(r'^\[Back to the guide\].*$', '', t, flags=re.M)
+        parts.append('<div class="pb"></div>\n\n' + t.replace('\n# ', '\n# ', 1))
+    parts.append('<div class="pb"></div>\n\n' + re.sub(r'(<br>\s*)+', '', spoil))
+    md = '\n\n'.join(parts)
+    css = ('body{font-family:sans-serif;font-size:10pt;max-width:none;margin:0}'
+           'table{border-collapse:collapse;margin:6px 0;font-size:8.5pt}'
+           'td,th{border:1px solid #bbb;padding:2px 5px;vertical-align:top}'
+           'th{background:#eee}h1{page-break-before:always;color:#c0392b}'
+           'h1:first-of-type{page-break-before:avoid}h4{margin-bottom:2px}'
+           'blockquote{border-left:4px solid #e67e22;margin:8px 0;padding:4px 10px;background:#fdf2e9}'
+           'img{max-width:200px}.pb{page-break-after:always}')
+    html_path = os.path.join(ROOT, 'docs', '.players-guide.html')
+    subprocess.run(['pandoc', '-f', 'gfm', '-t', 'html5', '-s', '--metadata', 'title=TamaPoke Player\'s Guide',
+                    '-V', 'pagetitle=TamaPoke Player\'s Guide', '-o', html_path],
+                   input=md, text=True, check=True)
+    html = open(html_path).read().replace('</head>', '<style>%s</style></head>' % css)
+    html = re.sub(r'<header id="title-block-header">.*?</header>', '', html, flags=re.S)
+    open(html_path, 'w').write(html)
+    pdf = os.path.join(ROOT, 'docs', 'players-guide.pdf')
+    js = ("const {chromium}=require('playwright');(async()=>{const b=await chromium.launch();"
+          "const p=await b.newPage();await p.goto('file://%s',{waitUntil:'load'});"
+          "await p.pdf({path:'%s',format:'A4',margin:{top:'14mm',bottom:'14mm',left:'12mm',right:'12mm'},"
+          "displayHeaderFooter:true,headerTemplate:'<span></span>',"
+          "footerTemplate:'<div style=\"font-size:8px;width:100%%;text-align:center\"><span class=pageNumber></span></div>'});"
+          "await b.close();})();" % (html_path, pdf))
+    subprocess.run(['node', '-e', js], check=True)
+    os.remove(html_path)
+    print('gen_guide: wrote', os.path.relpath(pdf, ROOT))
+
+
 def main():
     check = '--check' in sys.argv
+    if '--sim' in sys.argv:
+        run_sim()
     g = Game(load())
     files = {}
     for r in range(9):
@@ -792,6 +875,8 @@ def main():
     for p in problems:
         print('gen_guide: WARNING', p)
     print('gen_guide: wrote %d files' % len(files))
+    if '--pdf' in sys.argv:
+        build_pdf()
 
 
 if __name__ == '__main__':

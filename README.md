@@ -29,7 +29,7 @@ and complete them all (shinies included).
 > PMD SpriteCollab (CC BY-NC, Pokémon © Nintendo/Game Freak), and the 3D case is
 > CC BY-NC-SA. See **[License](#license)** and **Credits**.
 
-🔴 **3D-printed Pokéball case + print profiles → [on MakerWorld](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)** · flash it in your browser → **[web installer](https://codester00.github.io/TamaPokeLAN/web/)** · how to play → **[player's guide](docs/players-guide.md)**
+🔴 **3D-printed Pokéball case + print profiles → [on MakerWorld](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)** · flash it in your browser → **[web installer](https://codester00.github.io/TamaPokeLAN/web/)** · how to play → **[player's guide](docs/players-guide.md)** ([PDF](docs/players-guide.pdf))
 
 ## Status
 

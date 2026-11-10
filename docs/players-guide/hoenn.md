@@ -140,7 +140,7 @@ Rock specialist. 3 Pokemon, best level 15: your team fights at level 15 at most,
 | Geodude | Rock/Ground | 12 | Bulldoze, Rock Throw, Tackle, Harden |
 | Nosepass | Rock | 15 | Rock Throw, Spark, Tackle, Harden |
 
-**Hit them with** Steel, Ground, Fighting moves. **Their attacks are** Normal, Electric, Ground, Rock. **Careful with** Fire, Flying Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Nincada (ROUTE 116).
+**Hit them with** Steel, Ground, Fighting moves. **Their attacks are** Normal, Electric, Ground, Rock. **Careful with** Fire, Flying Pokemon: several of those attacks hit them hard. **Tested team:** Pelipper, Nuzleaf, Lombre, Tentacool, Goldeen, Shroomish. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 15 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Stone Badge
 
@@ -172,7 +172,7 @@ Fighting specialist. 3 Pokemon, best level 19: your team fights at level 19 at m
 | Meditite | Fighting/Psychic | 16 | Confusion, Feint, Pound, Meditate |
 | Makuhita | Fighting | 19 | Force Palm, Arm Thrust, Tackle |
 
-**Hit them with** Fairy, Flying, Psychic moves. **Their attacks are** Normal, Fighting, Psychic. **Catchable before this fight:** Swellow (ROUTE 115), Pelipper (GRANITE CAVE), Swablu (ROUTE 115), Abra (GRANITE CAVE).
+**Hit them with** Fairy, Flying, Psychic moves. **Their attacks are** Normal, Fighting, Psychic. **Tested team:** Swellow, Pelipper, Kadabra, Beautifly, Dustox, Sableye. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 19 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Knuckle Badge
 
@@ -236,7 +236,7 @@ Electric specialist. 4 Pokemon, best level 24: your team fights at level 24 at m
 | Magneton | Electric/Steel | 22 | Magnet Bomb, Thundershock, Tackle, Sonic Boom |
 | Manectric | Electric | 24 | Shock Wave, Spark, Quick Attack, Tackle |
 
-**Hit them with** Ground, Fighting, Fire moves. **Their attacks are** Normal, Electric, Steel. **Catchable before this fight:** Geodude (GRANITE CAVE), Nincada (ROUTE 116), Makuhita (GRANITE CAVE).
+**Hit them with** Ground, Fighting, Fire moves. **Their attacks are** Normal, Electric, Steel. **Tested team:** Hariyama, Breloom, Illumise, Geodude, Gloom, Volbeat. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 24 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Dynamo Badge
 
@@ -322,7 +322,7 @@ Fire specialist. 4 Pokemon, best level 29: your team fights at level 29 at most,
 | Camerupt | Fire/Ground | 26 | Earth Power, Lava Plume, Flamethrower, Flame Wheel |
 | Torkoal | Fire | 29 | Lava Plume, Flame Wheel, Body Slam, Ember |
 
-**Hit them with** Ground, Water, Rock moves. **Their attacks are** Normal, Fire, Poison, Ground, Rock. **Careful with** Fire, Grass, Ice Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Solrock (METEOR FALLS), Pelipper (ROUTE 118), Nosepass (GRANITE CAVE), Lombre (ROUTES 113-114).
+**Hit them with** Ground, Water, Rock moves. **Their attacks are** Normal, Fire, Poison, Ground, Rock. **Careful with** Fire, Grass, Ice Pokemon: several of those attacks hit them hard. **Tested team:** Pelipper, Lombre, Tentacool, Goldeen, Marill, Solrock. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 29 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Heat Badge
 
@@ -354,7 +354,7 @@ Normal specialist. 4 Pokemon, best level 31: your team fights at level 31 at mos
 | Linoone | Normal | 29 | Take Down, Play Rough, Fury Swipes, Tackle |
 | Slaking | Normal | 31 | Play Rough, Scratch, Feint Attack, Fury Swipes |
 
-**Hit them with** Fighting moves. **Their attacks are** Normal, Psychic, Dark, Fairy. **Careful with** Fighting Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Machop (JAGGED PASS), Makuhita (GRANITE CAVE).
+**Hit them with** Fighting moves. **Their attacks are** Normal, Psychic, Dark, Fairy. **Careful with** Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Swalot, Magnezone, Torkoal, Probopass, Hariyama, Gloom. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 31 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Balance Badge
 
@@ -427,7 +427,7 @@ Flying specialist. 5 Pokemon, best level 33: your team fights at level 33 at mos
 | Skarmory | Steel/Flying | 31 | Wing Attack, Metal Claw, Swift, Peck |
 | Altaria | Dragon/Flying | 33 | Hurricane, Take Down, Peck, Fury Attack |
 
-**Hit them with** Rock, Ice, Electric moves. **Their attacks are** Normal, Water, Grass, Flying, Dragon, Steel. **Careful with** Rock, Ground Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Electrode (NEW MAUVILLE), Manectric (ROUTE 118), Magneton (NEW MAUVILLE), Solrock (METEOR FALLS).
+**Hit them with** Rock, Ice, Electric moves. **Their attacks are** Normal, Water, Grass, Flying, Dragon, Steel. **Careful with** Rock, Ground Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Probopass, Manectric, Minun, Tentacruel, Grumpig. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 33 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 ## With the Feather Badge
 
@@ -547,7 +547,7 @@ Psychic specialist. 4 Pokemon, best level 42: your team fights at level 42 at mo
 | Lunatone | Rock/Psychic | 42 | Psychic, Rock Slide, Power Gem, Rock Throw |
 | Solrock | Rock/Psychic | 42 | Psychic, Rock Slide, Rock Throw, Flare Blitz |
 
-**Hit them with** Dark, Ghost, Bug moves. **Their attacks are** Normal, Fire, Ground, Flying, Psychic, Rock, Ghost. **Careful with** Bug, Fire, Grass Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Absol (ROUTE 120), Sharpedo (ROUTES 124-125), Illumise (ROUTE 117), Volbeat (ROUTE 117). On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Dark, Ghost, Bug moves. **Their attacks are** Normal, Fire, Ground, Flying, Psychic, Rock, Ghost. **Careful with** Bug, Fire, Grass Pokemon: several of those attacks hit them hard. **Tested team:** Slaking, Gyarados, Farigiraf, Obstagoon, Starmie, Gardevoir. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 42 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Mind Badge
 
@@ -640,7 +640,7 @@ Water specialist. 5 Pokemon, best level 46: your team fights at level 46 at most
 | Crawdaunt | Water/Dark | 43 | Crunch, Razor Shell, Bubble Beam, Swift |
 | Kingdra | Water/Dragon | 46 | Dragon Pulse, Water Pulse, Bubble Beam, Dragonbreath |
 
-**Hit them with** Grass, Fairy, Fighting moves. **Their attacks are** Normal, Water, Ice, Ground, Dragon, Dark. **Careful with** Fire, Ground, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Tropius (ROUTE 119), Gloom (ROUTE 123), Lombre (ROUTES 113-114), Nuzleaf (ROUTES 113-114).
+**Hit them with** Grass, Fairy, Fighting moves. **Their attacks are** Normal, Water, Ice, Ground, Dragon, Dark. **Careful with** Fire, Ground, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Slaking, Gardevoir, Gyarados, Heracross, Magnezone, Machamp. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 46 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 ## With the Rain Badge
 
@@ -698,7 +698,7 @@ Dark specialist. 5 Pokemon, best level 49: your team fights at level 49 at most,
 | Crawdaunt | Water/Dark | 48 | Crunch, Razor Shell, Bubble Beam, Swift |
 | Absol | Dark | 49 | Bite, Quick Attack, Scratch, Feint |
 
-**Hit them with** Fairy, Bug, Fighting moves. **Their attacks are** Normal, Water, Grass, Poison, Flying, Dark. **Careful with** Grass, Ground, Rock Pokemon: several of those attacks hit them hard.
+**Hit them with** Fairy, Bug, Fighting moves. **Their attacks are** Normal, Water, Grass, Poison, Flying, Dark. **Careful with** Grass, Ground, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Slaking, Magnezone, Crobat, Flygon, Gardevoir, Pinsir. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 49 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 2: Phoebe
 Ghost specialist. 5 Pokemon, best level 51: your team fights at level 51 at most, and on hard you bring 5 at most. Prize money: $2,550 on easy, $5,100 on hard (half again for a rematch).
@@ -711,7 +711,7 @@ Ghost specialist. 5 Pokemon, best level 51: your team fights at level 51 at most
 | Banette | Ghost | 49 | Shadow Ball, Feint Attack, Shadow Sneak, Night Shade |
 | Dusclops | Ghost | 51 | Shadow Ball, Shadow Punch, Psychic, Dark Pulse |
 
-**Hit them with** Dark, Ghost, Fairy moves. **Their attacks are** Psychic, Rock, Ghost, Dark. **Careful with** Psychic, Ghost Pokemon: several of those attacks hit them hard.
+**Hit them with** Dark, Ghost, Fairy moves. **Their attacks are** Psychic, Rock, Ghost, Dark. **Careful with** Psychic, Ghost Pokemon: several of those attacks hit them hard. **Tested team:** Slaking, Salamence, Gyarados, Rhyperior, Obstagoon, Flygon. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 51 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 3: Glacia
 Ice specialist. 5 Pokemon, best level 53: your team fights at level 53 at most, and on hard you bring 5 at most. Prize money: $2,650 on easy, $5,300 on hard (half again for a rematch).
@@ -724,7 +724,7 @@ Ice specialist. 5 Pokemon, best level 53: your team fights at level 53 at most, 
 | Glalie | Ice | 52 | Ice Beam, Icy Wind, Crunch, Ice Shard |
 | Walrein | Ice/Water | 53 | Blizzard, Surf, Ice Beam, Liquidation |
 
-**Hit them with** Rock, Fighting, Grass moves. **Their attacks are** Water, Ice, Dark. **Careful with** Ground Pokemon: several of those attacks hit them hard. On hard this leader trains to 60 of 100, a little softer than the rest.
+**Hit them with** Rock, Fighting, Grass moves. **Their attacks are** Water, Ice, Dark. **Careful with** Ground Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Tentacruel, Machamp, Heracross, Pinsir, Hariyama. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 53 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 4: Drake
 Dragon specialist. 5 Pokemon, best level 55: your team fights at level 55 at most, and on hard you bring 5 at most. Prize money: $2,750 on easy, $5,500 on hard (half again for a rematch).
@@ -737,7 +737,7 @@ Dragon specialist. 5 Pokemon, best level 55: your team fights at level 55 at mos
 | Flygon | Ground/Dragon | 53 | Earthquake, Dragon Claw, Outrage, Earth Power |
 | Salamence | Dragon/Flying | 55 | Fly, Flamethrower, Dragonbreath, Ember |
 
-**Hit them with** Fairy, Dragon, Ice moves. **Their attacks are** Fire, Water, Ground, Flying, Dragon, Dark, Fairy. **Careful with** Fire, Grass, Fighting Pokemon: several of those attacks hit them hard. On hard this leader trains to 50 of 100, a little softer than the rest.
+**Hit them with** Fairy, Dragon, Ice moves. **Their attacks are** Fire, Water, Ground, Flying, Dragon, Dark, Fairy. **Careful with** Fire, Grass, Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Slaking, Salamence, Gyarados, Flygon, Glalie, Walrein. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 55 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Champion: Wallace
 Water specialist. 6 Pokemon, best level 58: your team fights at level 58 at most, and on hard you bring 6 at most. Prize money: $5,800 on easy, $11,600 on hard (half again for a rematch).
@@ -751,7 +751,7 @@ Water specialist. 6 Pokemon, best level 58: your team fights at level 58 at most
 | Gyarados | Water/Flying | 56 | Hydro Pump, Hurricane, Hyper Beam, Outrage |
 | Milotic | Water | 58 | Hydro Pump, Surf, Aqua Tail, Water Pulse |
 
-**Hit them with** Grass, Electric, Psychic moves. **Their attacks are** Normal, Water, Grass, Poison, Ground, Flying, Dragon. **Careful with** Rock, Fire, Grass Pokemon: several of those attacks hit them hard. On hard this leader trains to 50 of 100, a little softer than the rest.
+**Hit them with** Grass, Electric, Psychic moves. **Their attacks are** Normal, Water, Grass, Poison, Ground, Flying, Dragon. **Careful with** Rock, Fire, Grass Pokemon: several of those attacks hit them hard. **Tested team:** Slaking, Gyarados, Flygon, Salamence, Exploud, Magnezone. Chosen by simulated battles from the Pokemon you can catch in Hoenn by this point, raised to level 58 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 6).
 
 ## After the champion
 

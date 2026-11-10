@@ -118,6 +118,13 @@ python3 tools/gen_guide.py           # after ANY change to a rule, price, area o
 python3 tools/gen_guide.py --check   # run.sh and check_release.py both run this
 ```
 
+Leaders' **tested teams** come from `tools/emu/guide_sim.cpp` (`--sim`,
+about a minute: every catchable species by that point, raised to the cap,
+picked by 1v1 wins, then 40 team battles easy and hard) into the committed
+`docs/players-guide/sim.json`; `--check` does not re-run it, so re-run `--sim`
+after a roster, area or battle change. `--pdf` prints `docs/players-guide.pdf`
+(pandoc + the preinstalled Chromium; spoilers stay last).
+
 `--check` fails when a generated file differs from what the firmware now says,
 and when the hand-written text quotes an item next to a price that is not that
 item's (both negative-checked). It cannot read prose that restates a RULE --

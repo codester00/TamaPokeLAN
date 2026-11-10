@@ -231,7 +231,7 @@ Bug specialist. 3 Pokemon, best level 15: your team fights at level 15 at most, 
 | Tarountula | Bug | 14 | Struggle Bug, Bug Bite, Tackle, Feint |
 | Teddiursa | Normal | 15 | Scratch, Tackle, Fury Swipes, Bulldoze |
 
-**Hit them with** Rock, Flying, Fire moves. **Their attacks are** Normal, Ground, Bug. **Catchable before this fight:** Oricorio (SOUTH PROV. 1), Drifloon (POKEMON LEAGUE), Houndour (SOUTH PROV. 1), Swablu (SOUTH PROV. 2).
+**Hit them with** Rock, Flying, Fire moves. **Their attacks are** Normal, Ground, Bug. **Tested team:** Oricorio, Vivillon, Spidops, Mudbray, Kricketune, Drifloon. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 15 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Bug Badge
 
@@ -244,7 +244,7 @@ Grass specialist. 3 Pokemon, best level 17: your team fights at level 17 at most
 | Smoliv | Grass/Normal | 16 | Razor Leaf, Tackle, Absorb, Growth |
 | Sudowoodo | Rock | 17 | Rock Throw, Tackle, Fake Tears |
 
-**Hit them with** Bug, Fighting, Ice moves. **Their attacks are** Normal, Grass, Rock. **Catchable before this fight:** Pawmo (SOUTH PROV. 2), Riolu (SOUTH PROV. 2), Meditite (SOUTH PROV. 2), Surskit (POKEMON LEAGUE).
+**Hit them with** Bug, Fighting, Ice moves. **Their attacks are** Normal, Grass, Rock. **Tested team:** Skiddo, Bronzor, Tinkatink, Makuhita, Riolu, Meditite. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 17 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Grass Badge
 
@@ -665,7 +665,7 @@ Electric specialist. 4 Pokemon, best level 24: your team fights at level 24 at m
 | Luxio | Electric | 23 | Spark, Thundershock, Bite, Quick Attack |
 | Mismagius | Ghost | 24 | Shadow Sneak, Psybeam, Magical Leaf, Confusion |
 
-**Hit them with** Dark, Ghost, Rock moves. **Their attacks are** Normal, Water, Electric, Grass, Flying, Psychic, Ghost, Dark. **Careful with** Water, Fighting, Ground Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Umbreon (WEST PROV. 1), Drednaw (EAST PROV. 1), Stonjourner (WEST PROV. 1), Misdreavus (EAST PROV. 1).
+**Hit them with** Dark, Ghost, Rock moves. **Their attacks are** Normal, Water, Electric, Grass, Flying, Psychic, Ghost, Dark. **Careful with** Water, Fighting, Ground Pokemon: several of those attacks hit them hard. **Tested team:** Farigiraf, Salazzle, Greedent, Deino, Umbreon, Cyclizar. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 24 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Electric Badge
 
@@ -1044,7 +1044,7 @@ Water specialist. 3 Pokemon, best level 30: your team fights at level 30 at most
 | Wugtrio | Water | 29 | Water Pulse, Slam, Aqua Jet, Water Gun |
 | Crabominable | Fighting/Ice | 30 | Ice Punch, Slam, Dizzy Punch, Rock Smash |
 
-**Hit them with** Grass, Electric, Fairy moves. **Their attacks are** Normal, Water, Ice, Fighting. **Careful with** Ground, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Gogoat (WEST PROV. 2), Jolteon (WEST PROV. 2), Leafeon (WEST PROV. 2), Toxtricity (WEST PROV. 1).
+**Hit them with** Grass, Electric, Fairy moves. **Their attacks are** Normal, Water, Ice, Fighting. **Careful with** Ground, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Gyarados, Dondozo, Lucario, Vaporeon, Overqwil, Scovillain. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 30 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Water Badge
 
@@ -1270,7 +1270,7 @@ Normal specialist. 3 Pokemon, best level 36: your team fights at level 36 at mos
 | Dudunsparce | Normal | 35 | Ancientpower, Screech, Defense Curl |
 | Staraptor | Normal/Flying | 36 | Double-Edge, Close Combat, Take Down, Aerial Ace |
 
-**Hit them with** Fighting, Rock, Ice moves. **Their attacks are** Normal, Fighting, Flying, Rock. **Careful with** Ice, Bug Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Cloyster (W. PALDEAN SEA), Gallade (WEST PROV. 3), Avalugg (WEST PROV. 2), Hawlucha (WEST PROV. 2).
+**Hit them with** Fighting, Rock, Ice moves. **Their attacks are** Normal, Fighting, Flying, Rock. **Careful with** Ice, Bug Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Glimmora, Corviknight, Electrode, Rotom, Slaking. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 36 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Normal Badge
 
@@ -1603,7 +1603,7 @@ Ghost specialist. 4 Pokemon, best level 42: your team fights at level 42 at most
 | Houndstone | Ghost | 41 | Play Rough, Crunch, Dig, Lick |
 | Toxtricity | Electric/Poison | 42 | Poison Jab, Discharge, Shock Wave, Acid |
 
-**Hit them with** Ghost, Dark, Psychic moves. **Their attacks are** Normal, Electric, Grass, Poison, Ground, Ghost, Dark, Fairy. **Careful with** Water, Psychic, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Umbreon (ALFORNADA CAVERN), Espeon (GLASEADO MTN), Farigiraf (GLASEADO MTN), Gallade (ALFORNADA CAVERN).
+**Hit them with** Ghost, Dark, Psychic moves. **Their attacks are** Normal, Electric, Grass, Poison, Ground, Ghost, Dark, Fairy. **Careful with** Water, Psychic, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Ursaluna, Hippowdon, Camerupt, Pyroar, Mudsdale, Bellibolt. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 42 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Ghost Badge
 
@@ -1706,7 +1706,7 @@ Psychic specialist. 4 Pokemon, best level 45: your team fights at level 45 at mo
 | Armarouge | Fire/Psychic | 44 | Lava Plume, Flame Charge, Ember, Calm Mind |
 | Florges | Fairy | 45 | Moonblast, Solar Beam, Magical Leaf, Synthesis |
 
-**Hit them with** Poison, Steel, Dark moves. **Their attacks are** Normal, Fire, Grass, Psychic, Dark, Fairy. **Careful with** Fighting Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Umbreon (SOUTH PROV. 6), Honchkrow (SOUTH PROV. 6), Toxtricity (SOUTH PROV. 6), Bronzong (SOUTH PROV. 6). On hard this leader trains to 50 of 100, a little softer than the rest.
+**Hit them with** Poison, Steel, Dark moves. **Their attacks are** Normal, Fire, Grass, Psychic, Dark, Fairy. **Careful with** Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Slaking, Basculegion, Hippowdon, Overqwil, Skuntank, Camerupt. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 45 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Psychic Badge
 
@@ -1720,7 +1720,7 @@ Ice specialist. 4 Pokemon, best level 48: your team fights at level 48 at most, 
 | Cetitan | Ice | 47 | Body Slam, Bounce, Ice Shard, Take Down |
 | Altaria | Dragon/Flying | 48 | Dragon Pulse, Hurricane, Moonblast, Dragonbreath |
 
-**Hit them with** Rock, Steel, Fire moves. **Their attacks are** Normal, Water, Ice, Flying, Bug, Dragon, Fairy. **Careful with** Grass, Dragon, Fighting Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Flareon (SOUTH PROV. 6), Pyroar (GLASEADO MTN), Bronzong (SOUTH PROV. 6), Copperajah (SOUTH PROV. 6). On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Rock, Steel, Fire moves. **Their attacks are** Normal, Water, Ice, Flying, Bug, Dragon, Fairy. **Careful with** Grass, Dragon, Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Pyroar, Tinkaton, Copperajah, Salazzle, Klefki. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 48 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Ice Badge
 
@@ -2204,7 +2204,7 @@ Ground specialist. 5 Pokemon, best level 58: your team fights at level 58 at mos
 | Dugtrio | Ground | 57 | Earthquake, Earth Power, Dig, Bulldoze |
 | Clodsire | Poison/Ground | 58 | Earthquake, Sludge Wave, Megahorn, Poison Jab |
 
-**Hit them with** Water, Ice, Grass moves. **Their attacks are** Normal, Fire, Water, Poison, Ground, Bug. **Careful with** Grass, Fire, Rock Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Water, Ice, Grass moves. **Their attacks are** Normal, Fire, Water, Poison, Ground, Bug. **Careful with** Grass, Fire, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Baxcalibur, Dragonite, Gyarados, Golduck, Slaking, Goodra. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 58 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 2: Poppy
 Steel specialist. 5 Pokemon, best level 59: your team fights at level 59 at most, and on hard you bring 5 at most. Prize money: $2,950 on easy, $5,900 on hard (half again for a rematch).
@@ -2217,7 +2217,7 @@ Steel specialist. 5 Pokemon, best level 59: your team fights at level 59 at most
 | Corviknight | Flying/Steel | 58 | Brave Bird, Drill Peck, Steel Wing, Peck |
 | Tinkaton | Fairy/Steel | 59 | Play Rough, Flash Cannon, Slam, Metal Claw |
 
-**Hit them with** Fire, Ground, Fighting moves. **Their attacks are** Normal, Electric, Ground, Flying, Psychic, Dark, Steel, Fairy. **Careful with** Fighting, Poison, Rock Pokemon: several of those attacks hit them hard.
+**Hit them with** Fire, Ground, Fighting moves. **Their attacks are** Normal, Electric, Ground, Flying, Psychic, Dark, Steel, Fairy. **Careful with** Fighting, Poison, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Pyroar, Volcarona, Houndoom, Salazzle, Ursaluna, Hippowdon. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 59 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 3: Larry
 Flying specialist. 5 Pokemon, best level 60: your team fights at level 60 at most, and on hard you bring 5 at most. Prize money: $3,000 on easy, $6,000 on hard (half again for a rematch).
@@ -2230,7 +2230,7 @@ Flying specialist. 5 Pokemon, best level 60: your team fights at level 60 at mos
 | Staraptor | Normal/Flying | 59 | Giga Impact, Brave Bird, Double-Edge, Close Combat |
 | Hawlucha | Fighting/Flying | 60 | Hi Jump Kick, Bounce, Submission, Aerial Ace |
 
-**Hit them with** Rock, Ice, Electric moves. **Their attacks are** Normal, Grass, Fighting, Flying, Dragon, Fairy. **Careful with** Fighting, Rock, Dragon Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Rock, Ice, Electric moves. **Their attacks are** Normal, Grass, Fighting, Flying, Dragon, Fairy. **Careful with** Fighting, Rock, Dragon Pokemon: several of those attacks hit them hard. **Tested team:** Glimmora, Kilowattrel, Jolteon, Ampharos, Dedenne, Magnezone. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 60 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 4: Hassel
 Dragon specialist. 5 Pokemon, best level 61: your team fights at level 61 at most, and on hard you bring 5 at most. Prize money: $3,050 on easy, $6,100 on hard (half again for a rematch).
@@ -2243,7 +2243,7 @@ Dragon specialist. 5 Pokemon, best level 61: your team fights at level 61 at mos
 | Flapple | Grass/Dragon | 60 | Dragon Pulse, Fly, Dragonbreath, Wing Attack |
 | Baxcalibur | Dragon/Ice | 61 | Ice Beam, Dragon Claw, Crunch, Dragonbreath |
 
-**Hit them with** Dragon, Fairy, Ice moves. **Their attacks are** Normal, Water, Ice, Poison, Flying, Bug, Dragon, Dark. **Careful with** Grass, Ground, Psychic Pokemon: several of those attacks hit them hard. On hard this leader trains to 60 of 100, a little softer than the rest.
+**Hit them with** Dragon, Fairy, Ice moves. **Their attacks are** Normal, Water, Ice, Poison, Flying, Bug, Dragon, Dark. **Careful with** Grass, Ground, Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Haxorus, Gardevoir, Tinkaton, Copperajah, Tauros, Orthworm. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 61 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Champion: Geeta
 Rock specialist. 6 Pokemon, best level 62: your team fights at level 62 at most, and on hard you bring 6 at most. Prize money: $6,200 on easy, $12,400 on hard (half again for a rematch).
@@ -2257,7 +2257,7 @@ Rock specialist. 6 Pokemon, best level 62: your team fights at level 62 at most,
 | Kingambit | Dark/Steel | 61 | Iron Head, Metal Claw, Scratch, Iron Defense |
 | Glimmora | Rock/Poison | 62 | Sludge Wave, Power Gem, Rock Slide, Ancientpower |
 
-**Hit them with** Ground, Dark, Ghost moves. **Their attacks are** Normal, Fire, Water, Grass, Ice, Poison, Ground, Rock, Dark, Steel. **Careful with** Rock, Fire, Grass Pokemon: several of those attacks hit them hard. On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Ground, Dark, Ghost moves. **Their attacks are** Normal, Fire, Water, Grass, Ice, Poison, Ground, Rock, Dark, Steel. **Careful with** Rock, Fire, Grass Pokemon: several of those attacks hit them hard. **Tested team:** Annihilape, Toxicroak, Slaking, Garchomp, Gyarados, Goodra. Chosen by simulated battles from the Pokemon you can catch in Paldea by this point, raised to level 62 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 6).
 
 ## After the champion
 

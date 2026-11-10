@@ -141,7 +141,7 @@ Flying specialist. 2 Pokemon, best level 9: your team fights at level 9 at most,
 | Pidgey | Normal/Flying | 7 | Tackle |
 | Pidgeotto | Normal/Flying | 9 | Gust, Tackle |
 
-**Hit them with** Rock, Ice, Electric moves. **Their attacks are** Normal, Flying. **Catchable before this fight:** Shuckle (DARK CAVE), Geodude (DARK CAVE).
+**Hit them with** Rock, Ice, Electric moves. **Their attacks are** Normal, Flying. **Tested team:** Tentacruel, Aipom, Teddiursa, Heracross, Poliwhirl, Phanpy. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 9 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Zephyr Badge
 
@@ -238,7 +238,7 @@ Bug specialist. 3 Pokemon, best level 16: your team fights at level 16 at most, 
 | Kakuna | Bug/Poison | 14 | Harden |
 | Scyther | Bug/Flying | 16 | Aerial Ace, Silver Wind, Feint, Quick Attack |
 
-**Hit them with** Rock, Flying, Fire moves. **Their attacks are** Normal, Flying, Bug. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Shuckle (SLOWPOKE WELL), Golbat (SLOWPOKE WELL), Onix (UNION CAVE), Natu (RUINS OF ALPH).
+**Hit them with** Rock, Flying, Fire moves. **Their attacks are** Normal, Flying, Bug. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Tested team:** Dunsparce, Onix, Tentacruel, Shuckle, Geodude, Heracross. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 16 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Hive Badge
 
@@ -354,7 +354,7 @@ Normal specialist. 2 Pokemon, best level 20: your team fights at level 20 at mos
 | Clefairy | Fairy | 18 | Fairy Wind, Pound, Tackle, Double Slap |
 | Miltank | Normal | 20 | Tackle, Milk Drink, Defense Curl, Growl |
 
-**Hit them with** Steel, Poison moves. **Their attacks are** Normal, Fairy. **Catchable before this fight:** Tentacruel (ROUTE 34), Golbat (SLOWPOKE WELL), Beedrill (ILEX FOREST), Tentacool (ROUTE 34).
+**Hit them with** Steel, Poison moves. **Their attacks are** Normal, Fairy. **Tested team:** Slowbro, Gastly, Golduck, Kadabra, Gyarados, Tentacruel. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 20 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Plain Badge
 
@@ -431,7 +431,7 @@ Ghost specialist. 4 Pokemon, best level 25: your team fights at level 25 at most
 | Gengar | Ghost/Poison | 25 | Shadow Punch, Lick, Smog, Night Shade |
 | Haunter | Ghost/Poison | 23 | Lick, Smog, Night Shade |
 
-**Hit them with** Dark, Ghost, Psychic moves. **Their attacks are** Poison, Ghost. **Catchable before this fight:** Slowbro (SLOWPOKE WELL), Unown (RUINS OF ALPH), Drowzee (ROUTE 35), Exeggcute (ROUTES 38-39).
+**Hit them with** Dark, Ghost, Psychic moves. **Their attacks are** Poison, Ghost. **Tested team:** Gyarados, Crobat, Tentacruel, Donphan, Golduck, Weezing. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 25 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Fog Badge
 
@@ -553,7 +553,7 @@ Fighting specialist. 2 Pokemon, best level 30: your team fights at level 30 at m
 | Primeape | Fighting | 27 | Karate Chop, Seismic Toss, Scratch, Fury Swipes |
 | Poliwrath | Water/Fighting | 30 | Hydro Pump, Bubble Beam, Double-Edge, Submission |
 
-**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Water, Fighting. **Careful with** Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Gyarados (LAKE OF RAGE), Slowbro (SLOWPOKE WELL), Mantine (ROUTES 40-41), Golbat (UNION CAVE B2F).
+**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Water, Fighting. **Careful with** Rock Pokemon: several of those attacks hit them hard. **Tested team:** Crobat, Golduck, Slowbro, Hypno, Wigglytuff, Sunflora. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 30 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Storm Badge
 
@@ -566,7 +566,7 @@ Steel specialist. 3 Pokemon, best level 35: your team fights at level 35 at most
 | Magnemite | Electric/Steel | 30 | Thunderbolt, Flash Cannon, Magnet Bomb, Spark |
 | Steelix | Steel/Ground | 35 | Bulldoze, Rock Slide, Dragonbreath, Rock Tomb |
 
-**Hit them with** Ground, Fighting, Fire moves. **Their attacks are** Electric, Ground, Rock, Dragon, Steel. **Careful with** Fire, Ice, Flying Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Heracross (ROUTE 42), Quagsire (UNION CAVE B2F), Machoke (MT. MORTAR), Graveler (MT. MORTAR).
+**Hit them with** Ground, Fighting, Fire moves. **Their attacks are** Electric, Ground, Rock, Dragon, Steel. **Careful with** Fire, Ice, Flying Pokemon: several of those attacks hit them hard. **Tested team:** Tentacruel, Donphan, Heracross, Kingler, Sandslash, Quagsire. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 35 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Mineral Badge
 
@@ -579,7 +579,7 @@ Ice specialist. 3 Pokemon, best level 31: your team fights at level 31 at most, 
 | Dewgong | Water/Ice | 29 | Bubble Beam, Aurora Beam, Icy Wind, Ice Shard |
 | Piloswine | Ice/Ground | 31 | Icy Wind, Bulldoze, Take Down, Ice Shard |
 
-**Hit them with** Grass, Fighting, Rock moves. **Their attacks are** Normal, Water, Ice, Ground. **Careful with** Fire, Ground, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Shuckle (ROUTES 40-41), Heracross (ROUTE 42), Machoke (MT. MORTAR), Graveler (MT. MORTAR).
+**Hit them with** Grass, Fighting, Rock moves. **Their attacks are** Normal, Water, Ice, Ground. **Careful with** Fire, Ground, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Gyarados, Sirfetchd, Heracross, Golduck, Miltank, Slowbro. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 31 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Glacier Badge
 
@@ -675,7 +675,7 @@ Dragon specialist. 4 Pokemon, best level 40: your team fights at level 40 at mos
 | Dragonair | Dragon | 37 | Aqua Tail, Slam, Dragon Rage, Leer |
 | Kingdra | Water/Dragon | 40 | Water Pulse, Bubble Beam, Dragonbreath, Water Gun |
 
-**Hit them with** Fairy, Dragon, Ice moves. **Their attacks are** Normal, Water, Dragon. **Catchable before this fight:** Jynx (ICE PATH), Sneasel (ICE PATH), Delibird (ICE PATH), Snubbull (ROUTE 35).
+**Hit them with** Fairy, Dragon, Ice moves. **Their attacks are** Normal, Water, Dragon. **Tested team:** Vileplume, Wigglytuff, Azumarill, Beedrill, Ursaluna, Magnezone. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 40 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Rising Badge
 
@@ -754,7 +754,7 @@ Psychic specialist. 5 Pokemon, best level 42: your team fights at level 42 at mo
 | Slowbro | Water/Psychic | 41 | Surf, Water Pulse, Confusion, Water Gun |
 | Xatu | Psychic/Flying | 42 | Ominous Wind, Peck, Night Shade, Leer |
 
-**Hit them with** Dark, Ghost, Rock moves. **Their attacks are** Normal, Water, Grass, Ice, Flying, Psychic, Ghost. **Careful with** Ground, Grass, Fighting Pokemon: several of those attacks hit them hard.
+**Hit them with** Dark, Ghost, Rock moves. **Their attacks are** Normal, Water, Grass, Ice, Flying, Psychic, Ghost. **Careful with** Ground, Grass, Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Gyarados, Crobat, Arcanine, Weavile, Forretress. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 42 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 2: Koga
 Poison specialist. 5 Pokemon, best level 44: your team fights at level 44 at most, and on hard you bring 5 at most. Prize money: $2,200 on easy, $4,400 on hard (half again for a rematch).
@@ -767,7 +767,7 @@ Poison specialist. 5 Pokemon, best level 44: your team fights at level 44 at mos
 | Muk | Poison | 42 | Gunk Shot, Sludge Wave, Sludge, Moonblast |
 | Crobat | Poison/Flying | 44 | Wing Attack, Swift, Gust, Leech Life |
 
-**Hit them with** Rock, Psychic, Fire moves. **Their attacks are** Normal, Electric, Poison, Flying, Bug, Ghost, Fairy. **Careful with** Grass, Fighting, Psychic Pokemon: several of those attacks hit them hard.
+**Hit them with** Rock, Psychic, Fire moves. **Their attacks are** Normal, Electric, Poison, Flying, Bug, Ghost, Fairy. **Careful with** Grass, Fighting, Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Ursaluna, Rhyperior, Magnezone, Mamoswine, Steelix, Golem. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 44 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 3: Bruno
 Fighting specialist. 5 Pokemon, best level 46: your team fights at level 46 at most, and on hard you bring 5 at most. Prize money: $2,300 on easy, $4,600 on hard (half again for a rematch).
@@ -780,7 +780,7 @@ Fighting specialist. 5 Pokemon, best level 46: your team fights at level 46 at m
 | Onix | Rock/Ground | 43 | Earthquake, Dig, Rock Slide, Slam |
 | Machamp | Fighting | 46 | Close Combat, Drain Punch, Submission, Double-Edge |
 
-**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Fighting, Ground, Rock. **Careful with** Fire, Ice, Rock Pokemon: several of those attacks hit them hard.
+**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Fighting, Ground, Rock. **Careful with** Fire, Ice, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Tangrowth, Yanmega, Tentacruel, Gliscor, Nidoking, Heracross. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 46 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 4: Karen
 Dark specialist. 5 Pokemon, best level 47: your team fights at level 47 at most, and on hard you bring 5 at most. Prize money: $2,350 on easy, $4,700 on hard (half again for a rematch).
@@ -793,7 +793,7 @@ Dark specialist. 5 Pokemon, best level 47: your team fights at level 47 at most,
 | Murkrow | Dark/Flying | 44 | Dark Pulse, Feint Attack, Aerial Ace, Wing Attack |
 | Houndoom | Dark/Fire | 47 | Flamethrower, Flame Charge, Feint Attack, Bite |
 
-**Hit them with** Rock, Flying, Ground moves. **Their attacks are** Fire, Grass, Poison, Flying, Ghost, Dark, Fairy. **Careful with** Grass, Fighting, Psychic Pokemon: several of those attacks hit them hard.
+**Hit them with** Rock, Flying, Ground moves. **Their attacks are** Fire, Grass, Poison, Flying, Ghost, Dark, Fairy. **Careful with** Grass, Fighting, Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Mamoswine, Gyarados, Mantine, Ursaluna, Rhyperior, Nidoking. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 47 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Champion: Lance
 Dragon specialist. 6 Pokemon, best level 50: your team fights at level 50 at most, and on hard you bring 6 at most. Prize money: $5,000 on easy, $10,000 on hard (half again for a rematch).
@@ -807,7 +807,7 @@ Dragon specialist. 6 Pokemon, best level 50: your team fights at level 50 at mos
 | Charizard | Fire/Flying | 46 | Flamethrower, Heat Wave, Wing Attack, Crunch |
 | Dragonite | Dragon/Flying | 50 | Aqua Tail, Slam, Extremespeed, Fly |
 
-**Hit them with** Rock, Ice, Dragon moves. **Their attacks are** Normal, Fire, Water, Flying, Rock, Dragon, Dark, Steel. **Careful with** Ice, Bug, Fire Pokemon: several of those attacks hit them hard.
+**Hit them with** Rock, Ice, Dragon moves. **Their attacks are** Normal, Fire, Water, Flying, Rock, Dragon, Dark, Steel. **Careful with** Ice, Bug, Fire Pokemon: several of those attacks hit them hard. **Tested team:** Tauros, Magnezone, Kingdra, Miltank, Ursaluna, Gyarados. Chosen by simulated battles from the Pokemon you can catch in Johto by this point, raised to level 50 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **30%** on hard (bringing the first 6). On hard, a team from other regions, perfect IVs, full training or X items will be needed.
 
 ## After the champion
 

@@ -446,7 +446,7 @@ Grass specialist. 2 Pokemon, best level 20: your team fights at level 20 at most
 | Gossifleur | Grass | 19 | Razor Leaf, Leafage |
 | Eldegoss | Grass | 20 | Razor Leaf, Leafage, Cotton Spore |
 
-**Hit them with** Bug, Flying, Poison moves. **Their attacks are** Grass. **Catchable before this fight:** Shuckle (WATCHTOWER RUINS), Drifblim (N. LAKE MILOCH), Corviknight (N. LAKE MILOCH), Vileplume (DAPPLED GROVE).
+**Hit them with** Bug, Flying, Poison moves. **Their attacks are** Grass. **Tested team:** Gyarados, Lucario, Gardevoir, Shuckle, Bewear, Bronzong. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 20 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Grass Badge
 
@@ -495,7 +495,7 @@ Water specialist. 3 Pokemon, best level 24: your team fights at level 24 at most
 | Arrokuda | Water | 23 | Aqua Jet, Bite, Peck, Fury Attack |
 | Drednaw | Water/Rock | 24 | Razor Shell, Rock Tomb, Crunch, Water Gun |
 
-**Hit them with** Grass, Electric, Ground moves. **Their attacks are** Normal, Water, Flying, Rock, Dark. **Careful with** Fire, Bug Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Seismitoad (N. LAKE MILOCH), Mudsdale (E. LAKE AXEWELL), Claydol (DAPPLED GROVE), Vileplume (DAPPLED GROVE).
+**Hit them with** Grass, Electric, Ground moves. **Their attacks are** Normal, Water, Flying, Rock, Dark. **Careful with** Fire, Bug Pokemon: several of those attacks hit them hard. **Tested team:** Lucario, Gardevoir, Seismitoad, Corviknight, Pangoro, Vileplume. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 24 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Water Badge
 
@@ -546,7 +546,7 @@ Fire specialist. 3 Pokemon, best level 27: your team fights at level 27 at most,
 | Arcanine | Fire | 25 | Flare Blitz, Flamethrower, Double-Edge, Flame Wheel |
 | Centiskorch | Fire/Bug | 27 | Inferno, Flame Wheel, Bug Bite, Ember |
 
-**Hit them with** Rock, Water, Ground moves. **Their attacks are** Normal, Fire, Bug. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Seismitoad (N. LAKE MILOCH), Shuckle (GALAR MINE NO. 2), Mudsdale (E. LAKE AXEWELL), Claydol (DAPPLED GROVE).
+**Hit them with** Rock, Water, Ground moves. **Their attacks are** Normal, Fire, Bug. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Tested team:** Gyarados, Seismitoad, Barraskewda, Drednaw, Ludicolo, Octillery. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 27 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Fire Badge
 
@@ -870,7 +870,7 @@ Fighting specialist. 4 Pokemon, best level 36: your team fights at level 36 at m
 | Sirfetchd | Fighting | 35 | Rock Smash, Brutal Swing, Peck, Iron Defense |
 | Machamp | Fighting | 36 | Drain Punch, Double-Edge, Low Sweep, Strength |
 
-**Hit them with** Fairy, Flying, Psychic moves. **Their attacks are** Normal, Fighting, Ground, Flying, Dark. **Careful with** Rock, Steel Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Gyarados (GIANTS MIRROR), Noivern (BRIDGE FIELD), Gardevoir (ROLLING FIELDS), Gallade (BRIDGE FIELD).
+**Hit them with** Fairy, Flying, Psychic moves. **Their attacks are** Normal, Fighting, Ground, Flying, Dark. **Careful with** Rock, Steel Pokemon: several of those attacks hit them hard. **Tested team:** Togekiss, Noivern, Gallade, Gardevoir, Roserade, Orbeetle. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 36 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Fighting Badge
 
@@ -950,7 +950,7 @@ Fairy specialist. 4 Pokemon, best level 38: your team fights at level 38 at most
 | Togekiss | Fairy/Flying | 37 | Double-Edge, Fairy Wind, Aura Sphere, Extremespeed |
 | Alcremie | Fairy | 38 | Dazzle Gleam, Tackle, Acid Armor, Charm |
 
-**Hit them with** Steel, Poison, Ghost moves. **Their attacks are** Normal, Fire, Grass, Fighting, Poison, Psychic, Fairy. **Careful with** Grass, Ice, Fighting Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Lucario (N. LAKE MILOCH), Dusknoir (STONY WILDERNESS), Klinklang (HAMMERLOCKE HLS.), Roserade (HAMMERLOCKE HLS.). On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Steel, Poison, Ghost moves. **Their attacks are** Normal, Fire, Grass, Fighting, Poison, Psychic, Fairy. **Careful with** Grass, Ice, Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Gengar, Drifblim, Skuntank, Arcanine, Snorlax, Basculegion. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 38 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Fairy Badge
 
@@ -1063,7 +1063,7 @@ Rock specialist. 4 Pokemon, best level 42: your team fights at level 42 at most,
 | Stonjourner | Rock | 41 | Rock Slide, Rock Tomb, Rock Throw, Rock Polish |
 | Magcargo | Fire/Rock | 42 | Flamethrower, Lava Plume, Ancientpower, Rock Throw |
 
-**Hit them with** Ground, Fighting, Water moves. **Their attacks are** Normal, Fire, Water, Bug, Rock. **Careful with** Fire, Grass, Ice Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Gyarados (AXEWS EYE), Golisopod (GIANTS CAP), Lucario (N. LAKE MILOCH), Hippowdon (ROUTE 8).
+**Hit them with** Ground, Fighting, Water moves. **Their attacks are** Normal, Fire, Water, Bug, Rock. **Careful with** Fire, Grass, Ice Pokemon: several of those attacks hit them hard. **Tested team:** Gardevoir, Seismitoad, Excadrill, Machamp, Pangoro, Passimian. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 42 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Rock Badge
 
@@ -1209,7 +1209,7 @@ Dark specialist. 4 Pokemon, best level 46: your team fights at level 46 at most,
 | Skuntank | Poison/Dark | 45 | Poison Jab, Double-Edge, Flamethrower, Bite |
 | Obstagoon | Dark/Normal | 46 | Take Down, Snarl, Tackle, Fury Swipes |
 
-**Hit them with** Fairy, Bug, Fighting moves. **Their attacks are** Normal, Fire, Fighting, Poison, Flying, Psychic, Dark. **Careful with** Grass, Ice, Fighting Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Kommo O (DUSTY BOWL), Togekiss (DUSTY BOWL), Golisopod (GIANTS CAP), Lucario (N. LAKE MILOCH). On hard this leader trains to 70 of 100, a little softer than the rest.
+**Hit them with** Fairy, Bug, Fighting moves. **Their attacks are** Normal, Fire, Fighting, Poison, Flying, Psychic, Dark. **Careful with** Grass, Ice, Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Haxorus, Hippowdon, Flygon, Mudsdale, Passimian, Darmanitan. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 46 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Dark Badge
 
@@ -1223,7 +1223,7 @@ Dragon specialist. 4 Pokemon, best level 48: your team fights at level 48 at mos
 | Sandaconda | Ground | 46 | Dig, Slam, Bulldoze, Brutal Swing |
 | Duraludon | Steel/Dragon | 48 | Dragon Claw, Metal Claw, Rock Smash, Iron Defense |
 
-**Hit them with** Ground, Fighting, Ice moves. **Their attacks are** Normal, Fighting, Ground, Rock, Dragon, Dark, Steel. **Careful with** Ice, Rock, Fire Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Kommo O (DUSTY BOWL), Lapras (CIRCHESTER BAY), Vanilluxe (BRIDGE FIELD), Cloyster (GIANTS SEAT). On hard this leader trains to 40 of 100, a little softer than the rest.
+**Hit them with** Ground, Fighting, Ice moves. **Their attacks are** Normal, Fighting, Ground, Rock, Dragon, Dark, Steel. **Careful with** Ice, Rock, Fire Pokemon: several of those attacks hit them hard. **Tested team:** Togekiss, Haxorus, Snorlax, Lapras, Flygon, Gardevoir. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 48 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Dragon Badge
 
@@ -1325,7 +1325,7 @@ Dark specialist. 5 Pokemon, best level 49: your team fights at level 49 at most,
 | Morpeko | Electric/Dark | 48 | Bite, Spark, Thundershock, Bullet Seed |
 | Grimmsnarl | Dark/Fairy | 49 | Play Rough, Dark Pulse, Spirit Break, Bite |
 
-**Hit them with** Fairy, Ground, Fighting moves. **Their attacks are** Normal, Electric, Grass, Fighting, Poison, Ground, Dark, Fairy. **Careful with** Rock, Water, Dark Pokemon: several of those attacks hit them hard. On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Fairy, Ground, Fighting moves. **Their attacks are** Normal, Electric, Grass, Fighting, Poison, Ground, Dark, Fairy. **Careful with** Rock, Water, Dark Pokemon: several of those attacks hit them hard. **Tested team:** Hippowdon, Gardevoir, Durant, Mr. Mime, Golisopod, Ninetales. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 49 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 2: Nessa
 Water specialist. 4 Pokemon, best level 53: your team fights at level 53 at most, and on hard you bring 4 at most. Prize money: $2,650 on easy, $5,300 on hard (half again for a rematch).
@@ -1337,7 +1337,7 @@ Water specialist. 4 Pokemon, best level 53: your team fights at level 53 at most
 | Barraskewda | Water | 51 | Liquidation, Dive, Crunch, Aqua Jet |
 | Drednaw | Water/Rock | 53 | Liquidation, Razor Shell, Rock Tomb, Crunch |
 
-**Hit them with** Electric, Rock, Grass moves. **Their attacks are** Normal, Water, Flying, Bug, Rock, Dark. **Careful with** Fire, Grass, Psychic Pokemon: several of those attacks hit them hard.
+**Hit them with** Electric, Rock, Grass moves. **Their attacks are** Normal, Water, Flying, Bug, Rock, Dark. **Careful with** Fire, Grass, Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Kommo O, Goodra, Haxorus, Jolteon, Roserade, Ferrothorn. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 53 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 3: Bea
 Fighting specialist. 5 Pokemon, best level 53: your team fights at level 53 at most, and on hard you bring 5 at most. Prize money: $2,650 on easy, $5,300 on hard (half again for a rematch).
@@ -1350,7 +1350,7 @@ Fighting specialist. 5 Pokemon, best level 53: your team fights at level 53 at m
 | Falinks | Fighting | 52 | Close Combat, Rock Smash, Tackle, Iron Defense |
 | Machamp | Fighting | 53 | Superpower, Close Combat, Drain Punch, Submission |
 
-**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Fighting, Ground, Flying, Dark. **Careful with** Rock, Steel Pokemon: several of those attacks hit them hard.
+**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Fighting, Ground, Flying, Dark. **Careful with** Rock, Steel Pokemon: several of those attacks hit them hard. **Tested team:** Togekiss, Gyarados, Noivern, Golisopod, Centiskorch, Sylveon. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 53 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 4: Raihan
 Dragon specialist. 4 Pokemon, best level 55: your team fights at level 55 at most, and on hard you bring 4 at most. Prize money: $2,750 on easy, $5,500 on hard (half again for a rematch).
@@ -1362,7 +1362,7 @@ Dragon specialist. 4 Pokemon, best level 55: your team fights at level 55 at mos
 | Flygon | Ground/Dragon | 54 | Earthquake, Dragon Claw, Outrage, Earth Power |
 | Duraludon | Steel/Dragon | 55 | Flash Cannon, Dragon Claw, Metal Claw, Rock Smash |
 
-**Hit them with** Dragon, Ground, Fairy moves. **Their attacks are** Fire, Water, Grass, Fighting, Ground, Dragon, Steel. **Careful with** Rock, Ice, Steel Pokemon: several of those attacks hit them hard. On hard this leader trains to 60 of 100, a little softer than the rest.
+**Hit them with** Dragon, Ground, Fairy moves. **Their attacks are** Fire, Water, Grass, Fighting, Ground, Dragon, Steel. **Careful with** Rock, Ice, Steel Pokemon: several of those attacks hit them hard. **Tested team:** Kommo O, Flygon, Haxorus, Musharna, Togekiss, Mamoswine. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 55 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Champion: Leon
 Fire specialist. 6 Pokemon, best level 65: your team fights at level 65 at most, and on hard you bring 6 at most. Prize money: $6,500 on easy, $13,000 on hard (half again for a rematch).
@@ -1376,7 +1376,7 @@ Fire specialist. 6 Pokemon, best level 65: your team fights at level 65 at most,
 | Rhyperior | Ground/Rock | 64 | Rock Wrecker, Earthquake, Megahorn, Giga Impact |
 | Charizard | Fire/Flying | 65 | Flare Blitz, Inferno, Flamethrower, Heat Wave |
 
-**Hit them with** Dark, Ghost, Ice moves. **Their attacks are** Normal, Fire, Water, Fighting, Ground, Flying, Bug, Rock, Ghost, Dragon, Dark, Steel. **Careful with** Ice, Rock, Fire Pokemon: several of those attacks hit them hard. On hard this leader trains to 70 of 100, a little softer than the rest.
+**Hit them with** Dark, Ghost, Ice moves. **Their attacks are** Normal, Fire, Water, Fighting, Ground, Flying, Bug, Rock, Ghost, Dragon, Dark, Steel. **Careful with** Ice, Rock, Fire Pokemon: several of those attacks hit them hard. **Tested team:** Flygon, Gyarados, Barraskewda, Ferrothorn, Kommo O, Goodra. Chosen by simulated battles from the Pokemon you can catch in Galar by this point, raised to level 65 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **95%** on hard (bringing the first 6).
 
 ## After the champion
 

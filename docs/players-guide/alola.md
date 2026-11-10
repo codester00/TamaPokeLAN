@@ -117,7 +117,7 @@ Normal specialist. 2 Pokemon, best level 11: your team fights at level 11 at mos
 | Yungoos | Normal | 10 | Tackle, Leer |
 | Pikipek | Normal/Flying | 11 | Peck, Rock Smash, Growl |
 
-**Hit them with** Rock, Fighting, Ice moves. **Their attacks are** Normal, Fighting, Flying. **Catchable before this fight:** Makuhita (ROUTE 2).
+**Hit them with** Rock, Fighting, Ice moves. **Their attacks are** Normal, Fighting, Flying. **Tested team:** Misdreavus, Butterfree, Drifloon, Finneon, Grimer, Magnemite. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 11 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Normalium Z
 
@@ -298,7 +298,7 @@ Water specialist. 2 Pokemon, best level 20: your team fights at level 20 at most
 | Wishiwashi | Water | 18 | Water Gun, Feint Attack, Growl |
 | Araquanid | Water/Bug | 20 | Bubble Beam, Bug Bite, Water Gun, Bubble |
 
-**Hit them with** Electric, Rock, Flying moves. **Their attacks are** Water, Bug, Dark. **Careful with** Psychic Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Salamence (ROUTE 3), Gyarados (BROOKLET HILL), Carbink (TEN CARAT HILL), Oricorio (MELEMELE MEADOW).
+**Hit them with** Electric, Rock, Flying moves. **Their attacks are** Water, Bug, Dark. **Careful with** Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Salamence, Gyarados, Miltank, Tauros, Seaking, Fearow. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 20 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Waterium Z
 
@@ -376,7 +376,7 @@ Fire specialist. 2 Pokemon, best level 24: your team fights at level 24 at most,
 | Salandit | Poison/Fire | 22 | Ember, Smog, Scratch, Double Slap |
 | Turtonator | Fire/Dragon | 24 | Ember, Tackle, Smog, Iron Defense |
 
-**Hit them with** Rock, Ground, Dragon moves. **Their attacks are** Normal, Fire, Poison. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Salamence (ROUTE 3), Carbink (TEN CARAT HILL), Whiscash (PANIOLA RANCH), Shelgon (KALAE BAY).
+**Hit them with** Rock, Ground, Dragon moves. **Their attacks are** Normal, Fire, Poison. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Tested team:** Gyarados, Umbreon, Espeon, Starmie, Carbink, Slowbro. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 24 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Firium Z
 
@@ -435,7 +435,7 @@ Grass specialist. 3 Pokemon, best level 26: your team fights at level 26 at most
 | Steenee | Grass | 24 | Magical Leaf, Razor Leaf, Double Slap |
 | Lurantis | Grass | 26 | Solar Beam, Razor Leaf, Leafage, Growth |
 
-**Hit them with** Bug, Flying, Poison moves. **Their attacks are** Normal, Grass. **Catchable before this fight:** Salamence (ROUTE 3), Gyarados (ROUTE 8), Pinsir (LUSH JUNGLE), Oricorio (ROUTE 6).
+**Hit them with** Bug, Flying, Poison moves. **Their attacks are** Normal, Grass. **Tested team:** Salamence, Snorlax, Gyarados, Crobat, Espeon, Starmie. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 26 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Grassium Z
 
@@ -583,7 +583,7 @@ Electric specialist. 3 Pokemon, best level 33: your team fights at level 33 at m
 | Togedemaru | Electric/Steel | 31 | Discharge, Thundershock, Spark, Nuzzle |
 | Vikavolt | Bug/Electric | 33 | Bug Buzz, Thunderbolt, Discharge, X-Scissor |
 
-**Hit them with** Fire, Rock, Ground moves. **Their attacks are** Electric, Bug, Dark. **Careful with** Psychic Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Carbink (TEN CARAT HILL), Magmar (WELA VOLCANO), Oricorio (ROUTE 6), Whiscash (PANIOLA RANCH). On hard this leader trains to 60 of 100, a little softer than the rest.
+**Hit them with** Fire, Rock, Ground moves. **Their attacks are** Electric, Bug, Dark. **Careful with** Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Arcanine, Snorlax, Magnezone, Vikavolt, Magmar, Salazzle. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 33 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Electrium Z
 
@@ -769,7 +769,7 @@ Fairy specialist. 3 Pokemon, best level 40: your team fights at level 40 at most
 | Granbull | Fairy | 38 | Bite, Lick, Tackle, Charm |
 | Comfey | Fairy | 40 | Play Rough, Magical Leaf, Vine Whip, Synthesis |
 
-**Hit them with** Steel, Poison, Rock moves. **Their attacks are** Normal, Grass, Bug, Ghost, Dark, Fairy. **Careful with** Psychic, Ghost, Dark Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Carbink (TEN CARAT HILL), Gengar (THRIFTY MEGAMART), Garbodor (MALIE CITY), Klefki (THRIFTY MEGAMART).
+**Hit them with** Steel, Poison, Rock moves. **Their attacks are** Normal, Grass, Bug, Ghost, Dark, Fairy. **Careful with** Psychic, Ghost, Dark Pokemon: several of those attacks hit them hard. **Tested team:** Magmortar, Snorlax, Gyarados, Magnezone, Probopass, Tentacruel. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 40 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Fairium Z
 
@@ -830,7 +830,7 @@ Dark specialist. 3 Pokemon, best level 44: your team fights at level 44 at most,
 | Krokorok | Ground/Dark | 42 | Earthquake, Crunch, Dig, Bite |
 | Persian | Normal | 44 | Swift, Power Gem, Fury Swipes, Feint |
 
-**Hit them with** Fairy, Bug, Fighting moves. **Their attacks are** Normal, Ground, Rock, Ghost, Dark. **Careful with** Fire, Psychic, Ghost Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Poliwrath (MALIE GARDEN), Carbink (TEN CARAT HILL), Pinsir (LUSH JUNGLE), Pangoro (ROUTE 17).
+**Hit them with** Fairy, Bug, Fighting moves. **Their attacks are** Normal, Ground, Rock, Ghost, Dark. **Careful with** Fire, Psychic, Ghost Pokemon: several of those attacks hit them hard. **Tested team:** Milotic, Snorlax, Lapras, Vaporeon, Krookodile, Tentacruel. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 44 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Darkinium Z
 
@@ -887,7 +887,7 @@ Ground specialist. 4 Pokemon, best level 51: your team fights at level 51 at mos
 | Flygon | Ground/Dragon | 49 | Earthquake, Dragon Claw, Outrage, Earth Power |
 | Mudsdale | Ground | 51 | Earthquake, Mega Kick, Bulldoze, Strength |
 
-**Hit them with** Ice, Grass, Water moves. **Their attacks are** Normal, Water, Fighting, Ground, Ghost, Dragon. **Careful with** Rock, Fire, Steel Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Gyarados (VAST PONI CANYON), Lapras (PONI WILDS), Exeggutor (EXEGGUTOR ISLAND), Starmie (ROUTE 7). On hard this leader trains to 50 of 100, a little softer than the rest.
+**Hit them with** Ice, Grass, Water moves. **Their attacks are** Normal, Water, Fighting, Ground, Ghost, Dragon. **Careful with** Rock, Fire, Steel Pokemon: several of those attacks hit them hard. **Tested team:** Garchomp, Gyarados, Vanilluxe, Lapras, Mudsdale, Politoed. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 51 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Groundium Z
 
@@ -923,7 +923,7 @@ Fighting specialist. 4 Pokemon, best level 56: your team fights at level 56 at m
 | Primeape | Fighting | 54 | Close Combat, Outrage, Karate Chop, Seismic Toss |
 | Bewear | Normal/Fighting | 56 | Double-Edge, Hammer Arm, Strength, Take Down |
 
-**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Ice, Fighting, Dragon. **Careful with** Dragon Pokemon: several of those attacks hit them hard.
+**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Ice, Fighting, Dragon. **Careful with** Dragon Pokemon: several of those attacks hit them hard. **Tested team:** Metagross, Espeon, Starmie, Passimian, Whimsicott, Mimikyu. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 56 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 2: Olivia
 Rock specialist. 4 Pokemon, best level 56: your team fights at level 56 at most, and on hard you bring 4 at most. Prize money: $2,800 on easy, $5,600 on hard (half again for a rematch).
@@ -935,7 +935,7 @@ Rock specialist. 4 Pokemon, best level 56: your team fights at level 56 at most,
 | Gigalith | Rock | 54 | Power Gem, Rock Slide, Rock Blast, Tackle |
 | Lycanroc | Rock | 56 | Rock Slide, Rock Climb, Rock Tomb, Crunch |
 
-**Hit them with** Steel, Fighting, Water moves. **Their attacks are** Normal, Grass, Bug, Rock, Dark. **Careful with** Psychic Pokemon: several of those attacks hit them hard.
+**Hit them with** Steel, Fighting, Water moves. **Their attacks are** Normal, Grass, Bug, Rock, Dark. **Careful with** Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Kommo O, Garchomp, Annihilape, Probopass, Passimian, Hariyama. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 56 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 3: Acerola
 Ghost specialist. 4 Pokemon, best level 56: your team fights at level 56 at most, and on hard you bring 4 at most. Prize money: $2,800 on easy, $5,600 on hard (half again for a rematch).
@@ -947,7 +947,7 @@ Ghost specialist. 4 Pokemon, best level 56: your team fights at level 56 at most
 | Froslass | Ice/Ghost | 54 | Blizzard, Shadow Ball, Ominous Wind, Icy Wind |
 | Dhelmise | Ghost/Grass | 56 | Energy Ball, Shadow Ball, Giga Drain, Slam |
 
-**Hit them with** Dark, Ghost, Ice moves. **Their attacks are** Normal, Grass, Ice, Ground, Flying, Psychic, Ghost. **Careful with** Grass, Fighting, Poison Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Dark, Ghost, Ice moves. **Their attacks are** Normal, Grass, Ice, Ground, Flying, Psychic, Ghost. **Careful with** Grass, Fighting, Poison Pokemon: several of those attacks hit them hard. **Tested team:** Lapras, Weavile, Absol, Umbreon, Krookodile, Honchkrow. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 56 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 4: Kahili
 Flying specialist. 4 Pokemon, best level 56: your team fights at level 56 at most, and on hard you bring 4 at most. Prize money: $2,800 on easy, $5,600 on hard (half again for a rematch).
@@ -959,7 +959,7 @@ Flying specialist. 4 Pokemon, best level 56: your team fights at level 56 at mos
 | Toucannon | Normal/Flying | 54 | Hyper Voice, Drill Peck, Fury Attack, Peck |
 | Mandibuzz | Dark/Flying | 56 | Dark Pulse, Feint Attack, Gust, Bone Rush |
 
-**Hit them with** Ice, Electric, Rock moves. **Their attacks are** Normal, Fighting, Ground, Flying, Dark. **Careful with** Rock, Steel Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Ice, Electric, Rock moves. **Their attacks are** Normal, Fighting, Ground, Flying, Dark. **Careful with** Rock, Steel Pokemon: several of those attacks hit them hard. **Tested team:** Garchomp, Electivire, Carbink, Lanturn, Flygon, Raichu. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 56 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **97%** on hard (bringing the first 4).
 
 #### Champion: Kukui
 Normal specialist. 6 Pokemon, best level 58: your team fights at level 58 at most, and on hard you bring 6 at most. Prize money: $5,800 on easy, $11,600 on hard (half again for a rematch).
@@ -973,7 +973,7 @@ Normal specialist. 6 Pokemon, best level 58: your team fights at level 58 at mos
 | Snorlax | Normal | 56 | Hyper Beam, Giga Impact, Double-Edge, Body Slam |
 | Incineroar | Fire/Dark | 58 | Flare Blitz, Flamethrower, Bite, Ember |
 
-**Hit them with** Fighting, Ground, Water moves. **Their attacks are** Normal, Fire, Electric, Fighting, Flying, Rock, Dark, Steel. **Careful with** Ice, Bug, Grass Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Fighting, Ground, Water moves. **Their attacks are** Normal, Fire, Electric, Fighting, Flying, Rock, Dark, Steel. **Careful with** Ice, Bug, Grass Pokemon: several of those attacks hit them hard. **Tested team:** Garchomp, Kommo O, Gigalith, Annihilape, Flygon, Golem. Chosen by simulated battles from the Pokemon you can catch in Alola by this point, raised to level 58 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 6).
 
 ## After the champion
 

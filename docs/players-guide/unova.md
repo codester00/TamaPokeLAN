@@ -93,7 +93,7 @@ Normal specialist. 2 Pokemon, best level 13: your team fights at level 13 at mos
 | Patrat | Normal | 11 | Tackle, Bite, Leer |
 | Lillipup | Normal | 13 | Tackle, Bite, Work Up, Leer |
 
-**Hit them with** Fighting moves. **Their attacks are** Normal, Dark. **Catchable before this fight:** Riolu (FLOCCESY RANCH).
+**Hit them with** Fighting moves. **Their attacks are** Normal, Dark. **Tested team:** Basculin, Audino, Azumarill, Dunsparce, Riolu, Psyduck. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 13 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Basic Badge
 
@@ -129,7 +129,7 @@ Poison specialist. 2 Pokemon, best level 18: your team fights at level 18 at mos
 | Koffing | Poison | 16 | Smog, Tackle |
 | Whirlipede | Bug/Poison | 18 | Poison Sting, Screech, Defense Curl |
 
-**Hit them with** Psychic, Rock, Flying moves. **Their attacks are** Normal, Poison. **Catchable before this fight:** Pidove (VIRBANK COMPLEX).
+**Hit them with** Psychic, Rock, Flying moves. **Their attacks are** Normal, Poison. **Tested team:** Jellicent, Alomomola, Basculin, Herdier, Magby, Flaaffy. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 18 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Toxic Badge
 
@@ -177,7 +177,7 @@ Bug specialist. 3 Pokemon, best level 23: your team fights at level 23 at most, 
 | Dwebble | Bug/Rock | 21 | Bug Bite, Feint Attack, Rock Blast, Rock Polish |
 | Leavanny | Bug/Grass | 23 | Struggle Bug, Razor Leaf, Bug Bite, Tackle |
 
-**Hit them with** Rock, Bug, Flying moves. **Their attacks are** Normal, Grass, Bug, Rock, Dark. **Careful with** Psychic Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Onix (CASTELIA SEWERS), Woobat (CASTELIA SEWERS), Sewaddle (ROUTE 20), Roggenrola (CASTELIA SEWERS).
+**Hit them with** Rock, Bug, Flying moves. **Their attacks are** Normal, Grass, Bug, Rock, Dark. **Careful with** Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Muk, Dunsparce, Koffing, Grimer, Azumarill, Timburr. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 23 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Insect Badge
 
@@ -280,7 +280,7 @@ Electric specialist. 3 Pokemon, best level 27: your team fights at level 27 at m
 | Flaaffy | Electric | 25 | Take Down, Thundershock, Tackle, Growl |
 | Galvantula | Bug/Electric | 27 | Leech Life, Electroweb, Bug Bite, Absorb |
 
-**Hit them with** Rock, Ice, Fire moves. **Their attacks are** Normal, Electric, Grass, Bug. **Careful with** Water Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Onix (CASTELIA SEWERS), Magby (VIRBANK COMPLEX), Growlithe (VIRBANK COMPLEX), Dwebble (DESERT RESORT).
+**Hit them with** Rock, Ice, Fire moves. **Their attacks are** Normal, Electric, Grass, Bug. **Careful with** Water Pokemon: several of those attacks hit them hard. **Tested team:** Dunsparce, Growlithe, Muk, Trubbish, Darumaka, Heracross. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 27 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Bolt Badge
 
@@ -310,7 +310,7 @@ Ground specialist. 3 Pokemon, best level 31: your team fights at level 31 at mos
 | Sandslash | Ground | 29 | Dig, Bulldoze, Crush Claw, Scratch |
 | Excadrill | Ground/Steel | 31 | Dig, Metal Claw, Rock Slide, Crush Claw |
 
-**Hit them with** Water, Fighting, Ice moves. **Their attacks are** Normal, Ground, Rock, Dark, Steel. **Careful with** Fire, Ice, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Heracross (LOSTLORN FOREST), Floatzel (LOSTLORN FOREST), Jellicent (ROUTE 4), Alomomola (ROUTE 4).
+**Hit them with** Water, Fighting, Ice moves. **Their attacks are** Normal, Ground, Rock, Dark, Steel. **Careful with** Fire, Ice, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Basculegion, Vaporeon, Alomomola, Roserade, Heracross, Floatzel. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 31 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **97%** on hard (bringing the first 3).
 
 ## With the Quake Badge
 
@@ -378,7 +378,7 @@ Flying specialist. 3 Pokemon, best level 35: your team fights at level 35 at mos
 | Skarmory | Steel/Flying | 33 | Wing Attack, Metal Claw, Swift, Peck |
 | Swanna | Water/Flying | 35 | Bubble Beam, Aerial Ace, Water Pulse, Wing Attack |
 
-**Hit them with** Electric, Rock, Dark moves. **Their attacks are** Normal, Water, Flying, Psychic, Steel. **Careful with** Fighting, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Liepard (ROUTE 5), Emolga (ROUTE 6), Boldore (CHARGESTONE CAVE), Onix (RELIC PASSAGE). On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Electric, Rock, Dark moves. **Their attacks are** Normal, Water, Flying, Psychic, Steel. **Careful with** Fighting, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Basculegion, Probopass, Ampharos, Excadrill, Electabuzz. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 35 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Jet Badge
 
@@ -581,7 +581,7 @@ Dragon specialist. 3 Pokemon, best level 46: your team fights at level 46 at mos
 | Flygon | Ground/Dragon | 43 | Earthquake, Outrage, Earth Power, Dragonbreath |
 | Haxorus | Dragon | 46 | Outrage, Dragon Pulse, Dragon Claw, Crunch |
 
-**Hit them with** Fairy, Dragon, Ice moves. **Their attacks are** Ground, Dragon, Dark, Steel. **Careful with** Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Lapras (ROUTE 11), Walrein (UNDELLA BAY), Altaria (ROUTE 14), Whimsicott (ROUTE 14). On hard this leader trains to 20 of 100, a little softer than the rest.
+**Hit them with** Fairy, Dragon, Ice moves. **Their attacks are** Ground, Dragon, Dark, Steel. **Careful with** Rock Pokemon: several of those attacks hit them hard. **Tested team:** Lapras, Walrein, Flygon, Excadrill, Stoutland, Heracross. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 46 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Legend Badge
 
@@ -634,7 +634,7 @@ Water specialist. 3 Pokemon, best level 51: your team fights at level 51 at most
 | Wailord | Water | 49 | Dive, Water Pulse, Body Slam, Bounce |
 | Jellicent | Water/Ghost | 51 | Hydro Pump, Shadow Ball, Ominous Wind, Bubble Beam |
 
-**Hit them with** Grass, Dark, Ghost moves. **Their attacks are** Normal, Water, Fighting, Ground, Flying, Ghost. **Careful with** Rock, Fire, Steel Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Tangrowth (ROUTE 13), Roserade (ROUTE 12), Leavanny (ROUTE 12), Drifblim (ROUTE 14). On hard this leader trains to 70 of 100, a little softer than the rest.
+**Hit them with** Grass, Dark, Ghost moves. **Their attacks are** Normal, Water, Fighting, Ground, Flying, Ghost. **Careful with** Rock, Fire, Steel Pokemon: several of those attacks hit them hard. **Tested team:** Haxorus, Tangrowth, Basculegion, Roserade, Wailord, Simisage. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 51 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **97%** on hard (bringing the first 3).
 
 ## With the Wave Badge
 
@@ -776,7 +776,7 @@ Ghost specialist. 4 Pokemon, best level 58: your team fights at level 58 at most
 | Golurk | Ground/Ghost | 56 | Earthquake, Shadow Ball, Hammer Arm, Dynamicpunch |
 | Chandelure | Ghost/Fire | 58 | Overheat, Inferno, Shadow Ball, Ember |
 
-**Hit them with** Dark, Ghost, Water moves. **Their attacks are** Fire, Fighting, Ground, Flying, Psychic, Ghost, Dark. **Careful with** Steel, Grass, Ice Pokemon: several of those attacks hit them hard. On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Dark, Ghost, Water moves. **Their attacks are** Fire, Fighting, Ground, Flying, Psychic, Ghost, Dark. **Careful with** Steel, Grass, Ice Pokemon: several of those attacks hit them hard. **Tested team:** Haxorus, Lapras, Flygon, Krookodile, Mandibuzz, Walrein. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 58 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 2: Grimsley
 Dark specialist. 4 Pokemon, best level 58: your team fights at level 58 at most, and on hard you bring 4 at most. Prize money: $2,900 on easy, $5,800 on hard (half again for a rematch).
@@ -788,7 +788,7 @@ Dark specialist. 4 Pokemon, best level 58: your team fights at level 58 at most,
 | Krookodile | Ground/Dark | 56 | Earthquake, Crunch, Dig, Bite |
 | Bisharp | Dark/Steel | 58 | Iron Head, Feint Attack, Metal Claw, Scratch |
 
-**Hit them with** Fighting, Fairy, Bug moves. **Their attacks are** Normal, Fighting, Ground, Dark, Steel, Fairy. **Careful with** Rock, Ice, Dark Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Fighting, Fairy, Bug moves. **Their attacks are** Normal, Fighting, Ground, Dark, Steel, Fairy. **Careful with** Rock, Ice, Dark Pokemon: several of those attacks hit them hard. **Tested team:** Conkeldurr, Sawk, Braviary, Heracross, Pinsir, Galvantula. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 58 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 3: Caitlin
 Psychic specialist. 4 Pokemon, best level 58: your team fights at level 58 at most, and on hard you bring 4 at most. Prize money: $2,900 on easy, $5,800 on hard (half again for a rematch).
@@ -800,7 +800,7 @@ Psychic specialist. 4 Pokemon, best level 58: your team fights at level 58 at mo
 | Reuniclus | Psychic | 56 | Psychic, Psybeam, Dizzy Punch, Hammer Arm |
 | Gothitelle | Psychic | 58 | Psychic, Psybeam, Confusion, Feint Attack |
 
-**Hit them with** Dark, Ghost, Bug moves. **Their attacks are** Normal, Fighting, Flying, Psychic, Dark, Fairy. **Careful with** Fighting, Dark Pokemon: several of those attacks hit them hard.
+**Hit them with** Dark, Ghost, Bug moves. **Their attacks are** Normal, Fighting, Flying, Psychic, Dark, Fairy. **Careful with** Fighting, Dark Pokemon: several of those attacks hit them hard. **Tested team:** Metagross, Krookodile, Drapion, Drifblim, Escavalier, Ferrothorn. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 58 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 4: Marshal
 Fighting specialist. 4 Pokemon, best level 58: your team fights at level 58 at most, and on hard you bring 4 at most. Prize money: $2,900 on easy, $5,800 on hard (half again for a rematch).
@@ -812,7 +812,7 @@ Fighting specialist. 4 Pokemon, best level 58: your team fights at level 58 at m
 | Conkeldurr | Fighting | 56 | Superpower, Hammer Arm, Dynamicpunch, Slam |
 | Mienshao | Fighting | 58 | Hi Jump Kick, Aura Sphere, Drain Punch, Bounce |
 
-**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Fighting, Flying.
+**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Fighting, Flying. **Tested team:** Crobat, Gliscor, Claydol, Muk, Reuniclus, Gothitelle. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 58 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Champion: Iris
 Dragon specialist. 6 Pokemon, best level 59: your team fights at level 59 at most, and on hard you bring 6 at most. Prize money: $5,900 on easy, $11,800 on hard (half again for a rematch).
@@ -826,7 +826,7 @@ Dragon specialist. 6 Pokemon, best level 59: your team fights at level 59 at mos
 | Lapras | Water/Ice | 57 | Hydro Pump, Surf, Ice Beam, Dragon Pulse |
 | Haxorus | Dragon | 59 | Outrage, Dragon Pulse, Dragon Claw, Crunch |
 
-**Hit them with** Fighting, Fairy, Dragon moves. **Their attacks are** Normal, Water, Ice, Fighting, Rock, Dragon, Dark, Steel. **Careful with** Ice, Rock, Fire Pokemon: several of those attacks hit them hard. On hard this leader trains to 60 of 100, a little softer than the rest.
+**Hit them with** Fighting, Fairy, Dragon moves. **Their attacks are** Normal, Water, Ice, Fighting, Rock, Dragon, Dark, Steel. **Careful with** Ice, Rock, Fire Pokemon: several of those attacks hit them hard. **Tested team:** Azumarill, Mienshao, Whimsicott, Magnezone, Lapras, Conkeldurr. Chosen by simulated battles from the Pokemon you can catch in Unova by this point, raised to level 59 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 6).
 
 ## After the champion
 

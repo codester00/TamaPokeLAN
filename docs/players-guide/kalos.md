@@ -106,7 +106,7 @@ Bug specialist. 2 Pokemon, best level 12: your team fights at level 12 at most, 
 | Surskit | Bug/Water | 10 | Water Gun, Bubble, Quick Attack |
 | Vivillon | Bug/Flying | 12 | Struggle Bug, Gust |
 
-**Hit them with** Rock, Flying, Electric moves. **Their attacks are** Normal, Water, Flying, Bug. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Masquerain (ROUTE 3), Farfetchd (ROUTE 22), Pikachu (ROUTE 3), Fletchling (ROUTE 3).
+**Hit them with** Rock, Flying, Electric moves. **Their attacks are** Normal, Water, Flying, Bug. **Careful with** Grass Pokemon: several of those attacks hit them hard. **Tested team:** Farfetchd, Litleo, Azumarill, Masquerain, Vivillon, Bibarel. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 12 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Bug Badge
 
@@ -240,7 +240,7 @@ Rock specialist. 2 Pokemon, best level 25: your team fights at level 25 at most,
 | Amaura | Rock/Ice | 25 | Aurora Beam, Ancientpower, Icy Wind, Rock Throw |
 | Tyrunt | Rock/Dragon | 25 | Ancientpower, Bite, Tackle, Charm |
 
-**Hit them with** Steel, Ground, Fighting moves. **Their attacks are** Normal, Ice, Rock, Dark. **Careful with** Flying Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Diggersby (ROUTE 22), Onix (GLITTERING CAVE), Mawile (GLITTERING CAVE), Mienfoo (ROUTE 8).
+**Hit them with** Steel, Ground, Fighting moves. **Their attacks are** Normal, Ice, Rock, Dark. **Careful with** Flying Pokemon: several of those attacks hit them hard. **Tested team:** Lucario, Lunatone, Zangoose, Diggersby, Azumarill, Bibarel. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 25 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 2).
 
 ## With the Cliff Badge
 
@@ -309,7 +309,7 @@ Fighting specialist. 3 Pokemon, best level 32: your team fights at level 32 at m
 | Machoke | Fighting | 28 | Low Sweep, Karate Chop, Mach Punch, Rock Smash |
 | Hawlucha | Fighting/Flying | 32 | Bounce, Submission, Aerial Ace, Wing Attack |
 
-**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Fighting, Flying. **Catchable before this fight:** Hawlucha (ROUTE 10), Carbink (REFLECTION CAVE), Sigilyph (ROUTE 10), Lunatone (GLITTERING CAVE).
+**Hit them with** Fairy, Psychic, Flying moves. **Their attacks are** Normal, Fighting, Flying. **Tested team:** Florges, Crobat, Vaporeon, Gardevoir, Drifblim, Sigilyph. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 32 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Rumble Badge
 
@@ -348,7 +348,7 @@ Grass specialist. 3 Pokemon, best level 34: your team fights at level 34 at most
 | Weepinbell | Grass/Poison | 31 | Acid, Vine Whip, Growth |
 | Gogoat | Grass | 34 | Seed Bomb, Razor Leaf, Vine Whip, Take Down |
 
-**Hit them with** Flying, Ice, Fire moves. **Their attacks are** Normal, Grass, Poison, Fairy. **Catchable before this fight:** Lapras (ROUTE 12), Hawlucha (ROUTE 10), Sigilyph (ROUTE 10), Masquerain (ROUTE 3).
+**Hit them with** Flying, Ice, Fire moves. **Their attacks are** Normal, Grass, Poison, Fairy. **Tested team:** Crobat, Lucario, Yanmega, Roserade, Tentacruel, Nidoking. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 34 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Plant Badge
 
@@ -398,7 +398,7 @@ Electric specialist. 3 Pokemon, best level 37: your team fights at level 37 at m
 | Magneton | Electric/Steel | 35 | Thunderbolt, Flash Cannon, Magnet Bomb, Spark |
 | Heliolisk | Electric/Normal | 37 | Thunder, Thunderbolt, Discharge, Pound |
 
-**Hit them with** Ground, Fighting, Fire moves. **Their attacks are** Normal, Electric, Steel. **Catchable before this fight:** Hawlucha (ROUTE 10), Heracross (ROUTE 12), Hariyama (ROUTE 11), Sawk (ROUTE 11). On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Ground, Fighting, Fire moves. **Their attacks are** Normal, Electric, Steel. **Tested team:** Probopass, Hippowdon, Lucario, Dugtrio, Diggersby, Gabite. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 37 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Voltage Badge
 
@@ -433,7 +433,7 @@ Fairy specialist. 3 Pokemon, best level 42: your team fights at level 42 at most
 | Mr. Mime | Psychic/Fairy | 39 | Psybeam, Confusion, Psywave, Magical Leaf |
 | Sylveon | Fairy | 42 | Moonblast, Play Rough, Fairy Wind, Take Down |
 
-**Hit them with** Steel, Ghost, Ground moves. **Their attacks are** Normal, Grass, Psychic, Dark, Steel, Fairy. **Careful with** Fighting, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Stunfisk (ROUTE 14), Quagsire (ROUTE 14), Dugtrio (ROUTE 13), Diggersby (ROUTE 22). On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Steel, Ghost, Ground moves. **Their attacks are** Normal, Grass, Psychic, Dark, Steel, Fairy. **Careful with** Fighting, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Probopass, Tentacruel, Steelix, Talonflame, Escavalier, Skuntank. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 42 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Fairy Badge
 
@@ -522,7 +522,7 @@ Psychic specialist. 3 Pokemon, best level 48: your team fights at level 48 at mo
 | Slowking | Water/Psychic | 45 | Surf, Water Pulse, Confusion, Water Gun |
 | Meowstic | Psychic | 48 | Psychic, Psybeam, Confusion, Scratch |
 
-**Hit them with** Dark, Ghost, Bug moves. **Their attacks are** Normal, Water, Flying, Psychic. **Careful with** Fighting Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Pinsir (ROUTE 12), Heracross (ROUTE 12), Crawdaunt (ROUTE 6), Absol (ROUTE 8).
+**Hit them with** Dark, Ghost, Bug moves. **Their attacks are** Normal, Water, Flying, Psychic. **Careful with** Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Garchomp, Magnezone, Basculegion, Chandelure, Krookodile, Gardevoir. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 48 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Psychic Badge
 
@@ -615,7 +615,7 @@ Ice specialist. 3 Pokemon, best level 59: your team fights at level 59 at most, 
 | Cryogonal | Ice | 55 | Solar Beam, Ice Beam, Aurora Beam, Icy Wind |
 | Avalugg | Ice | 59 | Blizzard, Double-Edge, Crunch, Icy Wind |
 
-**Hit them with** Steel, Rock, Fighting moves. **Their attacks are** Normal, Grass, Ice, Dark. **Careful with** Ground Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Shuckle (TERMINUS CAVE), Hawlucha (ROUTE 10), Carbink (REFLECTION CAVE), Heracross (ROUTE 12).
+**Hit them with** Steel, Rock, Fighting moves. **Their attacks are** Normal, Grass, Ice, Dark. **Careful with** Ground Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Lucario, Chandelure, Pyroar, Houndoom, Heracross. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 59 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Iceberg Badge
 
@@ -670,7 +670,7 @@ Fire specialist. 4 Pokemon, best level 65: your team fights at level 65 at most,
 | Chandelure | Ghost/Fire | 63 | Overheat, Inferno, Shadow Ball, Ember |
 | Talonflame | Fire/Flying | 65 | Brave Bird, Flare Blitz, Aerial Ace, Flame Charge |
 
-**Hit them with** Rock, Water, Ground moves. **Their attacks are** Normal, Fire, Flying, Ghost. **Careful with** Grass, Bug Pokemon: several of those attacks hit them hard.
+**Hit them with** Rock, Water, Ground moves. **Their attacks are** Normal, Fire, Flying, Ghost. **Careful with** Grass, Bug Pokemon: several of those attacks hit them hard. **Tested team:** Tyranitar, Kingdra, Rhyperior, Lapras, Vaporeon, Starmie. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 65 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 2: Siebold
 Water specialist. 4 Pokemon, best level 65: your team fights at level 65 at most, and on hard you bring 4 at most. Prize money: $3,250 on easy, $6,500 on hard (half again for a rematch).
@@ -682,7 +682,7 @@ Water specialist. 4 Pokemon, best level 65: your team fights at level 65 at most
 | Starmie | Water/Psychic | 63 | Hydro Pump, Psychic, Surf, Bubble Beam |
 | Barbaracle | Rock/Water | 65 | Razor Shell, Ancientpower, Water Gun, Scratch |
 
-**Hit them with** Electric, Grass, Dark moves. **Their attacks are** Normal, Water, Flying, Psychic, Rock, Dragon, Dark. **Careful with** Fire, Fighting, Bug Pokemon: several of those attacks hit them hard. On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Electric, Grass, Dark moves. **Their attacks are** Normal, Water, Flying, Psychic, Rock, Dragon, Dark. **Careful with** Fire, Fighting, Bug Pokemon: several of those attacks hit them hard. **Tested team:** Magnezone, Ampharos, Electrode, Lanturn, Dedenne, Garchomp. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 65 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 3: Wikstrom
 Steel specialist. 4 Pokemon, best level 65: your team fights at level 65 at most, and on hard you bring 4 at most. Prize money: $3,250 on easy, $6,500 on hard (half again for a rematch).
@@ -694,7 +694,7 @@ Steel specialist. 4 Pokemon, best level 65: your team fights at level 65 at most
 | Scizor | Bug/Steel | 63 | Close Combat, Iron Head, X-Scissor, Metal Claw |
 | Aegislash | Steel/Ghost | 65 | Head Smash, Iron Head, Shadow Sneak, Aerial Ace |
 
-**Hit them with** Ground, Fire, Ghost moves. **Their attacks are** Normal, Electric, Fighting, Flying, Bug, Rock, Ghost, Steel, Fairy. **Careful with** Ice, Dark, Grass Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Ground, Fire, Ghost moves. **Their attacks are** Normal, Electric, Fighting, Flying, Bug, Rock, Ghost, Steel, Fairy. **Careful with** Ice, Dark, Grass Pokemon: several of those attacks hit them hard. **Tested team:** Garchomp, Ursaluna, Flygon, Gliscor, Nidoking, Toxicroak. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 65 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Elite Four, seat 4: Drasna
 Dragon specialist. 4 Pokemon, best level 65: your team fights at level 65 at most, and on hard you bring 4 at most. Prize money: $3,250 on easy, $6,500 on hard (half again for a rematch).
@@ -706,7 +706,7 @@ Dragon specialist. 4 Pokemon, best level 65: your team fights at level 65 at mos
 | Altaria | Dragon/Flying | 63 | Dragon Pulse, Hurricane, Moonblast, Dragonbreath |
 | Noivern | Flying/Dragon | 65 | Hurricane, Boomburst, Wing Attack, Gust |
 
-**Hit them with** Dragon, Ice, Fairy moves. **Their attacks are** Normal, Water, Fighting, Poison, Flying, Dragon, Fairy. **Careful with** Grass, Fighting, Rock Pokemon: several of those attacks hit them hard. On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Dragon, Ice, Fairy moves. **Their attacks are** Normal, Water, Fighting, Poison, Flying, Dragon, Fairy. **Careful with** Grass, Fighting, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Goodra, Garchomp, Salamence, Dragonite, Haxorus, Gyarados. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 65 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 #### Champion: Diantha
 Fairy specialist. 6 Pokemon, best level 68: your team fights at level 68 at most, and on hard you bring 6 at most. Prize money: $6,800 on easy, $13,600 on hard (half again for a rematch).
@@ -720,6 +720,6 @@ Fairy specialist. 6 Pokemon, best level 68: your team fights at level 68 at most
 | Goodra | Dragon | 66 | Outrage, Power Whip, Dragon Pulse, Aqua Tail |
 | Gardevoir | Psychic/Fairy | 68 | Moonblast, Psychic, Psybeam, Dazzle Gleam |
 
-**Hit them with** Fairy, Steel, Ice moves. **Their attacks are** Normal, Water, Grass, Ice, Fighting, Ground, Flying, Psychic, Rock, Ghost, Dragon, Fairy. **Careful with** Rock, Fire, Fighting Pokemon: several of those attacks hit them hard. On hard this leader trains to 50 of 100, a little softer than the rest.
+**Hit them with** Fairy, Steel, Ice moves. **Their attacks are** Normal, Water, Grass, Ice, Fighting, Ground, Flying, Psychic, Rock, Ghost, Dragon, Fairy. **Careful with** Rock, Fire, Fighting Pokemon: several of those attacks hit them hard. **Tested team:** Durant, Klefki, Gardevoir, Escavalier, Florges, Mamoswine. Chosen by simulated battles from the Pokemon you can catch in Kalos by this point, raised to level 68 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 6).
 
 ## After the champion

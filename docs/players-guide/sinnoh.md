@@ -146,7 +146,7 @@ Rock specialist. 3 Pokemon, best level 14: your team fights at level 14 at most,
 | Onix | Rock/Ground | 12 | Bulldoze, Rock Tomb, Rock Throw, Tackle |
 | Cranidos | Rock | 14 | Ancientpower, Bite, Rock Smash, Tackle |
 
-**Hit them with** Steel, Ground, Fighting moves. **Their attacks are** Normal, Fighting, Ground, Rock, Dark. **Careful with** Fire, Ice, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Onix (OREBURGH MINE), Machop (ROUTE 207), Geodude (ROUTE 207).
+**Hit them with** Steel, Ground, Fighting moves. **Their attacks are** Normal, Fighting, Ground, Rock, Dark. **Careful with** Fire, Ice, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Golduck, Psyduck, Machop, Budew, Onix, Geodude. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 14 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Coal Badge
 
@@ -253,7 +253,7 @@ Grass specialist. 3 Pokemon, best level 22: your team fights at level 22 at most
 | Cherrim | Grass | 20 | Magical Leaf, Leafage, Absorb, Tackle |
 | Roserade | Grass/Poison | 22 | Giga Drain, Magical Leaf, Mega Drain, Absorb |
 
-**Hit them with** Flying, Ice, Fire moves. **Their attacks are** Normal, Grass, Ground, Dark. **Careful with** Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Golbat (RAVAGED PATH), Ponyta (ROUTE 207), Beautifly (ETERNA FOREST), Hoothoot (ETERNA FOREST).
+**Hit them with** Flying, Ice, Fire moves. **Their attacks are** Normal, Grass, Ground, Dark. **Careful with** Rock Pokemon: several of those attacks hit them hard. **Tested team:** Golbat, Noctowl, Ponyta, Beautifly, Dustox, Kricketune. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 22 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Forest Badge
 
@@ -349,7 +349,7 @@ Ghost specialist. 3 Pokemon, best level 26: your team fights at level 26 at most
 | Haunter | Ghost/Poison | 24 | Lick, Smog, Night Shade |
 | Mismagius | Ghost | 26 | Shadow Sneak, Psybeam, Magical Leaf, Confusion |
 
-**Hit them with** Dark, Ghost, Psychic moves. **Their attacks are** Grass, Poison, Psychic, Bug, Ghost. **Careful with** Grass, Psychic Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Abra (ROUTE 203), Gastly (OLD CHATEAU), Bronzor (WAYWARD CAVE), Chingling (MT. CORONET).
+**Hit them with** Dark, Ghost, Psychic moves. **Their attacks are** Grass, Poison, Psychic, Bug, Ghost. **Careful with** Grass, Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Crobat, Gabite, Floatzel, Gastrodon, Chimecho, Ponyta. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 26 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Relic Badge
 
@@ -463,7 +463,7 @@ Fighting specialist. 3 Pokemon, best level 32: your team fights at level 32 at m
 | Machoke | Fighting | 29 | Low Sweep, Karate Chop, Mach Punch, Rock Smash |
 | Lucario | Fighting/Steel | 32 | Aura Sphere, Force Palm, Crunch, Mach Punch |
 
-**Hit them with** Fairy, Flying, Ghost moves. **Their attacks are** Normal, Fighting, Psychic, Dark. **Catchable before this fight:** Scyther (ROUTE 215), Golbat (LOST TOWER), Noctowl (ROUTE 210 SOUTH), Gligar (ROUTE 206).
+**Hit them with** Fairy, Flying, Ghost moves. **Their attacks are** Normal, Fighting, Psychic, Dark. **Tested team:** Gardevoir, Clefable, Gastrodon, Tentacruel, Scyther, Raichu. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 32 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Cobble Badge
 
@@ -547,7 +547,7 @@ Water specialist. 3 Pokemon, best level 37: your team fights at level 37 at most
 | Quagsire | Water/Ground | 34 | Aqua Tail, Mud Shot, Slam, Water Gun |
 | Floatzel | Water | 37 | Aqua Tail, Water Pulse, Crunch, Aqua Jet |
 
-**Hit them with** Grass, Electric moves. **Their attacks are** Normal, Water, Ground, Dark. **Careful with** Fire, Rock Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Pachirisu (ROUTE 205), Roselia (TROPHY GARDEN), Pikachu (TROPHY GARDEN), Budew (ROUTE 208). On hard this leader trains to 70 of 100, a little softer than the rest.
+**Hit them with** Grass, Electric moves. **Their attacks are** Normal, Water, Ground, Dark. **Careful with** Fire, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Tangrowth, Azumarill, Gardevoir, Roserade, Gastrodon, Tentacruel. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 37 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **97%** on hard (bringing the first 3).
 
 ## With the Fen Badge
 
@@ -666,7 +666,7 @@ Steel specialist. 3 Pokemon, best level 41: your team fights at level 41 at most
 | Steelix | Steel/Ground | 38 | Iron Tail, Bulldoze, Rock Slide, Dragonbreath |
 | Bastiodon | Rock/Steel | 41 | Iron Head, Rock Slide, Earth Power, Ancientpower |
 
-**Hit them with** Ground, Fighting, Water moves. **Their attacks are** Electric, Ground, Rock, Dragon, Steel. **Careful with** Fire, Ice, Flying Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Tentacruel (ROUTES 219-221), Golduck (ROUTES 219-221), Floatzel (ROUTES 219-221), Gastrodon (FUEGO IRONWORKS). On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Ground, Fighting, Water moves. **Their attacks are** Electric, Ground, Rock, Dragon, Steel. **Careful with** Fire, Ice, Flying Pokemon: several of those attacks hit them hard. **Tested team:** Hippowdon, Gardevoir, Golem, Gastrodon, Quagsire, Gabite. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 41 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 3).
 
 ## With the Mine Badge
 
@@ -731,7 +731,7 @@ Ice specialist. 4 Pokemon, best level 44: your team fights at level 44 at most, 
 | Abomasnow | Grass/Ice | 42 | Blizzard, Wood Hammer, Energy Ball, Ice Punch |
 | Froslass | Ice/Ghost | 44 | Blizzard, Shadow Ball, Ominous Wind, Icy Wind |
 
-**Hit them with** Steel, Fire, Rock moves. **Their attacks are** Normal, Grass, Ice, Poison, Ground, Ghost, Dark. **Careful with** Grass, Ground, Psychic Pokemon: several of those attacks hit them hard. **Catchable before this fight:** Steelix (IRON ISLAND), Magmar (FUEGO IRONWORKS), Ponyta (ROUTE 210 SOUTH), Sudowoodo (ROUTES 219-221). On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Steel, Fire, Rock moves. **Their attacks are** Normal, Grass, Ice, Poison, Ground, Ghost, Dark. **Careful with** Grass, Ground, Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Magmortar, Tentacruel, Scizor, Clefable, Rapidash, Magnezone. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 44 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **97%** on hard (bringing the first 4).
 
 ## With the Icicle Badge
 
@@ -847,7 +847,7 @@ Electric specialist. 4 Pokemon, best level 50: your team fights at level 50 at m
 | Luxray | Electric | 48 | Thunder, Wild Charge, Crunch, Spark |
 | Electivire | Electric | 50 | Thunder, Thunderbolt, Discharge, Thunderpunch |
 
-**Hit them with** Ground moves. **Their attacks are** Normal, Electric, Dark, Steel. **Catchable before this fight:** Steelix (IRON ISLAND), Gastrodon (FUEGO IRONWORKS), Gligar (ROUTE 206), Quagsire (ROUTE 212). On hard this leader trains to 70 of 100, a little softer than the rest.
+**Hit them with** Ground moves. **Their attacks are** Normal, Electric, Dark, Steel. **Tested team:** Garchomp, Tangrowth, Rhyperior, Mamoswine, Hippowdon, Gliscor. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 50 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 4).
 
 ## With the Beacon Badge
 
@@ -900,7 +900,7 @@ Bug specialist. 5 Pokemon, best level 53: your team fights at level 53 at most, 
 | Heracross | Bug/Fighting | 51 | Close Combat, Double-Edge, Take Down, Rock Smash |
 | Drapion | Poison/Dark | 53 | Crunch, X-Scissor, Bite, Poison Sting |
 
-**Hit them with** Fire, Flying, Rock moves. **Their attacks are** Normal, Fighting, Poison, Flying, Bug, Rock, Dark, Steel. **Careful with** Grass, Ice, Psychic Pokemon: several of those attacks hit them hard.
+**Hit them with** Fire, Flying, Rock moves. **Their attacks are** Normal, Fighting, Poison, Flying, Bug, Rock, Dark, Steel. **Careful with** Grass, Ice, Psychic Pokemon: several of those attacks hit them hard. **Tested team:** Garchomp, Mamoswine, Mantine, Clefable, Magmortar, Toxicroak. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 53 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **95%** on hard (bringing the first 5).
 
 #### Elite Four, seat 2: Bertha
 Ground specialist. 5 Pokemon, best level 55: your team fights at level 55 at most, and on hard you bring 5 at most. Prize money: $2,750 on easy, $5,500 on hard (half again for a rematch).
@@ -913,7 +913,7 @@ Ground specialist. 5 Pokemon, best level 55: your team fights at level 55 at mos
 | Golem | Rock/Ground | 52 | Earthquake, Rock Slide, Bulldoze, Rock Blast |
 | Rhyperior | Ground/Rock | 55 | Earthquake, Megahorn, Giga Impact, Double-Edge |
 
-**Hit them with** Ice, Grass, Water moves. **Their attacks are** Normal, Water, Fighting, Ground, Bug, Rock, Dark. **Careful with** Fire, Rock, Ice Pokemon: several of those attacks hit them hard.
+**Hit them with** Ice, Grass, Water moves. **Their attacks are** Normal, Water, Fighting, Ground, Bug, Rock, Dark. **Careful with** Fire, Rock, Ice Pokemon: several of those attacks hit them hard. **Tested team:** Floatzel, Mantine, Glalie, Pelipper, Garchomp, Golduck. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 55 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 3: Flint
 Fire specialist. 5 Pokemon, best level 57: your team fights at level 57 at most, and on hard you bring 5 at most. Prize money: $2,850 on easy, $5,700 on hard (half again for a rematch).
@@ -926,7 +926,7 @@ Fire specialist. 5 Pokemon, best level 57: your team fights at level 57 at most,
 | Infernape | Fire/Fighting | 55 | Close Combat, Flare Blitz, Flamethrower, Double-Edge |
 | Magmortar | Fire | 57 | Fire Blast, Flamethrower, Lava Plume, Fire Punch |
 
-**Hit them with** Ground, Water, Rock moves. **Their attacks are** Normal, Fire, Fighting, Flying, Dark. **Careful with** Grass, Ice, Bug Pokemon: several of those attacks hit them hard. On hard this leader trains to 80 of 100, a little softer than the rest.
+**Hit them with** Ground, Water, Rock moves. **Their attacks are** Normal, Fire, Fighting, Flying, Dark. **Careful with** Grass, Ice, Bug Pokemon: several of those attacks hit them hard. **Tested team:** Garchomp, Golduck, Floatzel, Golem, Mantine, Gastrodon. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 57 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 5).
 
 #### Elite Four, seat 4: Lucian
 Psychic specialist. 5 Pokemon, best level 59: your team fights at level 59 at most, and on hard you bring 5 at most. Prize money: $2,950 on easy, $5,900 on hard (half again for a rematch).
@@ -939,7 +939,7 @@ Psychic specialist. 5 Pokemon, best level 59: your team fights at level 59 at mo
 | Alakazam | Psychic | 56 | Psychic, Psybeam, Confusion, Calm Mind |
 | Gallade | Psychic/Fighting | 59 | Close Combat, Psychic, Psybeam, Confusion |
 
-**Hit them with** Ghost, Dark, Bug moves. **Their attacks are** Normal, Fighting, Psychic, Dark, Steel, Fairy. **Careful with** Ice, Fighting, Rock Pokemon: several of those attacks hit them hard. On hard this leader trains to 90 of 100, a little softer than the rest.
+**Hit them with** Ghost, Dark, Bug moves. **Their attacks are** Normal, Fighting, Psychic, Dark, Steel, Fairy. **Careful with** Ice, Fighting, Rock Pokemon: several of those attacks hit them hard. **Tested team:** Hippowdon, Garchomp, Rhyperior, Magnezone, Farigiraf, Gardevoir. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 59 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **7%** on hard (bringing the first 5). On hard, a team from other regions, perfect IVs, full training or X items will be needed.
 
 #### Champion: Cynthia
 Dragon specialist. 6 Pokemon, best level 62: your team fights at level 62 at most, and on hard you bring 6 at most. Prize money: $6,200 on easy, $12,400 on hard (half again for a rematch).
@@ -953,7 +953,7 @@ Dragon specialist. 6 Pokemon, best level 62: your team fights at level 62 at mos
 | Milotic | Water | 58 | Hydro Pump, Surf, Aqua Tail, Water Pulse |
 | Garchomp | Dragon/Ground | 62 | Outrage, Dig, Earth Power, Dragon Claw |
 
-**Hit them with** Fairy, Flying, Ice moves. **Their attacks are** Normal, Water, Grass, Fighting, Poison, Ground, Ghost, Dragon, Dark, Steel, Fairy. **Careful with** Rock, Fire, Ice Pokemon: several of those attacks hit them hard. On hard this leader trains to 40 of 100, a little softer than the rest.
+**Hit them with** Fairy, Flying, Ice moves. **Their attacks are** Normal, Water, Grass, Fighting, Poison, Ground, Ghost, Dragon, Dark, Steel, Fairy. **Careful with** Rock, Fire, Ice Pokemon: several of those attacks hit them hard. **Tested team:** Garchomp, Mamoswine, Tentacruel, Scizor, Gengar, Staraptor. Chosen by simulated battles from the Pokemon you can catch in Sinnoh by this point, raised to level 62 and evolved by level where they can; with IVs around 20 and training 75 it won **100%** of battles on easy and **100%** on hard (bringing the first 6).
 
 ## After the champion
 
