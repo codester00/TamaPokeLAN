@@ -101,16 +101,17 @@
 // this, a failing NVS write retried on every single loop iteration while the
 // screen was dimmed or the pet was asleep.
 #define SAVE_RETRY_COOLDOWN_MS 5000UL
-// Night, by the RTC: midnight to 06:00. Auto-sleep needs BOTH: the screen off
-// AND this window.
-// The screen alone would pause the game every time you put the device in a
-// pocket -- the creature is supposed to get hungry during the day. The hour
-// alone would send it to bed while you were playing. Set the clock in SETTINGS
-// or over the console with RTCSET; an unset board reads months out and simply
-// never auto-sleeps, which fails in the safe direction (it still drains, and
-// the light button still works by hand).
-#define NIGHT_START 0
-#define NIGHT_END 6
+// Night (v4.13, the owner's rule): NAP_END to NAP_START, 18:00 to 06:00 by the
+// RTC. A creature still awake then stays up until it is drained: once its
+// energy has sat at its floor (GRACE_FLOOR inside the 8-hour window, 0 after)
+// for PASSOUT_MIN of night, it PASSES OUT where it stands -- a care slip-up --
+// and sleeps a poor night: no sleep floors under its needs, and it is up at
+// NAP_START with no sleeping in (SLEEP_PASSED). The count starts at NAP_END, so
+// the earliest it can pass out is 20:00. Up past 06:00 it stays up, tired.
+// The v3.x screen-off auto-sleep (midnight to 06:00) is retired: a board left
+// off is the normal case now, and the catch-up plays it by these same rules.
+// An unset board has no night, so it never passes out.
+#define PASSOUT_MIN 120
 // A NAP (v3.34, the owner's rule): put to bed by hand between NAP_START and
 // NAP_END, the creature wakes by itself once fully rested, so a child can
 // send a tired creature to bed and go to school. If it was fed, bathed and
@@ -128,18 +129,18 @@
 // up by itself once its energy is full. Before v4.12 a night's bed lost its
 // marker at 06:00 and nothing ever woke it.
 #define SLEEP_IN_END 8
-enum : uint8_t { SLEEP_NONE = 0, SLEEP_AUTO, SLEEP_PLAYER, SLEEP_NAP };
+// SLEEP_AUTO is the retired screen-off sleep: no new one is ever made, but a
+// save may hold one, and turning the screen on still wakes it.
+enum : uint8_t { SLEEP_NONE = 0, SLEEP_AUTO, SLEEP_PLAYER, SLEEP_NAP, SLEEP_PASSED };
 #define DEF_TRAIN_TICKS 60                 // minutos de bienestar por +1 de DEF
 // Weight. A creature starts at a natural weight rather than 0.
 //   - WEIGHT_MIN is absolute: nothing takes weight below 1, because a creature
 //     weighing nothing does not exist. Every loss goes through loseWeight().
-//   - While the board was OFF, the catch-up in syncClock() burns no lower than
-//     WEIGHT_OFFLINE_FLOOR -- the same 15 its need floors use, so time away is
-//     gentler than time spent on a running board.
-//   - A running board's passive burn (tick()) and exercise reach WEIGHT_MIN.
+//   - Time with the board off is played by the same rules as a running board
+//     (v4.13, the owner's rule), so it reaches WEIGHT_MIN too: fitness can
+//     climb to 99 either way.
 #define WEIGHT_START 25                    // fitness 75: exactly the Pokedex weight
 #define WEIGHT_MIN 1
-#define WEIGHT_OFFLINE_FLOOR 15
 #define WEIGHT_BURN_AWAKE_MIN 9            // -1 every 9 min awake
 #define WEIGHT_BURN_ASLEEP_MIN 27          // -1 every 27 min asleep (3x slower)
 #define WEIGHT_FIT_MAX 20                  // the "fit" medal: at or under this (fitness 80+)
@@ -687,7 +688,13 @@ public:
   uint8_t trMaxSpe() const { return trMaxFor(ivSpe); }
   void play();
   void toggleLight();
-  bool isNightHour() const;
+  bool isNightHour() const;   // NAP_END..NAP_START: when a drained creature passes out
+  int hourNow() const;        // the RTC's hour, -1 with no clock
+  // Sleeping in at dawn (NAP_START..SLEEP_IN_END): a care action wakes it
+  // (v4.13). wakeAtDawn() does, and says whether it did.
+  bool dawnWakeable() const;
+  bool wakeAtDawn();
+  uint8_t passOutMin = 0;     // minutes of night drained; RAM only (a reboot just restarts it)
   bool isNapHour() const;     // a bed by hand now is a nap (NAP_START..NAP_END)
   void setScreenOff(bool off);  // the sketch reports the PWR button
   bool screenIsOff = false;
@@ -1051,7 +1058,12 @@ private:
   uint8_t evoPen = 0;           // levels added to this creature's evolution gate
   bool retirePending = false;   // an early retire is under way; newEgg() spends it
   uint8_t neglectTicks = 0;
-  void drainMinute(bool offline);   // one minute of needs: the ONLY copy of the rates
+  void drainMinute();   // one minute of needs: the ONLY copy of the rates
+  // One minute of the creature's life, the ONE copy for a running board (tick())
+  // and the catch-up after the board was off (syncClock()): v4.13, the owner's
+  // rule that the pet responds the same whatever the battery is doing.
+  void minuteStep(bool live);
+  void passOutCheck();
   uint16_t goodTicks = 0;  // racha bien cuidado: forja la DEF
   uint32_t ceremonyUntil = 0;
   uint8_t bondToday = 0;       // tope diario de subida de vinculo

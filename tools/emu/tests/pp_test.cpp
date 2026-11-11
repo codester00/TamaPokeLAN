@@ -150,10 +150,13 @@ int main() {
     ppLoad();
     ck(ppLeft(u, tackle) == 10, "and read back at boot");
     // a full rest, through the real drain
-    pet.setClock(1800000000UL);
+    // at 22:00, a night's bed: in the morning a rested creature gets up and its
+    // energy starts falling again (v4.13 plays the catch-up by the clock)
+    pet.setClock(1800000000UL + 14 * 3600);
     pet.sleeping = true;
+    pet.sleepAuto = SLEEP_PLAYER;
     pet.energy = 10;
-    pet.syncClock(1800000000UL + 3600);
+    pet.syncClock(1800000000UL + 15 * 3600);
     ck(pet.energy >= 100 && ppEntryCount() == 0 && ppLeft(u, tackle) == ppMax(tackle), "a full rest refills the whole team");
     ck(!nvs().count("pp"), "and saves at once");
     pet.sleeping = false;

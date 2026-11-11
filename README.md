@@ -3,7 +3,7 @@
 [![Flash in browser](https://img.shields.io/badge/flash-in%20browser-FF6B00?logo=googlechrome&logoColor=white)](https://codester00.github.io/TamaPokeLAN/web/)
 [![MakerWorld](https://img.shields.io/badge/MakerWorld-3D%20case-00AE42?logo=bambulab&logoColor=white)](https://makerworld.com/es/models/2937822-tamapoke-a-pokemon-pokeball-tamagotchi)
 ![Board](https://img.shields.io/badge/board-ESP32--S3%20round%20AMOLED-E7352C?logo=espressif&logoColor=white)
-![Firmware](https://img.shields.io/badge/firmware-v4.12-8A2BE2)
+![Firmware](https://img.shields.io/badge/firmware-v4.13-8A2BE2)
 ![Code](https://img.shields.io/badge/code-MIT-blue)
 ![Languages](https://img.shields.io/badge/languages-6-FFCB05)
 [![Stars](https://img.shields.io/github/stars/DylanPDao/TamaPoke?style=flat&logo=github&color=yellow)](https://github.com/DylanPDao/TamaPoke/stargazers)
@@ -281,7 +281,12 @@ the navigation — three axes, one meaning each, everywhere:
   reads MAX LEVEL. Farewell is only *offered* at
   3 days (level 73) — **not a deadline**: your Pokémon is still growing, and
   declining it to reach 100 is a real choice. Declining re-offers a day later.
-- It keeps **aging while powered off** (the RTC runs), catching up to **2 weeks** max.
+- It keeps **living while powered off** (the RTC runs), catching up to **2 weeks**
+  max. **Since v4.13 the catch-up is the same game as a running board**: every
+  minute the board was off is played through the same rules with the clock
+  moving, so it sleeps, wakes, gets hungry, makes slip-ups and can be ready to
+  run away exactly as if the board had stayed on. Switching off to save battery
+  changes nothing about how the creature lives.
 
 ### The four stats (0–100)
 
@@ -306,21 +311,23 @@ While **awake**:
   A single snack, bath or game does **not** restart it, and neither does
   petting: only getting every need back above 90 does (a care action while it
   is already fully cared for counts too, so a creature kept topped up all day
-  never runs out of window). Sleep and time with the board switched off don't
-  count. Inside the window no need drops below **15**. From full, 8 hours
+  never runs out of window). Sleep doesn't count; awake time with the board
+  switched off does, since v4.13 — so the 8 hours protect a school or work day
+  with the board off just as with it on. Inside the window no need drops below **15**. From full, 8 hours
   leaves it around FOOD 20 / ENE 20 / JOY 15 / HYG 15. Energy only comes back
   with rest, so a full top-up usually means a nap.
 - **Past 8 hours** the needs fall to 0. A **care slip-up** is any need at **≤ 10**
   (counted at most once an hour); each one **delays evolution by 1 level** and
   cools the bond by 1. An hour at **zero on everything** makes it ready to
-  **run away** — roughly 13 hours untended from full.
+  **run away** — roughly 13 hours untended from full, if it is awake (at night a
+  drained creature passes out instead: see Sleep below).
 - **Fitness** (shown on the card, 0–99) starts at **75**, and next to it the
   creature's **weight in kg**: its real Pokédex weight at fitness 75, **1% lighter
   per point above, 1% heavier per point below** — so at most 24% under, at worst
   75% over. A Snorlax (460 kg in the Pokédex) ranges from 349.6 kg at fitness 99
   to 805 kg at 0. Fitness rises by itself, **+1 every 9 min** awake and **+1 every
-  27 min** asleep, up to **99**; while the board is **switched off** it rises no
-  higher than **85**. Below **50** the energy drain doubles, and below **40** the
+  27 min** asleep, up to **99**, board on or off (until v4.13 the board being
+  off capped it at 85). Below **50** the energy drain doubles, and below **40** the
   creature is described as chubby.
 
 ### Actions
@@ -396,13 +403,25 @@ While **awake**:
 - 🌙 **Sleep:** rest — ENE **+6/min**, FOOD and JOY fall **1 every 18 min**
   and HYG **1 every 24 min**, with floors (FOOD 30 / JOY 35 / HYG 45). Sleep
   doesn't count toward the 8-hour window. No poops, no slip-ups, can't run away while
-  asleep. **Screen off between midnight and 06:00 puts it to sleep**, and
-  turning the screen back on wakes it. The light button always overrides the
-  screen.
+  asleep. The screen no longer puts it to sleep (the v3.x screen-off sleep is
+  retired in v4.13); only the light button, and passing out, do.
+- 🥱 **Passing out (v4.13):** from **18:00** a creature still awake stays up
+  until it is drained. Once its energy has sat at its floor — **15** inside the
+  8-hour window, **0** after it — for **2 hours of night**, it **passes out**
+  where it stands: one **slip-up**, and a poor night's sleep with **no sleep
+  floors** under food, joy and hygiene. It gets up at **06:00** with no
+  sleeping in, energy back but hungry, dirty and sad, and slip-ups start at
+  once if the 8-hour window is spent. The 2 hours count from 18:00, so it
+  passes out at **20:00 at the earliest**; one still with energy at dawn stays
+  up all day, tired. Asleep it cannot run away, so passing out wins over a
+  runaway readied that evening: a creature forgotten all day is ready to run
+  away by the next afternoon instead. With no clock there is no night, so it
+  never passes out.
 - ⏰ **The morning (v4.12):** from 06:00 to 08:00 it **sleeps in**: a creature
-  that went to bed at night stays asleep until 08:00. **From 08:00 to 18:00
+  that went to bed at night stays asleep until 08:00 — unless disturbed: since
+  v4.13 petting it or any care button (food, bath, training) wakes it then. **From 08:00 to 18:00
   anything still asleep gets up by itself once its energy is full** — a
-  night's bed, the screen-off sleep or a nap alike. Wake it by hand whenever
+  night's bed or a nap alike. Wake it by hand whenever
   you like; put back to bed between 06:00 and 18:00, it is a nap. (Before
   v4.12 a creature put to bed before 06:00 never got up on its own.)
 - 💤 **Naps (light button, 06:00–18:00):** a daytime bed is a **nap**, and the

@@ -968,7 +968,41 @@ easy gyms pay half of hard; five chains evolve twice at once today (Ursaluna,
 Mamoswine, Kingambit, Azumarill, Blissey), fixes proposed in plan § E11. The handoff for
 a new session is **HANDOVER.md § 1h** (v3.97, 2026-11-04).
 
-### Done: shiny eggs are rare again (v3.99)
+### Done: board off = board on, and passing out (v4.13)
+
+Owner, 2026-11-11, from a board: put to bed, the board switched off overnight
+and all the next day, it was still asleep at 19:30 at ~50% on everything. The
+catch-up (`syncClock()`) played the whole gap as ONE state with the clock
+standing still, at gentler offline floors. Owner's rules: a board left off is
+the normal case and changes nothing; awake by day, asleep by night; a dawn that
+sleeps in unless disturbed; an evening that stays up until drained, then passes
+out; the 8-hour window kept. `sleep_test` (rewritten), `decay_test` § 3 and 8,
+`pp_test` § 5; seven guards negative-checked.
+
+- **`Pet::minuteStep(live)` is THE minute**: `tick()` and every minute of
+  `syncClock()` (the clock advanced minute by minute) run it. `drainMinute()`
+  lost its `offline` flag: no offline floors, away time counts as untended,
+  slip-ups and the runaway count, weight reaches `WEIGHT_MIN` (fitness 99;
+  `WEIGHT_OFFLINE_FLOOR` is gone). `live` only gates the level-up sound.
+- **Passing out: `passOutCheck()`** (after the neglect block): awake, night
+  (`isNightHour()` = `NAP_END`..`NAP_START`, 18:00-06:00), energy at its floor
+  (`GRACE_FLOOR` inside the window, 0 after) for more than `PASSOUT_MIN` (120)
+  minutes -> `SLEEP_PASSED`, a slip-up, bond -1, `mistakeCooldown` 0. 20:00 at
+  the earliest (the 18:00 tick is the first drained minute). It wins over a
+  runaway armed that evening (owner's B): asleep it cannot run away; a
+  forgotten creature is runaway-ready the next afternoon (~17:00). A passed-out
+  sleep has NO sleep floors (food/joy/hygiene fall to the awake floor) and
+  `applyAutoSleep()` wakes it at `NAP_START` (06:00), no sleeping in.
+  `passOutMin` is RAM only.
+- **The screen-off sleep is retired**: `applyAutoSleep()` puts nothing to bed.
+  `SLEEP_AUTO` survives for old saves (`setScreenOff(false)` still wakes one).
+  `NIGHT_START/END` are gone.
+- **Dawn**: `dawnWakeable()` / `wakeAtDawn()` (asleep, 06:00-08:00): `caress()`
+  and the food/bath/train buttons wake it (`uiButtonDisabled()` lets them through).
+- Measured (sleep_test): put to bed 21:00, board off, back 19:30 -> up since
+  08:00, 4 slip-ups, runaway-ready, identical to a board left on.
+
+
 
 Owner, 2026-11-04 (option C: about one shiny a quarter with good care; two
 boards had hatched four in three weeks). **`Pet::eggShinyOdds()` is THE odds**

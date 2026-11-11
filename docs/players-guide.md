@@ -130,7 +130,9 @@ both ends; swiping never closes anything.
   SETTINGS, RETIRE and CLOSE.
 - **Tap your Pokemon** to pet it.
 - **The PWR button:** a short press turns the screen off or on. Holding it for
-  4 seconds switches the board off. Time still passes while it is off.
+  4 seconds switches the board off. Switching off saves battery and changes
+  nothing else: your Pokemon goes on living exactly as if the board were on,
+  sleeping, waking, getting hungry and all.
 - Most screens also have a **BACK** button at the bottom.
 
 ## 3. Caring for your Pokemon
@@ -174,7 +176,9 @@ not be harmed and cannot run away.
   mistake** (at most one an hour). Each mistake delays every evolution by one
   level and cools your bond.
 - With all four needs at **zero for an hour**, it is ready to **run away**.
-  From fully cared for, that takes about 13 hours.
+  From fully cared for, that takes about 13 hours if it stays awake.
+- The 8 hours count whether the board is on or off, so a school or work day
+  with the board switched off is just as safe.
 
 ### Sleep, naps and the morning
 
@@ -183,12 +187,22 @@ not be harmed and cannot run away.
 | **18:00 to 06:00** (bedtime) | It sleeps through the night and **sleeps in until 08:00**. |
 | **06:00 to 18:00** (a nap) | It gets up by itself once its **energy is full**, about 15 minutes from tired. |
 
+- From **06:00 to 08:00** it **sleeps in**, unless you disturb it: petting it
+  or tapping food, bath or training wakes it.
 - From **08:00 to 18:00**, anything still asleep gets up once its energy is
   full.
-- Turning the **screen off between midnight and 06:00** puts it to bed too.
 - You can always wake it yourself with the Light button.
-- Asleep, it rests (+6 energy a minute), its other needs fall slowly and never
-  very low, and it cannot run away or make care mistakes.
+
+**If you forget bedtime.** From 18:00 a Pokemon that is still awake stays up
+until it is completely worn out. Once its energy has been as low as it goes
+for **2 hours** of night, it **passes out** on the floor, at **20:00** at the
+earliest. That counts as a **care mistake**, and it sleeps badly: its food,
+joy and hygiene keep falling all night, and it is up at **06:00** with no
+sleeping in, rested but hungry, dirty and sad. One that still has energy
+left at dawn stays up all day, grumpy and tired. Put it to bed yourself and
+none of this happens.
+- Asleep in bed, it rests (+6 energy a minute), its other needs fall slowly and
+  never very low, and it cannot run away or make care mistakes.
 - **A full night's sleep or a nap that fills its energy refills PP** for your
   whole team (chapter 7).
 
@@ -1280,7 +1294,8 @@ One item per win, a second 25% of the time (50% on hard):
 | Care mistake | a need at 10 or below, after the 8 hours |
 | Runaway | all needs at zero for an hour |
 | Nap | 06:00 to 18:00; up when energy is full |
-| Bedtime | 18:00 to 06:00; sleeps in until 08:00 |
+| Bedtime | 18:00 to 06:00; sleeps in until 08:00 (petting or care wakes it) |
+| Passing out | awake and worn out for 2 hours after 18:00 (20:00 at the earliest); a care mistake, up at 06:00 |
 | Evolution | every need at 40 or more |
 | Training session | up to 18 points; full costs 12 energy, 5 food |
 | Too tired | under 15 energy |
@@ -1321,6 +1336,10 @@ a trade). Every need must be 40 or more, and care mistakes add levels.
 forget. If you skipped it, swap it in from the MOVES page any time.
 
 **Why won't it train?** Under 15 energy it is too tired. Let it nap.
+
+**Does switching the board off pause my Pokemon?** No. It keeps living while
+the board is off, exactly as if it were on: it sleeps at night, wakes in the
+morning and gets hungry. The 8-hour rule still protects it.
 
 **Why are my moves running out?** PP carries over between fights. A full
 night's sleep or a full nap refills it.

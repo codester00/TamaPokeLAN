@@ -60,7 +60,7 @@
 // 3.29 was the first build after v3.28 (it was briefly "1.01", which read as a
 // downgrade and matched nothing); 3.30 starts creatures at fitness 75.
 // 3.33 adds trading between two boards; 3.34 the 8-hour grace decay.
-#define FW_VERSION "4.12"
+#define FW_VERSION "4.13"
 
 Arduino_DataBus *bus = new Arduino_ESP32QSPI(
   LCD_CS, LCD_SCLK, LCD_SDIO0, LCD_SDIO1, LCD_SDIO2, LCD_SDIO3);
@@ -1658,7 +1658,7 @@ void loop() {
     TIMED("power chip", pwrPoll());
     if (pwrShortPressed()) {
       screenOff = !screenOff;
-      pet.setScreenOff(screenOff);   // asleep only if it is also night
+      pet.setScreenOff(screenOff);   // screen on wakes an old screen-off sleep
       if (!screenOff) lastInteract = now;
     }
     // The hold is on its way to the AXP2101's own power-off, and the firmware
@@ -2723,7 +2723,9 @@ void uiButtonHeights(int *out, int max, int *n) {
 // light cannot put the creature to bed (no rest in the League), only wake it.
 bool uiButtonDisabled(int i) {
   if (i == BTN_LIGHT) return !pet.sleeping && leagueActive();
-  return pet.sleeping;
+  // Asleep, care waits -- except sleeping in at dawn, when a care action wakes
+  // it (v4.13, Pet::wakeAtDawn()).
+  return pet.sleeping && !pet.dawnWakeable();
 }
 
 int uiSleepButton(int *cx, int *cy) {
@@ -3359,8 +3361,8 @@ void onTap(int16_t x, int16_t y) {
   // The runaway does NOT ask, deliberately. A pet you have to authorise to
   // leave is not really at stake, and neglect having teeth is the whole premise.
   // What was actually wrong is that a night's sleep could reach this state at
-  // all -- fixed where it belongs, in the drain, by having the creature put
-  // itself to bed (Pet::tick, autoSleep).
+  // all -- fixed where it belongs, in the drain and the sleep rules
+  // (Pet::minuteStep(), passOutCheck()).
   if (x >= FAR_BTN_X && x <= FAR_BTN_X + FAR_BTN_W &&
       y >= FAR_BTN_Y && y <= FAR_BTN_Y + FAR_BTN_H) {
     if (pet.canRunawayNow()) { pet.startRunaway(); return; }
@@ -3371,6 +3373,7 @@ void onTap(int16_t x, int16_t y) {
     if (dx * dx + dy * dy <= BTN_HIT * BTN_HIT) {
       if (uiButtonDisabled(i)) { sfxPlay(SFX_DENY); return; }
       sfxPlay(SFX_TAP);
+      if (i != BTN_LIGHT) pet.wakeAtDawn();   // a care action wakes it at dawn
       if (i == BTN_FOOD) feedMenuUntil = millis() + 6000;
       else if (i == BTN_LIGHT) pet.toggleLight();
       else if (i == BTN_BATH) startBath();

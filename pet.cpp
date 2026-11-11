@@ -763,12 +763,15 @@ static uint8_t dropTo(uint8_t v, uint8_t d, uint8_t fl) {
   return (v - fl > d) ? v - d : fl;
 }
 
-// One minute of needs. tick() (a running board) and syncClock() (catching up
-// after the board was off) used to keep a copy each and had drifted apart; both
-// call this now. `offline` keeps the board-off rule: never below the floors,
-// and the time does not count as untended.
-void Pet::drainMinute(bool offline) {
-  const uint8_t wFloor = offline ? WEIGHT_OFFLINE_FLOOR : WEIGHT_MIN;
+// One minute of needs, the ONE copy of the rates. Since v4.13 a running board
+// (tick()) and the catch-up after the board was off (syncClock()) are the same
+// minute -- minuteStep() -- so the board's battery changes nothing (the owner's
+// rule): no gentler floors for time away, and away time counts toward the
+// 8-hour window like any other.
+void Pet::drainMinute() {
+  // Inside the 8-hour window the needs stop at GRACE_FLOOR: hungry and tired,
+  // not neglected. After it they reach 0.
+  const uint8_t fl = (unattended < GRACE_MIN) ? GRACE_FLOOR : 0;
   if (sleeping) {   // rest: energy comes back, the rest falls slowly to its floors
     energy = clamp100(energy + 6);
     // A full night's (or nap's) rest gives the whole team its PP back -- the
@@ -776,19 +779,19 @@ void Pet::drainMinute(bool offline) {
     // write when nobody has used any.
     if (energy >= 100) ppRefillAll();
     if (sleepAuto == SLEEP_NAP && energy >= 100) { napWake(); return; }
-    if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1, wFloor);
+    if (ageMinutes % WEIGHT_BURN_ASLEEP_MIN == 0) loseWeight(1, WEIGHT_MIN);
+    // A creature that passed out sleeps badly (v4.13): no sleep floors under
+    // food, joy and hygiene, only the awake ones.
+    const bool poor = (sleepAuto == SLEEP_PASSED);
     if (ageMinutes % SLEEP_DRAIN_MIN == 0) {
-      fullness = dropTo(fullness, 1, 30);
-      joy = dropTo(joy, 1, 35);
+      fullness = dropTo(fullness, 1, poor ? fl : 30);
+      joy = dropTo(joy, 1, poor ? fl : 35);
     }
-    if (ageMinutes % SLEEP_HYG_MIN == 0) hygiene = dropTo(hygiene, 1, 45);
-    if (!offline) graceCheck();
+    if (ageMinutes % SLEEP_HYG_MIN == 0) hygiene = dropTo(hygiene, 1, poor ? fl : 45);
+    graceCheck();
     return;
   }
-  // Inside the 8-hour window -- and always while the board was off -- the needs
-  // stop at GRACE_FLOOR: hungry and tired, not neglected.
-  const uint8_t fl = (offline || unattended < GRACE_MIN) ? GRACE_FLOOR : 0;
-  if (!offline && unattended < 0xFFFF) unattended++;
+  if (unattended < 0xFFFF) unattended++;
   // Offsets stagger the steps so the meters do not all tick on the same minute.
   if (ageMinutes % DRAIN_FOOD_MIN == 0) fullness = dropTo(fullness, 1, fl);
   if (ageMinutes % DRAIN_ENERGY_MIN == 3) {
@@ -803,7 +806,7 @@ void Pet::drainMinute(bool offline) {
     if (fullness < 30) joy = dropTo(joy, 1, fl);
     if (hygiene < 30) joy = dropTo(joy, 1, fl);
   }
-  if (ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) loseWeight(1, wFloor);
+  if (ageMinutes % WEIGHT_BURN_AWAKE_MIN == 0) loseWeight(1, WEIGHT_MIN);
   graceCheck();     // an action whose stats landed after its registerCare()
 }
 
@@ -823,14 +826,16 @@ void Pet::syncClock(uint32_t nowEpoch) {
   }
   if (mins > 14UL * 24 * 60) mins = 14UL * 24 * 60;  // tope: 2 semanas
 
+  // Every minute the board was off, played as a running board would have
+  // played it (v4.13): the clock moves minute by minute, so it sleeps in at
+  // dawn, gets up for the day, passes out at night when drained, and the
+  // 8-hour window, slip-ups and a runaway all count as they would have.
+  const uint32_t from = nowEpoch - mins * 60;
   for (uint32_t i = 0; i < mins; i++) {
-    ageMinutes++;
-    if (isEgg()) {
-      if (ageMinutes >= 3) hatch();  // eclosiona en tu ausencia
-      continue;
-    }
-    drainMinute(true);   // the same rates as a running board, never below the floors
+    lastSeenEpoch = from + (i + 1) * 60;
+    minuteStep(false);
   }
+  lastSeenEpoch = nowEpoch;
   if (!isEgg()) {
     // la evolucion NO se aplica offline: queda lista y la dispara el usuario
     // tocando al bicho cuando vuelve (para que vea la transformacion)
@@ -858,6 +863,10 @@ void Pet::tick() {
                             // tiempo corriera aqui, el huevo eclosionaria solo a
                             // los 3 min con la especie sorteada y se perderia la
                             // eleccion del jugador
+  minuteStep(true);
+}
+
+void Pet::minuteStep(bool live) {
   if (grows()) ageMinutes++;   // a revived companion does not age
 
   if (isEgg()) {
@@ -865,24 +874,22 @@ void Pet::tick() {
     return;
   }
 
-  applyAutoSleep();   // put down at 21:00 still goes to bed at 22:00
-
+  applyAutoSleep();   // the morning: sleeping in, getting up, a passed-out wake
 
   // el sueño es descanso: la energia se recupera y las necesidades bajan MUCHO
-  // mas lento que despierto y con suelo (amanece pidiendo algo de mimo, no a
-  // cero, sin descuidos ni escapadas). despierto: comida -2/min, hig/joy -1/min.
+  // mas lento que despierto. Asleep it makes no slip-ups and cannot run away.
   // El peso aun se quema y el descanso cuenta para la DEF (ver defTick).
   if (sleeping) {
-    drainMinute(false);
+    drainMinute();
     defTick(true);  // descansar tambien es bienestar: cuenta para la DEF
     checkMedals();  // aun puede cruzar un nivel por edad mientras duerme
     if (++ticksSinceSave >= 5) pendingSave = true;
     return;
   }
 
-  if (ageMinutes % MINUTES_PER_LEVEL == 0) sfxPlay(SFX_LEVEL);  // subio de nivel (despierto)
+  if (live && ageMinutes % MINUTES_PER_LEVEL == 0) sfxPlay(SFX_LEVEL);  // subio de nivel (despierto)
 
-  drainMinute(false);
+  drainMinute();
   defTick(false);  // la calma forja la defensa
 
   // A care mistake: a need at rock bottom, counted at most once an hour -- and
@@ -909,12 +916,34 @@ void Pet::tick() {
     neglectTicks = 0;  // un solo cuidado la salva
   }
 
-  // ciclo completo (forma final + 7 dias): la despedida NO salta sola; queda
-  // lista (canFarewellNow) y la dispara el usuario con el boton, para que la vea
+  // Night and drained: it passes out (v4.13). This wins over a runaway armed
+  // the same evening -- asleep it cannot run away, and it wakes at 06:00 with
+  // its energy back -- so a forgotten creature runs away the next day instead.
+  passOutCheck();
 
   // autoguardado periodico: NO escribir a flash aqui (corre dentro del loop,
   // mientras se anima); solo marcar y dejar que el loop lo vuelque al atenuar
   if (++ticksSinceSave >= 5) pendingSave = true;
+}
+
+// THE pass-out rule (v4.13, the owner's): awake at night with its energy at its
+// floor for PASSOUT_MIN minutes. The floor is GRACE_FLOOR inside the 8-hour
+// window and 0 after it, the same floor drainMinute() holds energy at, so a
+// creature cared for that day passes out at 15 and a forgotten one at 0.
+void Pet::passOutCheck() {
+  if (sleeping || isEgg() || ceremony != CER_NONE || !isNightHour()) { passOutMin = 0; return; }
+  const uint8_t fl = (unattended < GRACE_MIN) ? GRACE_FLOOR : 0;
+  if (energy > fl) { passOutMin = 0; return; }
+  // the tick AT NAP_END is the first drained minute of the night, so it
+  // drops on the tick after PASSOUT_MIN of them: 20:00 at the earliest
+  if (++passOutMin <= PASSOUT_MIN) return;
+  passOutMin = 0;
+  sleeping = true;
+  sleepAuto = SLEEP_PASSED;
+  careMistakes++;             // passing out on the floor is a slip-up
+  if (bond > 1) bond--;
+  mistakeCooldown = 0;        // and the hourly ones start the moment it wakes
+  pendingSave = true;
 }
 
 // Copies the creature into endedMon so it can be offered a party slot, since
@@ -2398,17 +2427,33 @@ void Pet::play() {
   save();
 }
 
-// The hour off the RTC, the same source the scene uses. With no clock at all
-// there is no night, so a board that has never been set never auto-sleeps.
+// The hour off the RTC, the same source the scene uses; -1 with no clock at all.
+int Pet::hourNow() const {
+  if (!lastSeenEpoch) return -1;
+  return (int)((lastSeenEpoch / 3600) % 24);
+}
+
+// Night: when a drained creature passes out (NAP_END to NAP_START). With no
+// clock there is no night.
 bool Pet::isNightHour() const {
-  if (!lastSeenEpoch) return false;
-  int h = (int)((lastSeenEpoch / 3600) % 24);
-  // The window may or may not cross midnight, and it must keep working either
-  // way: with NIGHT_START 0 the old `h >= START || h < END` was true for every
-  // hour of the day, which put the creature to sleep the moment the screen went
-  // off at noon. sleep_test catches it, and did.
-  if (NIGHT_START < NIGHT_END) return h >= NIGHT_START && h < NIGHT_END;
-  return h >= NIGHT_START || h < NIGHT_END;
+  int h = hourNow();
+  if (h < 0) return false;
+  return h >= NAP_END || h < NAP_START;
+}
+
+// Sleeping in at dawn, when a care action wakes it (v4.13).
+bool Pet::dawnWakeable() const {
+  int h = hourNow();
+  return sleeping && ceremony == CER_NONE && h >= NAP_START && h < SLEEP_IN_END;
+}
+
+bool Pet::wakeAtDawn() {
+  if (!dawnWakeable()) return false;
+  sleeping = false;
+  sleepAuto = SLEEP_NONE;
+  graceCheck(true);
+  pendingSave = true;
+  return true;
 }
 
 bool Pet::isNapHour() const {
@@ -2427,42 +2472,39 @@ void Pet::napWake() {
   pendingSave = true;
 }
 
-// Auto-sleep needs the screen off AND the night hours, and is re-checked every
-// tick rather than only on the button, so a device put down at 21:00 nods off
-// at 22:00 and gets up at 06:00 without anyone touching it.
-//
-// Both halves earn their place. Screen-off alone paused the game whenever you
-// put the device down, and the creature is meant to get hungry during the day.
-// The hour alone sent it to bed while you were still playing with it.
-//
-// Only what this put to sleep is woken by it: a creature the player sent to bed
-// with the light button stays there until the player says otherwise.
+// The morning, re-checked every minute (on a running board and in the catch-up):
+//   - a creature that PASSED OUT is up at NAP_START, no sleeping in;
+//   - any other sleep lasts through the night, sleeps in until SLEEP_IN_END,
+//     and from then until NAP_END is a nap: drainMinute() gets it up once its
+//     energy is full (v4.12, the owner's rule).
+// Nothing puts a creature to bed here any more: v4.13 retired the screen-off
+// auto-sleep, and a drained creature passing out is passOutCheck()'s.
 void Pet::applyAutoSleep() {
   if (isEgg() || ceremony != CER_NONE) return;
-  bool night = isNightHour();
-  if (screenIsOff && night && !sleeping && sleepAuto != SLEEP_PLAYER) {
-    sleeping = true;
-    sleepAuto = SLEEP_AUTO;
+  int h = hourNow();
+  if (h < 0) return;
+  bool day = h >= NAP_START && h < NAP_END;
+  if (sleeping && sleepAuto == SLEEP_PASSED) {
+    if (day) {
+      sleeping = false;
+      sleepAuto = SLEEP_NONE;
+      graceCheck(true);
+      pendingSave = true;
+    }
+    return;
+  }
+  if (sleeping && sleepAuto != SLEEP_NAP && h >= SLEEP_IN_END && h < NAP_END) {
+    sleepAuto = SLEEP_NAP;
     pendingSave = true;
   }
-  // Nothing wakes it at 06:00: it sleeps in until SLEEP_IN_END. From then until
-  // NAP_END every sleeping creature, however it went to bed, gets up once its
-  // energy is full (v4.12, the owner's rule) -- it is a nap from here on, and
-  // drainMinute() ends a nap. Before v4.12 a night's bed lost its marker at
-  // 06:00 and nothing ever woke it.
-  if (sleeping && sleepAuto != SLEEP_NAP && lastSeenEpoch) {
-    int h = (int)((lastSeenEpoch / 3600) % 24);
-    if (h >= SLEEP_IN_END && h < NAP_END) { sleepAuto = SLEEP_NAP; pendingSave = true; }
-  }
-  // An AWAKE creature the player woke in the night keeps the auto-sleep off
-  // until morning; the day clears that.
-  if (!sleeping && !night && sleepAuto == SLEEP_PLAYER) sleepAuto = SLEEP_NONE;
+  // An AWAKE creature the player woke in the night: the day clears the marker.
+  if (!sleeping && day && sleepAuto == SLEEP_PLAYER) sleepAuto = SLEEP_NONE;
 }
 
 void Pet::setScreenOff(bool off) {
   screenIsOff = off;
-  // Coming back to the device is what wakes it -- only if the device is what
-  // put it to sleep. A creature sent to bed with the light stays there.
+  // Coming back to the device wakes a screen-off sleep (SLEEP_AUTO), which only
+  // a save from before v4.13 can still hold. A bed by hand stays a bed.
   if (!off && sleeping && sleepAuto == SLEEP_AUTO) {
     sleeping = false;
     sleepAuto = SLEEP_NONE;
@@ -2495,7 +2537,8 @@ void Pet::clean() {
 
 void Pet::caress() {
   if (ceremony != CER_NONE) return;
-  if (isEgg() || sleeping) return;
+  if (isEgg()) return;
+  if (sleeping && !wakeAtDawn()) return;   // sleeping in at dawn: a pet wakes it
   static const uint8_t STEPS[PET_JOY_STEP_COUNT] = PET_JOY_STEPS;
   uint8_t g = STEPS[petStep < PET_JOY_STEP_COUNT ? petStep : PET_JOY_STEP_COUNT - 1];
   if (petStep < PET_JOY_STEP_COUNT - 1) petStep++;

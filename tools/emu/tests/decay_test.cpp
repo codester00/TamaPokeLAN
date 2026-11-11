@@ -76,13 +76,17 @@ int main() {
     ck(p.fullness < 100, "(but it is getting hungry)");
   }
 
-  // --- 3. beyond 8 hours: consequences
+  // --- 3. beyond 8 hours: consequences. Cared for at 01:00 so the run-down
+  //        happens in the day: at night a drained creature passes out instead
+  //        (v4.13; sleep_test section 6), and asleep it cannot run away.
   {
+    baseSec = 1UL * 3600 + 90;
     Pet p; fresh(p); clockMin = 0;
     live(p, GRACE_MIN + 90);
     ck(p.careMistakes >= 1, "an hour and a half past the window, mistakes count");
     live(p, 4 * 60);
     ck(p.canRunawayNow(), "and left long enough it is ready to run away");
+    baseSec = 13UL * 3600 + 90;
     printf("      runaway-ready by %lu min untended\n", (unsigned long)p.unattended);
   }
 
@@ -248,13 +252,17 @@ int main() {
     ck(u >= 5 * 60 - 1 && r.unattended == u, "untended minutes survive a reload");
   }
 
-  // --- 8. time with the board OFF is the gentle path it always was
+  // --- 8. time with the board OFF is time (v4.13, the owner's rule): the same
+  //     twenty hours, board on and board off, come out the same, slip-ups and all
   {
-    Pet p; fresh(p); clockMin = 0;
-    p.saveNow();
-    p.syncClock(at(20 * 60));        // twenty hours switched off
-    ck(lowest(p) >= GRACE_FLOOR, "twenty hours off: never below the floor");
-    ck(p.careMistakes == 0 && p.unattended == 0, "and it neither penalises nor counts as untended");
+    Pet on; fresh(on); clockMin = 0;
+    Pet off; fresh(off);
+    g_seed = 99; for (uint32_t m = 1; m <= 20 * 60; m++) { on.lastSeenEpoch = at(m); on.dbgTick(); }
+    g_seed = 99; off.syncClock(at(20 * 60));
+    ck(off.careMistakes > 0 && off.unattended >= GRACE_MIN, "twenty hours off: the window ran out and it counted");
+    ck(on.careMistakes == off.careMistakes && on.fullness == off.fullness && on.energy == off.energy &&
+       on.joy == off.joy && on.hygiene == off.hygiene && on.unattended == off.unattended &&
+       on.sleeping == off.sleeping, "and exactly as a board left on");
   }
 
   printf("%s\n", bad ? "FAILURES" : "all good");
