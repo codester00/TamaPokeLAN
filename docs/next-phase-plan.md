@@ -170,5 +170,4 @@ The fix:
   to the speaker. It is built and tested (`gbsynth`), but the firmware still
   plays the old tone table.
 - Weather battle backgrounds (`wildAreaWeather()` is the hook).
-- The clock drift (CLAUDE.md B), on hold by the owner's call.
 - Tagging the release, once the Actions minutes reset.

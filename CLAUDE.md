@@ -685,8 +685,7 @@ measured ~215 of 504 usable NVS entries. The owner believes tagging is blocked
 for now because the account's free GitHub Actions minutes are spent for the
 month: pushing a tag needs no compute, but `publish-release.yml` (the
 `check_release.py` run and the publish) does. Retry when the minutes reset; the
-installer already serves v3.49 from `main` either way. Clock work (B) is on hold
-by the owner's call (2026-10-21). Work in this order:
+installer already serves v3.49 from `main` either way. Work in this order:
 
 **A. Explore rework -- CONFIRMED PLAN in `docs/explore-plan.md` (revision 3),
 which supersedes the six numbered items below wherever they differ** (levels
@@ -730,30 +729,6 @@ tier equally likely, level = live pet +-5 (hard: 1-100), shiny flat 1/4096.
    species" filter and the region-pack filter on every path.
 6. Save impact: probably none (encounters are not stored), but check the Explore
    screen's stored region choice if an area index is added.
-
-**B. The clock drifts** (owner's report: ~3 h over a week; ~1 min lag in a
-20-minute test). The owner later noted a battery change left the board
-disconnected for a while, which may explain the week-long figure; the
-20-minute lag still needs B1. The panel reads the PCF85063 through `rtcEpoch()`, cached in
-`pet.lastSeenEpoch` every 30 s. MEASURE BEFORE FIXING:
-1. Two cheap software effects can fake a lag: the 30 s cache, and
-   `applyClock()` writing seconds = 0 from that stale cache. Together they
-   explain most of a minute in 20 minutes. Fix both: refresh the cache on the
-   minute, and keep the seconds when only the hour or minute changed.
-2. Measure real drift: log `rtc=` (STATS) against host time over several hours,
-   via `tools/debugger/`. A crystal-controlled RTC should be within seconds a
-   day; 3 h a week is ~1.8 %, which points at a fault (oscillator setup, the
-   RTC losing power while the board is off, or something writing the RTC),
-   not normal drift.
-3. Then the update path, cheapest first:
-   - **"Set clock" from the web installer / debugger over USB**, using the
-     browser's time (`RTCSET` already exists).
-   - **Wi-Fi NTP**: enter the network once on the touch keyboard, sync daily.
-     Must coexist with ESP-NOW (same radio).
-   - **PCF85063 offset register** to trim any small residual drift once
-     measured.
-   - Bluetooth time from a phone is possible but the most work; and a daily
-     "is this the right time?" prompt is the fallback if all else fails.
 
 **C. Next build phase (owner, 2026-10-22) -- BUILT as v3.50-v3.54, see "Done:
 the next build phase" below. THE PLAN IS `docs/next-phase-plan.md`**

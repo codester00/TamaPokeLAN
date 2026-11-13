@@ -156,7 +156,7 @@ restart. Read this with `CLAUDE.md`, which is the permanent knowledge and is
    apt `exuberant-ctags` does NOT work: it drops return types from the
    prototypes and the sketch fails to compile.
 4. Older opens still standing: the whole-screen black flicker (v3.65 note in
-   CLAUDE.md), the clock drift (CLAUDE.md B, on hold), `sendRematch()` not
+   CLAUDE.md), `sendRematch()` not
    resent (v3.57), Escavalier/Accelgor/Toucannon need art for a partner.
 
 ### Lessons from this stretch
@@ -503,17 +503,14 @@ Not fixed, in rough priority:
 4. **The gym ladder's win-rate table predates v3.58** (training scales with
    level); the re-measure (`tools/emu/ladder_sim.cpp`) waits on the owner. Hard
    mode solo drops to ~0% for a fully trained Charizard.
-5. **Clock drift** (~1 min in 20 min; 3 h a week, possibly a battery change):
-   on hold by the owner. The plan is CLAUDE.md § TODO item B (fix the 30 s
-   cache and `applyClock()` seconds first, then measure).
-6. **Unverified on hardware**: `lanLeave()` against the original
+5. **Unverified on hardware**: `lanLeave()` against the original
    guest-quits-mid-battle repro; the PWR long-press flush lead time; the music
    volume against the effects; Surfing Pikachu's physics on a real tilt sensor;
    the 24-48 h `HEALTH` soak; `pcfs_ffat.cpp`'s never-format-over-a-filesystem
    rule (the emulator uses `pcfs_host.cpp`).
-7. ESCAVALIER, ACCELGOR, TOUCANNON have art but no route (each needs an
+6. ESCAVALIER, ACCELGOR, TOUCANNON have art but no route (each needs an
    art-less creature first).
-8. Owner's calls, not bugs: `web/editions.json` points release lists at
+7. Owner's calls, not bugs: `web/editions.json` points release lists at
    `squithy/TamaPokeLAN` and links at `reallyjustsomeguy/TamaPokeLANExp`;
    `tools/backs/` has no established licence (CREDITS.md); the avatars are
    unlicensed Nintendo art by the owner's choice.
@@ -544,7 +541,7 @@ Not fixed, in rough priority:
 | Tagging | Held: the owner believes the free GitHub Actions minutes are spent for the month, and the release workflow needs them (the tag push itself does not). Retry after the reset |
 | Repo version | **3.38** in `TamaPoke.ino`, the README badge and `web/manifest.json` (3.35 and 3.36 = 3.34 + Tilt Maze steering fixes; 3.37 slows Boulder Push and explains zero gains; 3.38 adds the trainer-class avatars and the blackout screen, on `main` since 2026-10-21; notes in `docs/release-notes/`) |
 | Release notes | `docs/release-notes/v3.34.md` (everything since v3.28, for players) through `v3.38.md` are written, so tagging v3.34 or v3.38 off `main` would pass `check_release.py` |
-| Next work | The Explore rework, `docs/explore-plan.md` (confirmed, revision 3). Kanto's areas (**v3.39**), the legendaries + Johto's areas (**v3.40**), the hidden best-rod gate (**v3.41**), Hoenn's areas + legendaries (**v3.42**) Sinnoh's (**v3.43**) Unova's (**v3.44**, from PokeAPI) and Kalos's with the NO VALID SPRITES catch-all (**v3.45**) Alola's (**v3.46**, Sun/Moon) and Galar's (**v3.47**, with daily weather in **v3.48**) and Paldea's (**v3.49**) -- every region -- are on branch `ccr-151c604c-659yz2`: not merged, not on a board, installer not rebuilt (`web/manifest.json` still says 3.38 -- `build_web.sh` moves it at release). Every region has areas now; next is a board. Clock drift is on hold by the owner's call |
+| Next work | The Explore rework, `docs/explore-plan.md` (confirmed, revision 3). Kanto's areas (**v3.39**), the legendaries + Johto's areas (**v3.40**), the hidden best-rod gate (**v3.41**), Hoenn's areas + legendaries (**v3.42**) Sinnoh's (**v3.43**) Unova's (**v3.44**, from PokeAPI) and Kalos's with the NO VALID SPRITES catch-all (**v3.45**) Alola's (**v3.46**, Sun/Moon) and Galar's (**v3.47**, with daily weather in **v3.48**) and Paldea's (**v3.49**) -- every region -- are on branch `ccr-151c604c-659yz2`: not merged, not on a board, installer not rebuilt (`web/manifest.json` still says 3.38 -- `build_web.sh` moves it at release). Every region has areas now; next is a board. |
 | Tests | 56 suites, all pass (`sprite_test` skips without sprites), plus `check_savefile.mjs` |
 | Firmware | esp32 core 3.3.0, GFX Library 1.6.9, **SensorLib 0.4.1**, XPowersLib 0.3.4 |
 | Owner's boards | several; two had **v3.33**, and **trading worked between real boards**. Nothing from v3.34 to v3.38 has been on a board yet |
